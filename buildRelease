@@ -53,22 +53,22 @@ function release_ios {
 
     # Build
     echo "Build all Modules for XCFrameworks"
-    ./gradlew :assembleCoreCalendarXCFramework
+    ./gradlew :assembleKmpCalendarXCFramework
 
     # Archive
     echo "Archive XCFramework to ${BOLD}release${BOLD_OFF} folder"
     mkdir -p release
-    zip -r release/CoreCalendar.xcframework.zip build/XCFrameworks/release/CoreCalendar.xcframework
+    zip -r release/KmpCalendar.xcframework.zip build/XCFrameworks/release/KmpCalendar.xcframework
 
     # Calculate checksums
     echo "Calculate modules checksums from release folder"
-    MULTIPLATFORM_LIB_CHECKSUM=$(swift package compute-checksum release/CoreCalendar.xcframework.zip)
+    MULTIPLATFORM_LIB_CHECKSUM=$(swift package compute-checksum release/KmpCalendar.xcframework.zip)
 
     # Update Package.swift
     echo "${BOLD}Update Package.swift${BOLD_OFF}"
-    MULTIPLATFORM_LIB_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$IOS_TAG/CoreCalendar.xcframework.zip"
+    MULTIPLATFORM_LIB_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$IOS_TAG/KmpCalendar.xcframework.zip"
     # With the `sed` command the regex doesn't work, whereas with the `perl` command it does.
-    perl -0777 -pi -e "s|url: \".*CoreCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
+    perl -0777 -pi -e "s|url: \".*KmpCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
 
     # Upload info
     echo -e "${GREEN}Check the${COLOR_OFF} ${GREEN_BOLD}release${COLOR_OFF} ${GREEN}folder to see if the archives are there, then you can upload them to a GitHub release.${COLOR_OFF}"

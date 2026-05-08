@@ -22,12 +22,12 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.android.kmp.library)
-    alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.skie)
-    alias(libs.plugins.androidx.room)
-    alias(libs.plugins.ksp)
+    alias(kmpCalendar.plugins.kotlin.multiplatform)
+    alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.kotlin.serialization)
+    alias(kmpCalendar.plugins.skie)
+    alias(kmpCalendar.plugins.androidx.room)
+    alias(kmpCalendar.plugins.ksp)
 }
 
 val androidCompileSdk: Int = 36
@@ -50,7 +50,7 @@ kotlin {
         }
     }
 
-    val xcframeworkName = "CoreCalendar"
+    val xcframeworkName = "KmpCalendar"
     val xcf = project.XCFramework(xcframeworkName)
     listOf(
         iosArm64(),
@@ -68,8 +68,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.sqlite.bundled)
+            implementation(kmpCalendar.androidx.room.runtime)
+            implementation(kmpCalendar.androidx.sqlite.bundled)
         }
     }
 
@@ -135,10 +135,10 @@ room {
 }
 
 dependencies {
-    add("kspAndroid", libs.androidx.room.compiler)
-    add("kspIosSimulatorArm64", libs.androidx.room.compiler)
-    add("kspIosArm64", libs.androidx.room.compiler)
-    add("kspMacosArm64", libs.androidx.room.compiler)
+    add("kspAndroid", kmpCalendar.androidx.room.compiler)
+    add("kspIosSimulatorArm64", kmpCalendar.androidx.room.compiler)
+    add("kspIosArm64", kmpCalendar.androidx.room.compiler)
+    add("kspMacosArm64", kmpCalendar.androidx.room.compiler)
 }
 
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->

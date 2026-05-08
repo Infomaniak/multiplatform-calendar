@@ -1,0 +1,20 @@
+[versions]
+agp = "8.13.0" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
+kotlin = "2.3.0"
+ksp = "2.3.4"
+room = "2.8.4"
+skie = "0.10.9"
+sqlite = "2.6.2"
+
+[libraries]
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+
+[plugins]
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+androidx-room = { id = "androidx.room", version.ref = "room" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+skie = { id = "co.touchlab.skie", version.ref = "skie" }

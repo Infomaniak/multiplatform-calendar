@@ -34,6 +34,12 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
+
+    versionCatalogs {
+        create("kmpCalendar") { from(files("gradle/kmpCalendar.versions.toml")) }
+    }
+    
+
     repositories {
         google {
             mavenContent {

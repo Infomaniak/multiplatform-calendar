@@ -1,37 +1,20 @@
 [versions]
 agp = "8.13.0" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
-accompanistPermissions = "0.37.3"
-kotlinCryptoBom = "0.8.0"
 kotlin = "2.3.0"
-osmerionkotlinBase32 = "1.0.0"
 ksp = "2.3.4"
-lifecycleViewmodelNav3 = "2.10.0"
-nav3Core = "1.0.0"
 room = "2.8.4"
 skie = "0.10.9"
-sonarqube = "7.2.3.7755"
 sqlite = "2.6.2"
 
 [libraries]
-accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
-androidx-lifecycle-viewmodel-navigation3 = { module = "androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNav3" }
-androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
-androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
-kotlincrypto-bom = { module = "org.kotlincrypto.macs:bom", version.ref = "kotlinCryptoBom" }
-kotlincrypto-hmac-sha1 = { module = "org.kotlincrypto.macs:hmac-sha1" }
-kotlincrypto-hmac-sha2 = { module = "org.kotlincrypto.macs:hmac-sha2" }
-osmerion-kotlin-base32 = { module = "com.osmerion.kotlin:kotlin-base32", version.ref = "osmerionkotlinBase32" }
-
 
 [plugins]
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidx-room = { id = "androidx.room", version.ref = "room" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 skie = { id = "co.touchlab.skie", version.ref = "skie" }
-sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }

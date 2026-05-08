@@ -27,6 +27,6 @@ echo "${bold}Start cleanAll Task${endBold}"
 ./gradlew cleanAll
 echo "${bold}cleanAll task completed.${endBold}"
 
-echo "${bold}Start assembleCoreCalendarReleaseXCFramework Task${endBold}"
+echo "${bold}Start assembleKmpCalendarReleaseXCFramework Task${endBold}"
 ./gradlew :assembleMultiPlatformLibReleaseXCFramework
 echo "${bold}cleanAll task completed.${endBold}"

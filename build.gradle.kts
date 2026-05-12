@@ -77,7 +77,8 @@ kotlin {
         commonMain {
             dependencies {
                 // implementation(core.kotlinx.coroutines.core)
-                // implementation(core.kotlinx.serialization.json)
+                implementation(kmpCalendar.kotlinx.serialization)
+                implementation(kmpCalendar.kotlinx.datetime)
                 // implementation(core.kotlinx.serialization.cbor)
                 // implementation(core.ktor.client.core)
                 // implementation(core.ktor.client.content.negociation)

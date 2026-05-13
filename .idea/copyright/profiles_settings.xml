@@ -1,7 +1,7 @@
 <component name="CopyrightManager">
-  <settings default="Infomaniak Open Source">
+  <settings>
     <module2copyright>
-      <element module="Project Files" copyright="Infomaniak Open Source" />
+      <element module="Calendar Multiplatform" copyright="Infomaniak Calendar Multiplatform" />
     </module2copyright>
   </settings>
 </component>

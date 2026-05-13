@@ -1,6 +1,6 @@
 /*
- * Infomaniak APPNAME - Android
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.infomaniak.multiplatform_calendar.model.event.recurenceRule
+package com.infomaniak.multiplatform_calendar.model.event.recurrenceRule
 
 import kotlinx.datetime.DayOfWeek
 
@@ -33,14 +33,13 @@ data class WeekDayNum(
         return if (ordinal != null) "$ordinal$dayCode" else dayCode
     }
 
-
     companion object {
-        private val regex by lazy { Regex("(-?\\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)", RegexOption.IGNORE_CASE) }
+        private val regex by lazy { Regex("^(-?\\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)$", RegexOption.IGNORE_CASE) }
         fun parse(token: String): WeekDayNum? {
             return regex.find(token)?.run {
                 val (ordinalString, dayCode) = destructured
-                dayCode.uppercase().toDayOfWeek()?.let { dow->
-                    ordinalString.toIntOrNull()?.let {ordinal->
+                dayCode.uppercase().toDayOfWeek()?.let { dow ->
+                    ordinalString.toIntOrNull()?.let { ordinal ->
                         WeekDayNum(ordinal = ordinal, dayOfWeek = dow)
                     }
                 }

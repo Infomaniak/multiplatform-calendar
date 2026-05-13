@@ -1,6 +1,6 @@
 /*
- * Infomaniak APPNAME - Android
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,9 +21,8 @@ package com.infomaniak.multiplatform_calendar.model.event
 data class Attendee(
     val email: String,
     val displayName: String? = null,
-    val status: ParticipationStatus ,
+    val status: ParticipationStatus,
     val role: AttendeeRole,
     val isOrganizer: Boolean = false,
     val responseNeeded: Boolean = false,
 )
-

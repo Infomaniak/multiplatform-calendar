@@ -1,6 +1,6 @@
 /*
- * Infomaniak APPNAME - Android
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,10 +19,10 @@
 package com.infomaniak.multiplatform_calendar.model.event
 
 import com.infomaniak.multiplatform_calendar.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.model.event.recurenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.model.event.recurrenceRule.RecurrenceRule
 import kotlin.time.Instant
 
-data class Event (
+data class Event(
     val id: EventId,
     val calendarId: CalendarId,
     val remoteUid: String,

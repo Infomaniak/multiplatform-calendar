@@ -18,6 +18,6 @@
 
 package com.infomaniak.multiplatform_calendar
 
-actual fun getPlatform(): com.infomaniak.multiplatform_calendar.Platform {
+actual fun getPlatform(): Platform {
     TODO("Not yet implemented")
 }

@@ -17,8 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.model.calendar
 
-import androidx.annotation.IntRange
-
 data class Color(
     private val red: Int,
     private val green: Int,

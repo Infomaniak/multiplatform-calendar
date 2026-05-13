@@ -1,5 +1,5 @@
 /*
- * Infomaniak APPNAME - Android
+ * Infomaniak Calendar - Multiplatform
  * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.model.calendar
 
 import kotlin.jvm.JvmInline
-
 
 @JvmInline
 value class CalendarId(val value: Long)

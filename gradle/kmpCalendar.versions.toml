@@ -1,15 +1,19 @@
 [versions]
-agp = "8.13.0" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
-kotlin = "2.3.0"
-ksp = "2.3.4"
+agp = "8.13.2" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
+datetime = "0.8.0"
+kotlin = "2.3.20"
+ksp = "2.3.6"
 room = "2.8.4"
-skie = "0.10.9"
+skie = "0.10.11"
+serialization = "1.11.0"
 sqlite = "2.6.2"
 
 [libraries]
-androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
+kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "datetime" }
+kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 
 [plugins]
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }

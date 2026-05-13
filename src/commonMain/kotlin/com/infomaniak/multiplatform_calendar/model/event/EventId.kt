@@ -15,15 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+package com.infomaniak.multiplatform_calendar.model.event
 
-class SharedCommonTest {
+import kotlin.jvm.JvmInline
 
-    @Test
-    fun example() {
-        assertEquals(3, 1 + 2)
-    }
-}
+@JvmInline
+value class EventId(val value: Long)

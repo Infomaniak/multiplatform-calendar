@@ -15,15 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
+package com.infomaniak.multiplatform_calendar.model.calendar
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import kotlin.jvm.JvmInline
 
-class SharedCommonTest {
-
-    @Test
-    fun example() {
-        assertEquals(3, 1 + 2)
-    }
-}
+@JvmInline
+value class AccountId(val value: Long)

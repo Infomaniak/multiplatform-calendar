@@ -15,15 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+package com.infomaniak.multiplatform_calendar.model.event.recurrenceRule
 
-class SharedCommonTest {
-
-    @Test
-    fun example() {
-        assertEquals(3, 1 + 2)
-    }
-}
+/** RFC 5545 frequencies. */
+enum class Frequency { Secondly, Minutely, Hourly, Daily, Weekly, Monthly, Yearly }

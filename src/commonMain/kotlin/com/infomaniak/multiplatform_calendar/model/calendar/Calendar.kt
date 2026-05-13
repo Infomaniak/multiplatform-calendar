@@ -15,15 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
+package com.infomaniak.multiplatform_calendar.model.calendar
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
-
-class SharedCommonTest {
-
-    @Test
-    fun example() {
-        assertEquals(3, 1 + 2)
-    }
-}
+data class Calendar(
+    val id: CalendarId = CalendarId(0),
+    val accountId: AccountId = AccountId(0),
+    val remoteId: String,
+    val displayName: String,
+    val color: Color,
+    val isVisible: Boolean,
+    val url: String?,
+    val readOnly: Boolean = false,
+)

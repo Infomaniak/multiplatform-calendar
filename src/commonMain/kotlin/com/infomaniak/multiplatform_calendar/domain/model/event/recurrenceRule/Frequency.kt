@@ -15,11 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.model.calendar
 
-data class Color(
-    private val red: Int,
-    private val green: Int,
-    private val blue: Int,
-    private val alpha: Int,
-)
+package com.infomaniak.multiplatform_calendar.domain.model.event.recurrenceRule
+
+/** RFC 5545 frequencies. */
+enum class Frequency { Secondly, Minutely, Hourly, Daily, Weekly, Monthly, Yearly }

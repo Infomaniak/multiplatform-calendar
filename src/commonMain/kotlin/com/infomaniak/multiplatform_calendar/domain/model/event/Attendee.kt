@@ -16,7 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.infomaniak.multiplatform_calendar.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.domain.model.event
 
-/** RFC 5545 frequencies. */
-enum class Frequency { Secondly, Minutely, Hourly, Daily, Weekly, Monthly, Yearly }
+data class Attendee(
+    val email: String,
+    val displayName: String? = null,
+    val status: ParticipationStatus,
+    val role: AttendeeRole,
+    val isOrganizer: Boolean = false,
+    val responseNeeded: Boolean = false,
+)

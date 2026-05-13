@@ -16,13 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.infomaniak.multiplatform_calendar.model.event
+package com.infomaniak.multiplatform_calendar.domain.model.event
 
-data class Attendee(
-    val email: String,
-    val displayName: String? = null,
-    val status: ParticipationStatus,
-    val role: AttendeeRole,
-    val isOrganizer: Boolean = false,
-    val responseNeeded: Boolean = false,
-)
+enum class ParticipationStatus {
+    Accepted,
+    Declined,
+    Tentative,
+    NeedsAction;
+}

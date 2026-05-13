@@ -15,21 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.model.event.recurrenceRule
 
-import kotlinx.datetime.DayOfWeek
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
+package com.infomaniak.multiplatform_calendar.domain.model.event
 
-@OptIn(ExperimentalTime::class)
-data class RecurrenceRule(
-    val freq: Frequency,
-    val interval: Int = 1,
-    val count: Int? = null,
-    val until: Instant? = null,
-    val byDay: List<WeekDayNum> = emptyList(),
-    val byMonthDay: List<Int> = emptyList(),
-    val byMonth: List<Int> = emptyList(),
-    val bySetPos: List<Int> = emptyList(),
-    val weekStart: DayOfWeek? = null,
-)
+enum class AttendeeRole {
+    Organizer,
+    Requested,
+    Optional,
+    NonParticipant;
+}

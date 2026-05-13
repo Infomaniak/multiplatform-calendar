@@ -20,8 +20,8 @@ import co.touchlab.skie.configuration.DefaultArgumentInterop
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
-    alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.skie)
     alias(kmpCalendar.plugins.androidx.room)

@@ -17,8 +17,6 @@
  */
 
 import co.touchlab.skie.configuration.DefaultArgumentInterop
-import com.android.build.api.dsl.androidLibrary
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
@@ -30,24 +28,16 @@ plugins {
     alias(kmpCalendar.plugins.ksp)
 }
 
-val androidCompileSdk: Int = 36
-val androidMinSdk: Int = 27
-val javaVersion: JavaVersion = JavaVersion.VERSION_17
-
 kotlin {
-    @Suppress("UnstableApiUsage")
-    androidLibrary {
+    android {
+        compileSdk { version = release(37) }
         namespace = "com.infomaniak.calendar.multiplatform"
-        compileSdk = androidCompileSdk
-        minSdk = androidMinSdk
+        minSdk = 27
 
         withDeviceTestBuilder {
             sourceSetTreeName = "test"
         }
         withHostTest {}
-        compilerOptions {
-            jvmTarget.set(JvmTarget.fromTarget(javaVersion.toString()))
-        }
     }
 
     val xcframeworkName = "KmpCalendar"

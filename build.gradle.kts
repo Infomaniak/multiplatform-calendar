@@ -21,16 +21,16 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.androidx.room)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
-    alias(kmpCalendar.plugins.skie)
-    alias(kmpCalendar.plugins.androidx.room)
     alias(kmpCalendar.plugins.ksp)
+    alias(kmpCalendar.plugins.skie)
 }
 
 kotlin {
     android {
-        compileSdk { version = release(37) }
+        compileSdk { version = release(36) }
         namespace = "com.infomaniak.calendar.multiplatform"
         minSdk = 27
 

@@ -6,7 +6,7 @@ kotlin = "2.2.0"
 ksp = "2.2.0-2.0.2"
 room = "2.8.4"
 skie = "0.10.11"
-serialization = "1.11.0"
+serialization = "1.9.0"
 sqlite = "2.6.2"
 
 [libraries]

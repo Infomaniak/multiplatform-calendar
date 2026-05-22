@@ -18,8 +18,10 @@
 package com.infomaniak.multiplatform_calendar.model.event.recurrenceRule
 
 import kotlinx.datetime.DayOfWeek
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 data class RecurrenceRule(
     val freq: Frequency,
     val interval: Int = 1,

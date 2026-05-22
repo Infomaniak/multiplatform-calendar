@@ -20,8 +20,10 @@ package com.infomaniak.multiplatform_calendar.model.event
 
 import com.infomaniak.multiplatform_calendar.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.model.event.recurrenceRule.RecurrenceRule
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 data class Event(
     val id: EventId,
     val calendarId: CalendarId,

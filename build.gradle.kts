@@ -22,12 +22,15 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 
 plugins {
-    alias(kmpCalendar.plugins.android.kmp.library)
-    alias(kmpCalendar.plugins.androidx.room)
+    alias(kmpCalendar.plugins.android.library)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
+    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
     alias(kmpCalendar.plugins.kotlin.serialization)
-    alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.skie)
+    alias(kmpCalendar.plugins.androidx.room)
+    alias(kmpCalendar.plugins.ksp)
+    alias(kmpCalendar.plugins.gobley.cargo)
+    alias(kmpCalendar.plugins.gobley.uniffi)
 }
 
 kotlin {
@@ -37,21 +40,28 @@ kotlin {
     }
 
     android {
-        compileSdk { version = release(36) }
         namespace = "com.infomaniak.calendar.multiplatform"
-        minSdk = 27
-
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
+        compileSdk = 36
+        defaultConfig {
+            minSdk = 27
         }
-        withHostTest {}
+        compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
     }
+
+    androidTarget()
 
     val xcFrameworkName = "KmpCalendar"
     val xcf = project.XCFramework(xcFrameworkName)
     iosArm64 { configXCFramework(xcf, xcFrameworkName) }
     iosSimulatorArm64 { configXCFramework(xcf, xcFrameworkName) }
     macosArm64 { configXCFramework(xcf, xcFrameworkName) }
+
+    cargo {
+        packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
+    }
 
     sourceSets {
         commonMain {
@@ -60,29 +70,19 @@ kotlin {
                 implementation(kmpCalendar.androidx.sqlite.bundled)
                 implementation(kmpCalendar.kotlinx.serialization)
                 implementation(kmpCalendar.kotlinx.datetime)
-                // implementation(core.ktor.client.core)
-                // implementation(core.ktor.client.content.negociation)
-                // implementation(core.ktor.client.json)
-                // implementation(core.ktor.client.encoding)
-                // implementation(core.okio)
             }
         }
         commonTest {
             dependencies {
                 implementation(kotlin("test"))
-                // implementation(core.kotlinx.coroutines.test)
-                // implementation(core.ktor.client.mock)
             }
         }
         androidMain {
             dependencies {
-                // implementation(core.ktor.client.okhttp)
-                // implementation(core.splitties.appctx)
             }
         }
         appleMain {
             dependencies {
-                // implementation(core.ktor.client.darwin)
             }
         }
 
@@ -120,6 +120,13 @@ dependencies {
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
     tasks.named("compileKotlin$target") {
         dependsOn("kspKotlin$target")
+    }
+}
+
+// Ensure KSP tasks depend on UniFFI binding generation
+tasks.configureEach {
+    if (name.startsWith("ksp") && name.contains("Kotlin")) {
+        dependsOn(tasks.named("buildUniffiBindings"))
     }
 }
 

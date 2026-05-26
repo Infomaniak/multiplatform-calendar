@@ -16,10 +16,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.infomaniak.multiplatform_calendar.model.event
+package com.infomaniak.multiplatform_calendar.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 

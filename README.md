@@ -11,9 +11,27 @@
 Before you begin, ensure you have met the following requirements:
 
 - You are using a Linux, macOS, or Windows machine.
-- You have installed Java Development Kit (JDK) 17 or later.
+- You have installed Java Development Kit (JDK) 21 or later.
 - You have Android Studio installed.
+- You have [Rust](https://rustup.rs/) installed with cross-compilation targets:
+  ```bash
+  rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android \
+                     aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin
+  ```
 - You have an active internet connection to download project dependencies.
+
+## Rust CalDAV Bridge
+
+The `rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events) via [libdav](https://docs.rs/libdav).
+iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate.
+
+The Rust → Kotlin/Swift bridge is handled automatically by [Gobley](https://github.com/aspect-build/gobley) + [UniFFI](https://mozilla.github.io/uniffi-rs/) — no manual JNI, cinterop, or JSON serialization needed.
+
+```
+Kotlin/Swift  ←──UniFFI bindings──→  Rust lib.rs  →  libdav (CalDAV)  →  icalendar (parsing)
+```
+
+Rust compilation and binding generation are integrated into the Gradle build via the `dev.gobley.cargo` and `dev.gobley.uniffi` plugins. No separate build step is required — just run `./gradlew assembleDebug`.
 
 ## Contributing
 

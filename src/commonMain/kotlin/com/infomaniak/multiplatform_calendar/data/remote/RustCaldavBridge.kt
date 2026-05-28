@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.model.CaldavCredentials
 import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteEvent
 import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.model.parseHexColor
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
@@ -43,6 +44,9 @@ object RustCaldavBridge : CaldavClient {
                 RemoteCalendar(
                     url = entry.url,
                     displayName = entry.displayName,
+                    color = entry.color?.let(::parseHexColor),
+                    description = entry.description,
+                    ctag = entry.ctag,
                 )
             }
         } catch (e: CaldavException) {
@@ -110,5 +114,3 @@ object RustCaldavBridge : CaldavClient {
         }
     }
 }
-
-

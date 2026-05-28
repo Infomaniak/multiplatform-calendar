@@ -1,6 +1,6 @@
 # Rust CalDAV Bridge (`caldav_bridge`)
 
-Thin [UniFFI](https://mozilla.github.io/uniffi-rs/) wrapper around [libdav](https://docs.rs/libdav) for KMP.
+Thin [UniFFI](https://mozilla.github.io/uniffi-rs/) wrapper around [fast-dav-rs](https://github.com/Goopil/fast-dav-rs) for KMP.
 
 ## What it does
 
@@ -40,7 +40,7 @@ Kotlin/Swift (commonMain)
     │       │
     │       └── uniffi.caldav_bridge.*      ← auto-generated UniFFI bindings (expect/actual)
     │
-    └── Rust lib.rs                         ← ~130 lines, thin wrapper
-            ├── libdav (CalDAV HTTP)
+    └── Rust lib.rs                         ← thin wrapper
+            ├── fast-dav-rs (CalDAV HTTP)
             └── icalendar (iCS parsing)
 ```

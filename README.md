@@ -22,13 +22,13 @@ Before you begin, ensure you have met the following requirements:
 
 ## Rust CalDAV Bridge
 
-The `rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events) via [libdav](https://docs.rs/libdav).
+The `rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events) via [fast-dav-rs](https://github.com/Goopil/fast-dav-rs).
 iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate.
 
 The Rust → Kotlin/Swift bridge is handled automatically by [Gobley](https://github.com/aspect-build/gobley) + [UniFFI](https://mozilla.github.io/uniffi-rs/) — no manual JNI, cinterop, or JSON serialization needed.
 
 ```
-Kotlin/Swift  ←──UniFFI bindings──→  Rust lib.rs  →  libdav (CalDAV)  →  icalendar (parsing)
+Kotlin/Swift  ←──UniFFI bindings──→  Rust lib.rs  →  fast-dav-rs (CalDAV)  →  icalendar (parsing)
 ```
 
 Rust compilation and binding generation are integrated into the Gradle build via the `dev.gobley.cargo` and `dev.gobley.uniffi` plugins. No separate build step is required — just run `./gradlew assembleDebug`.

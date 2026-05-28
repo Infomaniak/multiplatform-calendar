@@ -68,8 +68,8 @@ object RustCaldavBridge : CaldavClient {
                     summary = entry.summary,
                     description = entry.description,
                     location = entry.location,
-                    dtstart = entry.dtstart,
-                    dtend = entry.dtend,
+                    dtstart = entry.dtstart?.let(::parseICalDateTime),
+                    dtend = entry.dtend?.let(::parseICalDateTime),
                     rrule = entry.rrule,
                     status = entry.status,
                 )

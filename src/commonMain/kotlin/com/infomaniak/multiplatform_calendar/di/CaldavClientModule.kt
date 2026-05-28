@@ -15,16 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-<<<<<<<< HEAD:Core/src/iosMain/kotlin/com/infomaniak/multiplatform_calendar/core/Platform.ios.kt
-package com.infomaniak.multiplatform_calendar.core
-========
 package com.infomaniak.multiplatform_calendar.di
->>>>>>>> 9c78ec3 (feat: Clean module and appscope for metro):src/commonMain/kotlin/com/infomaniak/multiplatform_calendar/di/AppScope.kt
 
-/**
- * Scope marker for the application-level dependency graph.
- * Used by @ContributesTo modules in the KMP library so that
- * the consuming app only needs to declare its @DependencyGraph(scope = AppScope::class).
- */
-@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)
-annotation class AppScope
+import com.infomaniak.multiplatform_calendar.data.remote.CaldavClient
+import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
+import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.Provides
+
+@ContributesTo(AppScope::class)
+interface CaldavClientModule {
+
+    @Provides
+    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+}
+

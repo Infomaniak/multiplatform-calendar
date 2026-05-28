@@ -18,32 +18,54 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.data.local.dao.CalendarDao
+import com.infomaniak.multiplatform_calendar.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.data.mapper.toDomain
+import com.infomaniak.multiplatform_calendar.data.mapper.toEntity
+import com.infomaniak.multiplatform_calendar.data.remote.CaldavClient
+import com.infomaniak.multiplatform_calendar.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.domain.model.calendar.AccountId
+import dev.zacsweers.metro.Inject
+import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteCalendar
+import com.infomaniak.multiplatform_calendar.domain.model.calendar.Calendar
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEvent
 
+@Inject
 class CalendarRepository(
     private val caldavClient: CaldavClient,
+    private val calendarDao: CalendarDao,
+    private val eventDao: EventDao,
 ) {
 
-    suspend fun discoverCalendars(
-        baseUrl: String,
-        username: String,
-        password: String,
-    ): List<RemoteCalendar> {
-        val credentials = CaldavCredentials(baseUrl, username, password)
-        return caldavClient.discoverCalendars(credentials)
+    fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
+        return calendarDao.observeByAccountId(accountId).map { entities ->
+            entities.map { it.toDomain() }
+        }
     }
 
-    suspend fun syncCalendar(
-        baseUrl: String,
-        username: String,
-        password: String,
-        calendarUrl: String,
-    ): List<RemoteEvent> {
-        val credentials = CaldavCredentials(baseUrl, username, password)
-        return caldavClient.getEvents(credentials, calendarUrl)
+    suspend fun syncCalendars(
+        accountId: AccountId,
+        credentials: CaldavCredentials
+    ) {
+        val remoteCalendars = caldavClient.discoverCalendars(credentials).excludeScheduling()
+        calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
+        remoteCalendars.map { it.url }.let { keepUrl ->
+            calendarDao.deleteCalendarsNotExisting(accountId, keepUrl)
+            calendarDao.getByAccountId(accountId).forEach {
+                val remoteEvents = caldavClient.getEvents(credentials, it.url)
+                eventDao.upsert(remoteEvents.map { event -> event.toEntity(it.id) })
+            }
+        }
     }
 }
 
+private fun List<RemoteCalendar>.excludeScheduling() = filterNot { remote ->
+    // Exclude scheduling calendars (RFC 6638 inbox/outbox)
+    val url = remote.url.lowercase()
+    url.contains("/inbox") || url.contains("/outbox")
+}

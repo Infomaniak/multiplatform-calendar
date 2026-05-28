@@ -1,6 +1,6 @@
 /*
- * Infomaniak Core - Android
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,15 +15,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
+package com.infomaniak.multiplatform_calendar.data.mapper
 
-data class Calendar(
-    val id: CalendarId = CalendarId(0),
-    val accountId: AccountId = AccountId(0),
-    val remoteId: String,
-    val displayName: String,
-    val color: Color,
-    val isVisible: Boolean,
-    val url: String,
-    val readOnly: Boolean = false,
+import com.infomaniak.multiplatform_calendar.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteEvent
+
+fun RemoteEvent.toEntity(calendarId: Long) = EventEntity(
+    calendarId = calendarId,
+    summary = summary ?: "",
+    remoteUid = url,
+    dtStart = dtstart,
+    dtEnd = dtend,
+    description = description,
+    location = location,
+    rrule = rrule,
 )

@@ -22,7 +22,7 @@ kotlin {
         withHostTest {}
     }
 
-    val xcframeworkName = "Core"
+    val xcframeworkName = "MultiplatformCore"
     val xcf = project.XCFramework(xcframeworkName)
     listOf(
         iosArm64(),

@@ -22,4 +22,19 @@ data class Color(
     private val green: Int,
     private val blue: Int,
     private val alpha: Int,
-)
+) {
+    fun toLong(): Long =
+        ((alpha.toLong() and 0xFF) shl 24) or
+        ((red.toLong() and 0xFF) shl 16) or
+        ((green.toLong() and 0xFF) shl 8) or
+        (blue.toLong() and 0xFF)
+
+    companion object {
+        fun fromLong(value: Long): Color = Color(
+            red = ((value shr 16) and 0xFF).toInt(),
+            green = ((value shr 8) and 0xFF).toInt(),
+            blue = (value and 0xFF).toInt(),
+            alpha = ((value shr 24) and 0xFF).toInt(),
+        )
+    }
+}

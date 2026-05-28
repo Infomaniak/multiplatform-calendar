@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.remote.model
 
+import kotlinx.datetime.LocalDateTime
+
 /** An event resource as returned by the CalDAV server, with parsed iCalendar fields. */
 data class RemoteEvent(
     val url: String,
@@ -29,9 +31,9 @@ data class RemoteEvent(
     val description: String?,
     val location: String?,
     /** ISO 8601 date-time string (e.g. "20260526T100000Z"). */
-    val dtstart: String?,
+    val dtstart: LocalDateTime?,
     /** ISO 8601 date-time string (e.g. "20260526T110000Z"). */
-    val dtend: String?,
+    val dtend: LocalDateTime?,
     val rrule: String?,
     val status: String?,
 )

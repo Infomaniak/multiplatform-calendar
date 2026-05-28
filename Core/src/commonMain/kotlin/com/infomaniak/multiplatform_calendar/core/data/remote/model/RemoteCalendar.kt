@@ -19,7 +19,6 @@ package com.infomaniak.multiplatform_calendar.core.data.remote.model
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
 
-/** A calendar as returned by the CalDAV server (discovery). */
 data class RemoteCalendar(
     val url: String,
     val displayName: String,

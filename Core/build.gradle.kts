@@ -13,7 +13,7 @@ plugins {
 kotlin {
     android {
         compileSdk { version = release(36) }
-        namespace = "com.infomaniak.multiplatform-calendar.core"
+        namespace = "com.infomaniak.multiplatform_calendar.core"
         minSdk = 27
 
         withDeviceTestBuilder {

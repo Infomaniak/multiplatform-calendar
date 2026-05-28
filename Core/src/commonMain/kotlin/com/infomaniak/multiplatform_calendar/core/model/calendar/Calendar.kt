@@ -15,12 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core.model.calendar
 
-plugins {
-    alias(kmpCalendar.plugins.android.kmp.library) apply false
-    alias(kmpCalendar.plugins.androidx.room) apply false
-    alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
-    alias(kmpCalendar.plugins.kotlin.serialization) apply false
-    alias(kmpCalendar.plugins.ksp) apply false
-    alias(kmpCalendar.plugins.skie) apply false
-}
+data class Calendar(
+    val id: CalendarId = CalendarId(0),
+    val accountId: AccountId = AccountId(0),
+    val remoteId: String,
+    val displayName: String,
+    val color: Color,
+    val isVisible: Boolean,
+    val url: String?,
+    val readOnly: Boolean = false,
+)

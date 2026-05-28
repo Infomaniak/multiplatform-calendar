@@ -16,11 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-plugins {
-    alias(kmpCalendar.plugins.android.kmp.library) apply false
-    alias(kmpCalendar.plugins.androidx.room) apply false
-    alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
-    alias(kmpCalendar.plugins.kotlin.serialization) apply false
-    alias(kmpCalendar.plugins.ksp) apply false
-    alias(kmpCalendar.plugins.skie) apply false
-}
+package com.infomaniak.multiplatform_calendar.core.model.event
+
+data class Attendee(
+    val email: String,
+    val displayName: String? = null,
+    val status: ParticipationStatus,
+    val role: AttendeeRole,
+    val isOrganizer: Boolean = false,
+    val responseNeeded: Boolean = false,
+)

@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core
 
-plugins {
-    alias(kmpCalendar.plugins.android.kmp.library) apply false
-    alias(kmpCalendar.plugins.androidx.room) apply false
-    alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
-    alias(kmpCalendar.plugins.kotlin.serialization) apply false
-    alias(kmpCalendar.plugins.ksp) apply false
-    alias(kmpCalendar.plugins.skie) apply false
+import android.os.Build
+
+class AndroidPlatform : Platform {
+    override val name: String = "Android ${Build.VERSION.SDK_INT}"
 }
+
+actual fun getPlatform(): Platform = AndroidPlatform()

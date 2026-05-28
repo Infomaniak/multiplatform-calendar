@@ -15,12 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core.model.calendar
 
-plugins {
-    alias(kmpCalendar.plugins.android.kmp.library) apply false
-    alias(kmpCalendar.plugins.androidx.room) apply false
-    alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
-    alias(kmpCalendar.plugins.kotlin.serialization) apply false
-    alias(kmpCalendar.plugins.ksp) apply false
-    alias(kmpCalendar.plugins.skie) apply false
-}
+data class Color(
+    private val red: Int,
+    private val green: Int,
+    private val blue: Int,
+    private val alpha: Int,
+)

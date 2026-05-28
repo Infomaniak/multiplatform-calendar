@@ -16,8 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.infomaniak.multiplatform_calendar
+package com.infomaniak.multiplatform_calendar.core.model.event
 
-actual fun getPlatform(): Platform {
-    TODO("Not yet implemented")
+enum class ParticipationStatus {
+    Accepted,
+    Declined,
+    Tentative,
+    NeedsAction;
 }

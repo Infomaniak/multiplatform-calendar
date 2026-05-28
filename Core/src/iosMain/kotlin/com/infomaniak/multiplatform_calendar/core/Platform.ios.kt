@@ -15,14 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core
 
-package com.infomaniak.multiplatform_calendar.model.event
+import platform.UIKit.UIDevice
 
-data class Attendee(
-    val email: String,
-    val displayName: String? = null,
-    val status: ParticipationStatus,
-    val role: AttendeeRole,
-    val isOrganizer: Boolean = false,
-    val responseNeeded: Boolean = false,
-)
+class IOSPlatform : Platform {
+    override val name: String = UIDevice.currentDevice.systemName() + " " + UIDevice.currentDevice.systemVersion
+}
+
+actual fun getPlatform(): Platform = IOSPlatform()

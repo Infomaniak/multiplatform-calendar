@@ -15,30 +15,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core.model.event.recurrenceRule
 
-package com.infomaniak.multiplatform_calendar.model.event
-
-import com.infomaniak.multiplatform_calendar.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.model.event.recurrenceRule.RecurrenceRule
+import kotlinx.datetime.DayOfWeek
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
-data class Event(
-    val id: EventId,
-    val calendarId: CalendarId,
-    val remoteUid: String,
-    val title: String,
-    val description: String? = null,
-    val location: String? = null,
-    val start: Instant,
-    val end: Instant,
-    val isAllDay: Boolean = false,
-    val recurrenceRule: RecurrenceRule? = null,
-    val etag: String? = null,
-    val rawIcs: String? = null,
-    val lastModified: Instant,
-    val isSynced: Boolean = false,
-    val attendees: List<Attendee> = emptyList(),
-    val organizer: Attendee? = null,
+data class RecurrenceRule(
+    val freq: Frequency,
+    val interval: Int = 1,
+    val count: Int? = null,
+    val until: Instant? = null,
+    val byDay: List<WeekDayNum> = emptyList(),
+    val byMonthDay: List<Int> = emptyList(),
+    val byMonth: List<Int> = emptyList(),
+    val bySetPos: List<Int> = emptyList(),
+    val weekStart: DayOfWeek? = null,
 )

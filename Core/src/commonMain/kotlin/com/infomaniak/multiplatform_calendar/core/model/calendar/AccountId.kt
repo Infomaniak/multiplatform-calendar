@@ -15,10 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
+package com.infomaniak.multiplatform_calendar.core.model.calendar
 
-interface Platform {
-    val name: String
-}
+import kotlin.jvm.JvmInline
 
-expect fun getPlatform(): Platform
+@JvmInline
+value class AccountId(val value: Long)

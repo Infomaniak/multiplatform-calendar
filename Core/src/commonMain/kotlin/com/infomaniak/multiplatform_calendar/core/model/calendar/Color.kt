@@ -15,12 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core.model.calendar
 
-package com.infomaniak.multiplatform_calendar.model.event
-
-enum class ParticipationStatus {
-    Accepted,
-    Declined,
-    Tentative,
-    NeedsAction;
-}
+data class Color(
+    private val red: Int,
+    private val green: Int,
+    private val blue: Int,
+    private val alpha: Int,
+)

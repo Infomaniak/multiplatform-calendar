@@ -15,12 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
+package com.infomaniak.multiplatform_calendar.core
 
-import android.os.Build
-
-class AndroidPlatform : Platform {
-    override val name: String = "Android ${Build.VERSION.SDK_INT}"
+interface Platform {
+    val name: String
 }
 
-actual fun getPlatform(): Platform = AndroidPlatform()
+expect fun getPlatform(): Platform

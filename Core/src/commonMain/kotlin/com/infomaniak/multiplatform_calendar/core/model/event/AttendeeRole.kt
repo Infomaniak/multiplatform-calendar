@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
 
-class Greeting {
-    private val platform = getPlatform()
+package com.infomaniak.multiplatform_calendar.core.model.event
 
-    fun greet(): String {
-        return "Hello, ${platform.name}!"
-    }
+enum class AttendeeRole {
+    Organizer,
+    Requested,
+    Optional,
+    NonParticipant;
 }

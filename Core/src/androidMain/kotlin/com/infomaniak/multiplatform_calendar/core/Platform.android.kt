@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core
 
-package com.infomaniak.multiplatform_calendar.model.event
+import android.os.Build
 
-enum class AttendeeRole {
-    Organizer,
-    Requested,
-    Optional,
-    NonParticipant;
+class AndroidPlatform : Platform {
+    override val name: String = "Android ${Build.VERSION.SDK_INT}"
 }
+
+actual fun getPlatform(): Platform = AndroidPlatform()

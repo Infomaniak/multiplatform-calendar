@@ -15,9 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.model.calendar
 
-import kotlin.jvm.JvmInline
+package com.infomaniak.multiplatform_calendar.core.model.event
 
-@JvmInline
-value class AccountId(val value: Long)
+data class Attendee(
+    val email: String,
+    val displayName: String? = null,
+    val status: ParticipationStatus,
+    val role: AttendeeRole,
+    val isOrganizer: Boolean = false,
+    val responseNeeded: Boolean = false,
+)

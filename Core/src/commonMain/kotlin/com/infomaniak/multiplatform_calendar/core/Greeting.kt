@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar
+package com.infomaniak.multiplatform_calendar.core
 
-import platform.UIKit.UIDevice
+class Greeting {
+    private val platform = getPlatform()
 
-class IOSPlatform : Platform {
-    override val name: String = UIDevice.currentDevice.systemName() + " " + UIDevice.currentDevice.systemVersion
+    fun greet(): String {
+        return "Hello, ${platform.name}!"
+    }
 }
-
-actual fun getPlatform(): Platform = IOSPlatform()

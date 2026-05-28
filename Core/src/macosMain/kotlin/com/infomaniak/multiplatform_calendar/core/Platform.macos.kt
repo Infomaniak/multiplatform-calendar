@@ -15,9 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.model.calendar
 
-import kotlin.jvm.JvmInline
+package com.infomaniak.multiplatform_calendar.core
 
-@JvmInline
-value class CalendarId(val value: Long)
+actual fun getPlatform(): Platform {
+    TODO("Not yet implemented")
+}

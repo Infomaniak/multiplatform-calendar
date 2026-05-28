@@ -18,8 +18,8 @@
 
 package com.infomaniak.multiplatform_calendar.core.model.event
 
-import com.infomaniak.multiplatform_calendar.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.model.event.recurrenceRule.RecurrenceRule
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 

@@ -26,6 +26,7 @@ plugins {
     alias(kmpCalendar.plugins.gobley.uniffi)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
+    alias(kmpCalendar.plugins.metro)
     kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
 }
 

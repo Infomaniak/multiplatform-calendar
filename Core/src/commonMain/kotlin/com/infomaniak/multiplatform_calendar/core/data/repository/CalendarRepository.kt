@@ -18,22 +18,18 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.data.local.dao.CalendarDao
-import com.infomaniak.multiplatform_calendar.data.local.dao.EventDao
-import com.infomaniak.multiplatform_calendar.data.mapper.toDomain
-import com.infomaniak.multiplatform_calendar.data.mapper.toEntity
-import com.infomaniak.multiplatform_calendar.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.domain.model.calendar.AccountId
-import dev.zacsweers.metro.Inject
-import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.domain.model.calendar.Calendar
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEvent
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import dev.zacsweers.metro.Inject
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 @Inject
 class CalendarRepository(
@@ -50,7 +46,7 @@ class CalendarRepository(
 
     suspend fun syncCalendars(
         accountId: AccountId,
-        credentials: CaldavCredentials
+        credentials: CaldavCredentials,
     ) {
         val remoteCalendars = caldavClient.discoverCalendars(credentials).excludeScheduling()
         calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
@@ -62,10 +58,11 @@ class CalendarRepository(
             }
         }
     }
-}
 
-private fun List<RemoteCalendar>.excludeScheduling() = filterNot { remote ->
-    // Exclude scheduling calendars (RFC 6638 inbox/outbox)
-    val url = remote.url.lowercase()
-    url.contains("/inbox") || url.contains("/outbox")
+    private fun List<RemoteCalendar>.excludeScheduling() = filterNot { remote ->
+        // Exclude scheduling calendars (RFC 6638 inbox/outbox)
+        val url = remote.url.lowercase()
+        url.contains("/inbox") || url.contains("/outbox")
+    }
+
 }

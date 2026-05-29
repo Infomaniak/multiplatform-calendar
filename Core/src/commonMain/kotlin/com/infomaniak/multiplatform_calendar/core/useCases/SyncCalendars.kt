@@ -15,17 +15,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.core.useCases
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
+import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
+import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import dev.zacsweers.metro.Inject
 
-@ContributesTo(AppScope::class)
-interface CaldavClientModule {
-
-    @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+@Inject
+class SyncCalendars(
+    private val accountRepository: AccountRepository,
+    private val calendarRepository: CalendarRepository,
+) {
+    suspend operator fun invoke(accountId: AccountId) {
+        accountRepository.getCredentials(accountId)?.let { credentials ->
+            calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }
+    }
 }

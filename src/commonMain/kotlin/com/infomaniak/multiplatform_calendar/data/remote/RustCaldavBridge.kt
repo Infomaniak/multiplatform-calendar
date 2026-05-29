@@ -23,7 +23,8 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCreden
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEvent
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEventRef
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
+import com.infomaniak.multiplatform_calendar.data.remote.model.parseHexColor
+import com.infomaniak.multiplatform_calendar.data.remote.model.parseICalDateTime
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
@@ -95,7 +96,7 @@ object RustCaldavBridge : CaldavClient {
         credentials: CaldavCredentials,
         eventUrl: String,
         etag: String,
-        icsData: String
+        icsData: String,
     ): RemoteEventRef {
         try {
             val result = rustUpdateEvent(credentials.baseUrl, credentials.username, credentials.password, eventUrl, etag, icsData)

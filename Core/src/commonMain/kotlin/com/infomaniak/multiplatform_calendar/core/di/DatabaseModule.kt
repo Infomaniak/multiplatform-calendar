@@ -15,17 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.core.di
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
+import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
 
 @ContributesTo(AppScope::class)
-interface CaldavClientModule {
+interface DatabaseModule {
 
     @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+    fun provideAccountDao(database: CalendarDatabase): AccountDao = database.accountDao()
+
+    @Provides
+    fun provideCalendarDao(database: CalendarDatabase): CalendarDao = database.calendarDao()
+
+    @Provides
+    fun provideEventDao(database: CalendarDatabase): EventDao = database.eventDao()
 }

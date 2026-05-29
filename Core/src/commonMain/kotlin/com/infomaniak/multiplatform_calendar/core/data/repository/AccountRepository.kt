@@ -15,20 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.data.repository
+package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.data.local.dao.AccountDao
-import com.infomaniak.multiplatform_calendar.data.local.entity.AccountEntity
-import com.infomaniak.multiplatform_calendar.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.di.AppScope
-import com.infomaniak.multiplatform_calendar.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.core.di.AppScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 
 @SingleIn(AppScope::class)
 @Inject
 class AccountRepository(
-    private val accountDao: AccountDao
+    private val accountDao: AccountDao,
 ) {
 
     private val userCredentials: HashMap<AccountId, CaldavCredentials> = HashMap()

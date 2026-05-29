@@ -15,17 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.core.data.local
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
+import androidx.room.TypeConverter
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
+import kotlinx.datetime.LocalDateTime
 
-@ContributesTo(AppScope::class)
-interface CaldavClientModule {
+class CalendarTypeConverters {
 
-    @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+    @TypeConverter
+    fun fromLocalDateTime(value: LocalDateTime?): String? = value?.toString()
+
+    @TypeConverter
+    fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
+
+    @TypeConverter
+    fun fromColor(value: Color?): Long? = value?.toLong()
+
+    @TypeConverter
+    fun toColor(value: Long?): Color? = value?.let(Color::fromLong)
 }
+

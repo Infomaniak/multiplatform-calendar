@@ -15,17 +15,26 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.core.di
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
+import android.content.Context
+import androidx.room.Room
+import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
 
 @ContributesTo(AppScope::class)
-interface CaldavClientModule {
+interface AndroidDatabaseModule {
 
+    @SingleIn(AppScope::class)
     @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+    fun provideDatabase(context: Context): CalendarDatabase {
+        return Room.databaseBuilder(
+            context = context.applicationContext,
+            klass = CalendarDatabase::class.java,
+            name = context.getDatabasePath("calendar.db").absolutePath,
+        ).build()
+    }
 }
+

@@ -15,17 +15,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 
-@ContributesTo(AppScope::class)
-interface CaldavClientModule {
-
-    @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
-}
+fun RemoteCalendar.toEntity(accountId: AccountId) = CalendarEntity(
+    accountId = accountId,
+    url = url,
+    displayName = displayName,
+    color = color,
+    caldavColor = color,
+    ctag = ctag,
+    readOnly = readOnly,
+)

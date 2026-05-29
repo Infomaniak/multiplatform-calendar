@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026 Infomaniak Network SA
+ * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,17 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.data.remote.model
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
 
-@ContributesTo(AppScope::class)
-interface CaldavClientModule {
-
-    @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+/** Parse CalDAV hex color string (#RRGGBBAA or #RRGGBB) into domain Color. */
+internal fun parseHexColor(hex: String): Color {
+    val clean = hex.trimStart('#')
+    val r = clean.substring(0, 2).toInt(16)
+    val g = clean.substring(2, 4).toInt(16)
+    val b = clean.substring(4, 6).toInt(16)
+    val a = if (clean.length >= 8) clean.substring(6, 8).toInt(16) else 255
+    return Color(red = r, green = g, blue = b, alpha = a)
 }

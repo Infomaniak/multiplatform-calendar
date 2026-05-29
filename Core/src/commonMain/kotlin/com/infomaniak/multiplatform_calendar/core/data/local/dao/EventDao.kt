@@ -15,17 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.core.data.local.dao
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
+import androidx.room.Dao
+import androidx.room.Query
+import androidx.room.Upsert
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import kotlinx.coroutines.flow.Flow
 
-@ContributesTo(AppScope::class)
-interface CaldavClientModule {
+@Dao
+interface EventDao {
+    @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
+    fun getByCalendarId(calendarId: Long): Flow<List<EventEntity>>
 
-    @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+    @Upsert
+    fun upsert(eventDao: List<EventEntity>)
+
 }

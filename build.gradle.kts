@@ -16,39 +16,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import co.touchlab.skie.configuration.DefaultArgumentInterop
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 
 plugins {
     alias(kmpCalendar.plugins.android.library)
-    alias(kmpCalendar.plugins.kotlin.multiplatform)
-    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
-    alias(kmpCalendar.plugins.kotlin.serialization)
-    alias(kmpCalendar.plugins.skie)
-    alias(kmpCalendar.plugins.androidx.room)
-    alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.gobley.cargo)
     alias(kmpCalendar.plugins.gobley.uniffi)
+    alias(kmpCalendar.plugins.kotlin.multiplatform)
+    alias(kmpCalendar.plugins.kotlin.serialization)
+    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
 }
 
 kotlin {
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
         freeCompilerArgs.add("-Xreturn-value-checker=full")
-    }
-
-    android {
-        namespace = "com.infomaniak.calendar.multiplatform"
-        compileSdk = 36
-        defaultConfig {
-            minSdk = 27
-        }
-        compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_21
-            targetCompatibility = JavaVersion.VERSION_21
-        }
     }
 
     androidTarget()
@@ -66,8 +50,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation(kmpCalendar.androidx.room.runtime)
-                implementation(kmpCalendar.androidx.sqlite.bundled)
+                api(project(":Core"))
                 implementation(kmpCalendar.kotlinx.serialization)
                 implementation(kmpCalendar.kotlinx.datetime)
             }
@@ -77,49 +60,18 @@ kotlin {
                 implementation(kotlin("test"))
             }
         }
-        androidMain {
-            dependencies {
-            }
-        }
-        appleMain {
-            dependencies {
-            }
-        }
-
-        listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->
-            getByName("${target}Main") {
-                kotlin.srcDir(layout.buildDirectory.dir("generated/ksp/$target/${target}Main/kotlin"))
-            }
-        }
     }
 }
 
-skie {
-    features {
-        group {
-            DefaultArgumentInterop.Enabled(true)
-            DefaultArgumentInterop.MaximumDefaultArgumentCount(7)
-        }
+android {
+    namespace = "com.infomaniak.multiplatform_calendar"
+    compileSdk = property("kmp.compileSdk").toString().toInt()
+    defaultConfig {
+        minSdk = property("kmp.minSdk").toString().toInt()
     }
-    build {
-        produceDistributableFramework()
-    }
-}
-
-room {
-    schemaDirectory("$projectDir/schemas")
-}
-
-dependencies {
-    add("kspAndroid", kmpCalendar.androidx.room.compiler)
-    add("kspIosSimulatorArm64", kmpCalendar.androidx.room.compiler)
-    add("kspIosArm64", kmpCalendar.androidx.room.compiler)
-    add("kspMacosArm64", kmpCalendar.androidx.room.compiler)
-}
-
-listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
-    tasks.named("compileKotlin$target") {
-        dependsOn("kspKotlin$target")
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 }
 
@@ -136,6 +88,5 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
         xcf.add(this)
         isStatic = true
-        linkerOpts.add("-lsqlite3")
     }
 }

@@ -17,11 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote
 
-import com.infomaniak.multiplatform_calendar.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteEvent
-import com.infomaniak.multiplatform_calendar.data.remote.model.RemoteEventRef
-import com.infomaniak.multiplatform_calendar.data.remote.model.parseHexColor
+import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavBridgeException
+import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEvent
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEventRef
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents

@@ -54,3 +54,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+
+include(":Core")

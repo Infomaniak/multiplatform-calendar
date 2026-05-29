@@ -15,18 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-<<<<<<<< HEAD:Core/src/macosMain/kotlin/com/infomaniak/multiplatform_calendar/core/Platform.macos.kt
-
 package com.infomaniak.multiplatform_calendar.core
-========
-package com.infomaniak.multiplatform_calendar
->>>>>>>> 3da4655 (feat: Add metro and clean dependencies):src/appleMain/kotlin/com/infomaniak/multiplatform_calendar/Platform.apple.kt
 
 import platform.Foundation.NSProcessInfo
 
-class ApplePlatform : Platform {
+class MacOSPlatform : Platform {
     override val name: String = NSProcessInfo.processInfo.operatingSystemVersionString
 }
 
-actual fun getPlatform(): Platform = ApplePlatform()
-
+actual fun getPlatform(): Platform = MacOSPlatform()

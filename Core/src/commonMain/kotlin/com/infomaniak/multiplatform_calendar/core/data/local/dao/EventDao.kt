@@ -29,6 +29,6 @@ interface EventDao {
     fun getByCalendarId(calendarId: Long): Flow<List<EventEntity>>
 
     @Upsert
-    fun upsert(eventDao: List<EventEntity>)
+    suspend fun upsert(eventDao: List<EventEntity>)
 
 }

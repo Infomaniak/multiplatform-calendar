@@ -17,8 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local
 
+import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
@@ -33,9 +35,13 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
     exportSchema = true,
 )
 @TypeConverters(CalendarTypeConverters::class)
+@ConstructedBy(CalendarDatabaseConstructor::class)
 abstract class CalendarDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
 }
+
+@Suppress("NO_ACTUAL_FOR_EXPECT")
+expect object CalendarDatabaseConstructor : RoomDatabaseConstructor<CalendarDatabase>
 

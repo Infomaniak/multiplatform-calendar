@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import co.touchlab.skie.configuration.DefaultArgumentInterop
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
@@ -26,7 +27,9 @@ plugins {
     alias(kmpCalendar.plugins.gobley.uniffi)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
+    alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
+    alias(kmpCalendar.plugins.skie)
     kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
 }
 
@@ -76,10 +79,29 @@ android {
     }
 }
 
+skie {
+    features {
+        group {
+            DefaultArgumentInterop.Enabled(true)
+            DefaultArgumentInterop.MaximumDefaultArgumentCount(7)
+        }
+    }
+    build {
+        produceDistributableFramework()
+    }
+}
+
 // Ensure KSP tasks depend on UniFFI binding generation
 tasks.configureEach {
     if (name.startsWith("ksp") && name.contains("Kotlin")) {
         dependsOn(tasks.named("buildUniffiBindings"))
+    }
+}
+
+// Ensure native compilation runs after KSP (Metro code generation)
+listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
+    tasks.named("compileKotlin$target") {
+        dependsOn("kspKotlin$target")
     }
 }
 
@@ -90,5 +112,6 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         xcf.add(this)
         isStatic = true
         linkerOpts.add("-lsqlite3")
+        export(project(":Core"))
     }
 }

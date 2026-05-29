@@ -15,20 +15,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.useCases
+package com.infomaniak.multiplatform_calendar.core
 
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.di.AppScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import dev.zacsweers.metro.Inject
-import kotlinx.coroutines.flow.Flow
+import dev.zacsweers.metro.SingleIn
 
+@SingleIn(AppScope::class)
 @Inject
-class GetCalendars(
+class AccountManager(
+    private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
 ) {
-    operator fun invoke(accountId: AccountId): Flow<List<Calendar>> {
-        return calendarRepository.observeCalendars(accountId)
+
+    suspend fun initAccount(accountId: AccountId, credentials: CaldavCredentials) {
+        accountRepository.storeCredentials(accountId, credentials)
+    }
+
+    suspend fun syncCalendars(accountId: AccountId) {
+        accountRepository.getCredentials(accountId)?.let { credentials ->
+            calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }
+    }
+
+    suspend fun removeAccount(accountId: AccountId) {
+        accountRepository.removeCredentials(accountId)
     }
 }
 

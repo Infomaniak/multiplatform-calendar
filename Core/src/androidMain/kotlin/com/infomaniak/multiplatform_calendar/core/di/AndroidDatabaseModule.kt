@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
@@ -34,7 +35,8 @@ interface AndroidDatabaseModule {
             context = context.applicationContext,
             klass = CalendarDatabase::class.java,
             name = context.getDatabasePath("calendar.db").absolutePath,
-        ).build()
+        ).setDriver(BundledSQLiteDriver())
+            .build()
     }
 }
 

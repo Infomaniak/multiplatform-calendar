@@ -33,7 +33,7 @@ interface CalendarDao {
     fun observeByAccountId(accountId: AccountId): Flow<List<CalendarEntity>>
 
     @Query("SELECT * FROM calendars WHERE accountId = :accountId")
-    fun getByAccountId(accountId: AccountId): List<CalendarEntity>
+    suspend fun getByAccountId(accountId: AccountId): List<CalendarEntity>
 
     @Query("SELECT * FROM calendars WHERE accountId = :accountId AND url = :url LIMIT 1")
     suspend fun findByRemoteId(accountId: AccountId, url: String): CalendarEntity?

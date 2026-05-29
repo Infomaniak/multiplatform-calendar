@@ -52,4 +52,7 @@ dependencyResolutionManagement {
     }
 }
 
-include(":Core")
+include(
+    ":Core",
+    ":kmpdav",
+)

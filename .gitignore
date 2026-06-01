@@ -13,6 +13,7 @@ xcuserdata
 /release/
 *.mx
 *.lock
+/Core/schemas/
 
 # Rust build artifacts
 **/target/

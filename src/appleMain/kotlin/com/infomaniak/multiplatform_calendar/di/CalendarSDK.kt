@@ -82,7 +82,7 @@ abstract class CalendarSDK {
  *
  * Usage from Swift:
  * ```swift
- * let sdk = CalendarSDKProvider.shared
+ * let sdk = CalendarSDKProvider.shared.sdk
  * sdk.accountManager.initAccount(...)
  * sdk.calendarManager.observeCalendars(...)
  * ```

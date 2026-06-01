@@ -2,9 +2,55 @@
 
 ## Table of Contents
 
+- [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
+- [Build Commands](#build-commands)
 - [Contributing](#contributing)
 - [License](#license)
+
+## Architecture
+
+```
+multiplatform-calendar/
+├── Core/                       # KMP shared library (domain models, Room DB, repositories, managers)
+│   ├── src/commonMain/         # Cross-platform: models, DAOs, repositories, managers, DI modules
+│   ├── src/androidMain/        # Android Room database provider (via Metro DI)
+│   └── src/commonTest/         # Shared unit tests
+├── src/                        # Root KMP module (Rust CalDAV bridge + Apple SDK entry point)
+│   ├── commonMain/             # RustCaldavBridge, CaldavClientModule, model extensions
+│   └── appleMain/              # CalendarSDK + CalendarSDKProvider (Apple DI graph)
+├── rust/caldav_bridge/         # Rust crate: CalDAV operations via fast-dav-rs + icalendar
+├── build.gradle.kts            # Root module build (Gobley/UniFFI, SKIE, Metro, XCFramework)
+├── buildRelease                # Script to build & zip KmpCalendar.xcframework for iOS/macOS release
+└── buildRust                   # Script for standalone Rust compilation (optional, Gradle handles it)
+```
+
+### Modules
+
+| Module   | Purpose                                                                                      |
+|----------|----------------------------------------------------------------------------------------------|
+| **Core** | Domain models, Room database, DAOs, repositories, `AccountManager`, `CalendarManager`, DI    |
+| **Root** | Rust/UniFFI CalDAV bridge (`RustCaldavBridge`), `CaldavClientModule`, Apple `CalendarSDK`    |
+
+### XCFramework
+
+The `KmpCalendar.xcframework` is produced by the **root module** and re-exports Core via `export(project(":Core"))`.
+Apple consumers import `KmpCalendar` and access the SDK through:
+
+```swift
+import KmpCalendar
+
+let sdk = CalendarSDKProvider.shared.sdk
+sdk.accountManager.initAccount(...)
+sdk.calendarManager.observeCalendars(...)
+```
+
+### DI (Metro)
+
+- **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core's `AndroidDatabaseModule` and
+  `DatabaseModule` contribute bindings via `@ContributesTo`.
+- **Apple**: `CalendarSDK` (in root `appleMain`) is a self-contained `@DependencyGraph` providing database, DAOs,
+  and `CaldavClient` bindings. Accessed via `CalendarSDKProvider.shared.sdk`.
 
 ## Prerequisites
 
@@ -32,6 +78,25 @@ Kotlin/Swift  ←──UniFFI bindings──→  Rust lib.rs  →  fast-dav-rs (
 ```
 
 Rust compilation and binding generation are integrated into the Gradle build via the `dev.gobley.cargo` and `dev.gobley.uniffi` plugins. No separate build step is required — just run `./gradlew assembleDebug`.
+
+## Build Commands
+
+```bash
+# Build the KmpCalendar XCFramework (iOS/macOS)
+./gradlew assembleKmpCalendarReleaseXCFramework
+
+# Build & zip for iOS release (updates Package.swift checksums)
+./buildRelease <version>
+
+# Build Android library (debug)
+./gradlew assembleDebug
+
+# Run unit tests
+./gradlew :Core:allTests
+
+# Clean
+./gradlew clean
+```
 
 ## Contributing
 

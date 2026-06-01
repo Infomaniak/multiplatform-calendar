@@ -15,10 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-import co.touchlab.skie.configuration.DefaultArgumentInterop
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 
 plugins {
     alias(kmpCalendar.plugins.android.library)
@@ -27,17 +23,13 @@ plugins {
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
-    alias(kmpCalendar.plugins.skie)
 }
 
 kotlin {
     androidTarget()
-
-    val xcFrameworkName = "MultiplatformCore"
-    val xcf = project.XCFramework(xcFrameworkName)
-    iosArm64 { configXCFramework(xcf, xcFrameworkName) }
-    iosSimulatorArm64 { configXCFramework(xcf, xcFrameworkName) }
-    macosArm64 { configXCFramework(xcf, xcFrameworkName) }
+    iosArm64()
+    iosSimulatorArm64()
+    macosArm64()
 
     sourceSets {
         commonMain.dependencies {
@@ -49,14 +41,6 @@ kotlin {
         commonTest {
             dependencies {
                 implementation(kotlin("test"))
-            }
-        }
-        androidMain {
-            dependencies {
-            }
-        }
-        appleMain {
-            dependencies {
             }
         }
 
@@ -85,18 +69,6 @@ android {
     }
 }
 
-skie {
-    features {
-        group {
-            DefaultArgumentInterop.Enabled(true)
-            DefaultArgumentInterop.MaximumDefaultArgumentCount(7)
-        }
-    }
-    build {
-        produceDistributableFramework()
-    }
-}
-
 // Provide a consumable variant matching the "dev.gobley.kind = UNIFFI" attribute
 // so that the parent module's uniFfiConfiguration can resolve this project dependency.
 val kindAttribute = Attribute.of("dev.gobley.kind", String::class.java)
@@ -118,17 +90,5 @@ dependencies {
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
     tasks.named("compileKotlin$target") {
         dependsOn("kspKotlin$target")
-    }
-}
-
-
-
-fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName: String) {
-    binaries.framework {
-        baseName = xcFrameworkName
-        binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
-        xcf.add(this)
-        isStatic = true
-        linkerOpts.add("-lsqlite3")
     }
 }

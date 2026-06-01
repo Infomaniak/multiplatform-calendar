@@ -18,9 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow

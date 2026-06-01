@@ -18,8 +18,8 @@
 package com.infomaniak.multiplatform_calendar.di
 
 import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.di.AppScope
 import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
+import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
 

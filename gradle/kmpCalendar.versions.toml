@@ -29,6 +29,8 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
 skie = { id = "co.touchlab.skie", version.ref = "skie" }
 # Rust
-kotlin-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "atomicfu" }
+#kotlin-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "atomicfu" }
+gobley-rust = { id = "dev.gobley.rust", version.ref = "gobley" }
 gobley-cargo = { id = "dev.gobley.cargo", version.ref = "gobley" }
 gobley-uniffi = { id = "dev.gobley.uniffi", version.ref = "gobley" }
+kotlin-atomicfu = { id = "org.jetbrains.kotlin.plugin.atomicfu", version.ref = "kotlin" }

@@ -39,40 +39,47 @@ abstract class BootstrapRustTask @Inject constructor(
 
     @TaskAction
     fun bootstrap() {
+        val tools = resolveRustTools()
+
+        ensureRustTargets(
+            rustup = tools.rustup,
+            environment = tools.environment,
+            isLocal = tools.isLocal,
+        )
+
+        writeInstallation(
+            cargoExecutable = tools.cargo,
+            cargoBin = tools.cargo.parentFile,
+            isLocal = tools.isLocal,
+        )
+    }
+
+    private fun resolveRustTools(): ResolvedRustTools {
         if (preferSystemCargo.get()) {
             val systemCargo = findExistingTool("cargo")
+            val systemRustup = findExistingTool("rustup")
 
-            if (systemCargo != null) {
+            if (systemCargo != null && systemRustup != null) {
                 logger.lifecycle("Using existing cargo: ${systemCargo.absolutePath}")
+                logger.lifecycle("Using existing rustup: ${systemRustup.absolutePath}")
 
-                val systemRustup = findExistingTool("rustup")
-
-                ensureRustTargets(
+                return ResolvedRustTools(
+                    cargo = systemCargo,
                     rustup = systemRustup,
+                    isLocal = false,
                     environment = emptyMap(),
-                    isLocal = false,
                 )
-
-                writeInstallation(
-                    cargoExecutable = systemCargo,
-                    isLocal = false,
-                )
-
-                return
             }
         }
 
         val localCargo = installLocalRustIfNeeded()
+        val localRustup = localRustupFile()
 
-        ensureRustTargets(
-            rustup = localRustupFile(),
+        return ResolvedRustTools(
+            cargo = localCargo,
+            rustup = localRustup,
+            isLocal = true,
             environment = localRustEnvironment(),
-            isLocal = true,
-        )
-
-        writeInstallation(
-            cargoExecutable = localCargo,
-            isLocal = true,
         )
     }
 
@@ -107,7 +114,7 @@ abstract class BootstrapRustTask @Inject constructor(
             installer.setExecutable(true)
         }
 
-        logger.lifecycle("Installing local Rust toolchain '${toolchain.get()}'")
+        logger.lifecycle("Installing project-local Rust toolchain '${toolchain.get()}'")
 
         execOperations.exec {
             executable = installer.absolutePath
@@ -130,7 +137,7 @@ abstract class BootstrapRustTask @Inject constructor(
     }
 
     private fun ensureRustTargets(
-        rustup: File?,
+        rustup: File,
         environment: Map<String, String>,
         isLocal: Boolean,
     ) {
@@ -140,9 +147,9 @@ abstract class BootstrapRustTask @Inject constructor(
             return
         }
 
-        if (rustup == null || !canRun(rustup, environment, "--version")) {
+        if (!canRun(rustup, environment, "--version")) {
             logger.warn(
-                "Rust targets were requested but rustup was not found. " +
+                "Rust targets were requested but rustup cannot be executed. " +
                         "Targets will not be installed automatically: $targets",
             )
             return
@@ -159,23 +166,21 @@ abstract class BootstrapRustTask @Inject constructor(
             }
 
             args(targets)
-
             environment(environment)
         }
     }
 
     private fun writeInstallation(
         cargoExecutable: File,
+        cargoBin: File,
         isLocal: Boolean,
     ) {
         val output = installationFile.get().asFile
         output.parentFile.mkdirs()
 
-        val cargoBin = cargoExecutable.parentFile.absolutePath
-
         val properties = Properties().apply {
             setProperty("cargoExecutable", cargoExecutable.absolutePath)
-            setProperty("cargoBin", cargoBin)
+            setProperty("cargoBin", cargoBin.absolutePath)
             setProperty("local", isLocal.toString())
 
             if (isLocal) {
@@ -275,4 +280,11 @@ abstract class BootstrapRustTask @Inject constructor(
     private fun localRustupFile(): File {
         return File(localCargoBinDirectory(), exe("rustup"))
     }
+
+    private data class ResolvedRustTools(
+        val cargo: File,
+        val rustup: File,
+        val isLocal: Boolean,
+        val environment: Map<String, String>,
+    )
 }

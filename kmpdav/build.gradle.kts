@@ -1,3 +1,5 @@
+import com.infomaniak.multiplatform_calendar.plugins.rust.RustToolchainResolutionStrategy
+
 /*
  * Infomaniak Calendar - Multiplatform
  * Copyright (C) 2026 Infomaniak Network SA
@@ -18,9 +20,12 @@
 plugins {
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.android.kmp.library)
-    // alias(kmpCalendar.plugins.kotlin.atomicfu)
-    // alias(kmpCalendar.plugins.gobley.cargo)
-    // alias(kmpCalendar.plugins.gobley.uniffi)
+    id("infomaniak.rustToolchain")
+
+    alias(kmpCalendar.plugins.kotlin.atomicfu)
+    alias(kmpCalendar.plugins.gobley.rust)
+    alias(kmpCalendar.plugins.gobley.cargo)
+    alias(kmpCalendar.plugins.gobley.uniffi)
 }
 
 kotlin {
@@ -45,10 +50,45 @@ kotlin {
     }
 }
 
-// cargo {
-//     packageDirectory = layout.projectDirectory
-// }
+rustToolchain {
+    toolchain.set("stable")
+
+    /*
+     * Recommended mode:
+     *
+     * - During Gradle sync:
+     *   the shim can fall back to the system Cargo if the local toolchain has
+     *   not been bootstrapped yet.
+     *
+     * - During real builds:
+     *   bootstrapRust runs first, installs the project-local toolchain, then the
+     *   shim uses the local Cargo in .gradle/rust/cargo/bin.
+     */
+    resolutionStrategy.set(RustToolchainResolutionStrategy.LOCAL_THEN_SYSTEM)
+
+    installRustTargets.set(true)
+
+    androidAbis(
+        "arm64-v8a",
+        "x86_64",
+    )
+}
+
+cargo {
+    packageDirectory = layout.projectDirectory
+}
 
 // uniffi {
-//     packageName = "com.infomaniak.kmpdav.internal"
+// packageName = "com.infomaniak.multiplatform_calendar.kmpdav.internal"
 // }
+
+uniffi {
+    generateFromLibrary {
+        this.packageName = "com.infomaniak.multiplatform_calendar.kmpdav.internal"
+
+        // kotlinTargets.addAll(
+        //     "android",
+        //     "native",
+        // )
+    }
+}

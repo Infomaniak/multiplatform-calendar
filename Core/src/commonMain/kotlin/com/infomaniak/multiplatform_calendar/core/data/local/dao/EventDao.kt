@@ -21,12 +21,13 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface EventDao {
     @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
-    fun getByCalendarId(calendarId: Long): Flow<List<EventEntity>>
+    fun getByCalendarId(calendarId: CalendarId): Flow<List<EventEntity>>
 
     @Upsert
     suspend fun upsert(eventDao: List<EventEntity>)

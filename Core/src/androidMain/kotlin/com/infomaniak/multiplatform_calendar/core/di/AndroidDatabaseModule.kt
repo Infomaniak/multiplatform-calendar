@@ -37,6 +37,7 @@ interface AndroidDatabaseModule {
             klass = CalendarDatabase::class.java,
             name = context.getDatabasePath("calendar.db").absolutePath,
         ).setDriver(BundledSQLiteDriver())
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }
 }

@@ -24,6 +24,7 @@ import androidx.room.Update
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -35,8 +36,8 @@ interface CalendarDao {
     @Query("SELECT * FROM calendars WHERE accountId = :accountId")
     suspend fun getByAccountId(accountId: AccountId): List<CalendarEntity>
 
-    @Query("SELECT * FROM calendars WHERE accountId = :accountId AND url = :url LIMIT 1")
-    suspend fun findByRemoteId(accountId: AccountId, url: String): CalendarEntity?
+    @Query("SELECT * FROM calendars WHERE accountId = :accountId AND id = :id LIMIT 1")
+    suspend fun findById(accountId: AccountId, id: CalendarId): CalendarEntity?
 
     @Update
     suspend fun update(calendar: CalendarEntity)
@@ -47,10 +48,7 @@ interface CalendarDao {
     @Insert
     suspend fun insert(calendar: CalendarEntity)
 
-    @Query("DELETE FROM calendars WHERE id = :id")
-    suspend fun deleteById(id: Long)
-
-    @Query("DELETE FROM calendars WHERE accountId = :accountId AND url NOT IN (:urls)")
-    suspend fun deleteCalendarsNotExisting(accountId: AccountId, urls: List<String>)
+    @Query("DELETE FROM calendars WHERE accountId = :accountId AND id NOT IN (:ids)")
+    suspend fun deleteCalendarsNotExisting(accountId: AccountId, ids: List<CalendarId>)
 
 }

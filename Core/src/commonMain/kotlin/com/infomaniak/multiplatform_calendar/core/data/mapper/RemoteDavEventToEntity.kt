@@ -20,11 +20,13 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 
-internal fun RemoteDavEvent.toEntity(calendarId: Long) = EventEntity(
+internal fun RemoteDavEvent.toEntity(calendarId: CalendarId) = EventEntity(
+    id = EventId(url),
     calendarId = calendarId,
     summary = summary ?: "",
-    remoteUid = url,
     dtStart = parseICalDateTime(dtstart),
     dtEnd = parseICalDateTime(dtend),
     description = description,

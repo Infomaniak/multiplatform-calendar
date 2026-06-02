@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -53,10 +54,10 @@ class CalendarRepository(
     ) {
         val remoteCalendars = caldavClient.discoverCalendars(credentials).excludeScheduling()
         calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
-        remoteCalendars.map { it.url }.let { keepUrl ->
-            calendarDao.deleteCalendarsNotExisting(accountId, keepUrl)
+        remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
+            calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
             calendarDao.getByAccountId(accountId).forEach {
-                val remoteEvents = caldavClient.getEvents(credentials, it.url)
+                val remoteEvents = caldavClient.getEvents(credentials, it.id.url)
                 eventDao.upsert(remoteEvents.map { event -> event.toEntity(it.id) })
             }
         }

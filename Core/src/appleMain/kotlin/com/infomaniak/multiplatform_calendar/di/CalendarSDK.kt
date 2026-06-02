@@ -61,6 +61,7 @@ abstract class CalendarSDK : CalendarCoreGraph, CaldavClientModule {
         return Room.databaseBuilder<CalendarDatabase>(
             name = "$documentsPath/calendar.db",
         ).setDriver(BundledSQLiteDriver())
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }
 

@@ -21,6 +21,8 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import kotlinx.datetime.LocalDateTime
 
 
@@ -37,9 +39,8 @@ import kotlinx.datetime.LocalDateTime
     indices = [Index("calendarId"), Index("dtStart"), Index("dtEnd")],
 )
 data class EventEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val calendarId: Long,
-    val remoteUid: String,
+    @PrimaryKey val id: EventId,
+    val calendarId: CalendarId,
     val summary: String,
     val description: String? = null,
     val location: String? = null,

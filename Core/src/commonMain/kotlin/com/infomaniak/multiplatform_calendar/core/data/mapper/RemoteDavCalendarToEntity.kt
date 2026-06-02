@@ -21,10 +21,11 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 
 fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
+    id = CalendarId(url),
     accountId = accountId,
-    url = url,
     displayName = displayName,
     color = parseHexColor(color),
     caldavColor = parseHexColor(color),

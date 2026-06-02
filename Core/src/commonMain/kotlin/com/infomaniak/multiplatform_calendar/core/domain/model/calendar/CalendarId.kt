@@ -20,4 +20,4 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 import kotlin.jvm.JvmInline
 
 @JvmInline
-value class CalendarId(val value: Long)
+value class CalendarId(val url: String)

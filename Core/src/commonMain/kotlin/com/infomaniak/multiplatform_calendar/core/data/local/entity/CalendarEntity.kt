@@ -22,6 +22,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 
 
 @Entity(
@@ -37,9 +38,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountI
     indices = [Index("accountId")],
 )
 data class CalendarEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey val id: CalendarId,
     val accountId: AccountId,
-    val url: String,
     val displayName: String,
     val color: Long?,
     val caldavColor: Long? = null,

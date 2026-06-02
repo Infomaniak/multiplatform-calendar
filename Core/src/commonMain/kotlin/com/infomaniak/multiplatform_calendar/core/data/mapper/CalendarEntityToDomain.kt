@@ -19,17 +19,14 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
 
 fun CalendarEntity.toDomain() = Calendar(
-    id = CalendarId(id),
+    id = id,
     accountId = accountId,
-    remoteId = url,
     displayName = displayName,
     color = color?.let(Color::fromLong) ?: Color(red = 0x21, green = 0x96, blue = 0xF3, alpha = 0xFF),
     isVisible = isVisible,
-    url = url,
     readOnly = readOnly,
 )
 

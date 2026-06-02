@@ -1,5 +1,5 @@
 /*
- * Infomaniak Core - Android
+ * Infomaniak Calendar - Multiplatform
  * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,10 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 data class Calendar(
-    val id: CalendarId = CalendarId(0),
-    val accountId: AccountId = AccountId(0),
-    val remoteId: String,
+    val id: CalendarId,
+    val accountId: AccountId,
     val displayName: String,
     val color: Color,
     val isVisible: Boolean,
-    val url: String,
     val readOnly: Boolean = false,
 )

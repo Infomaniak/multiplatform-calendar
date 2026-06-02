@@ -27,7 +27,6 @@ import kotlin.time.Instant
 data class Event(
     val id: EventId,
     val calendarId: CalendarId,
-    val remoteUid: String,
     val title: String,
     val description: String? = null,
     val location: String? = null,

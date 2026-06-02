@@ -17,16 +17,17 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 
 fun RemoteCalendar.toEntity(accountId: AccountId) = CalendarEntity(
     accountId = accountId,
     url = url,
     displayName = displayName,
-    color = color,
-    caldavColor = color,
+    color = parseHexColor(color),
+    caldavColor = parseHexColor(color),
     ctag = ctag,
     readOnly = readOnly,
 )

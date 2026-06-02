@@ -27,7 +27,7 @@ fun CalendarEntity.toDomain() = Calendar(
     accountId = accountId,
     remoteId = url,
     displayName = displayName,
-    color = color ?: Color(red = 0x21, green = 0x96, blue = 0xF3, alpha = 0xFF),
+    color = color?.let(Color::fromLong) ?: Color(red = 0x21, green = 0x96, blue = 0xF3, alpha = 0xFF),
     isVisible = isVisible,
     url = url,
     readOnly = readOnly,

@@ -15,16 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.data.remote
+package com.infomaniak.multiplatform_calendar.caldav.data.remote
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavBridgeException
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEvent
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEventRef
-import com.infomaniak.multiplatform_calendar.data.remote.model.parseHexColor
-import com.infomaniak.multiplatform_calendar.data.remote.model.parseICalDateTime
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEvent
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEventRef
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
@@ -47,7 +43,7 @@ object RustCaldavBridge : CaldavClient {
                 RemoteCalendar(
                     url = entry.url,
                     displayName = entry.displayName,
-                    color = entry.color?.let(::parseHexColor),
+                    color = entry.color,
                     description = entry.description,
                     ctag = entry.ctag,
                 )
@@ -69,8 +65,8 @@ object RustCaldavBridge : CaldavClient {
                     summary = entry.summary,
                     description = entry.description,
                     location = entry.location,
-                    dtstart = entry.dtstart?.let(::parseICalDateTime),
-                    dtend = entry.dtend?.let(::parseICalDateTime),
+                    dtstart = entry.dtstart,
+                    dtend = entry.dtend,
                     rrule = entry.rrule,
                     status = entry.status,
                 )

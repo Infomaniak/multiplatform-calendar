@@ -21,9 +21,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
 
 
 @Entity(
@@ -43,18 +41,9 @@ data class CalendarEntity(
     val accountId: AccountId,
     val url: String,
     val displayName: String,
-    val color: Color?,
-    val caldavColor: Color? = null,
+    val color: Long?,
+    val caldavColor: Long? = null,
     val isVisible: Boolean = true,
     val ctag: String? = null,
     val readOnly: Boolean = false,
-) {
-    fun update(remote: RemoteCalendar): CalendarEntity = copy(
-        displayName = remote.displayName,
-        color = color ?: remote.color,
-        caldavColor = remote.color,
-        ctag = remote.ctag,
-        url = remote.url,
-        readOnly = remote.readOnly,
-    )
-}
+)

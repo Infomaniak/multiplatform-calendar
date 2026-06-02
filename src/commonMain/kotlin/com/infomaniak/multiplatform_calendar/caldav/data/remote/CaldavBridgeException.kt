@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026 Infomaniak Network SA
+ * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,17 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.di
+package com.infomaniak.multiplatform_calendar.caldav.data.remote
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.data.remote.RustCaldavBridge
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
+/** Exception raised when the Rust bridge reports an error. */
+class CaldavBridgeException(override val message: String) : RuntimeException(message)
 
-@ContributesTo(AppScope::class)
-interface CaldavClientModule {
-
-    @Provides
-    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
-}

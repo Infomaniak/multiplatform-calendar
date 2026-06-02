@@ -16,11 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import co.touchlab.skie.configuration.DefaultArgumentInterop
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
-
 plugins {
     alias(kmpCalendar.plugins.android.library)
     alias(kmpCalendar.plugins.gobley.cargo)
@@ -29,7 +24,6 @@ plugins {
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
-    alias(kmpCalendar.plugins.skie)
     kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
 }
 
@@ -40,12 +34,9 @@ kotlin {
     }
 
     androidTarget()
-
-    val xcFrameworkName = "KmpCalendar"
-    val xcf = project.XCFramework(xcFrameworkName)
-    iosArm64 { configXCFramework(xcf, xcFrameworkName) }
-    iosSimulatorArm64 { configXCFramework(xcf, xcFrameworkName) }
-    macosArm64 { configXCFramework(xcf, xcFrameworkName) }
+    iosArm64()
+    iosSimulatorArm64()
+    macosArm64()
 
     cargo {
         packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
@@ -54,7 +45,6 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                api(project(":Core"))
                 implementation(kmpCalendar.kotlinx.serialization)
                 implementation(kmpCalendar.kotlinx.datetime)
             }
@@ -79,18 +69,6 @@ android {
     }
 }
 
-skie {
-    features {
-        group {
-            DefaultArgumentInterop.Enabled(true)
-            DefaultArgumentInterop.MaximumDefaultArgumentCount(7)
-        }
-    }
-    build {
-        produceDistributableFramework()
-    }
-}
-
 // Ensure KSP tasks depend on UniFFI binding generation
 tasks.configureEach {
     if (name.startsWith("ksp") && name.contains("Kotlin")) {
@@ -100,18 +78,8 @@ tasks.configureEach {
 
 // Ensure native compilation runs after KSP (Metro code generation)
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
-    tasks.named("compileKotlin$target") {
+    tasks.matching { it.name == "compileKotlin$target" }.configureEach {
         dependsOn("kspKotlin$target")
     }
 }
 
-fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName: String) {
-    binaries.framework {
-        baseName = xcFrameworkName
-        binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
-        xcf.add(this)
-        isStatic = true
-        linkerOpts.add("-lsqlite3")
-        export(project(":Core"))
-    }
-}

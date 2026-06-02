@@ -19,12 +19,11 @@ package com.infomaniak.multiplatform_calendar.di
 
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.infomaniak.multiplatform_calendar.caldav.di.CaldavClientModule
 import com.infomaniak.multiplatform_calendar.core.AccountManager
 import com.infomaniak.multiplatform_calendar.core.CalendarManager
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
-import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
-import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
-import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
@@ -37,13 +36,16 @@ import platform.Foundation.NSUserDomainMask
 
 /**
  * Dependency graph for Apple (iOS / macOS) consumers.
- * Self-contained: provides database, DAOs, and CaldavClient bindings.
+ *
+ * Provides the Apple-specific [CalendarDatabase] binding. All other bindings
+ * (CaldavClient, DAOs, repositories, managers) are contributed automatically via
+ * `@ContributesTo(AppScope)` modules (`CaldavClientModule`, `DatabaseModule`, `CalendarCoreGraph`).
  */
 @DependencyGraph(scope = AppScope::class)
-abstract class CalendarSDK {
+abstract class CalendarSDK : CalendarCoreGraph, CaldavClientModule {
 
-    abstract val accountManager: AccountManager
-    abstract val calendarManager: CalendarManager
+    abstract override val accountManager: AccountManager
+    abstract override val calendarManager: CalendarManager
 
     @OptIn(ExperimentalForeignApi::class)
     @SingleIn(AppScope::class)
@@ -61,15 +63,6 @@ abstract class CalendarSDK {
         ).setDriver(BundledSQLiteDriver())
             .build()
     }
-
-    @Provides
-    fun provideAccountDao(database: CalendarDatabase): AccountDao = database.accountDao()
-
-    @Provides
-    fun provideCalendarDao(database: CalendarDatabase): CalendarDao = database.calendarDao()
-
-    @Provides
-    fun provideEventDao(database: CalendarDatabase): EventDao = database.eventDao()
 
     @DependencyGraph.Factory
     fun interface Factory {

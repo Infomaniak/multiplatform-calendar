@@ -17,15 +17,16 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEvent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEvent
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
 
 internal fun RemoteEvent.toEntity(calendarId: Long) = EventEntity(
     calendarId = calendarId,
     summary = summary ?: "",
     remoteUid = url,
-    dtStart = dtstart,
-    dtEnd = dtend,
+    dtStart = parseICalDateTime(dtstart),
+    dtEnd = parseICalDateTime(dtend),
     description = description,
     location = location,
     rrule = rrule,

@@ -15,26 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote.model
+package com.infomaniak.multiplatform_calendar.caldav.data.remote.model
 
-import kotlinx.datetime.LocalDateTime
-
-/** An event resource as returned by the CalDAV server, with parsed iCalendar fields. */
-data class RemoteEvent(
+/** Reference to a created/updated event on the server. */
+data class RemoteEventRef(
     val url: String,
     val etag: String,
-    /** Raw iCS data (needed for update/delete round-trips). */
-    val icsData: String,
-    /** Parsed VEVENT fields. */
-    val uid: String,
-    val summary: String?,
-    val description: String?,
-    val location: String?,
-    /** ISO 8601 date-time string (e.g. "20260526T100000Z"). */
-    val dtstart: LocalDateTime?,
-    /** ISO 8601 date-time string (e.g. "20260526T110000Z"). */
-    val dtend: LocalDateTime?,
-    val rrule: String?,
-    val status: String?,
 )
 

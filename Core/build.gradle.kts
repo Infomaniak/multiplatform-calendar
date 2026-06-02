@@ -16,6 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import co.touchlab.skie.configuration.DefaultArgumentInterop
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
+
 plugins {
     alias(kmpCalendar.plugins.android.library)
     alias(kmpCalendar.plugins.androidx.room)
@@ -23,6 +28,7 @@ plugins {
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
+    alias(kmpCalendar.plugins.skie)
 }
 
 kotlin {
@@ -31,8 +37,15 @@ kotlin {
     iosSimulatorArm64()
     macosArm64()
 
+    val xcFrameworkName = "KmpCalendar"
+    val xcf = project.XCFramework(xcFrameworkName)
+    iosArm64 { configXCFramework(xcf, xcFrameworkName) }
+    iosSimulatorArm64 { configXCFramework(xcf, xcFrameworkName) }
+    macosArm64 { configXCFramework(xcf, xcFrameworkName) }
+
     sourceSets {
         commonMain.dependencies {
+            api(project(":"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
@@ -80,6 +93,18 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+skie {
+    features {
+        group {
+            DefaultArgumentInterop.Enabled(true)
+            DefaultArgumentInterop.MaximumDefaultArgumentCount(7)
+        }
+    }
+    build {
+        produceDistributableFramework()
+    }
+}
+
 dependencies {
     add("kspAndroid", kmpCalendar.androidx.room.compiler)
     add("kspIosSimulatorArm64", kmpCalendar.androidx.room.compiler)
@@ -92,3 +117,15 @@ listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
         dependsOn("kspKotlin$target")
     }
 }
+
+fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName: String) {
+    binaries.framework {
+        baseName = xcFrameworkName
+        binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
+        xcf.add(this)
+        isStatic = true
+        linkerOpts.add("-lsqlite3")
+        export(project(":"))
+    }
+}
+

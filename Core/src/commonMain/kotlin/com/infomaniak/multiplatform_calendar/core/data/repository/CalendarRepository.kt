@@ -18,13 +18,13 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.CaldavClient
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import dev.zacsweers.metro.AppScope

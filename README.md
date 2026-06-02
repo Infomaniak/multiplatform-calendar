@@ -12,15 +12,16 @@
 
 ```
 multiplatform-calendar/
-├── Core/                       # KMP shared library (domain models, Room DB, repositories, managers)
-│   ├── src/commonMain/         # Cross-platform: models, DAOs, repositories, managers, DI modules
+├── Core/                       # Public KMP library (domain, Room DB, repositories, managers, Apple SDK)
+│   ├── src/commonMain/         # Cross-platform: domain, Room DB, repositories, DI graph contracts/mappers
 │   ├── src/androidMain/        # Android Room database provider (via Metro DI)
+│   ├── src/appleMain/          # CalendarSDK + CalendarSDKProvider (Apple public DI graph)
 │   └── src/commonTest/         # Shared unit tests
-├── src/                        # Root KMP module (Rust CalDAV bridge + Apple SDK entry point)
-│   ├── commonMain/             # RustCaldavBridge, CaldavClientModule, model extensions
-│   └── appleMain/              # CalendarSDK + CalendarSDKProvider (Apple DI graph)
+├── src/                        # Internal KMP bridge module (Rust/UniFFI + remote CalDAV layer)
+│   └── commonMain/             # RustCaldavBridge, CaldavClientModule, remote models, remote client interface
 ├── rust/caldav_bridge/         # Rust crate: CalDAV operations via fast-dav-rs + icalendar
-├── build.gradle.kts            # Root module build (Gobley/UniFFI, SKIE, Metro, XCFramework)
+├── build.gradle.kts            # Root module build (Gobley/UniFFI, Metro bridge module)
+├── Core/build.gradle.kts       # Public library build (SKIE, Metro, XCFramework)
 ├── buildRelease                # Script to build & zip KmpCalendar.xcframework for iOS/macOS release
 └── buildRust                   # Script for standalone Rust compilation (optional, Gradle handles it)
 ```
@@ -29,12 +30,12 @@ multiplatform-calendar/
 
 | Module   | Purpose                                                                                      |
 |----------|----------------------------------------------------------------------------------------------|
-| **Core** | Domain models, Room database, DAOs, repositories, `AccountManager`, `CalendarManager`, DI    |
-| **Root** | Rust/UniFFI CalDAV bridge (`RustCaldavBridge`), `CaldavClientModule`, Apple `CalendarSDK`    |
+| **Core** | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK` |
+| **Root** | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 
 ### XCFramework
 
-The `KmpCalendar.xcframework` is produced by the **root module** and re-exports Core via `export(project(":Core"))`.
+The `KmpCalendar.xcframework` is now produced by the **Core module** and exports the Root bridge module via `export(project(":"))`.
 Apple consumers import `KmpCalendar` and access the SDK through:
 
 ```swift
@@ -47,10 +48,11 @@ sdk.calendarManager.observeCalendars(...)
 
 ### DI (Metro)
 
-- **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core's `AndroidDatabaseModule` and
-  `DatabaseModule` contribute bindings via `@ContributesTo`.
-- **Apple**: `CalendarSDK` (in root `appleMain`) is a self-contained `@DependencyGraph` providing database, DAOs,
-  and `CaldavClient` bindings. Accessed via `CalendarSDKProvider.shared.sdk`.
+- **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core contributes shared graph accessors
+  (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The Root module contributes `CaldavClientModule`.
+- **Apple**: `CalendarSDK` (in `Core/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager`, and inherits Root's
+  `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via `CalendarSDKProvider.shared.sdk`.
 
 ## Prerequisites
 
@@ -83,9 +85,9 @@ Rust compilation and binding generation are integrated into the Gradle build via
 
 ```bash
 # Build the KmpCalendar XCFramework (iOS/macOS)
-./gradlew assembleKmpCalendarReleaseXCFramework
+./gradlew :Core:assembleKmpCalendarReleaseXCFramework
 
-# Build & zip for iOS release (updates Package.swift checksums)
+# Build & zip for iOS release (updates `Package.swift` checksums when the file exists)
 ./buildRelease <version>
 
 # Build Android library (debug)

@@ -44,21 +44,26 @@ function show_help {
 
 function release_ios {
     IOS_TAG=$1
+    XCFRAMEWORK_RELEASE_DIR="Core/build/XCFrameworks/release"
     echo "Releasing iOS version $1"
     echo "Deletes all old caches"
     ./gradlew clean
     rm -rf build # We delete to avoid caching problems
+    rm -rf Core/build # We delete to avoid caching problems
     rm -rf .gradle # We delete to avoid caching problems
     rm -rf release # The release folder contains the old archives
 
     # Build
     echo "Build all Modules for XCFrameworks"
-    ./gradlew assembleKmpCalendarReleaseXCFramework
+    ./gradlew :Core:assembleKmpCalendarReleaseXCFramework
 
     # Archive
     echo "Archive XCFramework to ${BOLD}release${BOLD_OFF} folder"
     mkdir -p release
-    zip -r release/KmpCalendar.xcframework.zip build/XCFrameworks/release/KmpCalendar.xcframework
+    (
+        cd "$XCFRAMEWORK_RELEASE_DIR" || exit 1
+        zip -r ../../../../release/KmpCalendar.xcframework.zip KmpCalendar.xcframework
+    )
 
     # Calculate checksums
     echo "Calculate modules checksums from release folder"
@@ -67,8 +72,12 @@ function release_ios {
     # Update Package.swift
     echo "${BOLD}Update Package.swift${BOLD_OFF}"
     MULTIPLATFORM_LIB_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$IOS_TAG/KmpCalendar.xcframework.zip"
-    # With the `sed` command the regex doesn't work, whereas with the `perl` command it does.
-    perl -0777 -pi -e "s|url: \".*KmpCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
+    if [ -f Package.swift ]; then
+        # With the `sed` command the regex doesn't work, whereas with the `perl` command it does.
+        perl -0777 -pi -e "s|url: \".*KmpCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
+    else
+        echo "Package.swift not found, skipping checksum update"
+    fi
 
     # Upload info
     echo -e "${GREEN}Check the${COLOR_OFF} ${GREEN_BOLD}release${COLOR_OFF} ${GREEN}folder to see if the archives are there, then you can upload them to a GitHub release.${COLOR_OFF}"

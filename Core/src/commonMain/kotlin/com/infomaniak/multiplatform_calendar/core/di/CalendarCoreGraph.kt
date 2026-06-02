@@ -1,0 +1,41 @@
+/*
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package com.infomaniak.multiplatform_calendar.core.di
+
+import com.infomaniak.multiplatform_calendar.core.AccountManager
+import com.infomaniak.multiplatform_calendar.core.CalendarManager
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesTo
+
+/**
+ * Shared contract for the Calendar dependency graph.
+ *
+ * Automatically merged as a supertype of any `@DependencyGraph(AppScope::class)`:
+ * - On Android: merged into the app's `AppGraph`
+ * - On Apple: merged into `CalendarSDK`
+ *
+ * Platform-specific graphs only need to provide the [android.content.Context] (Android)
+ * or the database path (Apple) — everything else is wired through `@Inject` classes
+ * and `@ContributesTo` modules (`DatabaseModule`, `AndroidDatabaseModule`, `CaldavClientModule`).
+ */
+@ContributesTo(AppScope::class)
+interface CalendarCoreGraph {
+    val accountManager: AccountManager
+    val calendarManager: CalendarManager
+}
+

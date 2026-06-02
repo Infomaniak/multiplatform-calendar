@@ -15,8 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote
+package com.infomaniak.multiplatform_calendar.caldav.data.remote.model
 
-/** Exception raised when the Rust bridge reports an error. */
-class CaldavBridgeException(override val message: String) : RuntimeException(message)
+data class RemoteCalendar(
+    val url: String,
+    val displayName: String,
+    val color: String? = null,
+    val description: String? = null,
+    val ctag: String? = null,
+    val readOnly: Boolean = false,
+)
 

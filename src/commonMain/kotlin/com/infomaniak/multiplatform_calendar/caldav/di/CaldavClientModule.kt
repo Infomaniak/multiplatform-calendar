@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,16 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote.model
+package com.infomaniak.multiplatform_calendar.caldav.di
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.CaldavClient
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.RustCaldavBridge
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.Provides
 
-data class RemoteCalendar(
-    val url: String,
-    val displayName: String,
-    val color: Color? = null,
-    val description: String? = null,
-    val ctag: String? = null,
-    val readOnly: Boolean = false,
-)
+@ContributesTo(AppScope::class)
+interface CaldavClientModule {
 
+    @Provides
+    fun provideCaldavClient(): CaldavClient = RustCaldavBridge
+}

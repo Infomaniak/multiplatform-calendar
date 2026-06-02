@@ -17,9 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject

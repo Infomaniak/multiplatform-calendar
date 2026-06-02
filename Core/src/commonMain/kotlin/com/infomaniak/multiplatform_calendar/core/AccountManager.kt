@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId

@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote
+package com.infomaniak.multiplatform_calendar.caldav.data.remote
 
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEvent
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.RemoteEventRef
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEvent
+import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEventRef
 
 /**
  * Remote CalDAV data source backed by the Rust `caldav_bridge` native library.

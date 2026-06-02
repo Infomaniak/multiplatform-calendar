@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.data.local
 
 import androidx.room.TypeConverter
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
 import kotlinx.datetime.LocalDateTime
 
 class CalendarTypeConverters {
@@ -28,11 +27,5 @@ class CalendarTypeConverters {
 
     @TypeConverter
     fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
-
-    @TypeConverter
-    fun fromColor(value: Color?): Long? = value?.toLong()
-
-    @TypeConverter
-    fun toColor(value: Long?): Color? = value?.let(Color::fromLong)
 }
 

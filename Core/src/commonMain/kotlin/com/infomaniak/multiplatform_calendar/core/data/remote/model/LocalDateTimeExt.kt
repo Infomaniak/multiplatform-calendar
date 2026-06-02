@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.data.remote.model
+package com.infomaniak.multiplatform_calendar.core.data.remote.model
 
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -24,23 +24,24 @@ import kotlinx.datetime.format.char
 import kotlinx.datetime.format.optional
 
 /**
- * Parses an iCalendar date or date-time string into [LocalDateTime].
+ * Parse une date ou date-heure iCalendar en [LocalDateTime].
  *
- * Supported formats (RFC 5545):
- * - Date only:        `20240108`            → 2024-01-08T00:00
- * - Compact datetime: `20300105T134500(Z)`  → 2030-01-05T13:45
- * - ISO 8601:         `2030-01-05T13:45:00` → as-is
+ * Formats supportés (RFC 5545) :
+ * - `20240108`
+ * - `20300105T134500Z`
+ * - `2030-01-05T13:45:00`
  */
-internal fun parseICalDateTime(value: String): LocalDateTime = when {
-    'T' in value && '-' !in value -> LocalDateTime.parse(value, ICAL_DATE_TIME)
-    'T' !in value && '-' !in value -> LocalDateTime(LocalDate.parse(value, ICAL_DATE), LocalTime(0, 0))
-    else -> LocalDateTime.parse(value)
+fun parseICalDateTime(value: String?): LocalDateTime? {
+    if (value == null) return null
+    return when {
+        'T' in value && '-' !in value -> LocalDateTime.parse(value, ICAL_DATE_TIME)
+        'T' !in value && '-' !in value -> LocalDateTime(LocalDate.parse(value, ICAL_DATE), LocalTime(0, 0))
+        else -> LocalDateTime.parse(value)
+    }
 }
 
-/** RFC 5545 compact date: `20240108` */
 private val ICAL_DATE = LocalDate.Format { year(); monthNumber(); day() }
 
-/** RFC 5545 compact date-time: `20300105T134500(Z)` */
 private val ICAL_DATE_TIME = LocalDateTime.Format {
     date(ICAL_DATE)
     char('T')

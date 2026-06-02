@@ -17,6 +17,17 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
-/** Exception raised when the Rust bridge reports an error. */
-class CaldavBridgeException(override val message: String) : RuntimeException(message)
+import uniffi.caldav_bridge.CaldavException
 
+/** Exception raised when the Rust bridge reports an error. */
+class CaldavBridgeException(
+    override val message: String,
+    override val cause: Throwable?,
+) : RuntimeException(message, cause) {
+    companion object {
+        fun CaldavException.toCaldavBridgeException(methodName: String) = CaldavBridgeException(
+            message = message ?: "Unknown error:$methodName",
+            cause = this,
+        )
+    }
+}

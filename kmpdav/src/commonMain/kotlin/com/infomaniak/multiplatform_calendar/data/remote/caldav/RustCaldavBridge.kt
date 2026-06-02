@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException.Companion.toCaldavBridgeException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -49,7 +50,7 @@ object RustCaldavBridge : CalendarSyncRemoteSource {
                 )
             }
         } catch (e: CaldavException) {
-            throw CaldavBridgeException(e.message ?: "Unknown error")
+            throw e.toCaldavBridgeException("discoverCalendars")
         }
     }
 
@@ -72,7 +73,7 @@ object RustCaldavBridge : CalendarSyncRemoteSource {
                 )
             }
         } catch (e: CaldavException) {
-            throw CaldavBridgeException(e.message ?: "Unknown error")
+            throw e.toCaldavBridgeException("getEvents")
         }
     }
 
@@ -84,7 +85,7 @@ object RustCaldavBridge : CalendarSyncRemoteSource {
                 etag = result.etag,
             )
         } catch (e: CaldavException) {
-            throw CaldavBridgeException(e.message ?: "Unknown error")
+            throw e.toCaldavBridgeException("createEvent")
         }
     }
 
@@ -101,7 +102,7 @@ object RustCaldavBridge : CalendarSyncRemoteSource {
                 etag = result.etag,
             )
         } catch (e: CaldavException) {
-            throw CaldavBridgeException(e.message ?: "Unknown error")
+            throw e.toCaldavBridgeException("updateEvent")
         }
     }
 
@@ -109,7 +110,7 @@ object RustCaldavBridge : CalendarSyncRemoteSource {
         try {
             rustDeleteEvent(credentials.baseUrl, credentials.username, credentials.password, eventUrl, etag)
         } catch (e: CaldavException) {
-            throw CaldavBridgeException(e.message ?: "Unknown error")
+            throw e.toCaldavBridgeException("deleteEvent")
         }
     }
 }

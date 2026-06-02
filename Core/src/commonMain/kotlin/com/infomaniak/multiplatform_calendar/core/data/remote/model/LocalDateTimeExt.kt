@@ -30,14 +30,19 @@ import kotlinx.datetime.format.optional
  * - `20240108`
  * - `20300105T134500Z`
  * - `2030-01-05T13:45:00`
+ *
+ * Tolérant aux pannes : retourne `null` si la valeur est absente ou non parsable
+ * (un événement malformé ne doit pas faire échouer toute la synchronisation).
  */
 fun parseICalDateTime(value: String?): LocalDateTime? {
     if (value == null) return null
-    return when {
-        'T' in value && '-' !in value -> LocalDateTime.parse(value, ICAL_DATE_TIME)
-        'T' !in value && '-' !in value -> LocalDateTime(LocalDate.parse(value, ICAL_DATE), LocalTime(0, 0))
-        else -> LocalDateTime.parse(value)
-    }
+    return runCatching {
+        when {
+            'T' in value && '-' !in value -> LocalDateTime.parse(value, ICAL_DATE_TIME)
+            'T' !in value && '-' !in value -> LocalDateTime(LocalDate.parse(value, ICAL_DATE), LocalTime(0, 0))
+            else -> LocalDateTime.parse(value)
+        }
+    }.getOrNull()
 }
 
 private val ICAL_DATE = LocalDate.Format { year(); monthNumber(); day() }

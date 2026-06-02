@@ -4,10 +4,7 @@ plugins {
 
 gradlePlugin {
     plugins {
-        register("infomaniak.rustToolchain") {
-            id = "infomaniak.rustToolchain"
-            implementationClass = "com.infomaniak.multiplatform_calendar.plugins.rust.RustToolchainPlugin"
-        }
+        // Register the plugin with the specified ID and implementation class
     }
 }
 

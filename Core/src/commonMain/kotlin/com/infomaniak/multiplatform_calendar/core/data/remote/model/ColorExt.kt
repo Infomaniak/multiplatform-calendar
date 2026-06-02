@@ -17,16 +17,16 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.remote.model
 
-/** Couleur CalDAV hexadécimale : `#RRGGBB` ou `#RRGGBBAA`, avec ou sans `#`. */
+/** Hexadecimal CalDAV color: `#RRGGBB` or `#RRGGBBAA`, with or without `#`. */
 private val HEX_COLOR_REGEX = Regex("^#?([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})?$")
 
 /**
- * Parse une couleur CalDAV hexadécimale (`#RRGGBBAA` ou `#RRGGBB`) en valeur ARGB [Long].
+ * Parse a hexadecimal CalDAV color (`#RRGGBBAA` or `#RRGGBB`) into an ARGB [Long] value.
  *
- * Retourne `null` si l'entrée est absente ou mal formée.
+ * Returns `null` if the input is missing or malformed.
  *
- * On garde une simple valeur [Long] côté remote/persistance : la conversion vers le modèle
- * domain `Color` se fait uniquement au passage BDD → domain via `Color.fromLong`.
+ * We keep a plain [Long] value on the remote/persistence side: the conversion to the domain
+ * model `Color` only happens when going from DB to domain via `Color.fromLong`.
  */
 fun parseHexColor(hex: String?): Long? {
     if (hex == null) return null

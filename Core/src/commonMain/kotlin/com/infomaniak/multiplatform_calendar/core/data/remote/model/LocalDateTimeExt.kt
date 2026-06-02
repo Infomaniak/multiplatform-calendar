@@ -24,15 +24,15 @@ import kotlinx.datetime.format.char
 import kotlinx.datetime.format.optional
 
 /**
- * Parse une date ou date-heure iCalendar en [LocalDateTime].
+ * Parse an iCalendar date or date-time into a [LocalDateTime].
  *
- * Formats supportés (RFC 5545) :
+ * Supported formats (RFC 5545):
  * - `20240108`
  * - `20300105T134500Z`
  * - `2030-01-05T13:45:00`
  *
- * Tolérant aux pannes : retourne `null` si la valeur est absente ou non parsable
- * (un événement malformé ne doit pas faire échouer toute la synchronisation).
+ * Fault-tolerant: returns `null` if the value is missing or unparsable
+ * (a malformed event must not fail the whole synchronization).
  */
 fun parseICalDateTime(value: String?): LocalDateTime? {
     if (value == null) return null

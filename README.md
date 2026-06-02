@@ -17,10 +17,11 @@ multiplatform-calendar/
 │   ├── src/androidMain/        # Android Room database provider (via Metro DI)
 │   ├── src/appleMain/          # CalendarSDK + CalendarSDKProvider (Apple public DI graph)
 │   └── src/commonTest/         # Shared unit tests
-├── src/                        # Internal KMP bridge module (Rust/UniFFI + remote CalDAV layer)
-│   └── commonMain/             # RustCaldavBridge, CaldavClientModule, remote models, remote client interface
-├── rust/caldav_bridge/         # Rust crate: CalDAV operations via fast-dav-rs + icalendar
-├── build.gradle.kts            # Root module build (Gobley/UniFFI, Metro bridge module)
+├── kmpdav/                     # Internal KMP bridge module (Rust/UniFFI + remote CalDAV layer)
+│   ├── src/commonMain/         # RustCaldavBridge, CaldavClientModule, remote models, remote client interface
+│   ├── rust/caldav_bridge/     # Rust crate: CalDAV operations via fast-dav-rs + icalendar
+│   └── build.gradle.kts        # Bridge module build (Gobley/UniFFI, Metro)
+├── build.gradle.kts            # Root aggregator (no sources)
 ├── Core/build.gradle.kts       # Public library build (SKIE, Metro, XCFramework)
 ├── buildRelease                # Script to build & zip KmpCalendar.xcframework for iOS/macOS release
 └── buildRust                   # Script for standalone Rust compilation (optional, Gradle handles it)
@@ -28,14 +29,14 @@ multiplatform-calendar/
 
 ### Modules
 
-| Module   | Purpose                                                                                      |
-|----------|----------------------------------------------------------------------------------------------|
-| **Core** | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK` |
-| **Root** | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
+| Module     | Purpose                                                                                        |
+|------------|------------------------------------------------------------------------------------------------|
+| **Core**   | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
+| **kmpdav** | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 
 ### XCFramework
 
-The `KmpCalendar.xcframework` is now produced by the **Core module** and exports the Root bridge module via `export(project(":"))`.
+The `KmpCalendar.xcframework` is produced by the **Core module** and exports the `:kmpdav` bridge module via `export(project(":kmpdav"))`.
 Apple consumers import `KmpCalendar` and access the SDK through:
 
 ```swift
@@ -49,9 +50,9 @@ sdk.calendarManager.observeCalendars(...)
 ### DI (Metro)
 
 - **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core contributes shared graph accessors
-  (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The Root module contributes `CaldavClientModule`.
+  (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The `:kmpdav` module contributes `CaldavClientModule`.
 - **Apple**: `CalendarSDK` (in `Core/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager`, and inherits Root's
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager`, and inherits `:kmpdav`'s
   `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via `CalendarSDKProvider.shared.sdk`.
 
 ## Prerequisites
@@ -70,7 +71,7 @@ Before you begin, ensure you have met the following requirements:
 
 ## Rust CalDAV Bridge
 
-The `rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events) via [fast-dav-rs](https://github.com/Goopil/fast-dav-rs).
+The `kmpdav/rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events) via [fast-dav-rs](https://github.com/Goopil/fast-dav-rs).
 iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate.
 
 The Rust → Kotlin/Swift bridge is handled automatically by [Gobley](https://github.com/aspect-build/gobley) + [UniFFI](https://mozilla.github.io/uniffi-rs/) — no manual JNI, cinterop, or JSON serialization needed.

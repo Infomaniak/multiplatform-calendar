@@ -15,11 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.kmpdav.models
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.di
 
-data class AddressBookCollection(
-    val href: String,
-    val displayName: String?,
-    val ctag: String?,
-    val supportsSync: Boolean,
-)
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustCaldavBridge
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.Provides
+
+@ContributesTo(AppScope::class)
+interface CaldavClientModule {
+
+    @Provides
+    fun provideCaldavClient(): CalendarSyncRemoteSource = RustCaldavBridge
+}

@@ -24,9 +24,9 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin \
 No manual build step required. The Gradle plugins `dev.gobley.cargo` and `dev.gobley.uniffi` handle everything:
 
 ```bash
-# From the android-calendar root:
-./gradlew :multiplatform-calendar:assembleDebug   # Android
-./gradlew :multiplatform-calendar:compileKotlinIosArm64   # iOS
+# From the multiplatform-calendar root:
+./gradlew :kmpdav:assembleDebug          # Android
+./gradlew :kmpdav:compileKotlinIosArm64  # iOS
 ```
 
 Gobley compiles the Rust crate for each KMP target and generates Kotlin/Swift bindings automatically.
@@ -36,7 +36,7 @@ Gobley compiles the Rust crate for each KMP target and generates Kotlin/Swift bi
 ```
 Kotlin/Swift (commonMain)
     │
-    ├── RustCaldavBridge : CaldavClient     ← our mapping layer (val, no backticks)
+    ├── RustCaldavBridge : CalendarSyncRemoteSource   ← our mapping layer (val, no backticks)
     │       │
     │       └── uniffi.caldav_bridge.*      ← auto-generated UniFFI bindings (expect/actual)
     │

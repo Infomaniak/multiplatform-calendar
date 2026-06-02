@@ -50,6 +50,7 @@ function release_ios {
     ./gradlew clean
     rm -rf build # We delete to avoid caching problems
     rm -rf Core/build # We delete to avoid caching problems
+    rm -rf kmpdav/build # We delete to avoid caching problems
     rm -rf .gradle # We delete to avoid caching problems
     rm -rf release # The release folder contains the old archives
 

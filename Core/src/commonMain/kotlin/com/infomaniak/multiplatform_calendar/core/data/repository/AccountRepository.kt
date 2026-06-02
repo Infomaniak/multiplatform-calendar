@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
@@ -31,13 +31,13 @@ class AccountRepository(
     private val accountDao: AccountDao,
 ) {
 
-    private val userCredentials: HashMap<AccountId, CaldavCredentials> = HashMap()
+    private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
 
-    fun getCredentials(accountId: AccountId): CaldavCredentials? {
+    fun getCredentials(accountId: AccountId): DavAccount? {
         return userCredentials[accountId]
     }
 
-    suspend fun storeCredentials(accountId: AccountId, credentials: CaldavCredentials) {
+    suspend fun storeCredentials(accountId: AccountId, credentials: DavAccount) {
         userCredentials[accountId] = credentials
         accountDao.insert(AccountEntity(id = accountId))
     }

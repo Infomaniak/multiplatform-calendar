@@ -15,9 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.kmpdav
+package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.kmpdav.models.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
 
-class KmpDavClient(account: DavAccount) {
-}
+fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
+    accountId = accountId,
+    url = url,
+    displayName = displayName,
+    color = parseHexColor(color),
+    caldavColor = parseHexColor(color),
+    ctag = ctag,
+    readOnly = readOnly,
+)

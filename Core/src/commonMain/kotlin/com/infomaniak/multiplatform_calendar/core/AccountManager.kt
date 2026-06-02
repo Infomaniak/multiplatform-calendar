@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core
 
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
@@ -32,7 +32,7 @@ class AccountManager(
     private val calendarRepository: CalendarRepository,
 ) {
 
-    suspend fun initAccount(accountId: AccountId, credentials: CaldavCredentials) {
+    suspend fun initAccount(accountId: AccountId, credentials: DavAccount) {
         accountRepository.storeCredentials(accountId, credentials)
     }
 

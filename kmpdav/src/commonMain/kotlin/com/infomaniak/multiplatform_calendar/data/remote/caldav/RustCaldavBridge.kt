@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.caldav.data.remote
+package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEvent
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
@@ -34,13 +34,13 @@ import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
  * Uses UniFFI-generated bindings to call Rust functions directly.
  * Returns typed records (data classes) — no opaque handles, no manual FFI.
  */
-object RustCaldavBridge : CaldavClient {
+object RustCaldavBridge : CalendarSyncRemoteSource {
 
-    override suspend fun discoverCalendars(credentials: CaldavCredentials): List<RemoteCalendar> {
+    override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> {
         try {
             val entries = discover(credentials.baseUrl, credentials.username, credentials.password)
             return entries.map { entry ->
-                RemoteCalendar(
+                RemoteDavCalendar(
                     url = entry.url,
                     displayName = entry.displayName,
                     color = entry.color,
@@ -53,11 +53,11 @@ object RustCaldavBridge : CaldavClient {
         }
     }
 
-    override suspend fun getEvents(credentials: CaldavCredentials, calendarUrl: String): List<RemoteEvent> {
+    override suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent> {
         try {
             val entries = fetchEvents(credentials.baseUrl, credentials.username, credentials.password, calendarUrl)
             return entries.map { entry ->
-                RemoteEvent(
+                RemoteDavEvent(
                     url = entry.url,
                     etag = entry.etag,
                     icsData = entry.icsData,
@@ -76,10 +76,10 @@ object RustCaldavBridge : CaldavClient {
         }
     }
 
-    override suspend fun createEvent(credentials: CaldavCredentials, calendarUrl: String, icsData: String): RemoteEventRef {
+    override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
         try {
             val result = rustCreateEvent(credentials.baseUrl, credentials.username, credentials.password, calendarUrl, icsData)
-            return RemoteEventRef(
+            return RemoteDavEventRef(
                 url = result.url,
                 etag = result.etag,
             )
@@ -89,14 +89,14 @@ object RustCaldavBridge : CaldavClient {
     }
 
     override suspend fun updateEvent(
-        credentials: CaldavCredentials,
+        credentials: DavAccount,
         eventUrl: String,
         etag: String,
         icsData: String,
-    ): RemoteEventRef {
+    ): RemoteDavEventRef {
         try {
             val result = rustUpdateEvent(credentials.baseUrl, credentials.username, credentials.password, eventUrl, etag, icsData)
-            return RemoteEventRef(
+            return RemoteDavEventRef(
                 url = result.url,
                 etag = result.etag,
             )
@@ -105,7 +105,7 @@ object RustCaldavBridge : CaldavClient {
         }
     }
 
-    override suspend fun deleteEvent(credentials: CaldavCredentials, eventUrl: String, etag: String) {
+    override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) {
         try {
             rustDeleteEvent(credentials.baseUrl, credentials.username, credentials.password, eventUrl, etag)
         } catch (e: CaldavException) {

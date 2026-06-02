@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026 Infomaniak Network SA
+ * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,12 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.kmpdav.models
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-data class CalendarCollection(
-    val href: String,
-    val displayName: String?,
-    val color: String?,
-    val ctag: String?,
-    val supportsSync: Boolean,
+data class RemoteDavCalendar(
+    val url: String,
+    val displayName: String,
+    val color: String? = null,
+    val description: String? = null,
+    val ctag: String? = null,
+    val readOnly: Boolean = false,
 )
+

@@ -18,9 +18,9 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.CaldavClient
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 @SingleIn(AppScope::class)
 @Inject
 class CalendarRepository(
-    private val caldavClient: CaldavClient,
+    private val caldavClient: CalendarSyncRemoteSource,
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
 ) {
@@ -49,7 +49,7 @@ class CalendarRepository(
 
     suspend fun syncCalendars(
         accountId: AccountId,
-        credentials: CaldavCredentials,
+        credentials: DavAccount,
     ) {
         val remoteCalendars = caldavClient.discoverCalendars(credentials).excludeScheduling()
         calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
@@ -62,7 +62,7 @@ class CalendarRepository(
         }
     }
 
-    private fun List<RemoteCalendar>.excludeScheduling() = filterNot { remote ->
+    private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)
         val url = remote.url.lowercase()
         url.contains("/inbox") || url.contains("/outbox")

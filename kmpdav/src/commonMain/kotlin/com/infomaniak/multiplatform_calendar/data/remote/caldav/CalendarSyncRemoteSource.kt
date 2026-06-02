@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.caldav.data.remote
+package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.CaldavCredentials
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEvent
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 
 /**
  * Remote CalDAV data source backed by the Rust `caldav_bridge` native library.
@@ -28,21 +28,21 @@ import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteEven
  * Every method talks to the server via `libdav` (Rust) over an FFI boundary.
  * The caller never sees JSON — it works with domain types directly.
  */
-interface CaldavClient {
+interface CalendarSyncRemoteSource {
 
     /** Discover all calendars for the given credentials. */
-    suspend fun discoverCalendars(credentials: CaldavCredentials): List<RemoteCalendar>
+    suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar>
 
     /** Fetch all events (iCalendar resources) inside a calendar. */
-    suspend fun getEvents(credentials: CaldavCredentials, calendarUrl: String): List<RemoteEvent>
+    suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent>
 
     /** Create a new event. Returns the server-assigned URL + etag. */
-    suspend fun createEvent(credentials: CaldavCredentials, calendarUrl: String, icsData: String): RemoteEventRef
+    suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef
 
     /** Update an existing event (identified by its URL + etag for conflict detection). */
-    suspend fun updateEvent(credentials: CaldavCredentials, eventUrl: String, etag: String, icsData: String): RemoteEventRef
+    suspend fun updateEvent(credentials: DavAccount, eventUrl: String, etag: String, icsData: String): RemoteDavEventRef
 
     /** Delete an event (identified by its URL + etag). */
-    suspend fun deleteEvent(credentials: CaldavCredentials, eventUrl: String, etag: String)
+    suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String)
 }
 

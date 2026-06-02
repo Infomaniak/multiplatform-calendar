@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026 Infomaniak Network SA
+ * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,19 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.mapper
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-import com.infomaniak.multiplatform_calendar.caldav.data.remote.model.RemoteCalendar
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
-
-fun RemoteCalendar.toEntity(accountId: AccountId) = CalendarEntity(
-    accountId = accountId,
-    url = url,
-    displayName = displayName,
-    color = parseHexColor(color),
-    caldavColor = parseHexColor(color),
-    ctag = ctag,
-    readOnly = readOnly,
+/** Credentials for CalDAV authentication. */
+data class DavAccount(
+    val baseUrl: String,
+    val username: String,
+    val password: String,
 )
+

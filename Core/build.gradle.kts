@@ -45,7 +45,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(project(":"))
+            api(project(":kmpdav"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
@@ -125,7 +125,7 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         xcf.add(this)
         isStatic = true
         linkerOpts.add("-lsqlite3")
-        export(project(":"))
+        export(project(":kmpdav"))
     }
 }
 

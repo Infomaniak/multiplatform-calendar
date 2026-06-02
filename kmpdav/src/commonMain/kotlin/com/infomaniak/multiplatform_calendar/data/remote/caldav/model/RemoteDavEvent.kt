@@ -15,14 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.caldav.data.remote.model
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-data class RemoteCalendar(
+/** An event resource as returned by the CalDAV server, with parsed iCalendar fields. */
+data class RemoteDavEvent(
     val url: String,
-    val displayName: String,
-    val color: String? = null,
-    val description: String? = null,
-    val ctag: String? = null,
-    val readOnly: Boolean = false,
+    val etag: String,
+    /** Raw iCS data (needed for update/delete round-trips). */
+    val icsData: String,
+    /** Parsed VEVENT fields. */
+    val uid: String,
+    val summary: String?,
+    val description: String?,
+    val location: String?,
+    /** Raw RFC 5545 date/date-time string (e.g. "20260526T100000Z"). */
+    val dtstart: String?,
+    /** Raw RFC 5545 date/date-time string (e.g. "20260526T110000Z"). */
+    val dtend: String?,
+    val rrule: String?,
+    val status: String?,
 )
 

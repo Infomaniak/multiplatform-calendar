@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_calendar.di
 
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.infomaniak.multiplatform_calendar.caldav.di.CaldavClientModule
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
 import com.infomaniak.multiplatform_calendar.core.AccountManager
 import com.infomaniak.multiplatform_calendar.core.CalendarManager
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
@@ -38,7 +38,7 @@ import platform.Foundation.NSUserDomainMask
  * Dependency graph for Apple (iOS / macOS) consumers.
  *
  * Provides the Apple-specific [CalendarDatabase] binding. All other bindings
- * (CaldavClient, DAOs, repositories, managers) are contributed automatically via
+ * (CalendarSyncRemoteSource, DAOs, repositories, managers) are contributed automatically via
  * `@ContributesTo(AppScope)` modules (`CaldavClientModule`, `DatabaseModule`, `CalendarCoreGraph`).
  */
 @DependencyGraph(scope = AppScope::class)

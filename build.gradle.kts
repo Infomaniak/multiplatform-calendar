@@ -16,70 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+// Root project is a pure aggregator. The actual modules live in subprojects:
+// - :Core   → public KMP library (domain, Room DB, repositories, managers, Apple SDK)
+// - :kmpdav → internal Rust/UniFFI CalDAV bridge module (remote CalDAV layer)
+//
+// Plugins are declared here with `apply false` so they are loaded in the root
+// classloader scope and shared across sibling subprojects. This avoids
+// "shared build service" conflicts (e.g. KotlinNativeBundleBuildService) that
+// occur when a plugin is applied only to sibling projects and not their parent.
 plugins {
-    alias(kmpCalendar.plugins.android.library)
-    alias(kmpCalendar.plugins.gobley.cargo)
-    alias(kmpCalendar.plugins.gobley.uniffi)
-    alias(kmpCalendar.plugins.kotlin.multiplatform)
-    alias(kmpCalendar.plugins.kotlin.serialization)
-    alias(kmpCalendar.plugins.ksp)
-    alias(kmpCalendar.plugins.metro)
-    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
-}
-
-kotlin {
-    compilerOptions {
-        freeCompilerArgs.add("-Xexpect-actual-classes")
-        freeCompilerArgs.add("-Xreturn-value-checker=full")
-    }
-
-    androidTarget()
-    iosArm64()
-    iosSimulatorArm64()
-    macosArm64()
-
-    cargo {
-        packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
-    }
-
-    sourceSets {
-        commonMain {
-            dependencies {
-                implementation(kmpCalendar.kotlinx.serialization)
-                implementation(kmpCalendar.kotlinx.datetime)
-            }
-        }
-        commonTest {
-            dependencies {
-                implementation(kotlin("test"))
-            }
-        }
-    }
-}
-
-android {
-    namespace = "com.infomaniak.multiplatform_calendar"
-    compileSdk = property("kmp.compileSdk").toString().toInt()
-    defaultConfig {
-        minSdk = property("kmp.minSdk").toString().toInt()
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-}
-
-// Ensure KSP tasks depend on UniFFI binding generation
-tasks.configureEach {
-    if (name.startsWith("ksp") && name.contains("Kotlin")) {
-        dependsOn(tasks.named("buildUniffiBindings"))
-    }
-}
-
-// Ensure native compilation runs after KSP (Metro code generation)
-listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
-    tasks.matching { it.name == "compileKotlin$target" }.configureEach {
-        dependsOn("kspKotlin$target")
-    }
+    alias(kmpCalendar.plugins.android.library) apply false
+    alias(kmpCalendar.plugins.androidx.room) apply false
+    alias(kmpCalendar.plugins.gobley.cargo) apply false
+    alias(kmpCalendar.plugins.gobley.uniffi) apply false
+    alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
+    alias(kmpCalendar.plugins.kotlin.serialization) apply false
+    alias(kmpCalendar.plugins.ksp) apply false
+    alias(kmpCalendar.plugins.metro) apply false
+    alias(kmpCalendar.plugins.skie) apply false
+    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin apply false
 }
 

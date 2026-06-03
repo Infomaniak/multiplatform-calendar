@@ -68,8 +68,17 @@ internal object RustCaldavBridge : CalendarSyncRemoteSource {
                     location = entry.location,
                     dtstart = entry.dtstart,
                     dtend = entry.dtend,
+                    created = entry.created,
+                    lastModified = entry.lastModified,
+                    dtstamp = entry.dtstamp,
                     rrule = entry.rrule,
                     status = entry.status,
+                    transp = entry.transp,
+                    classification = entry.classification,
+                    priority = entry.priority,
+                    sequence = entry.sequence,
+                    categories = entry.categories,
+                    organizer = entry.organizer,
                 )
             }
         } catch (e: CaldavException) {

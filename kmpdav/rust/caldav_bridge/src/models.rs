@@ -22,8 +22,17 @@ pub struct EventEntry {
     pub location: Option<String>,
     pub dtstart: Option<String>,
     pub dtend: Option<String>,
+    pub created: Option<String>,
+    pub last_modified: Option<String>,
+    pub dtstamp: Option<String>,
     pub rrule: Option<String>,
     pub status: Option<String>,
+    pub transp: Option<String>,
+    pub classification: Option<String>,
+    pub priority: Option<String>,
+    pub sequence: Option<String>,
+    pub categories: Option<String>,
+    pub organizer: Option<String>,
 }
 
 /// Reference to a created/updated event on the server (URL + etag).

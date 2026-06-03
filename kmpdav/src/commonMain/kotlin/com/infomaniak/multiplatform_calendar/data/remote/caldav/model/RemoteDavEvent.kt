@@ -32,7 +32,25 @@ data class RemoteDavEvent(
     val dtstart: String?,
     /** Raw RFC 5545 date/date-time string (e.g. "20260526T110000Z"). */
     val dtend: String?,
+    /** Raw RFC 5545 date-time string of the event creation. */
+    val created: String?,
+    /** Raw RFC 5545 date-time string of the last modification. */
+    val lastModified: String?,
+    /** Raw RFC 5545 date-time string of the instance creation in the calendar store. */
+    val dtstamp: String?,
     val rrule: String?,
     val status: String?,
+    /** Time transparency: `OPAQUE` or `TRANSPARENT`. */
+    val transp: String?,
+    /** Access classification: `PUBLIC`, `PRIVATE` or `CONFIDENTIAL` (iCal `CLASS`). */
+    val classification: String?,
+    /** Raw priority (0-9). */
+    val priority: String?,
+    /** Raw revision sequence number. */
+    val sequence: String?,
+    /** Comma-separated categories. */
+    val categories: String?,
+    /** Organizer (e.g. "mailto:user@example.com"). */
+    val organizer: String?,
 )
 

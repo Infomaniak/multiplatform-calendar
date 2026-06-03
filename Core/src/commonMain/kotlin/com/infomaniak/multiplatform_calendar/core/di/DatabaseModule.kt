@@ -18,15 +18,22 @@
 package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseProvider
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
 
 @ContributesTo(AppScope::class)
 interface DatabaseModule {
+
+    @SingleIn(AppScope::class)
+    @Provides
+    fun provideDatabase(databaseProvider: DatabaseProvider): CalendarDatabase = databaseProvider.getCalendarDatabase()
 
     @Provides
     fun provideAccountDao(database: CalendarDatabase): AccountDao = database.accountDao()

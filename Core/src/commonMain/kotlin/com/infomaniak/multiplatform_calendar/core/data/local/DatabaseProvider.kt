@@ -42,7 +42,7 @@ expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean, databaseName: String): RoomDatabase.Builder<CalendarDatabase>
 }
 
-fun DatabaseProvider.getAppDatabase(
+fun DatabaseProvider.getCalendarDatabase(
     driver: SQLiteDriver = BundledSQLiteDriver(),
     inMemory: Boolean = false,
 ): CalendarDatabase {

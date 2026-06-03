@@ -49,3 +49,10 @@ actual class DatabaseProvider {
         }
     }
 }
+
+/**
+ * Configuration for the database, containing the path where the database file should be stored.
+ *
+ * @param path The path where the database file should be stored, relative to the documents directory.
+ */
+value class DatabaseConfig(val path: String)

@@ -26,13 +26,13 @@ import dev.zacsweers.metro.SingleIn
 
 @SingleIn(AppScope::class)
 @Inject
-actual class DatabaseProvider(private val appContext: Context) {
-    actual fun getRoomDatabaseBuilder(inMemory: Boolean, databaseName: String): RoomDatabase.Builder<CalendarDatabase> {
+internal actual class DatabaseProvider(private val appContext: Context) {
+    actual fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase> {
         return when {
             inMemory -> Room.inMemoryDatabaseBuilder<CalendarDatabase>(appContext)
             else -> Room.databaseBuilder<CalendarDatabase>(
                 context = appContext,
-                name = appContext.getDatabasePath(databaseName).absolutePath,
+                name = appContext.getDatabasePath("calendar.db").absolutePath,
             )
         }
     }

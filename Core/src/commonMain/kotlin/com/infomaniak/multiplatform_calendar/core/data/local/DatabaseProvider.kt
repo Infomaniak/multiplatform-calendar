@@ -38,15 +38,15 @@ import kotlinx.coroutines.IO
 
 @SingleIn(AppScope::class)
 @Inject
-expect class DatabaseProvider {
-    fun getRoomDatabaseBuilder(inMemory: Boolean, databaseName: String): RoomDatabase.Builder<CalendarDatabase>
+internal expect class DatabaseProvider {
+    fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
 }
 
-fun DatabaseProvider.getCalendarDatabase(
+internal fun DatabaseProvider.getCalendarDatabase(
     driver: SQLiteDriver = BundledSQLiteDriver(),
     inMemory: Boolean = false,
 ): CalendarDatabase {
-    return getRoomDatabaseBuilder(inMemory, databaseName = "calendar.db")
+    return getRoomDatabaseBuilder(inMemory)
         .setDriver(driver)
         .setQueryCoroutineContext(Dispatchers.IO)
         .fallbackToDestructiveMigration(dropAllTables = true) //TODO: replace with proper migrations when the database schema is stable

@@ -20,10 +20,12 @@ package com.infomaniak.multiplatform_calendar.di
 import com.infomaniak.multiplatform_calendar.core.AccountManager
 import com.infomaniak.multiplatform_calendar.core.CalendarManager
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
+import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
 
 /**
@@ -41,7 +43,7 @@ abstract class CalendarSDK : CalendarCoreGraph, CaldavClientModule {
 
     @DependencyGraph.Factory
     fun interface Factory {
-        fun create(): CalendarSDK
+        fun create(@Provides databaseConfig: DatabaseConfig): CalendarSDK
     }
 }
 
@@ -56,9 +58,9 @@ abstract class CalendarSDK : CalendarCoreGraph, CaldavClientModule {
  * ```
  */
 object CalendarSDKProvider {
-    val sdk: CalendarSDK by lazy {
-        createGraphFactory<CalendarSDK.Factory>().create()
 
+    fun sdk(databasePath: String): CalendarSDK {
+        return createGraphFactory<CalendarSDK.Factory>().create(DatabaseConfig(path = databasePath))
     }
 }
 

@@ -23,28 +23,17 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSFileManager
-import platform.Foundation.NSUserDomainMask
 
 @SingleIn(scope = AppScope::class)
 @Inject
-actual class DatabaseProvider {
+internal actual class DatabaseProvider(private val databaseConfig: DatabaseConfig) {
 
     @OptIn(ExperimentalForeignApi::class)
-    actual fun getRoomDatabaseBuilder(inMemory: Boolean, databaseName: String): RoomDatabase.Builder<CalendarDatabase> {
-        val documentsPath = NSFileManager.defaultManager.URLForDirectory(
-            directory = NSDocumentDirectory,
-            inDomain = NSUserDomainMask,
-            appropriateForURL = null,
-            create = false,
-            error = null,
-        )?.path
+    actual fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase> {
         return when {
             inMemory -> Room.inMemoryDatabaseBuilder<CalendarDatabase>()
-            documentsPath == null -> throw IllegalStateException("Unable to get documents directory path")
             else -> Room.databaseBuilder<CalendarDatabase>(
-                name = "$documentsPath/$databaseName",
+                name = databaseConfig.path,
             )
         }
     }

@@ -20,6 +20,8 @@ package com.infomaniak.multiplatform_calendar.core
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -33,6 +35,10 @@ class CalendarManager private constructor(
 
     fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
         return calendarRepository.observeCalendars(accountId)
+    }
+
+    fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
+        return calendarRepository.observeEvents(calendarId)
     }
 }
 

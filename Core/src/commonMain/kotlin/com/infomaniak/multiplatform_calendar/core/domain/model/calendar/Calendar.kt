@@ -17,8 +17,14 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
+
+@OptIn(ExperimentalObjCRefinement::class)
 data class Calendar(
+    @HiddenFromObjC
     val id: CalendarId,
+    @HiddenFromObjC
     val accountId: AccountId,
     val displayName: String,
     val color: Color,

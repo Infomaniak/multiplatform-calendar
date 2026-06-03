@@ -27,8 +27,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
  * `calendar.id` / `event.id` unusable from Swift. These extensions surface the wrapped value while
  * keeping the value classes intact in common code and on Android.
  */
-val Calendar.idUrl: String get() = id.url
+val Calendar.idValue: String get() = id.url
 val Calendar.accountIdValue: Long get() = accountId.value
-val Event.idUrl: String get() = id.url
-val Event.calendarIdUrl: String get() = calendarId.url
+val Event.idValue: String get() = id.url
+val Event.calendarIdValue: String get() = calendarId.url
 

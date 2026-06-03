@@ -36,13 +36,13 @@ import dev.zacsweers.metro.createGraphFactory
  * `@ContributesTo(AppScope)` modules (`CaldavClientModule`, `DatabaseModule`, `CalendarCoreGraph`).
  */
 @DependencyGraph(scope = AppScope::class)
-abstract class CalendarSDK : CalendarCoreGraph, CaldavClientModule {
+abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavClientModule {
 
     abstract override val accountManager: AccountManager
     abstract override val calendarManager: CalendarManager
 
     @DependencyGraph.Factory
-    fun interface Factory {
+    internal fun interface Factory {
         fun create(@Provides databaseConfig: DatabaseConfig): CalendarSDK
     }
 }

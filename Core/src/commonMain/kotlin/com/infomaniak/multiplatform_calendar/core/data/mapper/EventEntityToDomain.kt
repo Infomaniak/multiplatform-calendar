@@ -19,28 +19,20 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
-fun EventEntity.toDomain(): Event {
-    val timeZone = TimeZone.currentSystemDefault()
-    // Attendees, organizer and recurrence rule are not persisted yet; they are left to defaults.
-    val start = dtStart?.toInstant(timeZone) ?: Instant.DISTANT_PAST
-    return Event(
-        id = id,
-        calendarId = calendarId,
-        title = summary,
-        description = description,
-        location = location,
-        start = start,
-        end = dtEnd?.toInstant(timeZone) ?: start,
-        isAllDay = isAllDay,
-        etag = etag,
-        rawIcs = rawIcs,
-        lastModified = lastModified?.toInstant(timeZone),
-        isSynced = isSynced,
-    )
-}
+fun EventEntity.toDomain() = Event(
+    id = id,
+    calendarId = calendarId,
+    title = summary,
+    description = description,
+    location = location,
+    start = dtStart,
+    end = dtEnd ?: dtStart,
+    isAllDay = isAllDay,
+    etag = etag,
+    rawIcs = rawIcs,
+    lastModified = lastModified,
+    isSynced = isSynced,
+)

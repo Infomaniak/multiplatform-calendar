@@ -22,8 +22,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
+import kotlinx.datetime.LocalDateTime
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class, ExperimentalObjCRefinement::class)
 data class Event(
@@ -36,13 +36,13 @@ data class Event(
     val location: String? = null,
     val status: String? = null,
     val categories: String? = null,
-    val start: Instant,
-    val end: Instant,
+    val start: LocalDateTime? = null,
+    val end: LocalDateTime? = null,
     val isAllDay: Boolean = false,
     val recurrenceRule: RecurrenceRule? = null,
     val etag: String? = null,
     val rawIcs: String? = null,
-    val lastModified: Instant? = null,
+    val lastModified: LocalDateTime? = null,
     val isSynced: Boolean = false,
     val attendees: List<Attendee> = emptyList(),
     val organizer: Attendee? = null,

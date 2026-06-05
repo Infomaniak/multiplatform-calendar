@@ -17,8 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.di
 
-import com.infomaniak.multiplatform_calendar.core.AccountManager
-import com.infomaniak.multiplatform_calendar.core.CalendarManager
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
@@ -36,10 +34,7 @@ import dev.zacsweers.metro.createGraphFactory
  * `@ContributesTo(AppScope)` modules (`CaldavClientModule`, `DatabaseModule`, `CalendarCoreGraph`).
  */
 @DependencyGraph(scope = AppScope::class)
-public abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavClientModule {
-
-    abstract override val accountManager: AccountManager
-    abstract override val calendarManager: CalendarManager
+internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavClientModule {
 
     @DependencyGraph.Factory
     internal fun interface Factory {
@@ -59,7 +54,7 @@ public abstract class CalendarSDK internal constructor() : CalendarCoreGraph, Ca
  */
 public object CalendarSDKProvider {
 
-    public fun sdk(databasePath: String): CalendarSDK {
+    public fun sdk(databasePath: String): CalendarCoreGraph {
         return createGraphFactory<CalendarSDK.Factory>().create(DatabaseConfig(path = databasePath))
     }
 }

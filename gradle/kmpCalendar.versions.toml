@@ -2,14 +2,15 @@
 # Keep this version synced with Core's agp version
 agp = "8.13.0" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
 datetime = "0.8.0"
+gobley = "0.3.7"
 kotlin = "2.2.0"
 ksp = "2.2.0-2.0.2"
+metro = "0.6.5"
 room = "2.8.4"
 skie = "0.10.11"
 serialization = "1.9.0"
 sqlite = "2.6.2"
 # Rust
-gobley = "0.3.7"
 atomicfu = "0.29.0"
 
 [libraries]
@@ -21,12 +22,13 @@ kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime",
 kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 
 [plugins]
-android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
 androidx-room = { id = "androidx.room", version.ref = "room" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
+metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 skie = { id = "co.touchlab.skie", version.ref = "skie" }
 # Rust
 kotlin-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "atomicfu" }

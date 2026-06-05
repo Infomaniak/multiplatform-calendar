@@ -1,80 +1,59 @@
+/*
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 import co.touchlab.skie.configuration.DefaultArgumentInterop
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 
 plugins {
-    alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.android.library)
     alias(kmpCalendar.plugins.androidx.room)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
+    alias(kmpCalendar.plugins.metro)
     alias(kmpCalendar.plugins.skie)
 }
 
 kotlin {
-    android {
-        compileSdk { version = release(36) }
-        namespace = "com.infomaniak.multiplatform_calendar.core"
-        minSdk = 27
+    androidTarget()
+    iosArm64()
+    iosSimulatorArm64()
+    macosArm64()
 
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
-        }
-        withHostTest {}
-    }
-
-    val xcframeworkName = "MultiplatformCore"
-    val xcf = project.XCFramework(xcframeworkName)
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64(),
-        macosArm64(),
-    ).forEach {
-        it.binaries.framework {
-            baseName = xcframeworkName
-            binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcframeworkName}")
-            xcf.add(this)
-            isStatic = true
-            linkerOpts.add("-lsqlite3")
-        }
-    }
+    val xcFrameworkName = "KmpCalendar"
+    val xcf = project.XCFramework(xcFrameworkName)
+    iosArm64 { configXCFramework(xcf, xcFrameworkName) }
+    iosSimulatorArm64 { configXCFramework(xcf, xcFrameworkName) }
+    macosArm64 { configXCFramework(xcf, xcFrameworkName) }
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":kmpdav"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
-        }
-    }
-
-    sourceSets {
-        commonMain {
-            dependencies {
-                // implementation(core.kotlinx.coroutines.core)
-                implementation(kmpCalendar.kotlinx.serialization)
-                implementation(kmpCalendar.kotlinx.datetime)
-                // implementation(core.kotlinx.serialization.cbor)
-                // implementation(core.ktor.client.core)
-                // implementation(core.ktor.client.content.negociation)
-                // implementation(core.ktor.client.json)
-                // implementation(core.ktor.client.encoding)
-                // implementation(core.okio)
-            }
+            implementation(kmpCalendar.kotlinx.serialization)
+            implementation(kmpCalendar.kotlinx.datetime)
         }
         commonTest {
             dependencies {
                 implementation(kotlin("test"))
-                // implementation(core.kotlinx.coroutines.test)
-                // implementation(core.ktor.client.mock)
-            }
-        }
-        androidMain {
-            dependencies {
-                // implementation(core.ktor.client.okhttp)
-                // implementation(core.splitties.appctx)
-            }
-        }
-        appleMain {
-            dependencies {
-                // implementation(core.ktor.client.darwin)
             }
         }
 
@@ -91,6 +70,29 @@ kotlin {
     }
 }
 
+android {
+    namespace = "com.infomaniak.multiplatform_calendar.core"
+    compileSdk = property("kmp.compileSdk").toString().toInt()
+    defaultConfig {
+        minSdk = property("kmp.minSdk").toString().toInt()
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+}
+
+// Provide a consumable variant matching the "dev.gobley.kind = UNIFFI" attribute
+// so that the parent module's uniFfiConfiguration can resolve this project dependency.
+val kindAttribute = Attribute.of("dev.gobley.kind", String::class.java)
+configurations.consumable("uniFfiConfigurationConsumable") {
+    attributes.attribute(kindAttribute, "UNIFFI")
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 skie {
     features {
         group {
@@ -101,10 +103,6 @@ skie {
     build {
         produceDistributableFramework()
     }
-}
-
-room {
-    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
@@ -119,3 +117,14 @@ listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
         dependsOn("kspKotlin$target")
     }
 }
+
+fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName: String) {
+    binaries.framework {
+        baseName = xcFrameworkName
+        binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
+        xcf.add(this)
+        isStatic = true
+        linkerOpts.add("-lsqlite3")
+    }
+}
+

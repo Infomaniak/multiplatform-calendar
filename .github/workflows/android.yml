@@ -19,9 +19,20 @@ jobs:
           token: ${{ github.token }}
           submodules: recursive
 
+      # Rust toolchain is required by the Gobley Cargo/UniFFI plugins (:kmpdav).
+      # Ensures `cargo` is on PATH for the Gradle process and the targets are installed.
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin
+
       # Setup Gradle and run Build
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
+
+      # Stop any stale Gradle daemon so the build picks up the updated PATH (incl. cargo).
+      - name: Stop stale Gradle daemons
+        run: ./gradlew --stop
 
       - name: Clean gradle cache
         run: ./gradlew clean
@@ -30,16 +41,9 @@ jobs:
         run: ./gradlew build
 
       # Run tests
-      - name: Run Unit tests
-        run: ./gradlew testAndroidHostTest --stacktrace
-
-      # Run tests
-      # We run each test independently instead of `allTests` because we have a concurrency problem on Realm
       - name: Run Android Unit tests
-        run: ./gradlew testAndroidHostTest --stacktrace
+        run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Run iOS Unit tests
         run: ./gradlew iosSimulatorArm64Test --stacktrace
 
-#      - name: Run Unit tests
-#        run: ./gradlew allTests --stacktrace

@@ -1,0 +1,21 @@
+[package]
+name = "caldav_bridge"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+fast-dav-rs = "0.4"
+bytes = "1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
+uuid = { version = "1", features = ["v4"] }
+uniffi = "0.29"
+thiserror = "2"
+icalendar = { version = "0.17.10", features = ["parser"] }
+
+[profile.release]
+lto = true
+opt-level = "s"
+strip = true

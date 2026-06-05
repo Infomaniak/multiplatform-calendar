@@ -44,31 +44,56 @@ function show_help {
 
 function release_ios {
     IOS_TAG=$1
+    XCFRAMEWORK_RELEASE_DIR="Core/build/XCFrameworks/release"
     echo "Releasing iOS version $1"
     echo "Deletes all old caches"
     ./gradlew clean
     rm -rf build # We delete to avoid caching problems
+    rm -rf Core/build # We delete to avoid caching problems
+    rm -rf kmpdav/build # We delete to avoid caching problems
     rm -rf .gradle # We delete to avoid caching problems
     rm -rf release # The release folder contains the old archives
 
     # Build
     echo "Build all Modules for XCFrameworks"
-    ./gradlew :Core:assembleMultiplatformCoreReleaseXCFramework
+    # `-PrustNativeRelease=true` forces the native Rust static lib to be compiled
+    # in release (~14 MB) instead of Gobley's default debug (~140 MB), which would
+    # otherwise bloat the "release" XCFramework (see kmpdav/build.gradle.kts).
+    ./gradlew :Core:assembleKmpCalendarReleaseXCFramework -PrustNativeRelease=true
+
+    # Strip debug info (DWARF) from each XCFramework slice.
+    # The framework is *static* (an unlinked `ar` archive), so both the Kotlin and
+    # Rust objects keep their DWARF (~30% of the size) that no released app needs.
+    # `strip -S` removes debug sections while keeping the global symbols required
+    # for linking; `ranlib` rebuilds the archive symbol table afterwards.
+    echo "Strip debug symbols from XCFramework slices"
+    find "$XCFRAMEWORK_RELEASE_DIR/KmpCalendar.xcframework" -type f -name 'KmpCalendar' | while read -r slice; do
+        echo "  stripping $slice"
+        strip -S "$slice"
+        ranlib "$slice" >/dev/null 2>&1 || true
+    done
 
     # Archive
     echo "Archive XCFramework to ${BOLD}release${BOLD_OFF} folder"
     mkdir -p release
-    zip -r release/MultiplatformCore.xcframework.zip Core/build/XCFrameworks/release/MultiplatformCore.xcframework
+    (
+        cd "$XCFRAMEWORK_RELEASE_DIR" || exit 1
+        zip -r ../../../../release/KmpCalendar.xcframework.zip KmpCalendar.xcframework
+    )
 
     # Calculate checksums
     echo "Calculate modules checksums from release folder"
-    MULTIPLATFORM_LIB_CHECKSUM=$(swift package compute-checksum release/MultiplatformCore.xcframework.zip)
+    MULTIPLATFORM_LIB_CHECKSUM=$(swift package compute-checksum release/KmpCalendar.xcframework.zip)
 
     # Update Package.swift
     echo "${BOLD}Update Package.swift${BOLD_OFF}"
-    MULTIPLATFORM_LIB_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$IOS_TAG/MultiplatformCore.xcframework.zip"
-    # With the `sed` command the regex doesn't work, whereas with the `perl` command it does.
-    perl -0777 -pi -e "s|url: \".*MultiplatformCore.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
+    MULTIPLATFORM_LIB_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$IOS_TAG/KmpCalendar.xcframework.zip"
+    if [ -f Package.swift ]; then
+        # With the `sed` command the regex doesn't work, whereas with the `perl` command it does.
+        perl -0777 -pi -e "s|url: \".*KmpCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
+    else
+        echo "Package.swift not found, skipping checksum update"
+    fi
 
     # Upload info
     echo -e "${GREEN}Check the${COLOR_OFF} ${GREEN_BOLD}release${COLOR_OFF} ${GREEN}folder to see if the archives are there, then you can upload them to a GitHub release.${COLOR_OFF}"

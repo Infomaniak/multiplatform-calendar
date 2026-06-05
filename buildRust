@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Build the Rust caldav_bridge crate for all KMP targets (standalone, outside Gradle).
+#
+# NOTE: In normal development, Gobley handles Rust compilation automatically
+# via `./gradlew assembleDebug`. This script is only useful for quick local
+# iteration on the Rust code without running the full Gradle build.
+#
+# Prerequisites:
+#   rustup target add aarch64-linux-android aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin
+
+set -euo pipefail
+cd "$(dirname "$0")/kmpdav/rust/caldav_bridge"
+
+CARGO_FLAGS=""
+TARGET_DIR="debug"
+if [[ "${1:-}" == "--release" ]]; then
+    CARGO_FLAGS="--release"
+    TARGET_DIR="release"
+fi
+
+echo "=== Building caldav_bridge ($TARGET_DIR) ==="
+
+echo ">> macOS arm64 (host)"
+cargo build $CARGO_FLAGS --target aarch64-apple-darwin
+
+echo ">> iOS arm64"
+cargo build $CARGO_FLAGS --target aarch64-apple-ios
+
+echo ">> iOS simulator arm64"
+cargo build $CARGO_FLAGS --target aarch64-apple-ios-sim
+
+echo ">> Android arm64-v8a"
+cargo build $CARGO_FLAGS --target aarch64-linux-android
+
+echo ""
+echo "=== Done ==="
+find target -path "*/$TARGET_DIR/libcaldav_bridge.*" -not -path "*/deps/*" 2>/dev/null | sort

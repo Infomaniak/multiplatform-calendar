@@ -16,11 +16,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+// Root project is a pure aggregator. The actual modules live in subprojects:
+// - :Core   → public KMP library (domain, Room DB, repositories, managers, Apple SDK)
+// - :kmpdav → internal Rust/UniFFI CalDAV bridge module (remote CalDAV layer)
+//
+// Plugins are declared here with `apply false` so they are loaded in the root
+// classloader scope and shared across sibling subprojects. This avoids
+// "shared build service" conflicts (e.g. KotlinNativeBundleBuildService) that
+// occur when a plugin is applied only to sibling projects and not their parent.
 plugins {
-    alias(kmpCalendar.plugins.android.kmp.library) apply false
+    alias(kmpCalendar.plugins.android.library) apply false
     alias(kmpCalendar.plugins.androidx.room) apply false
+    alias(kmpCalendar.plugins.gobley.cargo) apply false
+    alias(kmpCalendar.plugins.gobley.uniffi) apply false
     alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
     alias(kmpCalendar.plugins.kotlin.serialization) apply false
     alias(kmpCalendar.plugins.ksp) apply false
+    alias(kmpCalendar.plugins.metro) apply false
     alias(kmpCalendar.plugins.skie) apply false
+    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin apply false
 }
+

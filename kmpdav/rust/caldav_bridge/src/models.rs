@@ -1,0 +1,35 @@
+//! UniFFI records exposed to Kotlin as data classes.
+
+/// Calendar collection record returned by discovery.
+#[derive(uniffi::Record)]
+pub struct CalendarEntry {
+    pub url: String,
+    pub display_name: String,
+    pub color: Option<String>,
+    pub description: Option<String>,
+    pub ctag: Option<String>,
+}
+
+/// Event resource with parsed iCalendar fields.
+#[derive(uniffi::Record)]
+pub struct EventEntry {
+    pub url: String,
+    pub etag: String,
+    pub ics_data: String,
+    pub uid: String,
+    pub summary: Option<String>,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub dtstart: Option<String>,
+    pub dtend: Option<String>,
+    pub rrule: Option<String>,
+    pub status: Option<String>,
+}
+
+/// Reference to a created/updated event on the server (URL + etag).
+#[derive(uniffi::Record)]
+pub struct MutateResult {
+    pub url: String,
+    pub etag: String,
+}
+

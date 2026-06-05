@@ -16,39 +16,78 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 plugins {
+    alias(kmpCalendar.plugins.android.library)
+    alias(kmpCalendar.plugins.gobley.cargo)
+    alias(kmpCalendar.plugins.gobley.uniffi)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
-    alias(kmpCalendar.plugins.android.kmp.library)
-    // alias(kmpCalendar.plugins.kotlin.atomicfu)
-    // alias(kmpCalendar.plugins.gobley.cargo)
-    // alias(kmpCalendar.plugins.gobley.uniffi)
+    alias(kmpCalendar.plugins.kotlin.serialization)
+    alias(kmpCalendar.plugins.ksp)
+    alias(kmpCalendar.plugins.metro)
+    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
 }
 
 kotlin {
-    android {
-        compileSdk { version = release(36) }
-        namespace = "com.infomaniak.multiplatform_calendar.kmpdav"
-        minSdk = 27
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+        freeCompilerArgs.add("-Xreturn-value-checker=full")
     }
 
+    androidTarget()
     iosArm64()
     iosSimulatorArm64()
     macosArm64()
 
-    sourceSets {
-        commonMain.dependencies {
-            // Public API only depends on generated UniFFI bindings.
-        }
+    cargo {
+        packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
 
-        commonTest.dependencies {
-            implementation(kotlin("test"))
+        // Kotlin/Native embeds the Rust static lib at cinterop time, which is
+        // variant-agnostic (a single klib). Gobley defaults the native Rust build
+        // to `Debug`, so even `assembleKmpCalendarReleaseXCFramework` would link
+        // the huge (~140 MB) debug `.a` into the *release* XCFramework.
+        // Opt in (used by `buildRelease`) to compile the native Rust in release
+        // (~14 MB) without forcing slow/optimized Rust on day-to-day Apple builds.
+        if (providers.gradleProperty("rustNativeRelease").orNull.toBoolean()) {
+            nativeVariant = gobley.gradle.Variant.Release
+        }
+    }
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation(kmpCalendar.kotlinx.serialization)
+                implementation(kmpCalendar.kotlinx.datetime)
+            }
+        }
+        commonTest {
+            dependencies {
+                implementation(kotlin("test"))
+            }
         }
     }
 }
 
-// cargo {
-//     packageDirectory = layout.projectDirectory
-// }
+android {
+    namespace = "com.infomaniak.multiplatform_calendar"
+    compileSdk = property("kmp.compileSdk").toString().toInt()
+    defaultConfig {
+        minSdk = property("kmp.minSdk").toString().toInt()
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+}
 
-// uniffi {
-//     packageName = "com.infomaniak.kmpdav.internal"
-// }
+// Ensure KSP tasks depend on UniFFI binding generation
+tasks.configureEach {
+    if (name.startsWith("ksp") && name.contains("Kotlin")) {
+        dependsOn(tasks.named("buildUniffiBindings"))
+    }
+}
+
+// Ensure native compilation runs after KSP (Metro code generation)
+listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
+    tasks.matching { it.name == "compileKotlin$target" }.configureEach {
+        dependsOn("kspKotlin$target")
+    }
+}

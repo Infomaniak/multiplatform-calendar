@@ -39,6 +39,16 @@ kotlin {
 
     cargo {
         packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
+
+        // Kotlin/Native embeds the Rust static lib at cinterop time, which is
+        // variant-agnostic (a single klib). Gobley defaults the native Rust build
+        // to `Debug`, so even `assembleKmpCalendarReleaseXCFramework` would link
+        // the huge (~140 MB) debug `.a` into the *release* XCFramework.
+        // Opt in (used by `buildRelease`) to compile the native Rust in release
+        // (~14 MB) without forcing slow/optimized Rust on day-to-day Apple builds.
+        if (providers.gradleProperty("rustNativeRelease").orNull.toBoolean()) {
+            nativeVariant = gobley.gradle.Variant.Release
+        }
     }
 
     sourceSets {

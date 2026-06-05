@@ -31,22 +31,22 @@ import kotlinx.coroutines.invoke
 
 @SingleIn(AppScope::class)
 @Inject
-class AccountManager private constructor(
+public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
 ) {
 
-    suspend fun initAccount(accountId: AccountId, credentials: DavCredentials) = Dispatchers.IO {
+    public suspend fun initAccount(accountId: AccountId, credentials: DavCredentials) {
         accountRepository.storeCredentials(accountId, credentials.toRemote())
     }
 
-    suspend fun syncCalendars(accountId: AccountId) = Dispatchers.IO {
+    public suspend fun syncCalendars(accountId: AccountId) {
         accountRepository.getCredentials(accountId)?.let { credentials ->
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
         }
     }
 
-    suspend fun removeAccount(accountId: AccountId) = Dispatchers.IO {
+    public suspend fun removeAccount(accountId: AccountId) {
         accountRepository.removeCredentials(accountId)
     }
 }

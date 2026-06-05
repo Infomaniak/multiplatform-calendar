@@ -19,14 +19,14 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
+
+private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
 
 internal fun CalendarEntity.toDomain() = Calendar(
     id = id,
     accountId = accountId,
     displayName = displayName,
-    color = color?.let(CalendarColor::fromLong) ?: CalendarColor(red = 0x21, green = 0x96, blue = 0xF3, alpha = 0xFF),
+    color = color ?: DEFAULT_COLOR,
     isVisible = isVisible,
     accessLevel = accessLevel,
 )
-

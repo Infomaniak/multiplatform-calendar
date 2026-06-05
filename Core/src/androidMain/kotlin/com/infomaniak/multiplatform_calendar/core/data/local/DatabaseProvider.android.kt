@@ -15,30 +15,25 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.di
+package com.infomaniak.multiplatform_calendar.core.data.local
 
 import android.content.Context
 import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import androidx.room.RoomDatabase
 import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 
-@ContributesTo(AppScope::class)
-interface AndroidDatabaseModule {
-
-    @SingleIn(AppScope::class)
-    @Provides
-    fun provideDatabase(context: Context): CalendarDatabase {
-        return Room.databaseBuilder(
-            context = context.applicationContext,
-            klass = CalendarDatabase::class.java,
-            name = context.getDatabasePath("calendar.db").absolutePath,
-        ).setDriver(BundledSQLiteDriver())
-            .fallbackToDestructiveMigration(dropAllTables = true)
-            .build()
+@SingleIn(AppScope::class)
+@Inject
+internal actual class DatabaseProvider(private val appContext: Context) {
+    actual fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase> {
+        return when {
+            inMemory -> Room.inMemoryDatabaseBuilder<CalendarDatabase>(appContext)
+            else -> Room.databaseBuilder<CalendarDatabase>(
+                context = appContext,
+                name = appContext.getDatabasePath("calendar.db").absolutePath,
+            )
+        }
     }
 }
-

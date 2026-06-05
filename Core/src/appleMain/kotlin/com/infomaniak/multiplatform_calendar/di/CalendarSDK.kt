@@ -17,22 +17,16 @@
  */
 package com.infomaniak.multiplatform_calendar.di
 
-import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
 import com.infomaniak.multiplatform_calendar.core.AccountManager
 import com.infomaniak.multiplatform_calendar.core.CalendarManager
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.SingleIn
 import dev.zacsweers.metro.createGraphFactory
-import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSFileManager
-import platform.Foundation.NSUserDomainMask
 
 /**
  * Dependency graph for Apple (iOS / macOS) consumers.
@@ -42,32 +36,14 @@ import platform.Foundation.NSUserDomainMask
  * `@ContributesTo(AppScope)` modules (`CaldavClientModule`, `DatabaseModule`, `CalendarCoreGraph`).
  */
 @DependencyGraph(scope = AppScope::class)
-abstract class CalendarSDK : CalendarCoreGraph, CaldavClientModule {
+abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavClientModule {
 
     abstract override val accountManager: AccountManager
     abstract override val calendarManager: CalendarManager
 
-    @OptIn(ExperimentalForeignApi::class)
-    @SingleIn(AppScope::class)
-    @Provides
-    fun provideDatabase(): CalendarDatabase {
-        val documentsPath = NSFileManager.defaultManager.URLForDirectory(
-            directory = NSDocumentDirectory,
-            inDomain = NSUserDomainMask,
-            appropriateForURL = null,
-            create = false,
-            error = null,
-        )!!.path!!
-        return Room.databaseBuilder<CalendarDatabase>(
-            name = "$documentsPath/calendar.db",
-        ).setDriver(BundledSQLiteDriver())
-            .fallbackToDestructiveMigration(dropAllTables = true)
-            .build()
-    }
-
     @DependencyGraph.Factory
-    fun interface Factory {
-        fun create(): CalendarSDK
+    internal fun interface Factory {
+        fun create(@Provides databaseConfig: DatabaseConfig): CalendarSDK
     }
 }
 
@@ -76,14 +52,14 @@ abstract class CalendarSDK : CalendarCoreGraph, CaldavClientModule {
  *
  * Usage from Swift:
  * ```swift
- * let sdk = CalendarSDKProvider.shared.sdk
+ * let sdk = CalendarSDKProvider.shared.sdk(databasePath: "/path/to/calendar.db")
  * sdk.accountManager.initAccount(...)
  * sdk.calendarManager.observeCalendars(...)
  * ```
  */
 object CalendarSDKProvider {
-    val sdk: CalendarSDK by lazy {
-        createGraphFactory<CalendarSDK.Factory>().create()
+
+    fun sdk(databasePath: String): CalendarSDK {
+        return createGraphFactory<CalendarSDK.Factory>().create(DatabaseConfig(path = databasePath))
     }
 }
-

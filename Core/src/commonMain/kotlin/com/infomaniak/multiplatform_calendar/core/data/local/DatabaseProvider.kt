@@ -22,12 +22,36 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+
+@SingleIn(AppScope::class)
+@Inject
+internal expect class DatabaseProvider {
+    fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
+}
+
+internal fun DatabaseProvider.getCalendarDatabase(
+    driver: SQLiteDriver = BundledSQLiteDriver(),
+    inMemory: Boolean = false,
+): CalendarDatabase {
+    return getRoomDatabaseBuilder(inMemory)
+        .setDriver(driver)
+        .setQueryCoroutineContext(Dispatchers.IO)
+        .fallbackToDestructiveMigration(dropAllTables = true) //TODO: replace with proper migrations when the database schema is stable
+        .build()
+}
 
 @Database(
     entities = [AccountEntity::class, CalendarEntity::class, EventEntity::class],
@@ -42,7 +66,7 @@ internal abstract class CalendarDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
 }
 
-@Suppress("NO_ACTUAL_FOR_EXPECT")
+@Suppress("KotlinNoActualForExpect")
 internal expect object CalendarDatabaseConstructor : RoomDatabaseConstructor<CalendarDatabase> {
     override fun initialize(): CalendarDatabase
 }

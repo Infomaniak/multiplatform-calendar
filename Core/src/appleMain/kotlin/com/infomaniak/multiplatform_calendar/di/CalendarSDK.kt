@@ -36,7 +36,7 @@ import dev.zacsweers.metro.createGraphFactory
  * `@ContributesTo(AppScope)` modules (`CaldavClientModule`, `DatabaseModule`, `CalendarCoreGraph`).
  */
 @DependencyGraph(scope = AppScope::class)
-abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavClientModule {
+public abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavClientModule {
 
     abstract override val accountManager: AccountManager
     abstract override val calendarManager: CalendarManager
@@ -57,9 +57,9 @@ abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavCli
  * sdk.calendarManager.observeCalendars(...)
  * ```
  */
-object CalendarSDKProvider {
+public object CalendarSDKProvider {
 
-    fun sdk(databasePath: String): CalendarSDK {
+    public fun sdk(databasePath: String): CalendarSDK {
         return createGraphFactory<CalendarSDK.Factory>().create(DatabaseConfig(path = databasePath))
     }
 }

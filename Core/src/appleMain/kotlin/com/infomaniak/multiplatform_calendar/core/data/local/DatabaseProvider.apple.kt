@@ -42,6 +42,6 @@ internal actual class DatabaseProvider(private val databaseConfig: DatabaseConfi
 /**
  * Configuration for the database, containing the path where the database file should be stored.
  *
- * @param path The path where the database file should be stored, relative to the documents directory.
+ * @param path Absolute path (including filename) where the database file should be stored.
  */
 internal value class DatabaseConfig(val path: String)

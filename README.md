@@ -36,7 +36,12 @@ multiplatform-calendar/
 
 ### XCFramework
 
-The `KmpCalendar.xcframework` is produced by the **Core module** and exports the `:kmpdav` bridge module via `export(project(":kmpdav"))`.
+The `KmpCalendar.xcframework` is produced by the **Core module**. `:kmpdav` is a plain `implementation` dependency
+(not exported): the public Apple API only exposes Core-owned types — e.g. credentials are passed as the Core
+`DavCredentials` (mapped to the internal `:kmpdav` `DavAccount` at the repository boundary). The only `:kmpdav` symbol
+left in the generated header is an **empty** `CaldavClientModule` marker protocol that `CalendarSDK` must conform to for
+DI (see the DI note below); no `:kmpdav` data type is exposed.
+
 Apple consumers import `KmpCalendar` and access the SDK through:
 
 ```swift
@@ -72,7 +77,8 @@ Before you begin, ensure you have met the following requirements:
 ## Rust CalDAV Bridge
 
 The `kmpdav/rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events) via [fast-dav-rs](https://github.com/Goopil/fast-dav-rs).
-iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate.
+iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate, and extra WebDAV
+collection properties (privileges, owner, color) via [roxmltree](https://docs.rs/roxmltree) (see *Extra CalDAV properties* below).
 
 The Rust → Kotlin/Swift bridge is handled automatically by [Gobley](https://github.com/aspect-build/gobley) + [UniFFI](https://mozilla.github.io/uniffi-rs/) — no manual JNI, cinterop, or JSON serialization needed.
 
@@ -82,11 +88,67 @@ Kotlin/Swift  ←──UniFFI bindings──→  Rust lib.rs  →  fast-dav-rs (
 
 Rust compilation and binding generation are integrated into the Gradle build via the `dev.gobley.cargo` and `dev.gobley.uniffi` plugins. No separate build step is required — just run `./gradlew assembleDebug`.
 
+### Extra CalDAV properties
+
+`fast-dav-rs` only surfaces a fixed subset of collection properties. When we need others — the `current-user-privilege-set`
+(RFC 3744, mapped to a `CalendarAccessLevel`), the `DAV:owner`, or the Apple `calendar-color` — the crate issues its own
+`Depth: 1` PROPFIND and parses the multistatus with [roxmltree](https://docs.rs/roxmltree) (see `rust/caldav_bridge/src/props.rs`).
+Parsing matches on **local names** so it is agnostic to the server's namespace prefix, and is **best-effort**: a missing or
+unsupported property never breaks calendar discovery. To fetch a new property, add it to `PROPS_BODY` and to `CollectionProps`.
+
+### Rust build profiles & binary size
+
+The Rust artifacts are **huge in debug and small in release** — always compare like-for-like:
+
+| Artifact                        | Debug      | Release       |
+|---------------------------------|------------|---------------|
+| Android `.so` (per ABI, shipped)| ~66–77 MB  | **~4.8 MB**   |
+| Apple `.a` (per slice)          | ~140 MB    | **~14 MB**    |
+
+The `.a` static archive is **never shipped**: only the linked, stripped `.so` (Android) or the framework binary (Apple) goes
+into the app. The release profile (`lto`, `opt-level = "s"`, `strip`) is configured in `rust/caldav_bridge/Cargo.toml`.
+
+> ⚠️ Do **not** set `panic = "abort"`: UniFFI relies on catching Rust panics to convert them into FFI errors; aborting would
+> crash the app instead.
+
+**Profile selection per consumer (Gobley):**
+
+- **Android** — follows the AGP build type automatically: `assembleDebug` → Rust `dev` profile, `assembleRelease` /
+  `bundleRelease` → Rust `release` profile. Nothing to configure.
+- **Apple / Kotlin-Native** — ⚠️ **gotcha**: the Rust static lib is embedded at **cinterop** time, which is *variant-agnostic*
+  (a single klib), and Gobley defaults the native build to **`Debug`**. So `assembleKmpCalendarReleaseXCFramework` would
+  otherwise link the ~140 MB **debug** `.a` into the *release* XCFramework (a ~250 MB zip). To force a release native Rust
+  build, pass `-PrustNativeRelease=true` (already wired into `buildRelease`):
+
+  ```bash
+  ./gradlew :Core:assembleKmpCalendarReleaseXCFramework -PrustNativeRelease=true
+  ```
+
+  This is opt-in so day-to-day Apple builds keep a debug Rust (faster rebuilds, native debug symbols).
+
+  **Static framework keeps DWARF** — the Apple framework is *static* (`isStatic = true`), i.e. an unlinked `ar` archive, so
+  both the Kotlin and Rust objects keep their debug info (`__DWARF`) even in release (Cargo's `strip` only applies to *linked*
+  binaries like the Android `.so`, not to static `.a`). That is ~30% of dead weight per slice (e.g. iosArm64: 31 MB → 22 MB).
+  `buildRelease` therefore runs `strip -S` (+ `ranlib`) on each XCFramework slice before zipping; `strip -S` removes the debug
+  sections while keeping the global symbols required for linking.
+
+**Build the app in debug but Rust in release** (small/optimized native lib in a debug app): repoint the `debug` Cargo
+variant to the `release` profile in `kmpdav/build.gradle.kts`:
+
+```kotlin
+import gobley.gradle.cargo.profiles.CargoProfile
+
+cargo {
+    packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
+    debug.profile = CargoProfile.Release
+}
+```
+
 ## Build Commands
 
 ```bash
-# Build the KmpCalendar XCFramework (iOS/macOS)
-./gradlew :Core:assembleKmpCalendarReleaseXCFramework
+# Build the KmpCalendar XCFramework (iOS/macOS) — release Rust (see "Rust build profiles")
+./gradlew :Core:assembleKmpCalendarReleaseXCFramework -PrustNativeRelease=true
 
 # Build & zip for iOS release (updates `Package.swift` checksums when the file exists)
 ./buildRelease <version>

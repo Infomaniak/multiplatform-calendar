@@ -18,7 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.Flow
 
 @SingleIn(AppScope::class)
 @Inject
-class CalendarManager(
+class CalendarManager private constructor(
     private val calendarRepository: CalendarRepository,
 ) {
 

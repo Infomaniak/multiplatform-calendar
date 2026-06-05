@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,19 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.data.remote.caldav
+package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import uniffi.caldav_bridge.CaldavException
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 
-/** Exception raised when the Rust bridge reports an error. */
-internal class CaldavBridgeException(
-    override val message: String,
-    override val cause: Throwable?,
-) : RuntimeException(message, cause) {
-    companion object {
-        fun CaldavException.toCaldavBridgeException(methodName: String) = CaldavBridgeException(
-            message = message ?: "Unknown error:$methodName",
-            cause = this,
-        )
-    }
-}
+/** Map the public Core credentials to the internal `:kmpdav` CalDAV account. */
+internal fun DavCredentials.toRemote() = DavAccount(
+    baseUrl = baseUrl,
+    username = username,
+    password = password,
+)
+

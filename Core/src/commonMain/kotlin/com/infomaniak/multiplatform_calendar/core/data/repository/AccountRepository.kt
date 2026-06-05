@@ -17,17 +17,17 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 
 @SingleIn(AppScope::class)
 @Inject
-class AccountRepository(
+internal class AccountRepository(
     private val accountDao: AccountDao,
 ) {
 

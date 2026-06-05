@@ -21,7 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEnti
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Color
 
-fun CalendarEntity.toDomain() = Calendar(
+internal fun CalendarEntity.toDomain() = Calendar(
     id = id,
     accountId = accountId,
     displayName = displayName,

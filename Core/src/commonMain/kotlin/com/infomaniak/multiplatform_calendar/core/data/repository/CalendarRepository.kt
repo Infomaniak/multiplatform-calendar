@@ -18,16 +18,16 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 
 @SingleIn(AppScope::class)
 @Inject
-class CalendarRepository(
+internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,

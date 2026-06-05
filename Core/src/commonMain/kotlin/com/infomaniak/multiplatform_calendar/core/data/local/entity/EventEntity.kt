@@ -38,7 +38,7 @@ import kotlinx.datetime.LocalDateTime
     ],
     indices = [Index("calendarId"), Index("dtStart"), Index("dtEnd")],
 )
-data class EventEntity(
+internal data class EventEntity(
     @PrimaryKey val id: EventId,
     val calendarId: CalendarId,
     val summary: String,

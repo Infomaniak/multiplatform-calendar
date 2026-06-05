@@ -35,7 +35,7 @@ import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
  * Uses UniFFI-generated bindings to call Rust functions directly.
  * Returns typed records (data classes) — no opaque handles, no manual FFI.
  */
-object RustCaldavBridge : CalendarSyncRemoteSource {
+internal object RustCaldavBridge : CalendarSyncRemoteSource {
 
     override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> {
         try {

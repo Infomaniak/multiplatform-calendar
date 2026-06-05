@@ -36,14 +36,14 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 )
 @TypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
-abstract class CalendarDatabase : RoomDatabase() {
+internal abstract class CalendarDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")
-expect object CalendarDatabaseConstructor : RoomDatabaseConstructor<CalendarDatabase> {
+internal expect object CalendarDatabaseConstructor : RoomDatabaseConstructor<CalendarDatabase> {
     override fun initialize(): CalendarDatabase
 }
 

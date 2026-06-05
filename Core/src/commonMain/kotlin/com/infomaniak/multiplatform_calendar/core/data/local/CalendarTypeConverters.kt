@@ -20,7 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local
 import androidx.room.TypeConverter
 import kotlinx.datetime.LocalDateTime
 
-class CalendarTypeConverters {
+internal class CalendarTypeConverters {
 
     @TypeConverter
     fun fromLocalDateTime(value: LocalDateTime?): String? = value?.toString()

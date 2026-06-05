@@ -25,7 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface EventDao {
+internal interface EventDao {
     @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
     fun getByCalendarId(calendarId: CalendarId): Flow<List<EventEntity>>
 

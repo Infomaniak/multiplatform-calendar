@@ -17,23 +17,24 @@
  */
 package com.infomaniak.multiplatform_calendar.core
 
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 
 @SingleIn(AppScope::class)
 @Inject
-class AccountManager(
+class AccountManager private constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
 ) {
 
-    suspend fun initAccount(accountId: AccountId, credentials: DavAccount) {
-        accountRepository.storeCredentials(accountId, credentials)
+    suspend fun initAccount(accountId: AccountId, credentials: DavCredentials) {
+        accountRepository.storeCredentials(accountId, credentials.toRemote())
     }
 
     suspend fun syncCalendars(accountId: AccountId) {

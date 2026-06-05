@@ -23,11 +23,11 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface AccountDao {
+internal interface AccountDao {
 
     @Query("SELECT * FROM calendars WHERE accountId = :accountId ORDER BY displayName ASC")
     fun getByAccountId(accountId: Long): Flow<List<CalendarEntity>>

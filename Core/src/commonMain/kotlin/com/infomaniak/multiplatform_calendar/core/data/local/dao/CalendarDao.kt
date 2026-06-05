@@ -23,12 +23,12 @@ import androidx.room.Query
 import androidx.room.Update
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface CalendarDao {
+internal interface CalendarDao {
 
     @Query("SELECT * FROM calendars WHERE accountId = :accountId")
     fun observeByAccountId(accountId: AccountId): Flow<List<CalendarEntity>>

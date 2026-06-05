@@ -28,7 +28,7 @@ private val HEX_COLOR_REGEX = Regex("^#?([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-F
  * We keep a plain [Long] value on the remote/persistence side: the conversion to the domain
  * model `Color` only happens when going from DB to domain via `Color.fromLong`.
  */
-fun parseHexColor(hex: String?): Long? {
+internal fun parseHexColor(hex: String?): Long? {
     if (hex == null) return null
 
     val match = HEX_COLOR_REGEX.matchEntire(hex.trim()) ?: return null

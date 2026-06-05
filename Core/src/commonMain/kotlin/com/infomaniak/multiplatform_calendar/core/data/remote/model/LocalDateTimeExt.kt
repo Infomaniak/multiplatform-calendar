@@ -34,7 +34,7 @@ import kotlinx.datetime.format.optional
  * Fault-tolerant: returns `null` if the value is missing or unparsable
  * (a malformed event must not fail the whole synchronization).
  */
-fun parseICalDateTime(value: String?): LocalDateTime? {
+internal fun parseICalDateTime(value: String?): LocalDateTime? {
     if (value == null) return null
     return runCatching {
         when {

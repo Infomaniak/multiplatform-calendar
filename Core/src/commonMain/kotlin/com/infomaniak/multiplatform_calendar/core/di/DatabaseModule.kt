@@ -29,7 +29,7 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 
 @ContributesTo(AppScope::class)
-interface DatabaseModule {
+internal interface DatabaseModule {
 
     @SingleIn(AppScope::class)
     @Provides

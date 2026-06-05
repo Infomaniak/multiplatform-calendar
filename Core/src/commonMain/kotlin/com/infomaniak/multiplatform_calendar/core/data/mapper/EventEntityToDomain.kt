@@ -22,7 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
-fun EventEntity.toDomain() = Event(
+internal fun EventEntity.toDomain() = Event(
     id = id,
     calendarId = calendarId,
     title = summary,

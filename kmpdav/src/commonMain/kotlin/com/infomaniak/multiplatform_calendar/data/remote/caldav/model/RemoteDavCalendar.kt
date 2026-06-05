@@ -17,12 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
+import uniffi.caldav_bridge.CalendarAccessLevel
+
 data class RemoteDavCalendar(
     val url: String,
     val displayName: String,
     val color: String? = null,
     val description: String? = null,
     val ctag: String? = null,
-    val readOnly: Boolean = false,
+    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
 )
-

@@ -14,6 +14,7 @@ uuid = { version = "1", features = ["v4"] }
 uniffi = "0.29"
 thiserror = "2"
 icalendar = { version = "0.17.10", features = ["parser"] }
+roxmltree = "0.21"
 
 [profile.release]
 lto = true

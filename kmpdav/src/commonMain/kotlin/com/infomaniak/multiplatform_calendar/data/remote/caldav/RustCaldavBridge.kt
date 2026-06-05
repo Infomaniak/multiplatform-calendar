@@ -53,6 +53,7 @@ internal class RustCaldavBridge(
                     color = entry.color,
                     description = entry.description,
                     ctag = entry.ctag,
+                    accessLevel = entry.accessLevel,
                 )
             }
         } catch (e: CaldavException) {

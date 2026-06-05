@@ -28,7 +28,7 @@ data class Calendar(
     @HiddenFromObjC
     val accountId: AccountId,
     val displayName: String,
-    val color: Color,
+    val color: CalendarColor,
     val isVisible: Boolean,
     val readOnly: Boolean = false,
 )

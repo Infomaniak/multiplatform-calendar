@@ -1,5 +1,5 @@
 /*
- * Infomaniak Core - Android
+ * Infomaniak Calendar - Multiplatform
  * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-data class Color(
+data class CalendarColor(
     private val red: Int,
     private val green: Int,
     private val blue: Int,
@@ -25,12 +25,12 @@ data class Color(
 ) {
     fun toLong(): Long =
         ((alpha.toLong() and 0xFF) shl 24) or
-        ((red.toLong() and 0xFF) shl 16) or
-        ((green.toLong() and 0xFF) shl 8) or
-        (blue.toLong() and 0xFF)
+                ((red.toLong() and 0xFF) shl 16) or
+                ((green.toLong() and 0xFF) shl 8) or
+                (blue.toLong() and 0xFF)
 
     companion object {
-        fun fromLong(value: Long): Color = Color(
+        fun fromLong(value: Long): CalendarColor = CalendarColor(
             red = ((value shr 16) and 0xFF).toInt(),
             green = ((value shr 8) and 0xFF).toInt(),
             blue = (value and 0xFF).toInt(),

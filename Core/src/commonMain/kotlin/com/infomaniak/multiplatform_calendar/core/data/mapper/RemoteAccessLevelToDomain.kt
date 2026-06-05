@@ -15,24 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.local
+package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import androidx.room.TypeConverter
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
-import kotlinx.datetime.LocalDateTime
+import uniffi.caldav_bridge.CalendarAccessLevel as RemoteAccessLevel
 
-internal class CalendarTypeConverters {
-
-    @TypeConverter
-    fun fromLocalDateTime(value: LocalDateTime?): String? = value?.toString()
-
-    @TypeConverter
-    fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
-
-    @TypeConverter
-    fun fromAccessLevel(value: CalendarAccessLevel): String = value.name
-
-    @TypeConverter
-    fun toAccessLevel(value: String): CalendarAccessLevel = CalendarAccessLevel.valueOf(value)
+internal fun RemoteAccessLevel.toDomain(): CalendarAccessLevel = when (this) {
+    RemoteAccessLevel.NONE -> CalendarAccessLevel.NONE
+    RemoteAccessLevel.READ -> CalendarAccessLevel.READ
+    RemoteAccessLevel.READ_WRITE -> CalendarAccessLevel.READ_WRITE
+    RemoteAccessLevel.OWNER -> CalendarAccessLevel.OWNER
 }
-

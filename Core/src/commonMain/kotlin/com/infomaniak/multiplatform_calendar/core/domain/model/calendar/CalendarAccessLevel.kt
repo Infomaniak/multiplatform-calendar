@@ -15,24 +15,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.local
+package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-import androidx.room.TypeConverter
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
-import kotlinx.datetime.LocalDateTime
+/**
+ * Access level the current user holds on a [Calendar], resolved from the
+ * CalDAV `current-user-privilege-set` (RFC 3744).
+ */
+enum class CalendarAccessLevel {
+    /** No privilege granted on the collection. */
+    NONE,
 
-internal class CalendarTypeConverters {
+    /** Read-only access. */
+    READ,
 
-    @TypeConverter
-    fun fromLocalDateTime(value: LocalDateTime?): String? = value?.toString()
+    /** Read and write access. */
+    READ_WRITE,
 
-    @TypeConverter
-    fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
+    /** Full control: the principal owns the collection. */
+    OWNER;
 
-    @TypeConverter
-    fun fromAccessLevel(value: CalendarAccessLevel): String = value.name
+    /** Whether the current user can create/update/delete events in this calendar. */
+    val canWrite: Boolean get() = this == READ_WRITE || this == OWNER
 
-    @TypeConverter
-    fun toAccessLevel(value: String): CalendarAccessLevel = CalendarAccessLevel.valueOf(value)
+    /** Whether the calendar is visible but not editable by the current user. */
+    val isReadOnly: Boolean get() = !canWrite
 }
 

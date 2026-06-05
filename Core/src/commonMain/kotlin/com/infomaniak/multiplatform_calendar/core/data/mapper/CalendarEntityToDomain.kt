@@ -27,6 +27,6 @@ internal fun CalendarEntity.toDomain() = Calendar(
     displayName = displayName,
     color = color?.let(CalendarColor::fromLong) ?: CalendarColor(red = 0x21, green = 0x96, blue = 0xF3, alpha = 0xFF),
     isVisible = isVisible,
-    readOnly = readOnly,
+    accessLevel = accessLevel,
 )
 

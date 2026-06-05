@@ -30,5 +30,5 @@ data class Calendar(
     val displayName: String,
     val color: CalendarColor,
     val isVisible: Boolean,
-    val readOnly: Boolean = false,
+    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
 )

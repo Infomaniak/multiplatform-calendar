@@ -29,11 +29,11 @@ import kotlinx.coroutines.flow.Flow
 
 @SingleIn(AppScope::class)
 @Inject
-class CalendarManager private constructor(
+public class CalendarManager internal constructor(
     private val calendarRepository: CalendarRepository,
 ) {
 
-    fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
+    public fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
         return calendarRepository.observeCalendars(accountId)
     }
 

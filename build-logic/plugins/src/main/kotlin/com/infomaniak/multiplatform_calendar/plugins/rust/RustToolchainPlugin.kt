@@ -2,11 +2,56 @@ package com.infomaniak.multiplatform_calendar.plugins.rust
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import java.io.File
 
+/**
+ * Convention plugin that makes Rust "just work" for anyone cloning the project,
+ * without requiring a manual `rustup`/`cargo` installation.
+ *
+ * ## Mental model: a "venv" for Rust
+ *
+ * Much like a Python virtual environment, this plugin manages a project-local
+ * Rust toolchain under `.gradle/rust` (git-ignored) instead of relying on a
+ * globally installed one:
+ *
+ * - `.gradle/rust/cargo`   -> project-local `CARGO_HOME`
+ * - `.gradle/rust/rustup`  -> project-local `RUSTUP_HOME`
+ * - `.gradle/rust/shims/bin` -> generated `cargo`/`rustup` shim scripts
+ *
+ * The toolchain is installed on demand by [BootstrapRustTask] (downloading
+ * `rustup-init` and installing the configured [RustToolchainExtension.toolchain]).
+ *
+ * ## The chicken-and-egg problem this plugin solves
+ *
+ * External plugins such as Gobley invoke `cargo` (for example `cargo metadata`)
+ * during Gradle **configuration**, which happens during IDE sync. At that point
+ * no Gradle task has run yet, so the project-local toolchain may not exist.
+ *
+ * To bridge this gap the plugin generates lightweight **shim** scripts (see
+ * [writeRustShims]) and exposes them as `cargo`/`rustup`. When invoked, a shim
+ * resolves the real tool according to the configured
+ * [RustToolchainResolutionStrategy], for example with `LOCAL_THEN_SYSTEM`:
+ *
+ * 1. Use the project-local toolchain if it is already installed.
+ * 2. Otherwise fall back to a system installation (so sync succeeds immediately).
+ * 3. As a last resort, bootstrap the project-local toolchain on the fly.
+ *
+ * ## How the pieces fit together
+ *
+ * - [RustToolchainExtension] – the `rustToolchain { }` DSL used by consumers.
+ * - [writeRustShims] – writes the shim scripts during configuration so a `cargo`
+ *   path exists before any task runs (this is what unblocks Gradle sync).
+ * - [configureGobleyRustIfAvailable] – points Gobley's `rust.toolchainDirectory`
+ *   at the shim directory so Gobley's own Cargo/UniFFI tasks use the shims too.
+ * - [BootstrapRustTask] – installs the project-local toolchain and records the
+ *   resolved installation for [CargoExecTask] and other Rust-consuming tasks.
+ * - [wireBootstrapRustIntoBuildLifecycle] – makes Rust-consuming tasks depend on
+ *   `bootstrapRust` and injects the resolved toolchain into their environment.
+ */
 class RustToolchainPlugin : Plugin<Project> {
 
     override fun apply(project: Project) = with(project) {
@@ -144,25 +189,43 @@ class RustToolchainPlugin : Plugin<Project> {
         }
     }
 
+    /**
+     * Points Gobley's `rust.toolchainDirectory` at our generated shim directory.
+     *
+     * We cannot reference Gobley's `RustExtension` type directly because the
+     * convention plugin must not depend on the Gobley plugin at compile time
+     * (Gobley is only present on consumer projects that apply it). We therefore
+     * access the extension reflectively.
+     *
+     * Gobley exposes the toolchain directory as a Gradle `Property<File>` through
+     * a `getToolchainDirectory()` getter (Kotlin `val toolchainDirectory: Property<File>`).
+     * There is no `setToolchainDirectory(File)` method, so we must read the
+     * property and call [Property.set] on it.
+     *
+     * Gobley prepends this directory to `PATH` whenever it runs `cargo`/`rustup`
+     * (for example `cargo metadata` during configuration). Pointing it at the
+     * shim directory is what lets Gradle sync succeed before `bootstrapRust` has
+     * installed the project-local toolchain.
+     */
     private fun setGobleyToolchainDirectory(
         gobleyRustExtension: Any,
         directory: File,
     ) {
-        val setter = gobleyRustExtension.javaClass.methods.firstOrNull { method ->
-            method.name == "setToolchainDirectory" &&
-                    method.parameterCount == 1 &&
-                    method.parameterTypes[0].isAssignableFrom(File::class.java)
-        }
-
-        if (setter != null) {
-            setter.invoke(gobleyRustExtension, directory)
-            return
-        }
-
-        error(
+        val getter = gobleyRustExtension.javaClass.methods.firstOrNull { method ->
+            method.name == "getToolchainDirectory" && method.parameterCount == 0
+        } ?: error(
             "Unable to configure Gobley rust.toolchainDirectory. " +
-                    "The Gobley Rust extension does not expose setToolchainDirectory(File).",
+                    "The Gobley Rust extension does not expose getToolchainDirectory().",
         )
+
+        val toolchainDirectoryProperty = getter.invoke(gobleyRustExtension) as? Property<*>
+            ?: error(
+                "Unable to configure Gobley rust.toolchainDirectory. " +
+                        "getToolchainDirectory() did not return a Gradle Property.",
+            )
+
+        @Suppress("UNCHECKED_CAST")
+        (toolchainDirectoryProperty as Property<File>).set(directory)
     }
 
     private fun Project.wireBootstrapRustIntoBuildLifecycle(

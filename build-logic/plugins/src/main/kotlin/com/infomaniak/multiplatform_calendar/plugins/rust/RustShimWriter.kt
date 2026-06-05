@@ -2,6 +2,25 @@ package com.infomaniak.multiplatform_calendar.plugins.rust
 
 import java.io.File
 
+/**
+ * Writes the `cargo`/`rustup` shim scripts into `<rustDirectory>/shims/bin`.
+ *
+ * The shims are the cornerstone of the "Rust venv" behaviour: they are tiny
+ * `cargo`/`rustup` executables that decide, at invocation time, which real tool
+ * to run based on [strategy]. Both POSIX (`sh`) and Windows (`.cmd`) variants are
+ * generated so the project builds on every platform.
+ *
+ * Each generated shim can:
+ * - run the project-local toolchain in `<rustDirectory>/cargo/bin` when present,
+ * - fall back to a system `cargo`/`rustup` discovered on `PATH`, `CARGO_HOME`, or
+ *   `~/.cargo/bin`, and
+ * - bootstrap the project-local toolchain on the fly (download `rustup-init` and
+ *   install the requested [toolchain]) when nothing else is available.
+ *
+ * Because the shims are written during Gradle configuration, a usable `cargo`
+ * path exists before any task runs, which is what allows Gradle sync to succeed
+ * even on a freshly cloned machine that has never installed Rust.
+ */
 internal fun writeRustShims(
     rustDirectory: File,
     strategy: RustToolchainResolutionStrategy,

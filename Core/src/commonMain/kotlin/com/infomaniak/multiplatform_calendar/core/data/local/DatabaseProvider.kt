@@ -60,7 +60,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
 )
 @TypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
-abstract class CalendarDatabase : RoomDatabase() {
+internal abstract class CalendarDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao

@@ -22,7 +22,7 @@ import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
 @OptIn(ExperimentalObjCRefinement::class)
-data class Calendar(
+public data class Calendar(
     @HiddenFromObjC
     val id: CalendarId,
     @HiddenFromObjC

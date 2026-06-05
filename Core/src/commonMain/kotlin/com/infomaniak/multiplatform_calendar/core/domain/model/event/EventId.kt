@@ -21,4 +21,4 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import kotlin.jvm.JvmInline
 
 @JvmInline
-value class EventId(val url: String)
+public value class EventId(public val url: String)

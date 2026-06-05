@@ -26,7 +26,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class, ExperimentalObjCRefinement::class)
-data class Event(
+public data class Event(
     @HiddenFromObjC
     val id: EventId,
     @HiddenFromObjC

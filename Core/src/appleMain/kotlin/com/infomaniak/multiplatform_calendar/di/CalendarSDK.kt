@@ -52,7 +52,7 @@ abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavCli
  *
  * Usage from Swift:
  * ```swift
- * let sdk = CalendarSDKProvider.shared.sdk
+ * let sdk = CalendarSDKProvider.shared.sdk(databasePath: "/path/to/calendar.db")
  * sdk.accountManager.initAccount(...)
  * sdk.calendarManager.observeCalendars(...)
  * ```
@@ -63,4 +63,3 @@ object CalendarSDKProvider {
         return createGraphFactory<CalendarSDK.Factory>().create(DatabaseConfig(path = databasePath))
     }
 }
-

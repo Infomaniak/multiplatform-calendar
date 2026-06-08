@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.data.local
 
 import androidx.room.TypeConverter
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
 import kotlinx.datetime.LocalDateTime
 
 internal class CalendarTypeConverters {
@@ -28,11 +27,4 @@ internal class CalendarTypeConverters {
 
     @TypeConverter
     fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
-
-    @TypeConverter
-    fun fromAccessLevel(value: CalendarAccessLevel): String = value.name
-
-    @TypeConverter
-    fun toAccessLevel(value: String): CalendarAccessLevel = CalendarAccessLevel.valueOf(value)
 }
-

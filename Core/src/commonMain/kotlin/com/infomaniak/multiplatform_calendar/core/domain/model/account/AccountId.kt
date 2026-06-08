@@ -20,4 +20,4 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.account
 import kotlin.jvm.JvmInline
 
 @JvmInline
-value class AccountId(val value: Long)
+public value class AccountId(public val value: Long)

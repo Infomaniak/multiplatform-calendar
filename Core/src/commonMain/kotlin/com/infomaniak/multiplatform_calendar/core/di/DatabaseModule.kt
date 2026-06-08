@@ -29,18 +29,18 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 
 @ContributesTo(AppScope::class)
-interface DatabaseModule {
+public interface DatabaseModule {
 
     @SingleIn(AppScope::class)
     @Provides
-    fun provideDatabase(databaseProvider: DatabaseProvider): CalendarDatabase = databaseProvider.getCalendarDatabase()
+    private fun provideDatabase(databaseProvider: DatabaseProvider): CalendarDatabase = databaseProvider.getCalendarDatabase()
 
     @Provides
-    fun provideAccountDao(database: CalendarDatabase): AccountDao = database.accountDao()
+    private fun provideAccountDao(database: CalendarDatabase): AccountDao = database.accountDao()
 
     @Provides
-    fun provideCalendarDao(database: CalendarDatabase): CalendarDao = database.calendarDao()
+    private fun provideCalendarDao(database: CalendarDatabase): CalendarDao = database.calendarDao()
 
     @Provides
-    fun provideEventDao(database: CalendarDatabase): EventDao = database.eventDao()
+    private fun provideEventDao(database: CalendarDatabase): EventDao = database.eventDao()
 }

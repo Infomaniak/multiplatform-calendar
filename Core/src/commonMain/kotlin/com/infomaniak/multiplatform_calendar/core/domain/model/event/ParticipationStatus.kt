@@ -18,7 +18,7 @@
 
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-enum class ParticipationStatus {
+public enum class ParticipationStatus {
     Accepted,
     Declined,
     Tentative,

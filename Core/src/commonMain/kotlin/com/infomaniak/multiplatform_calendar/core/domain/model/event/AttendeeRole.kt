@@ -18,7 +18,7 @@
 
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-enum class AttendeeRole {
+public enum class AttendeeRole {
     Organizer,
     Requested,
     Optional,

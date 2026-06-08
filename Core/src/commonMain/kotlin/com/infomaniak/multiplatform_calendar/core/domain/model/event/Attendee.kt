@@ -18,7 +18,7 @@
 
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-data class Attendee(
+public data class Attendee(
     val email: String,
     val displayName: String? = null,
     val status: ParticipationStatus,

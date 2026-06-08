@@ -19,4 +19,4 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
 
 /** RFC 5545 frequencies. */
-enum class Frequency { Secondly, Minutely, Hourly, Daily, Weekly, Monthly, Yearly }
+public enum class Frequency { Secondly, Minutely, Hourly, Daily, Weekly, Monthly, Yearly }

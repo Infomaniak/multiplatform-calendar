@@ -24,18 +24,18 @@ import kotlinx.datetime.DayOfWeek
  * A day-of-week optionally qualified by an ordinal position
  * (e.g. `2MO` = second Monday, `-1FR` = last Friday).
  */
-data class WeekDayNum(
+public data class WeekDayNum(
     val ordinal: Int? = null,
     val dayOfWeek: DayOfWeek,
 ) {
-    fun toRfc5545(): String {
+    public fun toRfc5545(): String {
         val dayCode = dayOfWeek.toCode()
         return if (ordinal != null) "$ordinal$dayCode" else dayCode
     }
 
-    companion object {
+    public companion object {
         private val regex by lazy { Regex("^(-?\\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)$", RegexOption.IGNORE_CASE) }
-        fun parse(token: String): WeekDayNum? {
+        public fun parse(token: String): WeekDayNum? {
             return regex.find(token)?.run {
                 val (ordinalString, dayCode) = destructured
                 dayCode.uppercase().toDayOfWeek()?.let { dow ->

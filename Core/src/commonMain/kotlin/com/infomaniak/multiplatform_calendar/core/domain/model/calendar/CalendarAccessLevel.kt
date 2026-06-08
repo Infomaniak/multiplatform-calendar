@@ -21,7 +21,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
  * Access level the current user holds on a [Calendar], resolved from the
  * CalDAV `current-user-privilege-set` (RFC 3744).
  */
-enum class CalendarAccessLevel {
+public enum class CalendarAccessLevel {
     /** No privilege granted on the collection. */
     NONE,
 
@@ -35,9 +35,9 @@ enum class CalendarAccessLevel {
     OWNER;
 
     /** Whether the current user can create/update/delete events in this calendar. */
-    val canWrite: Boolean get() = this == READ_WRITE || this == OWNER
+    public val canWrite: Boolean get() = this == READ_WRITE || this == OWNER
 
     /** Whether the calendar is visible but not editable by the current user. */
-    val isReadOnly: Boolean get() = !canWrite
+    public val isReadOnly: Boolean get() = !canWrite
 }
 

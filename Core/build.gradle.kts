@@ -68,6 +68,8 @@ kotlin {
         freeCompilerArgs.add("-Xexpect-actual-classes")
         freeCompilerArgs.add("-Xreturn-value-checker=full")
     }
+
+    explicitApi()
 }
 
 android {

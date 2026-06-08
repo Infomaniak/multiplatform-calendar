@@ -22,7 +22,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
-data class RecurrenceRule(
+public data class RecurrenceRule(
     val freq: Frequency,
     val interval: Int = 1,
     val count: Int? = null,

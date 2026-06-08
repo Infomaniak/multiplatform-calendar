@@ -25,7 +25,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.account
  * the bridge module stay an implementation detail that is never exported into
  * the public Apple framework.
  */
-data class DavCredentials(
+public data class DavCredentials(
     val baseUrl: String,
     val username: String,
     val password: String,

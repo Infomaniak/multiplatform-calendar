@@ -34,8 +34,8 @@ import dev.zacsweers.metro.ContributesTo
  * and `@ContributesTo` modules (`DatabaseModule`, `AndroidDatabaseModule`, `CaldavClientModule`).
  */
 @ContributesTo(AppScope::class)
-interface CalendarCoreGraph {
-    val accountManager: AccountManager
-    val calendarManager: CalendarManager
+public interface CalendarCoreGraph {
+    public val accountManager: AccountManager
+    public val calendarManager: CalendarManager
 }
 

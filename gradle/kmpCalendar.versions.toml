@@ -1,10 +1,12 @@
 [versions]
 # Keep this version synced with Core's agp version
 agp = "8.13.0" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
+coroutines = "1.11.0"
 datetime = "0.8.0"
 gobley = "0.3.7"
 kotlin = "2.2.0"
 ksp = "2.2.0-2.0.2"
+ktor = "3.5.0"
 metro = "0.6.5"
 room = "2.8.4"
 skie = "0.10.11"
@@ -18,8 +20,16 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "datetime" }
 kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+ktor-client-content-negociation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-encoding = { module = "io.ktor:ktor-client-encoding", version.ref = "ktor" }
+ktor-client-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }
@@ -34,3 +44,12 @@ skie = { id = "co.touchlab.skie", version.ref = "skie" }
 kotlin-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "atomicfu" }
 gobley-cargo = { id = "dev.gobley.cargo", version.ref = "gobley" }
 gobley-uniffi = { id = "dev.gobley.uniffi", version.ref = "gobley" }
+
+
+[bundles]
+ktor = [
+    "ktor-client-content-negociation",
+    "ktor-client-core",
+    "ktor-client-encoding",
+    "ktor-client-json",
+]

@@ -19,7 +19,9 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.SdkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -29,6 +31,7 @@ import dev.zacsweers.metro.SingleIn
 @Inject
 internal class AccountRepository(
     private val accountDao: AccountDao,
+    private val authDataSource: AuthDataSource,
 ) {
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
@@ -47,4 +50,9 @@ internal class AccountRepository(
         accountDao.delete(accountId)
     }
 
+    @Throws(SdkException::class)
+    suspend fun retrieveCaldavPassword(authToken: String): String {
+        return runCatching { authDataSource.exchangeTokenToPassword(authToken).password }
+            .getOrElse { throw SdkException(it.message, it.cause) }
+    }
 }

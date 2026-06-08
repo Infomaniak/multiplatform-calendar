@@ -28,6 +28,7 @@ import dev.zacsweers.metro.SingleIn
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
 @Inject
@@ -35,10 +36,12 @@ public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
 ) {
 
+    @Throws(CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, credentials: DavCredentials): Unit = withContext(Dispatchers.Default) {
         accountRepository.storeCredentials(accountId, credentials.toRemote())
     }
 
+    @Throws(CancellationException::class)
     public suspend fun removeAccount(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         accountRepository.removeCredentials(accountId)
     }

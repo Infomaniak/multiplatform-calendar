@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
 @Inject
@@ -52,6 +53,7 @@ public class CalendarManager internal constructor(
         return calendarRepository.observeEvents(calendarId)
     }
 
+    @Throws(CancellationException::class)
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         accountRepository.getCredentials(accountId)?.let { credentials ->
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)

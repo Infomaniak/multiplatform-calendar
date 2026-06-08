@@ -20,4 +20,4 @@ package com.infomaniak.multiplatform_calendar.core.data.remote.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ApiError(val code: String, val description: String)
+internal data class ApiError(val code: String, val description: String)

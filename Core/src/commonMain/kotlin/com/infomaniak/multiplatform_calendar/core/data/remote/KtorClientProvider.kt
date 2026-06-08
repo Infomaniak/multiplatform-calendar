@@ -28,9 +28,9 @@ import io.ktor.http.path
 import io.ktor.serialization.kotlinx.json.json
 
 @ContributesTo(AppScope::class)
-interface KtorClientProvider {
+public interface KtorClientProvider {
     @Provides
-    fun provideHttpClient(): HttpClient = HttpClient {
+    private fun provideHttpClient(): HttpClient = HttpClient {
         install(ContentNegotiation) {
             json()
         }

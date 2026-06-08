@@ -20,7 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.remote.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class PasswordResponse(
+internal data class PasswordResponse(
     val id: Int,
     val name: String,
     val password: String,

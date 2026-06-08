@@ -49,7 +49,7 @@ public class AccountManager internal constructor(
     }
 
     @Throws(SdkException::class)
-    suspend fun retrieveCaldavPassword(authToken: String): String {
+    public suspend fun retrieveCaldavPassword(authToken: String): String {
         return accountRepository.retrieveCaldavPassword(authToken)
     }
 }

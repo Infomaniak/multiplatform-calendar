@@ -17,6 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.exceptions
 
-class SdkException : Exception {
-    constructor(message: String? = null, cause: Throwable? = null) : super(message, cause)
+public class SdkException : Exception {
+    public constructor(message: String? = null, cause: Throwable? = null) : super(message, cause)
 }

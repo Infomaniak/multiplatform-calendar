@@ -35,7 +35,7 @@ import kotlin.time.ExperimentalTime
 
 @SingleIn(AppScope::class)
 @Inject
-class AuthDataSource(
+internal class AuthDataSource(
     private val ktorClient: HttpClient,
 ) {
     @OptIn(ExperimentalTime::class)

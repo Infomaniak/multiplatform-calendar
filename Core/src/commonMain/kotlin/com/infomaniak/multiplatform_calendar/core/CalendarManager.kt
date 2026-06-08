@@ -37,7 +37,7 @@ public class CalendarManager internal constructor(
         return calendarRepository.observeCalendars(accountId)
     }
 
-    fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
+    public fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
         return calendarRepository.observeEvents(calendarId)
     }
 }

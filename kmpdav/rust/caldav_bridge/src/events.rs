@@ -29,8 +29,17 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
             location: prop(ev, "LOCATION"),
             dtstart: prop(ev, "DTSTART"),
             dtend: prop(ev, "DTEND"),
+            created: prop(ev, "CREATED"),
+            last_modified: prop(ev, "LAST-MODIFIED"),
+            dtstamp: prop(ev, "DTSTAMP"),
             rrule: prop(ev, "RRULE"),
             status: prop(ev, "STATUS"),
+            transp: prop(ev, "TRANSP"),
+            classification: prop(ev, "CLASS"),
+            priority: prop(ev, "PRIORITY"),
+            sequence: prop(ev, "SEQUENCE"),
+            categories: prop(ev, "CATEGORIES"),
+            organizer: prop(ev, "ORGANIZER"),
             ics_data,
         },
         None => EventEntry {
@@ -39,7 +48,9 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
             ics_data,
             uid: String::new(),
             summary: None, description: None, location: None,
-            dtstart: None, dtend: None, rrule: None, status: None,
+            dtstart: None, dtend: None, created: None, last_modified: None, dtstamp: None,
+            rrule: None, status: None, transp: None, classification: None, priority: None,
+            sequence: None, categories: None, organizer: None,
         },
     }
 }

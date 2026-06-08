@@ -20,11 +20,14 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -44,7 +47,13 @@ internal class CalendarRepository(
 
     fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
         return calendarDao.observeByAccountId(accountId).map { entities ->
-            entities.map { it.toDomain() }
+            entities.map(CalendarEntity::toDomain)
+        }
+    }
+
+    fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
+        return eventDao.getByCalendarId(calendarId).map { entities ->
+            entities.map(EventEntity::toDomain)
         }
     }
 

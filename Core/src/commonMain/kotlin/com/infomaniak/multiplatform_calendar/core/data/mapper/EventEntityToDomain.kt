@@ -17,31 +17,24 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import kotlin.time.ExperimentalTime
 
-internal fun RemoteDavEvent.toEntity(calendarId: CalendarId) = EventEntity(
-    id = EventId(url),
+@OptIn(ExperimentalTime::class)
+internal fun EventEntity.toDomain() = Event(
+    id = id,
     calendarId = calendarId,
-    summary = summary ?: "",
+    title = summary,
     description = description,
     location = location,
-    dtStart = parseICalDateTime(dtstart),
-    dtEnd = parseICalDateTime(dtend),
-    created = parseICalDateTime(created),
-    lastModified = parseICalDateTime(lastModified),
-    dtStamp = parseICalDateTime(dtstamp),
-    rrule = rrule,
     status = status,
-    transp = transp,
-    classification = classification,
-    priority = priority?.toIntOrNull(),
-    sequence = sequence?.toIntOrNull(),
     categories = categories,
-    organizer = organizer,
+    start = dtStart,
+    end = dtEnd ?: dtStart,
+    isAllDay = isAllDay,
     etag = etag,
-    rawIcs = icsData,
+    rawIcs = rawIcs,
+    lastModified = lastModified,
+    isSynced = isSynced,
 )

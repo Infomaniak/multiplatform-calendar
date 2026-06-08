@@ -22,6 +22,10 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
@@ -35,12 +39,14 @@ import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
  * Uses UniFFI-generated bindings to call Rust functions directly.
  * Returns typed records (data classes) — no opaque handles, no manual FFI.
  */
-internal object RustCaldavBridge : CalendarSyncRemoteSource {
+internal class RustCaldavBridge(
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+) : CalendarSyncRemoteSource {
 
-    override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> {
+    override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> = withContext(dispatcher) {
         try {
             val entries = discover(credentials.baseUrl, credentials.username, credentials.password)
-            return entries.map { entry ->
+            return@withContext entries.map { entry ->
                 RemoteDavCalendar(
                     url = entry.url,
                     displayName = entry.displayName,
@@ -54,10 +60,10 @@ internal object RustCaldavBridge : CalendarSyncRemoteSource {
         }
     }
 
-    override suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent> {
+    override suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent> = withContext(dispatcher) {
         try {
             val entries = fetchEvents(credentials.baseUrl, credentials.username, credentials.password, calendarUrl)
-            return entries.map { entry ->
+            return@withContext entries.map { entry ->
                 RemoteDavEvent(
                     url = entry.url,
                     etag = entry.etag,
@@ -68,8 +74,17 @@ internal object RustCaldavBridge : CalendarSyncRemoteSource {
                     location = entry.location,
                     dtstart = entry.dtstart,
                     dtend = entry.dtend,
+                    created = entry.created,
+                    lastModified = entry.lastModified,
+                    dtstamp = entry.dtstamp,
                     rrule = entry.rrule,
                     status = entry.status,
+                    transp = entry.transp,
+                    classification = entry.classification,
+                    priority = entry.priority,
+                    sequence = entry.sequence,
+                    categories = entry.categories,
+                    organizer = entry.organizer,
                 )
             }
         } catch (e: CaldavException) {
@@ -77,10 +92,14 @@ internal object RustCaldavBridge : CalendarSyncRemoteSource {
         }
     }
 
-    override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
+    override suspend fun createEvent(
+        credentials: DavAccount,
+        calendarUrl: String,
+        icsData: String,
+    ): RemoteDavEventRef = withContext(dispatcher) {
         try {
             val result = rustCreateEvent(credentials.baseUrl, credentials.username, credentials.password, calendarUrl, icsData)
-            return RemoteDavEventRef(
+            return@withContext RemoteDavEventRef(
                 url = result.url,
                 etag = result.etag,
             )
@@ -94,10 +113,10 @@ internal object RustCaldavBridge : CalendarSyncRemoteSource {
         eventUrl: String,
         etag: String,
         icsData: String,
-    ): RemoteDavEventRef {
+    ): RemoteDavEventRef = withContext(dispatcher) {
         try {
             val result = rustUpdateEvent(credentials.baseUrl, credentials.username, credentials.password, eventUrl, etag, icsData)
-            return RemoteDavEventRef(
+            return@withContext RemoteDavEventRef(
                 url = result.url,
                 etag = result.etag,
             )
@@ -106,7 +125,7 @@ internal object RustCaldavBridge : CalendarSyncRemoteSource {
         }
     }
 
-    override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) {
+    override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) = withContext(dispatcher) {
         try {
             rustDeleteEvent(credentials.baseUrl, credentials.username, credentials.password, eventUrl, etag)
         } catch (e: CaldavException) {

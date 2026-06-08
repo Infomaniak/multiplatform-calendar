@@ -32,7 +32,7 @@ internal interface AccountDao {
     @Query("SELECT * FROM calendars WHERE accountId = :accountId ORDER BY displayName ASC")
     fun getByAccountId(accountId: Long): Flow<List<CalendarEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(account: AccountEntity)
 
 

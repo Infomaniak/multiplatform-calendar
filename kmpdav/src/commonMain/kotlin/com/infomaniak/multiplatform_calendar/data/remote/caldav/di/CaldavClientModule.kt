@@ -27,5 +27,5 @@ import dev.zacsweers.metro.Provides
 interface CaldavClientModule {
 
     @Provides
-    fun provideCaldavClient(): CalendarSyncRemoteSource = RustCaldavBridge
+    fun provideCaldavClient(): CalendarSyncRemoteSource = RustCaldavBridge()
 }

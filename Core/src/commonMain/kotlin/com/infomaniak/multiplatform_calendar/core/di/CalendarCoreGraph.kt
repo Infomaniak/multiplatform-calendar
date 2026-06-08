@@ -17,8 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.di
 
-import com.infomaniak.multiplatform_calendar.core.AccountManager
-import com.infomaniak.multiplatform_calendar.core.CalendarManager
+import com.infomaniak.multiplatform_calendar.core.managers.AccountManager
+import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 

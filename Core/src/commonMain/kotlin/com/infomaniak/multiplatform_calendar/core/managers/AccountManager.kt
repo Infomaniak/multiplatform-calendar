@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core
+package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository

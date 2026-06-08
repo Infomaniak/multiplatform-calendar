@@ -18,5 +18,5 @@
 package com.infomaniak.multiplatform_calendar.core.data.remote.model
 
 internal class ApiErrorException : Exception {
-    constructor(response: ApiResponse<*>) : super("ApiErrorException: $response")
+    constructor(response: ApiResponse<*>) : super("API error: result=${response.result}, error=${response.error}")
 }

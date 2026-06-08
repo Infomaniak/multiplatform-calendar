@@ -53,6 +53,6 @@ internal class AccountRepository(
     @Throws(SdkException::class)
     suspend fun retrieveCaldavPassword(authToken: String): String {
         return runCatching { authDataSource.exchangeTokenToPassword(authToken).password }
-            .getOrElse { throw SdkException(it.message, it.cause) }
+            .getOrElse { throw SdkException(it.message, it) }
     }
 }

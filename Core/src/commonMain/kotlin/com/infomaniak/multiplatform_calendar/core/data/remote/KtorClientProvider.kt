@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.remote
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -30,6 +31,7 @@ import io.ktor.serialization.kotlinx.json.json
 @ContributesTo(AppScope::class)
 public interface KtorClientProvider {
     @Provides
+    @SingleIn(AppScope::class)
     private fun provideHttpClient(): HttpClient = HttpClient {
         install(ContentNegotiation) {
             json()

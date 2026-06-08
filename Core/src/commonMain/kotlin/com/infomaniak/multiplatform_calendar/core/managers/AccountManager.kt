@@ -19,7 +19,6 @@ package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
-import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
@@ -34,17 +33,10 @@ import kotlinx.coroutines.withContext
 @Inject
 public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
-    private val calendarRepository: CalendarRepository,
 ) {
 
     public suspend fun initAccount(accountId: AccountId, credentials: DavCredentials): Unit = withContext(Dispatchers.Default) {
         accountRepository.storeCredentials(accountId, credentials.toRemote())
-    }
-
-    public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        accountRepository.getCredentials(accountId)?.let { credentials ->
-            calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
-        }
     }
 
     public suspend fun removeAccount(accountId: AccountId): Unit = withContext(Dispatchers.Default) {

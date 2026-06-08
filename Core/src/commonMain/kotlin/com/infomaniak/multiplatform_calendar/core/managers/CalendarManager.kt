@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
@@ -29,6 +30,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 @SingleIn(AppScope::class)
 @Inject
@@ -46,6 +50,12 @@ public class CalendarManager internal constructor(
 
     public fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
         return calendarRepository.observeEvents(calendarId)
+    }
+
+    public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
+        accountRepository.getCredentials(accountId)?.let { credentials ->
+            calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }
     }
 }
 

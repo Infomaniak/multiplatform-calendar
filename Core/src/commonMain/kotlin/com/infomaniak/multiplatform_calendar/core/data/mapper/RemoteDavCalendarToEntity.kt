@@ -30,5 +30,5 @@ internal fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
     color = parseHexColor(color),
     caldavColor = parseHexColor(color),
     ctag = ctag,
-    accessLevel = accessLevel.toDomain(),
+    accessLevel = accessLevel.toEntity(),
 )

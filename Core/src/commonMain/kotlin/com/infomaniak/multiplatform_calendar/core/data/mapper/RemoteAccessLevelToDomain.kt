@@ -20,7 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
 import uniffi.caldav_bridge.CalendarAccessLevel as RemoteAccessLevel
 
-internal fun RemoteAccessLevel.toDomain(): CalendarAccessLevel = when (this) {
+internal fun RemoteAccessLevel.toEntity(): CalendarAccessLevel = when (this) {
     RemoteAccessLevel.NONE -> CalendarAccessLevel.NONE
     RemoteAccessLevel.READ -> CalendarAccessLevel.READ
     RemoteAccessLevel.READ_WRITE -> CalendarAccessLevel.READ_WRITE

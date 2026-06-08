@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -46,11 +47,15 @@ public class CalendarManager internal constructor(
     public fun observeCalendars(): Flow<List<Calendar>> {
         return accountRepository.currentAccountIdFlow.filterNotNull().flatMapLatest { accountId ->
             calendarRepository.observeCalendars(accountId)
+        }.catch {
+            //TODO: handle error
         }
     }
 
     public fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
-        return calendarRepository.observeEvents(calendarId)
+        return calendarRepository.observeEvents(calendarId).catch {
+            //TODO: handle error
+        }
     }
 
     @Throws(CancellationException::class)

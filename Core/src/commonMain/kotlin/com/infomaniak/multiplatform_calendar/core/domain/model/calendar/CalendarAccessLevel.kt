@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,24 +17,27 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-data class CalendarColor(
-    private val red: Int,
-    private val green: Int,
-    private val blue: Int,
-    private val alpha: Int,
-) {
-    fun toLong(): Long =
-        ((alpha.toLong() and 0xFF) shl 24) or
-                ((red.toLong() and 0xFF) shl 16) or
-                ((green.toLong() and 0xFF) shl 8) or
-                (blue.toLong() and 0xFF)
+/**
+ * Access level the current user holds on a [Calendar], resolved from the
+ * CalDAV `current-user-privilege-set` (RFC 3744).
+ */
+enum class CalendarAccessLevel {
+    /** No privilege granted on the collection. */
+    NONE,
 
-    companion object {
-        fun fromLong(value: Long): CalendarColor = CalendarColor(
-            red = ((value shr 16) and 0xFF).toInt(),
-            green = ((value shr 8) and 0xFF).toInt(),
-            blue = (value and 0xFF).toInt(),
-            alpha = ((value shr 24) and 0xFF).toInt(),
-        )
-    }
+    /** Read-only access. */
+    READ,
+
+    /** Read and write access. */
+    READ_WRITE,
+
+    /** Full control: the principal owns the collection. */
+    OWNER;
+
+    /** Whether the current user can create/update/delete events in this calendar. */
+    val canWrite: Boolean get() = this == READ_WRITE || this == OWNER
+
+    /** Whether the calendar is visible but not editable by the current user. */
+    val isReadOnly: Boolean get() = !canWrite
 }
+

@@ -1,5 +1,20 @@
 //! UniFFI records exposed to Kotlin as data classes.
 
+/// Access level the current user holds on a calendar collection.
+///
+/// Derived solely from the CalDAV `current-user-privilege-set` (RFC 3744).
+#[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CalendarAccessLevel {
+    /// No privilege granted on the collection.
+    None,
+    /// Read-only access (`DAV:read`).
+    Read,
+    /// Read and write access (`DAV:write` / write-content / bind / unbind).
+    ReadWrite,
+    /// Full control: holds `DAV:all` or `DAV:write-acl`.
+    Owner,
+}
+
 /// Calendar collection record returned by discovery.
 #[derive(uniffi::Record)]
 pub struct CalendarEntry {
@@ -8,6 +23,7 @@ pub struct CalendarEntry {
     pub color: Option<String>,
     pub description: Option<String>,
     pub ctag: Option<String>,
+    pub access_level: CalendarAccessLevel,
 }
 
 /// Event resource with parsed iCalendar fields.

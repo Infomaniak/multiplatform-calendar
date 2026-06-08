@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,15 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
+package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import uniffi.caldav_bridge.CalendarAccessLevel
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
+import uniffi.caldav_bridge.CalendarAccessLevel as RemoteAccessLevel
 
-data class RemoteDavCalendar(
-    val url: String,
-    val displayName: String,
-    val color: String? = null,
-    val description: String? = null,
-    val ctag: String? = null,
-    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
-)
+internal fun RemoteAccessLevel.toDomain(): CalendarAccessLevel = when (this) {
+    RemoteAccessLevel.NONE -> CalendarAccessLevel.NONE
+    RemoteAccessLevel.READ -> CalendarAccessLevel.READ
+    RemoteAccessLevel.READ_WRITE -> CalendarAccessLevel.READ_WRITE
+    RemoteAccessLevel.OWNER -> CalendarAccessLevel.OWNER
+}

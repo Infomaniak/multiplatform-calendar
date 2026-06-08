@@ -25,6 +25,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCreden
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.invoke
 
 @SingleIn(AppScope::class)
 @Inject
@@ -33,17 +36,17 @@ class AccountManager private constructor(
     private val calendarRepository: CalendarRepository,
 ) {
 
-    suspend fun initAccount(accountId: AccountId, credentials: DavCredentials) {
+    suspend fun initAccount(accountId: AccountId, credentials: DavCredentials) = Dispatchers.IO {
         accountRepository.storeCredentials(accountId, credentials.toRemote())
     }
 
-    suspend fun syncCalendars(accountId: AccountId) {
+    suspend fun syncCalendars(accountId: AccountId) = Dispatchers.IO {
         accountRepository.getCredentials(accountId)?.let { credentials ->
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
         }
     }
 
-    suspend fun removeAccount(accountId: AccountId) {
+    suspend fun removeAccount(accountId: AccountId) = Dispatchers.IO {
         accountRepository.removeCredentials(accountId)
     }
 }

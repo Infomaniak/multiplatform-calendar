@@ -28,4 +28,3 @@ internal class CalendarTypeConverters {
     @TypeConverter
     fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
 }
-

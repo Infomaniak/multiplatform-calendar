@@ -22,6 +22,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 
 
@@ -41,9 +42,9 @@ internal data class CalendarEntity(
     @PrimaryKey val id: CalendarId,
     val accountId: AccountId,
     val displayName: String,
-    val color: Long?,
-    val caldavColor: Long? = null,
+    val color: Int?,
+    val caldavColor: Int? = null,
     val isVisible: Boolean = true,
     val ctag: String? = null,
-    val readOnly: Boolean = false,
+    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
 )

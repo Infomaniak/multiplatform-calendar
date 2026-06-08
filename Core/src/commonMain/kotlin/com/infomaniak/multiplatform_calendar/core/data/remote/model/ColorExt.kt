@@ -21,24 +21,19 @@ package com.infomaniak.multiplatform_calendar.core.data.remote.model
 private val HEX_COLOR_REGEX = Regex("^#?([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})?$")
 
 /**
- * Parse a hexadecimal CalDAV color (`#RRGGBBAA` or `#RRGGBB`) into an ARGB [Long] value.
- *
+ * Parse a hexadecimal CalDAV color (`#RRGGBBAA` or `#RRGGBB`) into a packed ARGB [Int].
  * Returns `null` if the input is missing or malformed.
- *
- * We keep a plain [Long] value on the remote/persistence side: the conversion to the domain
- * model `Color` only happens when going from DB to domain via `Color.fromLong`.
  */
-internal fun parseHexColor(hex: String?): Long? {
+internal fun parseHexColor(hex: String?): Int? {
     if (hex == null) return null
 
     val match = HEX_COLOR_REGEX.matchEntire(hex.trim()) ?: return null
     val (r, g, b, a) = match.destructured
 
-    val red = r.toLong(16)
-    val green = g.toLong(16)
-    val blue = b.toLong(16)
-    val alpha = if (a.isEmpty()) 0xFFL else a.toLong(16)
+    val red = r.toInt(16)
+    val green = g.toInt(16)
+    val blue = b.toInt(16)
+    val alpha = if (a.isEmpty()) 0xFF else a.toInt(16)
 
     return (alpha shl 24) or (red shl 16) or (green shl 8) or blue
 }
-

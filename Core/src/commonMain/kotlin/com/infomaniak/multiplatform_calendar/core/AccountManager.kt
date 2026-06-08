@@ -27,6 +27,8 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @SingleIn(AppScope::class)
 @Inject
@@ -35,17 +37,17 @@ public class AccountManager internal constructor(
     private val calendarRepository: CalendarRepository,
 ) {
 
-    public suspend fun initAccount(accountId: AccountId, credentials: DavCredentials) {
+    public suspend fun initAccount(accountId: AccountId, credentials: DavCredentials): Unit = withContext(Dispatchers.Default) {
         accountRepository.storeCredentials(accountId, credentials.toRemote())
     }
 
-    public suspend fun syncCalendars(accountId: AccountId) {
+    public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         accountRepository.getCredentials(accountId)?.let { credentials ->
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
         }
     }
 
-    public suspend fun removeAccount(accountId: AccountId) {
+    public suspend fun removeAccount(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         accountRepository.removeCredentials(accountId)
     }
 

@@ -25,9 +25,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCreden
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.invoke
 
 @SingleIn(AppScope::class)
 @Inject

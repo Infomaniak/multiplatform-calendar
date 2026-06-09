@@ -73,6 +73,7 @@ kotlin {
 android {
     namespace = "com.infomaniak.multiplatform_calendar"
     compileSdk = property("kmp.compileSdk").toString().toInt()
+    ndkVersion = "30.0.14904198"
     defaultConfig {
         minSdk = property("kmp.minSdk").toString().toInt()
     }

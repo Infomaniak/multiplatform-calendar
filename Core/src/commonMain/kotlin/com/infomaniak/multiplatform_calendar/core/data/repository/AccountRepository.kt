@@ -21,7 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.SdkException
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -51,9 +51,9 @@ internal class AccountRepository(
         accountDao.delete(accountId)
     }
 
-    @Throws(SdkException::class, CancellationException::class)
+    @Throws(CalendarSdkException::class, CancellationException::class)
     suspend fun retrieveCaldavPassword(authToken: String): String {
         return runCatching { authDataSource.exchangeTokenToPassword(authToken).password }
-            .getOrElse { throw SdkException(it.message, it) }
+            .getOrElse { throw CalendarSdkException(it.message, it) }
     }
 }

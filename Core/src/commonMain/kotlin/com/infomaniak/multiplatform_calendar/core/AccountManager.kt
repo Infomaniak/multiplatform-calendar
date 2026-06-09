@@ -22,7 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
-import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.SdkException
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -49,7 +49,7 @@ public class AccountManager internal constructor(
         accountRepository.removeCredentials(accountId)
     }
 
-    @Throws(SdkException::class, CancellationException::class)
+    @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun retrieveCaldavPassword(authToken: String): String {
         return accountRepository.retrieveCaldavPassword(authToken)
     }

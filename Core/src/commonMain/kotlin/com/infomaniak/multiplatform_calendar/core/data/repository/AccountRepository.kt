@@ -55,7 +55,9 @@ internal class AccountRepository(
     suspend fun removeCredentials(accountId: AccountId) {
         userCredentials.remove(accountId)
         accountDao.delete(accountId)
-        _currentAccountId.emit(null)
+        if (_currentAccountId.replayCache.lastOrNull() != accountId) {
+            _currentAccountId.emit(null)
+        }
     }
 
     @Throws(CalendarSdkException::class, CancellationException::class)

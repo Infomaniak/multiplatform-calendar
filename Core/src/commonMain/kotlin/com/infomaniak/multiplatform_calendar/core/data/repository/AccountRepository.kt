@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
 @Inject
@@ -50,7 +51,7 @@ internal class AccountRepository(
         accountDao.delete(accountId)
     }
 
-    @Throws(SdkException::class)
+    @Throws(SdkException::class, CancellationException::class)
     suspend fun retrieveCaldavPassword(authToken: String): String {
         return runCatching { authDataSource.exchangeTokenToPassword(authToken).password }
             .getOrElse { throw SdkException(it.message, it) }

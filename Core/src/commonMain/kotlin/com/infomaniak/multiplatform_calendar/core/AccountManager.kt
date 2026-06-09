@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.SdkExc
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
 @Inject
@@ -48,7 +49,7 @@ public class AccountManager internal constructor(
         accountRepository.removeCredentials(accountId)
     }
 
-    @Throws(SdkException::class)
+    @Throws(SdkException::class, CancellationException::class)
     public suspend fun retrieveCaldavPassword(authToken: String): String {
         return accountRepository.retrieveCaldavPassword(authToken)
     }

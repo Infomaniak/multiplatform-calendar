@@ -52,7 +52,8 @@ class EnsureNdkVersionPlugin : Plugin<Project> {
     private fun configureNdkVersion(project: Project) {
         val android = project.extensions.getByName(ANDROID_EXTENSION_NAME) as CommonExtension<*, *, *, *, *, *>
         val version = android.ndkVersion.takeIf { it.isNotEmpty() } ?: return
-        val sdkDirectory = android.resolveSdkDirectory() ?: return
+        val sdkDirectory = android.resolveSdkDirectory()
+            ?: throw GradleException("Unable to resolve Android SDK directory from AGP. Configure the SDK location (e.g., ANDROID_SDK_ROOT or local.properties sdk.dir) and re-run the build.")
 
         project.tasks.register<EnsureNdkVersionTask>(TASK_NAME) {
             ndkVersion.set(version)

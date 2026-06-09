@@ -24,6 +24,7 @@ plugins {
     alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
     kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
+    id("ensure-ndk-version")
 }
 
 kotlin {

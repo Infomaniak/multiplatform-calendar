@@ -26,7 +26,10 @@ import com.infomaniak.multiplatform_calendar.core.extensions.flatMapLatestForCur
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 
 @SingleIn(AppScope::class)
 @Inject
@@ -35,8 +38,9 @@ public class CalendarManager internal constructor(
     private val calendarRepository: CalendarRepository,
 ) {
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<Calendar>> {
-        return accountRepository.currentAccountIdFlow.flatMapLatestForCurrentAccount { accountId ->
+        return accountRepository.currentAccountIdFlow.filterNotNull().flatMapLatest { accountId ->
             calendarRepository.observeCalendars(accountId)
         }
     }

@@ -22,6 +22,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 internal data class PasswordResponse(
     val id: Int,
-    val name: String,
+    val name: String,// Probably need to remove this field, as it seems to be the value sent in the form request
     val password: String,
 )

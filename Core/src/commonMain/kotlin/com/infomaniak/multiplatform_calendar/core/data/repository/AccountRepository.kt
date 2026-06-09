@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlin.coroutines.cancellation.CancellationException
@@ -36,7 +37,7 @@ internal class AccountRepository(
     private val accountDao: AccountDao,
     private val authDataSource: AuthDataSource,
 ) {
-    private val _currentAccountId = MutableSharedFlow<AccountId?>(replay = 1)
+    private val _currentAccountId = MutableSharedFlow<AccountId?>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val currentAccountIdFlow = _currentAccountId.asSharedFlow()
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()

@@ -26,7 +26,6 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.account
  * the public Apple framework.
  */
 public data class DavCredentials(
-    val baseUrl: String,
     val username: String,
     val password: String,
 )

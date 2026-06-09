@@ -19,16 +19,20 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
 @Inject
 internal class AccountRepository(
     private val accountDao: AccountDao,
+    private val authDataSource: AuthDataSource,
 ) {
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
@@ -47,4 +51,9 @@ internal class AccountRepository(
         accountDao.delete(accountId)
     }
 
+    @Throws(CalendarSdkException::class, CancellationException::class)
+    suspend fun retrieveCaldavPassword(authToken: String): String {
+        return runCatching { authDataSource.exchangeTokenToPassword(authToken).password }
+            .getOrElse { throw CalendarSdkException(it.message, it) }
+    }
 }

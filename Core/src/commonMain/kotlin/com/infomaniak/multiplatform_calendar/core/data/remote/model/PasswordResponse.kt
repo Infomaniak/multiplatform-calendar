@@ -15,18 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.account
+package com.infomaniak.multiplatform_calendar.core.data.remote.model
 
-/**
- * CalDAV account credentials, as seen by public consumers of the library.
- *
- * This is the Core-owned counterpart of the internal `:kmpdav` `DavAccount`
- * (mapped at the repository boundary): keeping a dedicated domain type here lets
- * the bridge module stay an implementation detail that is never exported into
- * the public Apple framework.
- */
-public data class DavCredentials(
-    val username: String,
+import kotlinx.serialization.Serializable
+
+@Serializable
+internal data class PasswordResponse(
+    val id: Int,
+    val name: String,// Probably need to remove this field, as it seems to be the value sent in the form request
     val password: String,
 )
-

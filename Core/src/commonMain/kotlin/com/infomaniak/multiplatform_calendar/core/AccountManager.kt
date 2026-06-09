@@ -22,9 +22,11 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
 @Inject
@@ -45,6 +47,11 @@ public class AccountManager internal constructor(
 
     public suspend fun removeAccount(accountId: AccountId) {
         accountRepository.removeCredentials(accountId)
+    }
+
+    @Throws(CalendarSdkException::class, CancellationException::class)
+    public suspend fun retrieveCaldavPassword(authToken: String): String {
+        return accountRepository.retrieveCaldavPassword(authToken)
     }
 }
 

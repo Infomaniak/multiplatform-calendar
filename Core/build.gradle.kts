@@ -50,7 +50,18 @@ kotlin {
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.kotlinx.datetime)
+            implementation(kmpCalendar.bundles.ktor)
         }
+
+        androidMain.dependencies {
+            implementation(kmpCalendar.ktor.client.okhttp)
+            implementation(kmpCalendar.kotlinx.coroutines.android)
+        }
+
+        appleMain.dependencies {
+            implementation(kmpCalendar.ktor.client.darwin)
+        }
+
         commonTest {
             dependencies {
                 implementation(kotlin("test"))

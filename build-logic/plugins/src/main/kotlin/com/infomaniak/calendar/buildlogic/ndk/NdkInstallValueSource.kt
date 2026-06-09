@@ -28,6 +28,9 @@ import org.gradle.api.provider.ValueSourceParameters
  * with the configuration cache (the same mechanism `providers.exec` uses internally). Unlike
  * `providers.exec`, it forwards sdkmanager's output as it is produced, so the single-line
  * download/unzip progress bar stays visible during installation.
+ *
+ * On a fresh machine sdkmanager prompts for license acceptance on stdin; we auto-answer "y"
+ * (equivalent to `yes | sdkmanager ...`) so the install is fully non-interactive.
  */
 abstract class NdkInstallValueSource : ValueSource<Int, NdkInstallValueSource.Params> {
 
@@ -47,6 +50,10 @@ abstract class NdkInstallValueSource : ValueSource<Int, NdkInstallValueSource.Pa
             redirectErrorStream(true)
         }.start()
 
+        // Auto-accept any license prompt by feeding "y" answers on stdin, on a separate
+        // thread to avoid a pipe-buffer deadlock while we read stdout below.
+        val licenseThread = process.feedLicenseAcceptanceOnStdin()
+
         // Forward raw bytes (including '\r') so the progress bar updates live on a single line.
         val buffer = ByteArray(1024)
         process.inputStream.use { input ->
@@ -58,7 +65,30 @@ abstract class NdkInstallValueSource : ValueSource<Int, NdkInstallValueSource.Pa
             }
         }
 
-        return process.waitFor()
+        val exitCode = process.waitFor()
+        licenseThread.join()
+        return exitCode
+    }
+
+    private fun Process.feedLicenseAcceptanceOnStdin(): Thread = Thread {
+        // sdkmanager closes stdin once it has read enough; writing then fails with a broken
+        // pipe, which simply means there was nothing (more) to accept.
+        runCatching {
+            outputStream.bufferedWriter().use { writer ->
+                repeat(LICENSE_ACCEPT_ATTEMPTS) {
+                    writer.appendLine("y")
+                    writer.flush()
+                }
+            }
+        }
+    }.apply {
+        isDaemon = true
+        start()
+    }
+
+    private companion object {
+        const val LICENSE_ACCEPT_ATTEMPTS = 30
     }
 }
+
 

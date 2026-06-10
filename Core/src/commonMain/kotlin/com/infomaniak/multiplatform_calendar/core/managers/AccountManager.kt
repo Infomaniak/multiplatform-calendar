@@ -46,8 +46,8 @@ public class AccountManager internal constructor(
     }
 
     @Throws(CalendarSdkException::class, CancellationException::class)
-    public suspend fun retrieveDavCredential(authToken: String): DavCredentials {
-        return accountRepository.retrieveDavCredential(authToken)
+    public suspend fun retrieveDavCredential(authToken: String, login: String? = null): DavCredentials {
+        return accountRepository.retrieveDavCredential(authToken, login)
     }
 }
 

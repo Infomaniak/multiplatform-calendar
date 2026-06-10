@@ -15,20 +15,25 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core
+package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
 @Inject
@@ -41,11 +46,22 @@ public class CalendarManager internal constructor(
     public fun observeCalendars(): Flow<List<Calendar>> {
         return accountRepository.currentAccountIdFlow.filterNotNull().flatMapLatest { accountId ->
             calendarRepository.observeCalendars(accountId)
+        }.catch {
+            //TODO: handle error
         }
     }
 
     public fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
-        return calendarRepository.observeEvents(calendarId)
+        return calendarRepository.observeEvents(calendarId).catch {
+            //TODO: handle error
+        }
+    }
+
+    @Throws(CancellationException::class)
+    public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
+        accountRepository.getCredentials(accountId)?.let { credentials ->
+            calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }
     }
 }
 

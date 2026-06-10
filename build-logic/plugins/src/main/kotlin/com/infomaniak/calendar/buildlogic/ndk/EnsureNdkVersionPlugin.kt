@@ -27,12 +27,17 @@ import org.gradle.kotlin.dsl.register
 import java.io.File
 
 /**
- * Convention plugin that makes sure the NDK version declared in `android.ndkVersion` is
- * installed before the build proceeds.
+ * Convention plugin that makes sure an NDK at least as recent as `android.ndkVersion` is
+ * available before the build proceeds.
  *
- * It checks for the NDK during configuration (before the Gobley Cargo plugin reads the NDK
- * directories) and installs it automatically via `sdkmanager` when missing, so a fresh
- * machine — including an IDE Gradle sync — builds without any manual setup.
+ * `android.ndkVersion` is treated as a **minimum**: if a newer (or equal) NDK is already
+ * installed it is reused (and `android.ndkVersion` is repointed to it so AGP/Gobley use the
+ * installed one); only when every installed NDK is older — or none is installed — is the
+ * declared version downloaded via `sdkmanager`.
+ *
+ * The check runs during configuration (before the Gobley Cargo plugin reads the NDK
+ * directories), so a fresh machine — including an IDE Gradle sync — builds without any
+ * manual setup.
  *
  * Usage in build.gradle.kts:
  * ```kotlin
@@ -51,19 +56,38 @@ class EnsureNdkVersionPlugin : Plugin<Project> {
 
     private fun configureNdkVersion(project: Project) {
         val android = project.extensions.getByName(ANDROID_EXTENSION_NAME) as CommonExtension<*, *, *, *, *, *>
-        val version = android.ndkVersion.takeIf { it.isNotEmpty() } ?: return
+        val minVersion = android.ndkVersion.takeIf { it.isNotEmpty() } ?: return
         val sdkDirectory = android.resolveSdkDirectory()
             ?: throw GradleException("Unable to resolve Android SDK directory from AGP. Configure the SDK location (e.g., ANDROID_SDK_ROOT or local.properties sdk.dir) and re-run the build.")
 
-        project.tasks.register<EnsureNdkVersionTask>(TASK_NAME) {
-            ndkVersion.set(version)
-            sdkDirectoryPath.set(sdkDirectory.absolutePath)
+        // Treat the declared version as a minimum: reuse the newest installed NDK that is
+        // >= it, and only install when none qualifies.
+        val newestSatisfying = installedNdkVersions(sdkDirectory)
+            .filter { compareNdkVersions(it, minVersion) >= 0 }
+            .maxWithOrNull(::compareNdkVersions)
+
+        val effectiveVersion = when {
+            newestSatisfying == null -> {
+                installNdk(project, minVersion, sdkDirectory)
+                minVersion
+            }
+            newestSatisfying == minVersion -> {
+                project.logger.quiet("✓ NDK $minVersion is configured")
+                minVersion
+            }
+            else -> {
+                project.logger.quiet("✓ NDK $newestSatisfying is installed and satisfies the required minimum $minVersion")
+                newestSatisfying
+            }
         }
 
-        if (File(sdkDirectory, "ndk/$version").exists()) {
-            project.logger.quiet("✓ NDK $version is configured")
-        } else {
-            installNdk(project, version, sdkDirectory)
+        // AGP and the Gobley Cargo plugin read android.ndkVersion, so point them at the NDK we
+        // actually resolved (otherwise they would look for the exact declared version).
+        if (effectiveVersion != minVersion) android.ndkVersion = effectiveVersion
+
+        project.tasks.register<EnsureNdkVersionTask>(TASK_NAME) {
+            ndkVersion.set(effectiveVersion)
+            sdkDirectoryPath.set(sdkDirectory.absolutePath)
         }
     }
 
@@ -82,6 +106,26 @@ class EnsureNdkVersionPlugin : Plugin<Project> {
         if (exitCode != 0) throw GradleException("Failed to install NDK $version (exit code: $exitCode)")
 
         project.logger.lifecycle("✓ NDK $version installed successfully")
+    }
+
+    /** Lists the fully installed (side-by-side) NDK versions under `<sdk>/ndk`. */
+    private fun installedNdkVersions(sdkDirectory: File): List<String> {
+        val ndkRoot = File(sdkDirectory, "ndk")
+        return (ndkRoot.listFiles { file -> file.isDirectory } ?: emptyArray())
+            .filter { File(it, "source.properties").exists() }
+            .map { it.name }
+    }
+
+    /** Compares two dotted numeric NDK versions, e.g. "30.0.14904198" vs "29.0.14206865". */
+    private fun compareNdkVersions(left: String, right: String): Int {
+        val leftParts = left.split('.')
+        val rightParts = right.split('.')
+        repeat(maxOf(leftParts.size, rightParts.size)) { index ->
+            val l = leftParts.getOrNull(index)?.toIntOrNull() ?: 0
+            val r = rightParts.getOrNull(index)?.toIntOrNull() ?: 0
+            if (l != r) return l.compareTo(r)
+        }
+        return 0
     }
 
     /**

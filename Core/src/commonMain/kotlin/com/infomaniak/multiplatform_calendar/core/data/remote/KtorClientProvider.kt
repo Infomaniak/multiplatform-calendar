@@ -26,15 +26,25 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.http.URLProtocol
 import io.ktor.http.path
+import io.ktor.serialization.kotlinx.json.DefaultJson
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNamingStrategy
 
 @ContributesTo(AppScope::class)
 public interface KtorClientProvider {
+    @OptIn(ExperimentalSerializationApi::class)
     @Provides
     @SingleIn(AppScope::class)
     private fun provideHttpClient(): HttpClient = HttpClient {
         install(ContentNegotiation) {
-            json()
+            json(
+                Json(DefaultJson) {
+                    ignoreUnknownKeys = true
+                    namingStrategy = JsonNamingStrategy.SnakeCase
+                },
+            )
         }
         defaultRequest {
             url {

@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
@@ -61,8 +62,17 @@ internal class AccountRepository(
     }
 
     @Throws(CalendarSdkException::class, CancellationException::class)
-    suspend fun retrieveCaldavPassword(authToken: String): String {
-        return runCatching { authDataSource.exchangeTokenToPassword(authToken).password }
-            .getOrElse { throw CalendarSdkException(it.message, it) }
+    suspend fun retrieveDavCredential(authToken: String, login: String? = null): DavCredentials {
+        return runCatching {
+            val login = login ?: authDataSource.retrieveUserProfile(authToken).login
+            val password = authDataSource.exchangeTokenToPassword(authToken)
+            DavCredentials(
+                username = login,
+                password = password.password,
+            )
+        }.getOrElse {
+            if (it is CancellationException) throw it
+            else throw CalendarSdkException(it.message, it)
+        }
     }
 }

@@ -18,7 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core.data.remote
 
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.PasswordResponse
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.UserProfileResponse
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.asSuccess
+import com.infomaniak.multiplatform_calendar.core.data.remote.routes.AuthRoutes
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -26,6 +28,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
+import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import kotlinx.datetime.format
@@ -40,11 +43,17 @@ internal class AuthDataSource(
 ) {
     @OptIn(ExperimentalTime::class)
     suspend fun exchangeTokenToPassword(authToken: String): PasswordResponse {
-        return ktorClient.post("profile/password") {
+        return ktorClient.post(AuthRoutes.PASSWORD) {
             bearerAuth(authToken)
             setBody(
                 MultiPartFormDataContent(formData { append("name", "calendar - ${now().format(RFC_1123)}") }),
             )
+        }.asSuccess()
+    }
+
+    suspend fun retrieveUserProfile(authToken: String): UserProfileResponse {
+        return ktorClient.get(AuthRoutes.PROFILE) {
+            bearerAuth(authToken)
         }.asSuccess()
     }
 }

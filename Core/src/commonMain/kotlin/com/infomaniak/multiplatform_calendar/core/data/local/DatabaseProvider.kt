@@ -30,14 +30,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.Inject
-import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
-@SingleIn(AppScope::class)
-@Inject
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
 }
@@ -70,4 +65,3 @@ internal abstract class CalendarDatabase : RoomDatabase() {
 internal expect object CalendarDatabaseConstructor : RoomDatabaseConstructor<CalendarDatabase> {
     override fun initialize(): CalendarDatabase
 }
-

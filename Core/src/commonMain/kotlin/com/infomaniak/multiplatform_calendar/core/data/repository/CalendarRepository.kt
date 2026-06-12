@@ -21,7 +21,6 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -35,6 +34,8 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 
 @SingleIn(AppScope::class)
@@ -52,8 +53,12 @@ internal class CalendarRepository(
     }
 
     fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
-        return eventDao.getByCalendarId(calendarId).map { entities ->
-            entities.map(EventEntity::toDomain)
+        val calendarFlow = calendarDao.getByCalendarId(calendarId)
+        val eventsFlow = eventDao.getByCalendarId(calendarId)
+
+        return combine(calendarFlow.filterNotNull(), eventsFlow) { calendarEntity, eventEntities ->
+            val calendar = calendarEntity.toDomain()
+            eventEntities.map { it.toDomain(calendar) }
         }
     }
 

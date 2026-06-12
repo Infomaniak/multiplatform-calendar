@@ -19,31 +19,40 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import kotlinx.datetime.LocalDateTime
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
-import kotlinx.datetime.LocalDateTime
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class, ExperimentalObjCRefinement::class)
-public data class Event(
+public interface Event {
     @HiddenFromObjC
-    val id: EventId,
+    public val id: EventId
+
     @HiddenFromObjC
-    val calendarId: CalendarId,
-    val title: String,
-    val description: String? = null,
-    val location: String? = null,
-    val status: String? = null,
-    val categories: String? = null,
-    val start: LocalDateTime? = null,
-    val end: LocalDateTime? = null,
-    val isAllDay: Boolean = false,
-    val recurrenceRule: RecurrenceRule? = null,
-    val etag: String? = null,
-    val rawIcs: String? = null,
-    val lastModified: LocalDateTime? = null,
-    val isSynced: Boolean = false,
-    val attendees: List<Attendee> = emptyList(),
-    val organizer: Attendee? = null,
-)
+    public val calendarId: CalendarId
+    public val title: String
+    public val description: String?
+    public val location: String?
+    public val status: String?
+    public val categories: String?
+    public val timing: EventTiming
+    public val lastModified: LocalDateTime?
+    public val attendees: List<Attendee>
+    public val organizer: Attendee?
+    public val color: Int
+    public val canEdit: Boolean
+
+    public fun copy(
+        title: String = this.title,
+        description: String? = this.description,
+        location: String? = this.location,
+        status: String? = this.status,
+        categories: String? = this.categories,
+        timing: EventTiming = this.timing,
+        attendees: List<Attendee> = this.attendees,
+        organizer: Attendee? = this.organizer,
+    ): Event
+}
+
+

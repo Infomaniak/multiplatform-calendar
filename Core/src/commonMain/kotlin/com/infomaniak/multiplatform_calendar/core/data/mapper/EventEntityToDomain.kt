@@ -18,11 +18,14 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventImpl
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
-internal fun EventEntity.toDomain() = Event(
+internal fun EventEntity.toDomain(calendar: Calendar): Event = EventImpl(
     id = id,
     calendarId = calendarId,
     title = summary,
@@ -30,11 +33,13 @@ internal fun EventEntity.toDomain() = Event(
     location = location,
     status = status,
     categories = categories,
-    start = dtStart,
-    end = dtEnd ?: dtStart,
-    isAllDay = isAllDay,
-    etag = etag,
-    rawIcs = rawIcs,
+    timing = EventTiming(
+        start = dtStart,
+        end = dtEnd ?: dtStart,
+        isAllDay = isAllDay,
+        recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
+    ),
     lastModified = lastModified,
-    isSynced = isSynced,
+    color = calendar.color,
+    canEdit = calendar.accessLevel.canWrite,
 )

@@ -19,10 +19,10 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import kotlinx.datetime.LocalDateTime
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class, ExperimentalObjCRefinement::class)
 public interface Event {
@@ -37,7 +37,7 @@ public interface Event {
     public val status: String?
     public val categories: String?
     public val timing: EventTiming
-    public val lastModified: LocalDateTime?
+    public val lastModified: Instant?
     public val attendees: List<Attendee>
     public val organizer: Attendee?
     public val color: Int

@@ -22,7 +22,15 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventImpl
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
+// TODO: Timezones are not handled yet — we assume UTC when converting to Instant.
+@OptIn(ExperimentalTime::class)
+private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 
 @OptIn(ExperimentalTime::class)
 internal fun EventEntity.toDomain(calendar: Calendar): Event = EventImpl(
@@ -34,12 +42,12 @@ internal fun EventEntity.toDomain(calendar: Calendar): Event = EventImpl(
     status = status,
     categories = categories,
     timing = EventTiming(
-        start = dtStart,
-        end = dtEnd ?: dtStart,
+        start = dtStart?.toUtcInstant(),
+        end = (dtEnd ?: dtStart)?.toUtcInstant(),
         isAllDay = isAllDay,
         recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
     ),
-    lastModified = lastModified,
+    lastModified = lastModified?.toUtcInstant(),
     color = calendar.color,
     canEdit = calendar.accessLevel.canWrite,
 )

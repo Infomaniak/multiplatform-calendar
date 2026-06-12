@@ -18,13 +18,13 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import kotlinx.datetime.LocalDateTime
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
 public data class EventTiming(
-    val start: LocalDateTime? = null,
-    val end: LocalDateTime? = null,
+    val start: Instant? = null,
+    val end: Instant? = null,
     val isAllDay: Boolean = false,
     val recurrenceRule: RecurrenceRule? = null,
 )

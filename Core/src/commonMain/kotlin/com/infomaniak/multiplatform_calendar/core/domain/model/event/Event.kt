@@ -42,17 +42,6 @@ public interface Event {
     public val organizer: Attendee?
     public val color: Int
     public val canEdit: Boolean
-
-    public fun copy(
-        title: String = this.title,
-        description: String? = this.description,
-        location: String? = this.location,
-        status: String? = this.status,
-        categories: String? = this.categories,
-        timing: EventTiming = this.timing,
-        attendees: List<Attendee> = this.attendees,
-        organizer: Attendee? = this.organizer,
-    ): Event
 }
 
 

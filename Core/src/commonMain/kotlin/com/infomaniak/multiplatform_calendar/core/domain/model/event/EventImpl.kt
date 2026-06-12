@@ -36,27 +36,6 @@ internal data class EventImpl(
     override val organizer: Attendee? = null,
     override val color: Int,
     override val canEdit: Boolean,
-) : Event {
+) : Event
 
-    override fun copy(
-        title: String,
-        description: String?,
-        location: String?,
-        status: String?,
-        categories: String?,
-        timing: EventTiming,
-        attendees: List<Attendee>,
-        organizer: Attendee?,
-    ): Event = copy(
-        id = id,
-        title = title,
-        description = description,
-        location = location,
-        status = status,
-        categories = categories,
-        timing = timing,
-        attendees = attendees,
-        organizer = organizer,
-    )
-}
 

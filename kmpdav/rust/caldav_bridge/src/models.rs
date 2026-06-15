@@ -38,6 +38,8 @@ pub struct EventEntry {
     pub location: Option<String>,
     pub dtstart: Option<String>,
     pub dtend: Option<String>,
+    /// Raw RFC 5545 `DURATION` value (e.g. "PT1H"). Mutually exclusive with `dtend`.
+    pub duration: Option<String>,
     pub created: Option<String>,
     pub last_modified: Option<String>,
     pub dtstamp: Option<String>,

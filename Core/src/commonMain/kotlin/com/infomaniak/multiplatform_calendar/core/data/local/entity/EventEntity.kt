@@ -24,6 +24,7 @@ import androidx.room.PrimaryKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import kotlinx.datetime.LocalDateTime
+import kotlin.time.Duration
 
 
 @Entity(
@@ -44,8 +45,9 @@ internal data class EventEntity(
     val summary: String,
     val description: String? = null,
     val location: String? = null,
-    val dtStart: LocalDateTime?,
-    val dtEnd: LocalDateTime?,
+    val dtStart: LocalDateTime,
+    val dtEnd: LocalDateTime? = null,
+    val duration: Duration? = null,
     val created: LocalDateTime? = null,
     val lastModified: LocalDateTime? = null,
     val dtStamp: LocalDateTime? = null,

@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local
 
 import androidx.room.TypeConverter
 import kotlinx.datetime.LocalDateTime
+import kotlin.time.Duration
 
 internal class CalendarTypeConverters {
 
@@ -27,4 +28,10 @@ internal class CalendarTypeConverters {
 
     @TypeConverter
     fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
+
+    @TypeConverter
+    fun fromDuration(value: Duration?): String? = value?.toIsoString()
+
+    @TypeConverter
+    fun toDuration(value: String?): Duration? = value?.let { Duration.parseIsoString(it) }
 }

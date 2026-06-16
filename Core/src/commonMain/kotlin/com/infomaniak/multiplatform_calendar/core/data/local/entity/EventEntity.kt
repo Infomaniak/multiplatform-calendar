@@ -26,7 +26,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import kotlinx.datetime.LocalDateTime
 import kotlin.time.Duration
 
-
 @Entity(
     tableName = "events",
     foreignKeys = [

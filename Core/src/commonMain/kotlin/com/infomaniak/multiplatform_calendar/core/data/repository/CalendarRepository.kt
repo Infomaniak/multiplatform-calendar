@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -118,10 +119,21 @@ internal class CalendarRepository(
             .logFailuresToSentry()
             .getOrNull()
 
+    suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
+        val event = eventDao.getEvent(eventId)
+        caldavClient.deleteEvent(credentials, eventId.url, event.etag)
+        eventDao.deleteEvent(eventId)
+    }
+
+    fun observeEvent(eventId: EventId): Flow<Event?> {
+        return eventDao.observeEventWithCalendar(eventId).map { rows ->
+            rows.firstOrNull()?.let { row -> row.event.toDomain(row.calendar.toDomain()) }
+        }
+    }
+
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)
         val url = remote.url.lowercase()
         url.contains("/inbox") || url.contains("/outbox")
     }
-
 }

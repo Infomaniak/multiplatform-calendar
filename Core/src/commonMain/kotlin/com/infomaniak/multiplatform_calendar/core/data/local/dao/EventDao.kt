@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDateTime
 
@@ -61,4 +62,15 @@ internal interface EventDao {
     @Upsert
     suspend fun upsert(eventDao: List<EventEntity>)
 
+    @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
+    fun getEvent(eventId: EventId): EventEntity
+
+    @Transaction
+    @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
+    fun observeEventWithCalendar(eventId: EventId): Flow<List<EventWithCalendarEntity>>
+
+    @Query("DELETE FROM events WHERE id = :eventId")
+    suspend fun deleteEvent(eventId: EventId)
+
 }
+

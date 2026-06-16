@@ -23,14 +23,18 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
@@ -47,6 +51,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -57,7 +62,6 @@ internal class CalendarRepository(
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
 ) {
-
     fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
         return calendarDao.observeByAccountId(accountId).map { entities ->
             entities.map(CalendarEntity::toDomain)
@@ -73,7 +77,6 @@ internal class CalendarRepository(
             eventEntities.map { it.toDomain(calendar) }
         }
     }
-
     @OptIn(ExperimentalTime::class)
     fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
         // TODO: Timezones are not handled yet — range bounds are compared in UTC.
@@ -119,6 +122,16 @@ internal class CalendarRepository(
             // TODO: Change when deleteEvent will return a result of success or failure
             val _ = getOrNull { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
             eventDao.deleteEvent(eventId)
+        }
+    }
+
+    suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
+        eventDao.getEvent(eventId)?.let { entity ->
+            // TODO: cross-calendar move (data.calendarId != entity.calendarId) needs create+delete; wired with creation.
+            val newIcs =
+                caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = Clock.System.now().toICalUtcDateTime()))
+            val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
+            eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
         }
     }
 

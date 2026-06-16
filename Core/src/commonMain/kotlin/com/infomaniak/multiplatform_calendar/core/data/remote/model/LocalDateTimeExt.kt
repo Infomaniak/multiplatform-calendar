@@ -20,8 +20,13 @@ package com.infomaniak.multiplatform_calendar.core.data.remote.model
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format
 import kotlinx.datetime.format.char
 import kotlinx.datetime.format.optional
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * Parse an iCalendar date or date-time into a [LocalDateTime].
@@ -44,7 +49,6 @@ internal fun parseICalDateTime(value: String?): LocalDateTime? {
         }
     }.getOrNull()
 }
-
 /**
  * Whether an iCalendar date/date-time value denotes a whole-day (`VALUE=DATE`) value.
  *
@@ -52,13 +56,24 @@ internal fun parseICalDateTime(value: String?): LocalDateTime? {
  * contains a `T` separator, so the absence of `T` unambiguously identifies an all-day value.
  */
 internal fun isICalDateOnly(value: String?): Boolean = value != null && 'T' !in value
+/** Format a [LocalDate] as an iCalendar `DATE` value (e.g. "20260616"). */
+internal fun LocalDate.toICalDate(): String = format(ICAL_DATE)
+/** Format an [Instant] as an iCalendar UTC `DATE-TIME` value (e.g. "20260616T100000Z"). */
+@OptIn(ExperimentalTime::class)
+internal fun Instant.toICalUtcDateTime(): String = toLocalDateTime(TimeZone.UTC).format(ICAL_DATE_TIME_UTC)
 
 private val ICAL_DATE = LocalDate.Format { year(); monthNumber(); day() }
-
-private val ICAL_DATE_TIME = LocalDateTime.Format {
+private val ICAL_DATE_TIME_BASE = LocalDateTime.Format {
     date(ICAL_DATE)
     char('T')
     time(LocalTime.Format { hour(); minute(); second() })
+}
+private val ICAL_DATE_TIME = LocalDateTime.Format {
+    dateTime(ICAL_DATE_TIME_BASE)
     optional { char('Z') }
+}
+private val ICAL_DATE_TIME_UTC = LocalDateTime.Format {
+    dateTime(ICAL_DATE_TIME_BASE)
+    char('Z')
 }
 

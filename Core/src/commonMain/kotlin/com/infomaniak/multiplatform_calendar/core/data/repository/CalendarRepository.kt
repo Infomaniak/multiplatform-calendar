@@ -53,8 +53,8 @@ internal class CalendarRepository(
     }
 
     fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
-        val calendarFlow = calendarDao.getByCalendarId(calendarId)
-        val eventsFlow = eventDao.getByCalendarId(calendarId)
+        val calendarFlow = calendarDao.observeCalendar(calendarId)
+        val eventsFlow = eventDao.observeEvents(calendarId)
 
         return combine(calendarFlow.filterNotNull(), eventsFlow) { calendarEntity, eventEntities ->
             val calendar = calendarEntity.toDomain()

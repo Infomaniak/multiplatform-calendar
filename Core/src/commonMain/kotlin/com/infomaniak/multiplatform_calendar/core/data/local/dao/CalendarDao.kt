@@ -40,7 +40,7 @@ internal interface CalendarDao {
     suspend fun findById(accountId: AccountId, id: CalendarId): CalendarEntity?
 
     @Query("SELECT * FROM calendars WHERE id = :calendarId LIMIT 1")
-    fun getByCalendarId(calendarId: CalendarId): Flow<CalendarEntity?>
+    fun observeCalendar(calendarId: CalendarId): Flow<CalendarEntity?>
 
     @Update
     suspend fun update(calendar: CalendarEntity)

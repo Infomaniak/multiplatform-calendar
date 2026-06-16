@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 internal interface EventDao {
     @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
-    fun getByCalendarId(calendarId: CalendarId): Flow<List<EventEntity>>
+    fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
 
     @Upsert
     suspend fun upsert(eventDao: List<EventEntity>)

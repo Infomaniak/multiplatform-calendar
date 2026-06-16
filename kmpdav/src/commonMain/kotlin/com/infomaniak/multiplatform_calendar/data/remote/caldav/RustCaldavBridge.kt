@@ -22,15 +22,18 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
+import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
+import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
 import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
 
 /**
@@ -132,6 +135,25 @@ internal class RustCaldavBridge(
             rustDeleteEvent(credentials.baseUrl, credentials.username, credentials.password, eventUrl, etag)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("deleteEvent")
+        }
+    }
+
+    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String = withContext(dispatcher) {
+        try {
+            rustPatchEventIcs(
+                icsData,
+                EventEdit(
+                    summary = edit.summary,
+                    dtstart = edit.dtStart,
+                    dtend = edit.dtEnd,
+                    allDay = edit.allDay,
+                    location = edit.location,
+                    description = edit.description,
+                    stamp = edit.stamp,
+                ),
+            )
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("patchEventIcs")
         }
     }
 }

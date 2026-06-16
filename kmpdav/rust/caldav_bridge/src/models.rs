@@ -60,3 +60,18 @@ pub struct MutateResult {
     pub etag: String,
 }
 
+/// Edited event fields applied onto an existing VEVENT by `patch_event_ics`.
+///
+/// Date/date-time values are raw RFC 5545 strings (e.g. "20260616T100000Z" or "20260616" when
+/// `all_day`). `stamp` is the UTC `DTSTAMP`/`LAST-MODIFIED` value (the caller owns the clock).
+#[derive(uniffi::Record)]
+pub struct EventEdit {
+    pub summary: Option<String>,
+    pub dtstart: String,
+    pub dtend: Option<String>,
+    pub all_day: bool,
+    pub location: Option<String>,
+    pub description: Option<String>,
+    pub stamp: String,
+}
+

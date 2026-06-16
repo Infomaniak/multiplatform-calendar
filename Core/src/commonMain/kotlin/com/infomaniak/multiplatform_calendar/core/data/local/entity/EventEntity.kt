@@ -63,6 +63,6 @@ internal data class EventEntity(
     val categories: String? = null,
     val organizer: String? = null,
     val etag: String,
-    val rawIcs: String? = null,
+    val rawIcs: String,
     val isSynced: Boolean = false,
 )

@@ -1,10 +1,10 @@
 //! Event operations (fetch / create / update / delete) and iCalendar parsing.
 
-use icalendar::{Calendar, CalendarComponent, Component};
+use icalendar::{Calendar, CalendarComponent, Component, Property};
 
 use crate::client::{client, rt};
 use crate::error::{err, CaldavError};
-use crate::models::{EventEntry, MutateResult};
+use crate::models::{EventEdit, EventEntry, MutateResult};
 
 /// Read a single iCalendar property value as an owned [`String`].
 fn prop(event: &icalendar::Event, name: &str) -> Option<String> {
@@ -53,6 +53,74 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
             rrule: None, status: None, transp: None, classification: None, priority: None,
             sequence: None, categories: None, organizer: None,
         },
+    }
+}
+
+/// Apply [`EventEdit`] onto an existing VEVENT, preserving every property we don't touch.
+///
+/// Replaces the edited content fields, then refreshes the revision metadata. Returns the
+/// re-serialized iCalendar object.
+#[uniffi::export]
+pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, CaldavError> {
+    let mut calendar: Calendar = ics_data.parse().map_err(|e| err("Patch", e))?;
+
+    let event = calendar
+        .components
+        .iter_mut()
+        .find_map(|component| match component {
+            CalendarComponent::Event(event) => Some(event),
+            _ => None,
+        })
+        .ok_or_else(|| CaldavError::Bridge { msg: "Patch: no VEVENT in ICS".to_string() })?;
+
+    apply_edited_fields(event, &edit);
+    bump_revision(event, &edit.stamp);
+
+    Ok(calendar.to_string())
+}
+
+/// Replace the user-edited content fields (keeps DTEND/DURATION mutually exclusive).
+fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
+    set_or_clear(event, "SUMMARY", edit.summary.as_deref());
+    set_or_clear(event, "LOCATION", edit.location.as_deref());
+    set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
+
+    event.remove_property("DTSTART");
+    event.remove_property("DTEND");
+    event.remove_property("DURATION");
+    if edit.all_day {
+        event.append_property(Property::new("DTSTART", &edit.dtstart).add_parameter("VALUE", "DATE").done());
+        if let Some(dtend) = edit.dtend.as_deref() {
+            event.append_property(Property::new("DTEND", dtend).add_parameter("VALUE", "DATE").done());
+        }
+    } else {
+        event.add_property("DTSTART", &edit.dtstart);
+        if let Some(dtend) = edit.dtend.as_deref() {
+            event.add_property("DTEND", dtend);
+        }
+    }
+}
+
+/// Refresh the revision metadata: bump SEQUENCE and set DTSTAMP/LAST-MODIFIED to [`stamp`].
+fn bump_revision(event: &mut icalendar::Event, stamp: &str) {
+    let next_sequence = event
+        .property_value("SEQUENCE")
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .unwrap_or(0)
+        + 1;
+    event.remove_property("SEQUENCE");
+    event.add_property("SEQUENCE", next_sequence.to_string());
+
+    event.remove_property("DTSTAMP");
+    event.add_property("DTSTAMP", stamp);
+    event.remove_property("LAST-MODIFIED");
+    event.add_property("LAST-MODIFIED", stamp);
+}
+
+fn set_or_clear(event: &mut icalendar::Event, key: &str, value: Option<&str>) {
+    event.remove_property(key);
+    if let Some(value) = value {
+        event.add_property(key, value);
     }
 }
 

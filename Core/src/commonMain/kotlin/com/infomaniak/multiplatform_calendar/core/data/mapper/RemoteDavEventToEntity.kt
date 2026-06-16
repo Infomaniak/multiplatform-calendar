@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
@@ -25,8 +26,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 
-internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity? {
-    val start = parseICalDateTime(dtstart) ?: return null
+internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
+    val start = parseICalDateTime(dtstart) ?: throw CaldavParsingException("DTSTART is required for event $url")
     val end = parseICalDateTime(dtend)
     return EventEntity(
         id = EventId(url),

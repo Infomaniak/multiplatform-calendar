@@ -87,6 +87,12 @@ public class CalendarManager internal constructor(
             ?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
     }
 
+    public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
+        accountRepository.currentAccountIdFlow.first()
+            ?.let(accountRepository::getCredentials)
+            ?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
+    }
+
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return calendarRepository.observeEvent(eventId).catch {
             //TODO: handle error

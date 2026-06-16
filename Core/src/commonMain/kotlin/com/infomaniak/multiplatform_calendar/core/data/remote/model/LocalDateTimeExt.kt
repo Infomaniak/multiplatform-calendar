@@ -45,6 +45,14 @@ internal fun parseICalDateTime(value: String?): LocalDateTime? {
     }.getOrNull()
 }
 
+/**
+ * Whether an iCalendar date/date-time value denotes a whole-day (`VALUE=DATE`) value.
+ *
+ * Per RFC 5545 a DATE value has the form `YYYYMMDD` (no time component) whereas a DATE-TIME always
+ * contains a `T` separator, so the absence of `T` unambiguously identifies an all-day value.
+ */
+internal fun isICalDateOnly(value: String?): Boolean = value != null && 'T' !in value
+
 private val ICAL_DATE = LocalDate.Format { year(); monthNumber(); day() }
 
 private val ICAL_DATE_TIME = LocalDateTime.Format {

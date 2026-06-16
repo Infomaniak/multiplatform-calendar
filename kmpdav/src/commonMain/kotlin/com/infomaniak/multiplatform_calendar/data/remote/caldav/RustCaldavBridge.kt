@@ -75,6 +75,7 @@ internal class RustCaldavBridge(
                     location = entry.location,
                     dtstart = entry.dtstart,
                     dtend = entry.dtend,
+                    duration = entry.duration,
                     created = entry.created,
                     lastModified = entry.lastModified,
                     dtstamp = entry.dtstamp,

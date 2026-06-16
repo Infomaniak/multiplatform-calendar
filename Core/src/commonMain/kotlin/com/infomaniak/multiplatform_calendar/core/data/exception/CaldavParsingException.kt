@@ -15,21 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.local.dao
+package com.infomaniak.multiplatform_calendar.core.data.exception
 
-import androidx.room.Dao
-import androidx.room.Query
-import androidx.room.Upsert
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import kotlinx.coroutines.flow.Flow
-
-@Dao
-internal interface EventDao {
-    @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
-    fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
-
-    @Upsert
-    suspend fun upsert(eventDao: List<EventEntity>)
-
+internal class CaldavParsingException : Exception {
+    constructor(message: String) : super(message)
+    constructor(message: String, cause: Throwable) : super(message, cause)
 }

@@ -15,21 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.local.dao
+package com.infomaniak.multiplatform_calendar.core.forCoreKmp
 
-import androidx.room.Dao
-import androidx.room.Query
-import androidx.room.Upsert
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CancellationException
 
-@Dao
-internal interface EventDao {
-    @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
-    fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
-
-    @Upsert
-    suspend fun upsert(eventDao: List<EventEntity>)
-
+internal fun <T> Result<T>.cancellable(): Result<T> = onFailure {
+    if (it is CancellationException) throw it
 }

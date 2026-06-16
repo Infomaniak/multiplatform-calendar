@@ -17,31 +17,42 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 
-internal fun RemoteDavEvent.toEntity(calendarId: CalendarId) = EventEntity(
-    id = EventId(url),
-    calendarId = calendarId,
-    summary = summary ?: "",
-    description = description,
-    location = location,
-    dtStart = parseICalDateTime(dtstart),
-    dtEnd = parseICalDateTime(dtend),
-    created = parseICalDateTime(created),
-    lastModified = parseICalDateTime(lastModified),
-    dtStamp = parseICalDateTime(dtstamp),
-    rrule = rrule,
-    status = status,
-    transp = transp,
-    classification = classification,
-    priority = priority?.toIntOrNull(),
-    sequence = sequence?.toIntOrNull(),
-    categories = categories,
-    organizer = organizer,
-    etag = etag,
-    rawIcs = icsData,
-)
+internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
+    val start = parseICalDateTime(dtstart) ?: throw CaldavParsingException("DTSTART is required for event $url")
+    val end = parseICalDateTime(dtend)
+    return EventEntity(
+        id = EventId(url),
+        calendarId = calendarId,
+        summary = summary ?: "",
+        description = description,
+        location = location,
+        dtStart = start,
+        dtEnd = end,
+        // DTEND and DURATION are mutually exclusive (RFC 5545); keep DURATION only when DTEND is absent.
+        duration = if (end == null) parseICalDuration(duration) else null,
+        // A `VALUE=DATE` DTSTART (no time component) denotes a whole-day event (RFC 5545).
+        isAllDay = isICalDateOnly(dtstart),
+        created = parseICalDateTime(created),
+        lastModified = parseICalDateTime(lastModified),
+        dtStamp = parseICalDateTime(dtstamp),
+        rrule = rrule,
+        status = status,
+        transp = transp,
+        classification = classification,
+        priority = priority?.toIntOrNull(),
+        sequence = sequence?.toIntOrNull(),
+        categories = categories,
+        organizer = organizer,
+        etag = etag,
+        rawIcs = icsData,
+    )
+}

@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,33 +15,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class, ExperimentalObjCRefinement::class)
-public interface Event {
-    @HiddenFromObjC
-    public val id: EventId
-
-    @HiddenFromObjC
-    public val calendarId: CalendarId
-    public val title: String
-    public val description: String?
-    public val location: String?
-    public val status: String?
-    public val categories: String?
-    public val timing: EventTiming
-    public val lastModified: Instant?
-    public val attendees: List<Attendee>
-    public val organizer: Attendee?
-    public val color: Int
-    public val canEdit: Boolean
-}
+@OptIn(ExperimentalTime::class)
+internal data class EventImpl(
+    override val id: EventId,
+    override val calendarId: CalendarId,
+    override val title: String,
+    override val description: String? = null,
+    override val location: String? = null,
+    override val status: String? = null,
+    override val categories: String? = null,
+    override val timing: EventTiming,
+    override val lastModified: Instant? = null,
+    override val attendees: List<Attendee> = emptyList(),
+    override val organizer: Attendee? = null,
+    override val color: Int,
+    override val canEdit: Boolean,
+) : Event
 
 

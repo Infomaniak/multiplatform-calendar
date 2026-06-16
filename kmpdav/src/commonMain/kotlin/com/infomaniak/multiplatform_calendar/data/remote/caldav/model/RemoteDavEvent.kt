@@ -32,6 +32,11 @@ data class RemoteDavEvent(
     val dtstart: String?,
     /** Raw RFC 5545 date/date-time string (e.g. "20260526T110000Z"). */
     val dtend: String?,
+    /**
+     * Raw RFC 5545 `DURATION` value (e.g. "PT1H", "P2W"). Mutually exclusive with [dtend]:
+     * a conformant VEVENT carries at most one of the two.
+     */
+    val duration: String?,
     /** Raw RFC 5545 date-time string of the event creation. */
     val created: String?,
     /** Raw RFC 5545 date-time string of the last modification. */

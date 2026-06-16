@@ -18,11 +18,25 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEnd
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventImpl
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
+// TODO: Timezones are not handled yet — we assume UTC when converting to Instant.
+@OptIn(ExperimentalTime::class)
+private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 
 @OptIn(ExperimentalTime::class)
-internal fun EventEntity.toDomain() = Event(
+internal fun EventEntity.toDomain(calendar: Calendar): Event = EventImpl(
     id = id,
     calendarId = calendarId,
     title = summary,
@@ -30,11 +44,31 @@ internal fun EventEntity.toDomain() = Event(
     location = location,
     status = status,
     categories = categories,
-    start = dtStart,
-    end = dtEnd ?: dtStart,
-    isAllDay = isAllDay,
-    etag = etag,
-    rawIcs = rawIcs,
-    lastModified = lastModified,
-    isSynced = isSynced,
+    timing = toTiming(),
+    lastModified = lastModified?.toUtcInstant(),
+    color = calendar.color,
+    canEdit = calendar.accessLevel.canWrite,
 )
+
+@OptIn(ExperimentalTime::class)
+private fun EventEntity.toTiming(): EventTiming = if (isAllDay) {
+    EventTiming.AllDay(
+        startDate = dtStart.date,
+        endDate = when {
+            dtEnd != null -> dtEnd.date
+            duration != null -> dtStart.date.plus(duration.inWholeDays, DateTimeUnit.DAY)
+            else -> dtStart.date.plus(1, DateTimeUnit.DAY)
+        },
+        recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
+    )
+} else {
+    EventTiming.Timed(
+        start = dtStart.toUtcInstant(),
+        end = when {
+            dtEnd != null -> EventEnd.At(dtEnd.toUtcInstant())
+            duration != null -> EventEnd.Lasting(duration)
+            else -> null
+        },
+        recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
+    )
+}

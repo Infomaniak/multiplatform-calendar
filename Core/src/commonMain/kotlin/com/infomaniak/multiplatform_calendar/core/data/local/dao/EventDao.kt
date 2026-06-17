@@ -31,6 +31,7 @@ import kotlinx.datetime.LocalDateTime
 
 @Dao
 internal interface EventDao {
+
     @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
     fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
 
@@ -63,7 +64,7 @@ internal interface EventDao {
     suspend fun upsert(eventDao: List<EventEntity>)
 
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
-    fun getEvent(eventId: EventId): EventEntity
+    suspend fun getEvent(eventId: EventId): EventEntity
 
     @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
@@ -71,6 +72,5 @@ internal interface EventDao {
 
     @Query("DELETE FROM events WHERE id = :eventId")
     suspend fun deleteEvent(eventId: EventId)
-
 }
 

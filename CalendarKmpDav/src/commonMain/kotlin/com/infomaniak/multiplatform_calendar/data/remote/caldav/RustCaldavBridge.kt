@@ -31,6 +31,7 @@ import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
+import uniffi.caldav_bridge.DavAccount as RustDavAccount
 import uniffi.caldav_bridge.buildEventIcs as rustBuildEventIcs
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent

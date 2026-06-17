@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toNewEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -60,6 +61,7 @@ internal class CalendarRepository(
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
 ) {
+
     fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
         return calendarDao.observeByAccountId(accountId).map { entities ->
             entities.map(CalendarEntity::toDomain)
@@ -67,7 +69,11 @@ internal class CalendarRepository(
     }
 
     @OptIn(ExperimentalTime::class)
-    fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
+    fun observeVisibleEvents(
+        accountId: AccountId,
+        start: Instant,
+        end: Instant
+    ): Flow<List<Event>> {
         // TODO: Timezones are not handled yet — range bounds are compared in UTC.
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
         val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
@@ -105,6 +111,21 @@ internal class CalendarRepository(
         event: RemoteDavEvent,
         calendarId: CalendarId,
     ): EventEntity? = getOrNull { event.toEntity(calendarId) }
+
+    suspend fun createEvent(credentials: DavAccount, data: EventEditData) {
+        val now = Clock.System.now().toICalUtcDateTime()
+        val ics = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now))
+        val ref = caldavClient.createEvent(credentials, data.calendarId.url, ics)
+        eventDao.upsert(
+            listOf(
+                data.toNewEntity(
+                    eventId = EventId(ref.url),
+                    etag = ref.etag,
+                    rawIcs = ics
+                )
+            )
+        )
+    }
 
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->

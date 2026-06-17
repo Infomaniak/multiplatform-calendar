@@ -67,11 +67,12 @@ public class CalendarManager internal constructor(
     }
 
     @Throws(CancellationException::class)
-    public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        accountRepository.getCredentials(accountId)?.let { credentials ->
-            calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+    public suspend fun syncCalendars(accountId: AccountId): Unit =
+        withContext(Dispatchers.Default) {
+            accountRepository.getCredentials(accountId)?.let { credentials ->
+                calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+            }
         }
-    }
 
     @Throws(CancellationException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
@@ -87,10 +88,17 @@ public class CalendarManager internal constructor(
             ?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
     }
 
-    public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
+    public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit =
+        withContext(Dispatchers.Default) {
+            accountRepository.currentAccountIdFlow.first()
+                ?.let(accountRepository::getCredentials)
+                ?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
+        }
+
+    public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
         accountRepository.currentAccountIdFlow.first()
             ?.let(accountRepository::getCredentials)
-            ?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
+            ?.let { credentials -> calendarRepository.createEvent(credentials, data) }
     }
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {

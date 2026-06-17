@@ -101,14 +101,31 @@ fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     }
 }
 
-/// Refresh the revision metadata: bump SEQUENCE and set DTSTAMP/LAST-MODIFIED to [`stamp`].
+/// Build a fresh iCalendar object (one VEVENT) from [`EventEdit`], with a new UID and SEQUENCE 0.
+#[uniffi::export]
+pub fn build_event_ics(edit: EventEdit) -> Result<String, CaldavError> {
+    let mut event = icalendar::Event::new();
+    event.add_property("UID", uuid::Uuid::new_v4().to_string());
+    apply_edited_fields(&mut event, &edit);
+    bump_revision(&mut event, &edit.stamp);
+
+    let mut calendar = Calendar::new();
+    calendar.push(event);
+    Ok(calendar.to_string())
+}
+
+/// Refresh the revision metadata: set SEQUENCE (bump existing, else 0) and DTSTAMP/LAST-MODIFIED.
 fn bump_revision(event: &mut icalendar::Event, stamp: &str) {
-    let next_sequence = event
+    let next_sequence = match event
         .property_value("SEQUENCE")
         .and_then(|value| value.trim().parse::<u32>().ok())
-        .unwrap_or(0)
-        + 1;
-    event.remove_property("SEQUENCE");
+    {
+        Some(current) => {
+            event.remove_property("SEQUENCE");
+            current + 1
+        }
+        None => 0,
+    };
     event.add_property("SEQUENCE", next_sequence.to_string());
 
     event.remove_property("DTSTAMP");

@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalDate
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import kotlinx.datetime.LocalDateTime
@@ -65,8 +66,28 @@ internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: St
         rawIcs = rawIcs,
         isSynced = true,
     )
-}
 
+@OptIn(ExperimentalTime::class)
+internal fun EventEditData.toNewEntity(
+    eventId: EventId,
+    etag: String,
+    rawIcs: String
+): EventEntity = EventEntity(
+    id = eventId,
+    calendarId = calendarId,
+    summary = title,
+    location = location,
+    description = description,
+    dtStart = timing.entityStart(),
+    dtEnd = timing.entityEnd(),
+    duration = null,
+    isAllDay = timing is EventTiming.AllDay,
+    etag = etag,
+    rawIcs = rawIcs,
+    isSynced = true,
+)
+
+@OptIn(ExperimentalTime::class)
 private fun EventTiming.entityStart(): LocalDateTime = when (this) {
     is EventTiming.AllDay -> LocalDateTime(startDate, LocalTime(0, 0))
     is EventTiming.Timed -> start.toLocalDateTime(TimeZone.UTC)

@@ -39,7 +39,11 @@ kotlin {
 
     cargo {
         packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
-
+        // Always compile the Rust .so with Cargo's `release` profile, even for Android Debug
+        // builds: a Rust debug .so weighs ~80 MB/ABI vs ~10 MB in release, which would otherwise
+        // bloat the debug APK by ~150 MB. The release profile here is the soft one in Cargo.toml
+        // (opt-level "s", lto, strip), not the extreme size-optimized one.
+        debug.profile = gobley.gradle.cargo.profiles.CargoProfile.Release
         // Kotlin/Native embeds the Rust static lib at cinterop time, which is
         // variant-agnostic (a single klib). Gobley defaults the native Rust build
         // to `Debug`, so even `assembleKmpCalendarReleaseXCFramework` would link
@@ -77,14 +81,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 }
-
 // Ensure KSP tasks depend on UniFFI binding generation
 tasks.configureEach {
     if (name.startsWith("ksp") && name.contains("Kotlin")) {
         dependsOn(tasks.named("buildUniffiBindings"))
     }
 }
-
 // Ensure native compilation runs after KSP (Metro code generation)
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
     tasks.matching { it.name == "compileKotlin$target" }.configureEach {

@@ -19,6 +19,12 @@ jobs:
           token: ${{ github.token }}
           submodules: recursive
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       # Rust toolchain is required by the Gobley Cargo/UniFFI plugins (:kmpdav).
       # Ensures `cargo` is on PATH for the Gradle process and the targets are installed.
       - name: Setup Rust toolchain

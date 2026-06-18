@@ -19,4 +19,6 @@ roxmltree = "0.21"
 [profile.release]
 lto = true
 opt-level = "s"
-strip = true
+# `"debuginfo"` (not `true`/`"symbols"`) keeps the export table so uniffi-bindgen can read the
+# library symbols when bindings are generated from a release .so. AGP strips again at packaging.
+strip = "debuginfo"

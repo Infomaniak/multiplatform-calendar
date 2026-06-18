@@ -17,6 +17,7 @@
  */
 plugins {
     alias(kmpCalendar.plugins.android.library)
+    alias(kmpCalendar.plugins.ensureNdkVersion)
     alias(kmpCalendar.plugins.gobley.cargo)
     alias(kmpCalendar.plugins.gobley.uniffi)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
@@ -73,6 +74,7 @@ kotlin {
 android {
     namespace = "com.infomaniak.multiplatform_calendar"
     compileSdk = property("kmp.compileSdk").toString().toInt()
+    ndkVersion = "30.0.14904198"
     defaultConfig {
         minSdk = property("kmp.minSdk").toString().toInt()
     }
@@ -115,7 +117,7 @@ tasks.matching { it.name == "buildUniffiBindings" }.configureEach {
     androidAbis.forEach { abi ->
         mustRunAfter(
             "cargoBuildAndroid${abi}Debug",
-            "cargoBuildAndroid${abi}Release"
+            "cargoBuildAndroid${abi}Release",
         )
     }
 }
@@ -123,7 +125,7 @@ tasks.matching { it.name == "buildUniffiBindings" }.configureEach {
 mapOf(
     "IosArm64" to "IosArm64",
     "IosSimulatorArm64" to "IosSimulatorArm64",
-    "MacosArm64" to "MacOSArm64"
+    "MacosArm64" to "MacOSArm64",
 )
     .forEach { (kt, cargo) -> tasks.matching { it.name == "cinteropRust$kt" }.afterCargo(cargo) }
 listOf("Debug", "Release").forEach { v ->

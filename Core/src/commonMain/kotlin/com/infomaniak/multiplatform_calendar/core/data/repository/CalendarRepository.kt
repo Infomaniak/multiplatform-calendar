@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.sentry
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -42,6 +43,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlin.reflect.KClass
 
 @SingleIn(AppScope::class)
 @Inject
@@ -71,24 +73,32 @@ internal class CalendarRepository(
         accountId: AccountId,
         credentials: DavAccount,
     ) {
-        val remoteCalendars = caldavClient.discoverCalendars(credentials).excludeScheduling()
+        val remoteCalendars = runOrSentry(CaldavBridgeException::class) {
+            caldavClient.discoverCalendars(credentials).excludeScheduling()
+        }.getOrElse { return }
         calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
         remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
             calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
             calendarDao.getByAccountId(accountId).forEach {
-                val remoteEvents = caldavClient.getEvents(credentials, it.id.url)
+                val remoteEvents = runOrSentry(CaldavBridgeException::class) {
+                    caldavClient.getEvents(credentials, it.id.url)
+                }.getOrElse { _ -> return@forEach }
                 eventDao.upsert(remoteEvents.mapNotNull { event -> eventToEntity(event, it.id) })
             }
         }
     }
 
-    private fun eventToEntity(
+    private suspend fun eventToEntity(
         event: RemoteDavEvent,
         calendarId: CalendarId,
-    ): EventEntity? = runCatching { event.toEntity(calendarId) }
-        .cancellable()
-        .sentry(CaldavParsingException::class)
-        .getOrNull()
+    ): EventEntity? = runOrSentry(CaldavParsingException::class) {
+        event.toEntity(calendarId)
+    }.getOrNull()
+
+    private suspend fun <T> runOrSentry(vararg exceptions: KClass<*>, block: suspend () -> T): Result<T> =
+        runCatching { block() }
+            .cancellable()
+            .sentry(*exceptions)
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

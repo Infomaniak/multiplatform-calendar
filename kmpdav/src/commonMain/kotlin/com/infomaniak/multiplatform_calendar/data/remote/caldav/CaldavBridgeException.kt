@@ -20,7 +20,7 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav
 import uniffi.caldav_bridge.CaldavException
 
 /** Exception raised when the Rust bridge reports an error. */
-internal class CaldavBridgeException(
+class CaldavBridgeException(
     override val message: String,
     override val cause: Throwable?,
 ) : RuntimeException(message, cause) {

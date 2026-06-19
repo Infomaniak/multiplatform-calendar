@@ -78,6 +78,7 @@ public class CalendarManager internal constructor(
         }
     }
 
+    @Throws(CancellationException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
         accountRepository.currentAccountIdFlow.first()
             ?.let(accountRepository::getCredentials)

@@ -113,16 +113,11 @@ internal class CalendarRepository(
         calendarId: CalendarId,
     ): EventEntity? = getOrNull { event.toEntity(calendarId) }
 
-    private inline fun <T> getOrNull(block: () -> T): T? =
-        runCatching { block() }
-            .cancellable()
-            .logFailuresToSentry()
-            .getOrNull()
-
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
-        val event = eventDao.getEvent(eventId)
-        caldavClient.deleteEvent(credentials, eventId.url, event.etag)
-        eventDao.deleteEvent(eventId)
+        eventDao.getEvent(eventId)?.let { event ->
+            val _ = getOrNull { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
+            eventDao.deleteEvent(eventId)
+        }
     }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {
@@ -130,6 +125,12 @@ internal class CalendarRepository(
             rows.firstOrNull()?.let { row -> row.event.toDomain(row.calendar.toDomain()) }
         }
     }
+
+    private inline fun <T> getOrNull(block: () -> T): T? =
+        runCatching { block() }
+            .cancellable()
+            .logFailuresToSentry()
+            .getOrNull()
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

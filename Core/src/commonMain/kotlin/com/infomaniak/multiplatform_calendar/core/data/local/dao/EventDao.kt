@@ -64,7 +64,7 @@ internal interface EventDao {
     suspend fun upsert(eventDao: List<EventEntity>)
 
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
-    suspend fun getEvent(eventId: EventId): EventEntity
+    suspend fun getEvent(eventId: EventId): EventEntity?
 
     @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")

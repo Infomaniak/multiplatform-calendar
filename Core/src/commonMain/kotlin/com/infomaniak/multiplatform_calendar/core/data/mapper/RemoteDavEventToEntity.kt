@@ -25,11 +25,22 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDur
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration
 
 @Throws(CaldavParsingException::class)
 internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
     val start = parseICalDateTime(dtstart) ?: throw CaldavParsingException("DTSTART is required for event $url")
     val end = parseICalDateTime(dtend)
+    // DTEND and DURATION are mutually exclusive (RFC 5545); keep DURATION only when DTEND is absent.
+    val parsedDuration = if (end == null) parseICalDuration(duration) else null
+    // A `VALUE=DATE` DTSTART (no time component) denotes a whole-day event (RFC 5545).
+    val allDay = isICalDateOnly(dtstart)
     return EventEntity(
         id = EventId(url),
         calendarId = calendarId,
@@ -38,10 +49,9 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         location = location,
         dtStart = start,
         dtEnd = end,
-        // DTEND and DURATION are mutually exclusive (RFC 5545); keep DURATION only when DTEND is absent.
-        duration = if (end == null) parseICalDuration(duration) else null,
-        // A `VALUE=DATE` DTSTART (no time component) denotes a whole-day event (RFC 5545).
-        isAllDay = isICalDateOnly(dtstart),
+        duration = parsedDuration,
+        dtEndEffective = resolveEffectiveEnd(start, end, parsedDuration, allDay),
+        isAllDay = allDay,
         created = parseICalDateTime(created),
         lastModified = parseICalDateTime(lastModified),
         dtStamp = parseICalDateTime(dtstamp),
@@ -57,3 +67,24 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         rawIcs = icsData,
     )
 }
+
+/**
+ * Resolve the end used both for range-overlap queries ([EventEntity.dtEndEffective]) and for the domain timing.
+ *
+ * **Single source of truth** for an event's resolved end (RFC 5545): explicit `DTEND`, else `dtStart + DURATION`,
+ * else (whole-day, per RFC 5545 §3.6.1) `dtStart + 1 day`, else `dtStart` (zero-length `DATE-TIME` event).
+ *
+ * Timezones are assumed UTC (see the timezone TODO across the data layer).
+ */
+private fun resolveEffectiveEnd(
+    start: LocalDateTime,
+    end: LocalDateTime?,
+    duration: Duration?,
+    allDay: Boolean,
+): LocalDateTime = when {
+    end != null -> end
+    duration != null -> start.toInstant(TimeZone.UTC).plus(duration).toLocalDateTime(TimeZone.UTC)
+    allDay -> LocalDateTime(start.date.plus(1, DateTimeUnit.DAY), start.time)
+    else -> start
+}
+

@@ -36,7 +36,7 @@ import kotlin.time.Duration
             onDelete = ForeignKey.CASCADE,
         )
     ],
-    indices = [Index("calendarId"), Index("dtStart"), Index("dtEnd")],
+    indices = [Index("calendarId"), Index("dtStart"), Index("dtEndEffective")],
 )
 internal data class EventEntity(
     @PrimaryKey val id: EventId,
@@ -47,6 +47,9 @@ internal data class EventEntity(
     val dtStart: LocalDateTime,
     val dtEnd: LocalDateTime? = null,
     val duration: Duration? = null,
+    // Resolved end (single source of truth, see `resolveEffectiveEnd`): used for range-overlap queries
+    // (see [EventDao.observeVisibleInRange]) and as the domain timing's end. SQL can't derive it from ISO-text storage.
+    val dtEndEffective: LocalDateTime,
     val created: LocalDateTime? = null,
     val lastModified: LocalDateTime? = null,
     val dtStamp: LocalDateTime? = null,

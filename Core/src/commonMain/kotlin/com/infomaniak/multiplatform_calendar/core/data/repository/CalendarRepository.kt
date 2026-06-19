@@ -18,7 +18,6 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -30,8 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
-import com.infomaniak.multiplatform_calendar.core.forCoreKmp.sentry
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -43,7 +41,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
-import kotlin.reflect.KClass
 
 @SingleIn(AppScope::class)
 @Inject
@@ -73,32 +70,37 @@ internal class CalendarRepository(
         accountId: AccountId,
         credentials: DavAccount,
     ) {
-        val remoteCalendars = runOrSentry(CaldavBridgeException::class) {
-            caldavClient.discoverCalendars(credentials).excludeScheduling()
-        }.getOrElse { return }
+        val remoteCalendars = getCalendars(credentials) ?: return
+
         calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
         remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
             calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
             calendarDao.getByAccountId(accountId).forEach {
-                val remoteEvents = runOrSentry(CaldavBridgeException::class) {
-                    caldavClient.getEvents(credentials, it.id.url)
-                }.getOrElse { _ -> return@forEach }
+                val remoteEvents = getRemoteEvents(credentials, it.id) ?: return@forEach
                 eventDao.upsert(remoteEvents.mapNotNull { event -> eventToEntity(event, it.id) })
             }
         }
     }
 
-    private suspend fun eventToEntity(
+    private suspend fun getCalendars(
+        credentials: DavAccount,
+    ): List<RemoteDavCalendar>? = getOrNull { caldavClient.discoverCalendars(credentials).excludeScheduling() }
+
+    private suspend fun getRemoteEvents(
+        credentials: DavAccount,
+        id: CalendarId,
+    ): List<RemoteDavEvent>? = getOrNull { caldavClient.getEvents(credentials, id.url) }
+
+    private fun eventToEntity(
         event: RemoteDavEvent,
         calendarId: CalendarId,
-    ): EventEntity? = runOrSentry(CaldavParsingException::class) {
-        event.toEntity(calendarId)
-    }.getOrNull()
+    ): EventEntity? = getOrNull { event.toEntity(calendarId) }
 
-    private suspend fun <T> runOrSentry(vararg exceptions: KClass<*>, block: suspend () -> T): Result<T> =
+    private inline fun <T> getOrNull(block: () -> T): T? =
         runCatching { block() }
             .cancellable()
-            .sentry(*exceptions)
+            .logFailuresToSentry()
+            .getOrNull()
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

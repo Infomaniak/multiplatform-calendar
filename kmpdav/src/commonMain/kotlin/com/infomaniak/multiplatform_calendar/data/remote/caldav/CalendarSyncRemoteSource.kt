@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 interface CalendarSyncRemoteSource {
 
     /** Discover all calendars for the given credentials. */
+    @Throws(CaldavBridgeException::class)
     suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar>
 
     /** Fetch all events (iCalendar resources) inside a calendar. */

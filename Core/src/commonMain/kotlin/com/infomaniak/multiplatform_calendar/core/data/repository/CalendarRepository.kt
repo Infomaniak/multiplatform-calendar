@@ -72,7 +72,7 @@ internal class CalendarRepository(
     fun observeVisibleEvents(
         accountId: AccountId,
         start: Instant,
-        end: Instant
+        end: Instant,
     ): Flow<List<Event>> {
         // TODO: Timezones are not handled yet — range bounds are compared in UTC.
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
@@ -121,19 +121,12 @@ internal class CalendarRepository(
                 data.toNewEntity(
                     eventId = EventId(ref.url),
                     etag = ref.etag,
-                    rawIcs = ics
-                )
-            )
+                    rawIcs = ics,
+                ),
+            ),
         )
     }
 
-    suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
-        eventDao.getEvent(eventId)?.let { event ->
-            // TODO: Change when deleteEvent will return a result of success or failure
-            runCatching { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
-                .onSuccessOrReport { eventDao.deleteEvent(eventId) }
-        }
-    }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
         eventDao.getEvent(eventId)?.let { entity ->
@@ -145,6 +138,14 @@ internal class CalendarRepository(
             }.onSuccessOrReport { ref ->
                 eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
             }
+        }
+    }
+
+    suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
+        eventDao.getEvent(eventId)?.let { event ->
+            // TODO: Change when deleteEvent will return a result of success or failure
+            runCatching { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
+                .onSuccessOrReport { eventDao.deleteEvent(eventId) }
         }
     }
 

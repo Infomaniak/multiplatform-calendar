@@ -66,8 +66,8 @@ internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: St
         rawIcs = rawIcs,
         isSynced = true,
     )
+}
 
-@OptIn(ExperimentalTime::class)
 internal fun EventEditData.toNewEntity(
     eventId: EventId,
     etag: String,
@@ -83,7 +83,6 @@ internal fun EventEditData.toNewEntity(
         dtStart = timing.entityStart(),
         dtEnd = end,
         dtEndEffective = end,
-        duration = null,
         isAllDay = timing is EventTiming.AllDay,
         etag = etag,
         rawIcs = rawIcs,
@@ -91,7 +90,6 @@ internal fun EventEditData.toNewEntity(
     )
 }
 
-@OptIn(ExperimentalTime::class)
 private fun EventTiming.entityStart(): LocalDateTime = when (this) {
     is EventTiming.AllDay -> LocalDateTime(startDate, LocalTime(0, 0))
     is EventTiming.Timed -> start.toLocalDateTime(TimeZone.UTC)

@@ -22,7 +22,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
@@ -41,6 +43,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
@@ -64,6 +70,16 @@ internal class CalendarRepository(
             val calendar = calendarEntity.toDomain()
             eventEntities.map { it.toDomain(calendar) }
         }
+    }
+
+    @OptIn(ExperimentalTime::class)
+    fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
+        // TODO: Timezones are not handled yet — range bounds are compared in UTC.
+        val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
+        val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
+
+        return eventDao.observeVisibleInRange(accountId, startLocalDateTime, endLocalDateTime)
+            .map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 
     suspend fun syncCalendars(

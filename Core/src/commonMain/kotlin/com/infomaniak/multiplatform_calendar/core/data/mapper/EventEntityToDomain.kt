@@ -20,13 +20,10 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEnd
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventImpl
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -54,21 +51,15 @@ internal fun EventEntity.toDomain(calendar: Calendar): Event = EventImpl(
 private fun EventEntity.toTiming(): EventTiming = if (isAllDay) {
     EventTiming.AllDay(
         startDate = dtStart.date,
-        endDate = when {
-            dtEnd != null -> dtEnd.date
-            duration != null -> dtStart.date.plus(duration.inWholeDays, DateTimeUnit.DAY)
-            else -> dtStart.date.plus(1, DateTimeUnit.DAY)
-        },
+        // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day); its date is the exclusive end.
+        endDate = dtEndEffective.date,
         recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
     )
 } else {
     EventTiming.Timed(
         start = dtStart.toUtcInstant(),
-        end = when {
-            dtEnd != null -> EventEnd.At(dtEnd.toUtcInstant())
-            duration != null -> EventEnd.Lasting(duration)
-            else -> null
-        },
+        // Already-resolved end (DTEND, else DTSTART+DURATION, else == start). Single source of truth: dtEndEffective.
+        end = dtEndEffective.toUtcInstant(),
         recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
     )
 }

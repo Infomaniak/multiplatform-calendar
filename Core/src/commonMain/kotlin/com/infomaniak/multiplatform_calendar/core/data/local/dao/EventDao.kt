@@ -19,15 +19,44 @@ package com.infomaniak.multiplatform_calendar.core.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlinx.coroutines.flow.Flow
+import kotlinx.datetime.LocalDateTime
 
 @Dao
 internal interface EventDao {
     @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
     fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
+
+    /**
+     * Events (with their parent calendar) from all *visible* calendars of [accountId] that overlap
+     * the [start, end[ range. An event overlaps when it starts before [end] and its resolved end
+     * ([EventEntity.dtEndEffective], which already accounts for `DTEND`/`DURATION`) is at/after [start].
+     *
+     * Note: bounds are compared as stored wall-clock values (UTC assumed) — see timezone TODO.
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT event.* FROM events event
+        INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        WHERE calendar.accountId = :accountId
+          AND calendar.isVisible = 1
+          AND event.dtStart < :end
+          AND event.dtEndEffective >= :start
+        ORDER BY event.dtStart ASC
+        """,
+    )
+    fun observeVisibleInRange(
+        accountId: AccountId,
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): Flow<List<EventWithCalendarEntity>>
 
     @Upsert
     suspend fun upsert(eventDao: List<EventEntity>)

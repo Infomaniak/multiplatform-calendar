@@ -19,7 +19,6 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDate
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
@@ -46,30 +45,16 @@ public sealed interface EventTiming {
     ) : EventTiming
 
     /**
-     * Instant-anchored event (`DTSTART;VALUE=DATE-TIME`). The end is either explicit, a duration, or
-     * absent (zero-length) — see [EventEnd] and [resolvedEnd].
+     * Instant-anchored event (`DTSTART;VALUE=DATE-TIME`). Spans `[start, end]`.
+     *
+     * [end] is the **resolved** end: it already accounts for `DTEND` / `DURATION` (and equals [start] for a
+     * zero-length event with neither). The resolution rule lives in a single place — the write-side mapper that
+     * persists `EventEntity.dtEndEffective` — so consumers never have to recompute it.
      */
-    @OptIn(ExperimentalTime::class)
     public data class Timed(
         val start: Instant,
-        val end: EventEnd? = null,
+        val end: Instant,
         override val recurrenceRule: RecurrenceRule? = null,
-    ) : EventTiming {
-
-        /**
-         * The effective end [Instant] of a [EventTiming.Timed] event.
-         *
-         * - [EventEnd.At] → its explicit instant.
-         * - [EventEnd.Lasting] → [EventTiming.Timed.start] shifted by the duration.
-         * - `null` end → falls back to the start (a zero-length event, per RFC 5545 for a `DATE-TIME` start
-         *   without `DTEND`/`DURATION`).
-         */
-        @OptIn(ExperimentalTime::class)
-        public fun resolvedEnd(): Instant = when (val end = end) {
-            is EventEnd.At -> end.instant
-            is EventEnd.Lasting -> start + end.duration
-            null -> start
-        }
-    }
+    ) : EventTiming
 }
 

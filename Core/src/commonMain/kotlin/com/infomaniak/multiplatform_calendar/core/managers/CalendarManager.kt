@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
@@ -53,6 +55,16 @@ public class CalendarManager internal constructor(
 
     public fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
         return calendarRepository.observeEvents(calendarId).catch {
+            //TODO: handle error
+        }
+    }
+
+    /** Observe events from all *visible* calendars of the current account overlapping [start, end[. */
+    @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
+    public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
+        return accountRepository.currentAccountIdFlow.filterNotNull().flatMapLatest { accountId ->
+            calendarRepository.observeVisibleEvents(accountId, start, end)
+        }.catch {
             //TODO: handle error
         }
     }

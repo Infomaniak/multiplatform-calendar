@@ -24,11 +24,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 
 
 internal fun List<EventWithCalendarEntity>.toDomainEvents(): List<Event> {
-    val calendarsDomains = HashMap<CalendarId, Calendar>()
+    val calendarsDomains = mutableMapOf<CalendarId, Calendar>()
     return map { it.toDomainEvent(calendarsDomains) }
 }
 
-private fun EventWithCalendarEntity.toDomainEvent(calendarsDomains: HashMap<CalendarId, Calendar>): Event {
+private fun EventWithCalendarEntity.toDomainEvent(calendarsDomains: MutableMap<CalendarId, Calendar>): Event {
     val calendar = with(calendar) {
         calendarsDomains.getOrPut(id) { toDomain() }
     }

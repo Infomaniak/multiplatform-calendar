@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Remote CalDAV data source backed by the Rust `caldav_bridge` native library.
@@ -31,7 +32,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 interface CalendarSyncRemoteSource {
 
     /** Discover all calendars for the given credentials. */
-    @Throws(CaldavBridgeException::class)
+    @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar>
 
     /** Fetch all events (iCalendar resources) inside a calendar. */

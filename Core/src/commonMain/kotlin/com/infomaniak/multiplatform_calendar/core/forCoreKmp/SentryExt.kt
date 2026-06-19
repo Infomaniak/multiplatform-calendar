@@ -19,8 +19,10 @@ package com.infomaniak.multiplatform_calendar.core.forCoreKmp
 
 import kotlin.reflect.KClass
 
-internal fun <T> Result<T>.sentry(vararg kClasses: KClass<*>): Result<T> = onFailure {
-    if (kClasses.any { klass -> klass.isInstance(it) }) {
+internal fun <T> Result<T>.logFailuresToSentry(
+    vararg ignoredClasses: KClass<*>,
+): Result<T> = onFailure { exception ->
+    if (ignoredClasses.none { klass -> klass.isInstance(exception) }) {
         // TODO: sentry log
     }
 }

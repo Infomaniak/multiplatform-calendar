@@ -19,11 +19,15 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav.di
 
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustCaldavBridge
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
 
-@ContributesTo(AppScope::class)
+/**
+ * Module providing the CalDAV client binding.
+ *
+ * It is **not** auto-contributed: it is inherited explicitly by the Core dependency graphs
+ * (`AndroidCalendarGraph` on Android, `CalendarSDK` on Apple), which live in `:Core` and can see
+ * `:kmpdav`. This keeps the binding (and `RustCaldavBridge`) out of any host app's graph.
+ */
 interface CaldavClientModule {
 
     @Provides

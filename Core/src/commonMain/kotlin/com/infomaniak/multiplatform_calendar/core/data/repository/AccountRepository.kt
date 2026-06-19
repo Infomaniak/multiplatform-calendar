@@ -20,11 +20,11 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
-import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.channels.BufferOverflow
@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlin.coroutines.cancellation.CancellationException
 
-@SingleIn(AppScope::class)
+@SingleIn(SdkScope::class)
 @Inject
 internal class AccountRepository(
     private val accountDao: AccountDao,

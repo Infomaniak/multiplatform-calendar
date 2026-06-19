@@ -19,11 +19,11 @@ package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
-import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +37,7 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@SingleIn(AppScope::class)
+@SingleIn(SdkScope::class)
 @Inject
 public class CalendarManager internal constructor(
     private val accountRepository: AccountRepository,

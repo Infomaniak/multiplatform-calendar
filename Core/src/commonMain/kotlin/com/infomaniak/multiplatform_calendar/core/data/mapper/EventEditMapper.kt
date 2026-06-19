@@ -71,21 +71,25 @@ internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: St
 internal fun EventEditData.toNewEntity(
     eventId: EventId,
     etag: String,
-    rawIcs: String
-): EventEntity = EventEntity(
-    id = eventId,
-    calendarId = calendarId,
-    summary = title,
-    location = location,
-    description = description,
-    dtStart = timing.entityStart(),
-    dtEnd = timing.entityEnd(),
-    duration = null,
-    isAllDay = timing is EventTiming.AllDay,
-    etag = etag,
-    rawIcs = rawIcs,
-    isSynced = true,
-)
+    rawIcs: String,
+): EventEntity {
+    val end = timing.entityEnd()
+    return EventEntity(
+        id = eventId,
+        calendarId = calendarId,
+        summary = title,
+        location = location,
+        description = description,
+        dtStart = timing.entityStart(),
+        dtEnd = end,
+        dtEndEffective = end,
+        duration = null,
+        isAllDay = timing is EventTiming.AllDay,
+        etag = etag,
+        rawIcs = rawIcs,
+        isSynced = true,
+    )
+}
 
 @OptIn(ExperimentalTime::class)
 private fun EventTiming.entityStart(): LocalDateTime = when (this) {

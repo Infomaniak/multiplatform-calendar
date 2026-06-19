@@ -22,7 +22,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
@@ -76,9 +78,8 @@ internal class CalendarRepository(
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
         val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
 
-        return eventDao.observeVisibleInRange(accountId, startLocalDateTime, endLocalDateTime).map { rows ->
-            rows.map { row -> row.event.toDomain(row.calendar.toDomain()) }
-        }
+        return eventDao.observeVisibleInRange(accountId, startLocalDateTime, endLocalDateTime)
+            .map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 
     suspend fun syncCalendars(

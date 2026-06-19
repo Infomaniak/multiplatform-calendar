@@ -27,9 +27,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.ExperimentalTime
 
-@OptIn(ExperimentalTime::class)
 internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit = when (val timing = timing) {
     is EventTiming.AllDay -> RemoteEventEdit(
         summary = title.ifBlank { null },
@@ -40,37 +38,41 @@ internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit = when (
         description = description?.ifBlank { null },
         stamp = stamp,
     )
+
     is EventTiming.Timed -> RemoteEventEdit(
         summary = title.ifBlank { null },
         dtStart = timing.start.toICalUtcDateTime(),
-        dtEnd = timing.end?.let { timing.resolvedEnd().toICalUtcDateTime() },
+        dtEnd = timing.end.toICalUtcDateTime(),
         allDay = false,
         location = location?.ifBlank { null },
         description = description?.ifBlank { null },
         stamp = stamp,
     )
 }
-@OptIn(ExperimentalTime::class)
-internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: String): EventEntity = copy(
-    calendarId = data.calendarId,
-    summary = data.title,
-    location = data.location,
-    description = data.description,
-    dtStart = data.timing.entityStart(),
-    dtEnd = data.timing.entityEnd(),
-    duration = null,
-    isAllDay = data.timing is EventTiming.AllDay,
-    etag = etag,
-    rawIcs = rawIcs,
-    isSynced = true,
-)
-@OptIn(ExperimentalTime::class)
+
+internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: String): EventEntity {
+    val end = data.timing.entityEnd()
+    return copy(
+        calendarId = data.calendarId,
+        summary = data.title,
+        location = data.location,
+        description = data.description,
+        dtStart = data.timing.entityStart(),
+        dtEnd = end,
+        dtEndEffective = end,
+        isAllDay = data.timing is EventTiming.AllDay,
+        etag = etag,
+        rawIcs = rawIcs,
+        isSynced = true,
+    )
+}
+
 private fun EventTiming.entityStart(): LocalDateTime = when (this) {
     is EventTiming.AllDay -> LocalDateTime(startDate, LocalTime(0, 0))
     is EventTiming.Timed -> start.toLocalDateTime(TimeZone.UTC)
 }
-@OptIn(ExperimentalTime::class)
-private fun EventTiming.entityEnd(): LocalDateTime? = when (this) {
+
+private fun EventTiming.entityEnd(): LocalDateTime = when (this) {
     is EventTiming.AllDay -> LocalDateTime(endDate, LocalTime(0, 0))
-    is EventTiming.Timed -> end?.let { resolvedEnd().toLocalDateTime(TimeZone.UTC) }
+    is EventTiming.Timed -> end.toLocalDateTime(TimeZone.UTC)
 }

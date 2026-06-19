@@ -128,10 +128,10 @@ internal class CalendarRepository(
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
         eventDao.getEvent(eventId)?.let { entity ->
             // TODO: cross-calendar move (data.calendarId != entity.calendarId) needs create+delete; wired with creation.
-            val newIcs =
-                caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = Clock.System.now().toICalUtcDateTime()))
-            val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
-            eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
+            val now = Clock.System.now().toICalUtcDateTime()
+            val newIcs = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now))
+            getOrNull { caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs) }
+                ?.let { ref -> eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs))) }
         }
     }
 

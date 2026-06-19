@@ -85,7 +85,8 @@ public class CalendarManager internal constructor(
             ?.let(accountRepository::getCredentials)
             ?.let { credentials -> calendarRepository.deleteEvent(credentials, eventId) }
     }
-
+    
+    @Throws(CancellationException::class)
     public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
         accountRepository.currentAccountIdFlow.first()
             ?.let(accountRepository::getCredentials)

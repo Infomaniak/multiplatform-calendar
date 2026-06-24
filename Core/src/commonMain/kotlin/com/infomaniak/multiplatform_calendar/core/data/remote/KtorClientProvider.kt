@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.remote
 
-import dev.zacsweers.metro.AppScope
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
@@ -32,11 +32,11 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
 
-@ContributesTo(AppScope::class)
+@ContributesTo(SdkScope::class)
 public interface KtorClientProvider {
     @OptIn(ExperimentalSerializationApi::class)
     @Provides
-    @SingleIn(AppScope::class)
+    @SingleIn(SdkScope::class)
     private fun provideHttpClient(): HttpClient = HttpClient {
         install(ContentNegotiation) {
             json(

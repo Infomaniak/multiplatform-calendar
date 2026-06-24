@@ -19,21 +19,19 @@ package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_calendar.core.managers.AccountManager
 import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.ContributesTo
 
 /**
- * Shared contract for the Calendar dependency graph.
+ * Public contract exposed by the Core dependency graph.
  *
- * Automatically merged as a supertype of any `@DependencyGraph(AppScope::class)`:
- * - On Android: merged into the app's `AppGraph`
- * - On Apple: merged into `CalendarSDK`
+ * It is implemented by the platform-specific Core graphs:
+ * - **Android**: `AndroidCalendarGraph` (`@DependencyGraph(CalendarScope)`), obtained via
+ *   `CalendarGraphProvider.create(context)`.
+ * - **Apple**: `CalendarSDK` (`@DependencyGraph(CalendarScope)`), obtained via `CalendarSDKProvider.sdk(path)`.
  *
- * Platform-specific graphs only need to provide the [android.content.Context] (Android)
- * or the database path (Apple) — everything else is wired through `@Inject` classes
- * and `@ContributesTo` modules (`DatabaseModule`, `AndroidDatabaseModule`, `CaldavClientModule`).
+ * Host apps depend on **this** type only: it exposes the managers but hides every internal binding
+ * (repositories, DAOs, the `:kmpdav` CalDAV client…). On Android the app graph receives an instance via
+ * `@Includes` (graph dependency), so app code never needs to depend on `:kmpdav`.
  */
-@ContributesTo(AppScope::class)
 public interface CalendarCoreGraph {
     public val accountManager: AccountManager
     public val calendarManager: CalendarManager

@@ -15,21 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.data.remote.caldav.di
-
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustCaldavBridge
-import dev.zacsweers.metro.Provides
+package com.infomaniak.multiplatform_calendar.core.di
 
 /**
- * Module providing the CalDAV client binding.
+ * DI scope owned by the **Core** dependency graph (`AndroidCalendarGraph` on Android,
+ * `CalendarSDK` on Apple).
  *
- * It is **not** auto-contributed: it is inherited explicitly by the Core dependency graphs
- * (`AndroidCalendarGraph` on Android, `CalendarSDK` on Apple), which live in `:Core` and can see
- * `:kmpdav`. This keeps the binding (and `RustCaldavBridge`) out of any host app's graph.
+ * Everything wired here — managers, repositories, DAOs, the CalDAV client (`:kmpdav`) — lives
+ * inside the Core graph and is **not** re-exposed to consumers. Host apps depend on the Core graph
+ * through [CalendarCoreGraph] (which only exposes the managers), so they never need to see the
+ * internal bindings nor depend on `:kmpdav`.
  */
-interface CaldavClientModule {
+public abstract class SdkScope private constructor()
 
-    @Provides
-    fun provideCaldavClient(): CalendarSyncRemoteSource = RustCaldavBridge()
-}

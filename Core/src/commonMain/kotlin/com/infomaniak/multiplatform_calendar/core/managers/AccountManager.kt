@@ -19,17 +19,17 @@ package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
-import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
-@SingleIn(AppScope::class)
+@SingleIn(SdkScope::class)
 @Inject
 public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,

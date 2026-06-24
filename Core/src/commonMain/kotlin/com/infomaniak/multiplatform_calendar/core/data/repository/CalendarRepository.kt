@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithC
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -36,7 +37,6 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemo
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
-import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
@@ -46,7 +46,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@SingleIn(AppScope::class)
+@SingleIn(SdkScope::class)
 @Inject
 internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,

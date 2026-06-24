@@ -21,7 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.PasswordResp
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.UserProfileResponse
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.asSuccess
 import com.infomaniak.multiplatform_calendar.core.data.remote.routes.AuthRoutes
-import dev.zacsweers.metro.AppScope
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import io.ktor.client.HttpClient
@@ -36,7 +36,7 @@ import kotlinx.datetime.format.DateTimeComponents.Formats.RFC_1123
 import kotlin.time.Clock.System.now
 import kotlin.time.ExperimentalTime
 
-@SingleIn(AppScope::class)
+@SingleIn(SdkScope::class)
 @Inject
 internal class AuthDataSource(
     private val ktorClient: HttpClient,

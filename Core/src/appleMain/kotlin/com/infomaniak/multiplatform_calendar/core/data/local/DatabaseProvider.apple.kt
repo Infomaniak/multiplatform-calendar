@@ -19,12 +19,12 @@ package com.infomaniak.multiplatform_calendar.core.data.local
 
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import dev.zacsweers.metro.AppScope
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.cinterop.ExperimentalForeignApi
 
-@SingleIn(scope = AppScope::class)
+@SingleIn(scope = SdkScope::class)
 @Inject
 internal actual class DatabaseProvider(private val databaseConfig: DatabaseConfig) {
 

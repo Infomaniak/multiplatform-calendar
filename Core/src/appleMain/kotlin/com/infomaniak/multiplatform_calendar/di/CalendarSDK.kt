@@ -20,20 +20,21 @@ package com.infomaniak.multiplatform_calendar.di
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
+import com.infomaniak.multiplatform_calendar.core.di.SdkScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
-import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.createGraphFactory
 
 /**
- * Dependency graph for Apple (iOS / macOS) consumers.
+ * Self-contained Core dependency graph for Apple (iOS / macOS) consumers.
  *
- * Provides the Apple-specific [CalendarDatabase] binding. All other bindings
- * (CalendarSyncRemoteSource, DAOs, repositories, managers) are contributed automatically via
- * `@ContributesTo(AppScope)` modules (`CaldavClientModule`, `DatabaseModule`, `CalendarCoreGraph`).
+ * It owns the [SdkScope] and provides the Apple-specific [CalendarDatabase] binding. It inherits
+ * [CalendarCoreGraph] (to expose `accountManager` / `calendarManager`) and [CaldavClientModule] (the
+ * `:kmpdav` CalDAV client binding); the Room database module is contributed automatically via
+ * `@ContributesTo(CalendarScope)`. It is accessed through [CalendarSDKProvider.sdk].
  */
-@DependencyGraph(scope = AppScope::class)
+@DependencyGraph(scope = SdkScope::class)
 internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, CaldavClientModule {
 
     @DependencyGraph.Factory

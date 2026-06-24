@@ -40,8 +40,6 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -59,16 +57,6 @@ internal class CalendarRepository(
     fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
         return calendarDao.observeByAccountId(accountId).map { entities ->
             entities.map(CalendarEntity::toDomain)
-        }
-    }
-
-    fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
-        val calendarFlow = calendarDao.observeCalendar(calendarId)
-        val eventsFlow = eventDao.observeEvents(calendarId)
-
-        return combine(calendarFlow.filterNotNull(), eventsFlow) { calendarEntity, eventEntities ->
-            val calendar = calendarEntity.toDomain()
-            eventEntities.map { it.toDomain(calendar) }
         }
     }
 

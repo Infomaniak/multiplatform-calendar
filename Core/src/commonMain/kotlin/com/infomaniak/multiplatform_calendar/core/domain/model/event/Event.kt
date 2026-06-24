@@ -41,7 +41,6 @@ public interface Event {
     public val attendees: List<Attendee>
     public val organizer: Attendee?
     public val color: Int
+    public val colors: EventColors
     public val canEdit: Boolean
 }
-
-

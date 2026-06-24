@@ -17,24 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
-
-@OptIn(ExperimentalTime::class)
-internal data class EventImpl(
-    override val id: EventId,
-    override val calendarId: CalendarId,
-    override val title: String,
-    override val description: String? = null,
-    override val location: String? = null,
-    override val status: String? = null,
-    override val categories: String? = null,
-    override val timing: EventTiming,
-    override val lastModified: Instant? = null,
-    override val attendees: List<Attendee> = emptyList(),
-    override val organizer: Attendee? = null,
-    override val color: Int,
-    override val colors: EventColors,
-    override val canEdit: Boolean,
-) : Event
+public data class EventColor(
+    val light: Int,
+    val dark: Int,
+)

@@ -29,19 +29,20 @@ public data class EventColors(
         public fun from(color: Int): EventColors {
             val palette = TonalPalette.fromInt(color)
             return EventColors(
-                datavizContainer = palette.eventColor(EventColorRole.DatavizContainer),
-                onDatavizContainer = palette.eventColor(EventColorRole.OnDatavizContainer),
-                datavizContainerVariant = palette.eventColor(EventColorRole.DatavizContainerVariant),
-                onDatavizContainerVariant = palette.eventColor(EventColorRole.OnDatavizContainerVariant),
+                datavizContainer = palette.eventColor(ColorRoleTone.DatavizContainer),
+                onDatavizContainer = palette.eventColor(ColorRoleTone.OnDatavizContainer),
+                datavizContainerVariant = palette.eventColor(ColorRoleTone.DatavizContainerVariant),
+                onDatavizContainerVariant = palette.eventColor(ColorRoleTone.OnDatavizContainerVariant),
             )
         }
 
-        private fun TonalPalette.eventColor(role: EventColorRole): EventColor = EventColor(
-            light = tone(role.light),
-            dark = tone(role.dark),
+        private fun TonalPalette.eventColor(tone: ColorRoleTone): EventColor = EventColor(
+            light = tone(tone.light),
+            dark = tone(tone.dark),
         )
 
-        private enum class EventColorRole(val light: Int, val dark: Int) {
+        // Tones are based on what the spec uses for dataviz colors which is itself based on the material logic of what tones to pair
+        private enum class ColorRoleTone(val light: Int, val dark: Int) {
             DatavizContainer(light = 100, dark = 20),
             OnDatavizContainer(light = 40, dark = 80),
             DatavizContainerVariant(light = 90, dark = 30),

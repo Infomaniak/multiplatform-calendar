@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -31,6 +32,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -67,6 +69,19 @@ public class CalendarManager internal constructor(
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         accountRepository.getCredentials(accountId)?.let { credentials ->
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }
+    }
+
+    @Throws(CancellationException::class)
+    public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
+        accountRepository.currentAccountIdFlow.first()
+            ?.let(accountRepository::getCredentials)
+            ?.let { credentials -> calendarRepository.deleteEvent(credentials, eventId) }
+    }
+
+    public fun observeEvent(eventId: EventId): Flow<Event?> {
+        return calendarRepository.observeEvent(eventId).catch {
+            //TODO: handle error
         }
     }
 }

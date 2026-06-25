@@ -24,12 +24,14 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -100,6 +102,18 @@ internal class CalendarRepository(
         calendarId: CalendarId,
     ): EventEntity? = getOrNull { event.toEntity(calendarId) }
 
+    suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
+        eventDao.getEvent(eventId)?.let { event ->
+            // TODO: Change when deleteEvent will return a result of success or failure
+            val _ = getOrNull { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
+            eventDao.deleteEvent(eventId)
+        }
+    }
+
+    fun observeEvent(eventId: EventId): Flow<Event?> {
+        return eventDao.observeEventWithCalendar(eventId).map(EventWithCalendarEntity?::toDomainEvent)
+    }
+
     private inline fun <T> getOrNull(block: () -> T): T? =
         runCatching { block() }
             .cancellable()
@@ -111,5 +125,4 @@ internal class CalendarRepository(
         val url = remote.url.lowercase()
         url.contains("/inbox") || url.contains("/outbox")
     }
-
 }

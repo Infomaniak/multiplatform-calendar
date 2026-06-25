@@ -36,15 +36,19 @@ interface CalendarSyncRemoteSource {
     suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar>
 
     /** Fetch all events (iCalendar resources) inside a calendar. */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent>
 
     /** Create a new event. Returns the server-assigned URL + etag. */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef
 
     /** Update an existing event (identified by its URL + etag for conflict detection). */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun updateEvent(credentials: DavAccount, eventUrl: String, etag: String, icsData: String): RemoteDavEventRef
 
     /** Delete an event (identified by its URL + etag). */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String)
 }
 

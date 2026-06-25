@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
  */
 public val Calendar.idValue: String get() = id.url
 public val Calendar.accountIdValue: Long get() = accountId.value
+public val Calendar.colorValue: Int get() = color.argb
 public val Event.idValue: String get() = id.url
 public val Event.calendarIdValue: String get() = calendarId.url
-
+public val Event.colorValue: Int get() = color.argb

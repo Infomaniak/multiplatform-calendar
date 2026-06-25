@@ -34,7 +34,7 @@ import kotlin.time.Instant
 private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 
 @OptIn(ExperimentalTime::class)
-internal fun EventEntity.toDomain(calendar: Calendar, calendarColors: EventColors): Event = EventImpl(
+internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event = EventImpl(
     id = id,
     calendarId = calendarId,
     title = summary,
@@ -45,7 +45,7 @@ internal fun EventEntity.toDomain(calendar: Calendar, calendarColors: EventColor
     timing = toTiming(),
     lastModified = lastModified?.toUtcInstant(),
     color = calendar.color,
-    colors = calendarColors,
+    colors = eventColors,
     canEdit = calendar.accessLevel.canWrite,
 )
 

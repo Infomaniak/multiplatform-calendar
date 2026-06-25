@@ -44,7 +44,7 @@ internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors):
     categories = categories,
     timing = toTiming(),
     lastModified = lastModified?.toUtcInstant(),
-    color = calendar.color,
+    calendarColor = calendar.color,
     colors = eventColors,
     canEdit = calendar.accessLevel.canWrite,
 )

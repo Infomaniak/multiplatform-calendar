@@ -42,7 +42,7 @@ public interface Event {
     public val attendees: List<Attendee>
     public val organizer: Attendee?
     @HiddenFromObjC
-    public val color: CalendarColor
+    public val calendarColor: CalendarColor
     public val colors: EventColors
     public val canEdit: Boolean
 }

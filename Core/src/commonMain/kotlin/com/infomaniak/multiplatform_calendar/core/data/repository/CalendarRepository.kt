@@ -120,8 +120,8 @@ internal class CalendarRepository(
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->
             // TODO: Change when deleteEvent will return a result of success or failure
-            val _ = getOrNull { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
-            eventDao.deleteEvent(eventId)
+            runCatching { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
+                .onSuccessOrReport { eventDao.deleteEvent(eventId) }
         }
     }
 
@@ -130,8 +130,11 @@ internal class CalendarRepository(
             // TODO: cross-calendar move (data.calendarId != entity.calendarId) needs create+delete; wired with creation.
             val now = Clock.System.now().toICalUtcDateTime()
             val newIcs = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now))
-            getOrNull { caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs) }
-                ?.let { ref -> eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs))) }
+            runCatching {
+                caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
+            }.onSuccessOrReport { ref ->
+                eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
+            }
         }
     }
 
@@ -144,6 +147,11 @@ internal class CalendarRepository(
             .cancellable()
             .logFailuresToSentry()
             .getOrNull()
+
+    private inline fun <T> Result<T>.onSuccessOrReport(block: (T) -> Unit) =
+        cancellable()
+            .logFailuresToSentry()
+            .onSuccess(block)
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

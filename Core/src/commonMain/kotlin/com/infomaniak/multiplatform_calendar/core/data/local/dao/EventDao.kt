@@ -68,7 +68,7 @@ internal interface EventDao {
 
     @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
-    fun observeEventWithCalendar(eventId: EventId): Flow<List<EventWithCalendarEntity>>
+    fun observeEventWithCalendar(eventId: EventId): Flow<EventWithCalendarEntity?>
 
     @Query("DELETE FROM events WHERE id = :eventId")
     suspend fun deleteEvent(eventId: EventId)

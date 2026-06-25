@@ -34,3 +34,7 @@ private fun EventWithCalendarEntity.toDomainEvent(calendarsDomains: MutableMap<C
     }
     return event.toDomain(calendar)
 }
+
+internal fun EventWithCalendarEntity?.toDomainEvent(): Event? {
+    return this?.let { event.toDomain(calendar.toDomain()) }
+}

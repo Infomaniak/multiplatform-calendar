@@ -110,26 +110,21 @@ internal class CalendarRepository(
         val now = Clock.System.now().toICalUtcDateTime()
         val ics = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, ics)
-        eventDao.upsert(
-            listOf(
-                data.toNewEntity(
-                    eventId = EventId(ref.url),
-                    etag = ref.etag,
-                    rawIcs = ics,
-                ),
-            ),
-        )
+        eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = ics)))
     }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
         eventDao.getEvent(eventId)?.let { entity ->
-            // TODO: cross-calendar move (data.calendarId != entity.calendarId) needs create+delete; wired with creation.
             val now = Clock.System.now().toICalUtcDateTime()
             val newIcs = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now))
-            runCatching {
-                caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
-            }.onSuccessOrReport { ref ->
-                eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
+            if (data.calendarId == entity.calendarId) {
+                runCatching {
+                    caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
+                }.onSuccessOrReport { ref ->
+                    eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
+                }
+            } else {
+                updateCrossCalendarEvent(credentials, eventId, data, newIcs)
             }
         }
     }
@@ -141,6 +136,17 @@ internal class CalendarRepository(
                 .onSuccessOrReport { eventDao.deleteEvent(eventId) }
         }
     }
+
+    private suspend fun updateCrossCalendarEvent(
+        credentials: DavAccount,
+        eventId: EventId,
+        data: EventEditData,
+        newIcs: String,
+    ) = runCatching { caldavClient.createEvent(credentials, data.calendarId.url, newIcs) }
+        .onSuccessOrReport { ref ->
+            deleteEvent(credentials, eventId)
+            eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs)))
+        }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventDao.observeEventWithCalendar(eventId).map(EventWithCalendarEntity?::toDomainEvent)

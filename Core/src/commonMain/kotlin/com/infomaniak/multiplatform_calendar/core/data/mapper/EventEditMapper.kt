@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDat
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -69,13 +70,12 @@ internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: St
 }
 
 internal fun EventEditData.toNewEntity(
-    eventId: EventId,
-    etag: String,
+    ref: RemoteDavEventRef,
     rawIcs: String,
 ): EventEntity {
     val end = timing.entityEnd()
     return EventEntity(
-        id = eventId,
+        id = EventId(ref.url),
         calendarId = calendarId,
         summary = title,
         location = location,
@@ -84,7 +84,7 @@ internal fun EventEditData.toNewEntity(
         dtEnd = end,
         dtEndEffective = end,
         isAllDay = timing is EventTiming.AllDay,
-        etag = etag,
+        etag = ref.etag,
         rawIcs = rawIcs,
         isSynced = true,
     )

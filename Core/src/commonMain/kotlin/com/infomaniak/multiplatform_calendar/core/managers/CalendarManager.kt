@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -77,6 +78,13 @@ public class CalendarManager internal constructor(
         accountRepository.currentAccountIdFlow.first()
             ?.let(accountRepository::getCredentials)
             ?.let { credentials -> calendarRepository.deleteEvent(credentials, eventId) }
+    }
+    
+    @Throws(CancellationException::class)
+    public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
+        accountRepository.currentAccountIdFlow.first()
+            ?.let(accountRepository::getCredentials)
+            ?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
     }
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {

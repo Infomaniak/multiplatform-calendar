@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -38,6 +39,9 @@ interface CalendarSyncRemoteSource {
     /** Fetch all events (iCalendar resources) inside a calendar. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent>
+
+    /** Apply [edit] onto an existing iCS, returning the re-serialized iCalendar object (no network). */
+    suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String
 
     /** Create a new event. Returns the server-assigned URL + etag. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

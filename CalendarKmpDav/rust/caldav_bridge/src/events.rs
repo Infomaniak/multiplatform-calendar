@@ -143,9 +143,9 @@ fn set_or_clear(event: &mut icalendar::Event, key: &str, value: Option<&str>) {
 
 /// Fetch all events (iCalendar resources) inside a calendar.
 #[uniffi::export]
-pub fn fetch_events(account: &DavAccount, calendar_url: &str) -> Result<Vec<EventEntry>, CaldavError> {
+pub fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<EventEntry>, CaldavError> {
     let rt = rt()?;
-    let cli = client(account)?;
+    let cli = client(&account)?;
 
     rt.block_on(async {
         let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
@@ -160,9 +160,9 @@ pub fn fetch_events(account: &DavAccount, calendar_url: &str) -> Result<Vec<Even
 
 /// Create a new event. Returns the server-assigned URL + etag.
 #[uniffi::export]
-pub fn create_event(account: &DavAccount, calendar_url: &str, ics_data: &str) -> Result<MutateResult, CaldavError> {
+pub fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> Result<MutateResult, CaldavError> {
     let rt = rt()?;
-    let cli = client(account)?;
+    let cli = client(&account)?;
     let body = bytes::Bytes::from(ics_data.as_bytes().to_vec());
 
     rt.block_on(async {
@@ -181,9 +181,9 @@ pub fn create_event(account: &DavAccount, calendar_url: &str, ics_data: &str) ->
 
 /// Update an existing event (identified by its URL + etag for conflict detection).
 #[uniffi::export]
-pub fn update_event(account: &DavAccount, event_url: &str, etag: &str, ics_data: &str) -> Result<MutateResult, CaldavError> {
+pub fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: &str) -> Result<MutateResult, CaldavError> {
     let rt = rt()?;
-    let cli = client(account)?;
+    let cli = client(&account)?;
     let body = bytes::Bytes::from(ics_data.as_bytes().to_vec());
 
     rt.block_on(async {
@@ -200,9 +200,9 @@ pub fn update_event(account: &DavAccount, event_url: &str, etag: &str, ics_data:
 
 /// Delete an event (identified by its URL + etag).
 #[uniffi::export]
-pub fn delete_event(account: &DavAccount, event_url: &str, etag: &str) -> Result<(), CaldavError> {
+pub fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<(), CaldavError> {
     let rt = rt()?;
-    let cli = client(account)?;
+    let cli = client(&account)?;
 
     rt.block_on(async {
         cli.delete_if_match(event_url, etag).await.map_err(|e| err("Delete", e))?;

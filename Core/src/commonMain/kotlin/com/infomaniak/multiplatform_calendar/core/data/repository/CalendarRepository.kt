@@ -51,7 +51,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -68,12 +67,7 @@ internal class CalendarRepository(
         }
     }
 
-    @OptIn(ExperimentalTime::class)
-    fun observeVisibleEvents(
-        accountId: AccountId,
-        start: Instant,
-        end: Instant,
-    ): Flow<List<Event>> {
+    fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
         // TODO: Timezones are not handled yet — range bounds are compared in UTC.
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
         val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
@@ -126,7 +120,6 @@ internal class CalendarRepository(
             ),
         )
     }
-
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
         eventDao.getEvent(eventId)?.let { entity ->

@@ -47,24 +47,23 @@ internal class RustCaldavBridge(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : CalendarSyncRemoteSource {
 
-    override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> =
-        withContext(dispatcher) {
-            val entries = discover(credentials.baseUrl, credentials.username, credentials.password)
-            try {
-                return@withContext entries.map { entry ->
-                    RemoteDavCalendar(
-                        url = entry.url,
-                        displayName = entry.displayName,
-                        color = entry.color,
-                        description = entry.description,
-                        ctag = entry.ctag,
-                        accessLevel = entry.accessLevel,
-                    )
-                }
-            } catch (e: CaldavException) {
-                throw e.toCaldavBridgeException("discoverCalendars")
+    override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> = withContext(dispatcher) {
+        val entries = discover(credentials.baseUrl, credentials.username, credentials.password)
+        try {
+            return@withContext entries.map { entry ->
+                RemoteDavCalendar(
+                    url = entry.url,
+                    displayName = entry.displayName,
+                    color = entry.color,
+                    description = entry.description,
+                    ctag = entry.ctag,
+                    accessLevel = entry.accessLevel,
+                )
             }
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("discoverCalendars")
         }
+    }
 
     override suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent> = withContext(dispatcher) {
         try {
@@ -140,14 +139,13 @@ internal class RustCaldavBridge(
         }
     }
 
-    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String =
-        withContext(dispatcher) {
-            try {
-                rustPatchEventIcs(icsData, edit.toRust())
-            } catch (e: CaldavException) {
-                throw e.toCaldavBridgeException("patchEventIcs")
-            }
+    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String = withContext(dispatcher) {
+        try {
+            rustPatchEventIcs(icsData, edit.toRust())
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("patchEventIcs")
         }
+    }
 
     override suspend fun buildEventIcs(edit: RemoteEventEdit): String = withContext(dispatcher) {
         try {

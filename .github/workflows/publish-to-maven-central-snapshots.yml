@@ -1,0 +1,76 @@
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
+name: Publish to Maven Central Snapshots
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Snapshot version to publish (e.g. 0.1.0)'
+        required: true
+        type: string
+      perform-a-gradle-clean:
+        description: "Perform a Gradle clean"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        description: 'Snapshot version to publish (e.g. 0.1.0)'
+        required: true
+        type: string
+    secrets:
+      SONATYPE_USERNAME:
+        required: true
+      SONATYPE_PASSWORD:
+        required: true
+      GPG_KEY_ID:
+        required: true
+      GPG_PRIVATE_KEY:
+        required: true
+      GPG_PRIVATE_PASSWORD:
+        required: true
+      KCHAT_KMP_WEBHOOK_URL:
+        required: false
+jobs:
+  build:
+    runs-on: [ self-hosted, Android ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: 21
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+      - name: Perform a Gradle clean, as requested
+        if: ${{ github.event.inputs.perform-a-gradle-clean == 'true' }}
+        run: |
+          ./gradlew clean
+          # Cargo's target dir is not cleaned by Gradle — remove it to avoid stale Rust artifacts.
+          rm -rf CalendarKmpDav/rust/caldav_bridge/target
+      - name: Publish the snapshots
+        run: ./gradlew publishAggregationToCentralSnapshots -Pcore.version=${{ inputs.version }}
+
+      - name: Notify KChat
+        env:
+          KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"text\": \":android: *Android Calendar snapshot ${{ inputs.version }}* is available on Maven Central Snapshots!\n\`\`\`\nimplementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore-android:${{ inputs.version }}\\\")\n\`\`\`\"}"
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
+  ossrhUsername: ${{ secrets.SONATYPE_USERNAME }}
+  ossrhPassword: ${{ secrets.SONATYPE_PASSWORD }}
+  GPG_key_id: ${{ secrets.GPG_KEY_ID }}
+  GPG_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+  GPG_private_password: ${{ secrets.GPG_PRIVATE_PASSWORD }}

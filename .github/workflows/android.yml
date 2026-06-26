@@ -25,7 +25,7 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # Rust toolchain is required by the Gobley Cargo/UniFFI plugins (:kmpdav).
+      # Rust toolchain is required by the Gobley Cargo/UniFFI plugins (:CalendarKmpDav).
       # Ensures `cargo` is on PATH for the Gradle process and the targets are installed.
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -40,8 +40,11 @@ jobs:
       - name: Stop stale Gradle daemons
         run: ./gradlew --stop
 
-      - name: Clean gradle cache
-        run: ./gradlew clean
+      - name: Clean build environment
+        run: |
+          ./gradlew clean
+          rm -rf build CalendarCore/build CalendarKmpDav/build .gradle release
+          rm -rf CalendarKmpDav/rust/caldav_bridge/target
 
       - name: Build with Gradle
         run: ./gradlew build
@@ -52,4 +55,3 @@ jobs:
 
       - name: Run iOS Unit tests
         run: ./gradlew iosSimulatorArm64Test --stacktrace
-

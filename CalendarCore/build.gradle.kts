@@ -29,10 +29,13 @@ plugins {
     alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
     alias(kmpCalendar.plugins.skie)
+    alias(kmpCalendar.plugins.publish)
 }
 
 kotlin {
-    androidTarget()
+    androidTarget {
+        publishLibraryVariants("release")
+    }
 
     val xcFrameworkName = "MultiplatformCalendar"
     val xcf = project.XCFramework(xcFrameworkName)
@@ -42,7 +45,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":kmpdav"))
+            api(project(":CalendarKmpDav"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)

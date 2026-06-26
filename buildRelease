@@ -59,7 +59,7 @@ function release_ios {
     # `-PrustNativeRelease=true` forces the native Rust static lib to be compiled
     # in release (~14 MB) instead of Gobley's default debug (~140 MB), which would
     # otherwise bloat the "release" XCFramework (see kmpdav/build.gradle.kts).
-    ./gradlew :Core:assembleKmpCalendarReleaseXCFramework -PrustNativeRelease=true
+    ./gradlew :Core:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
 
     # Strip debug info (DWARF) from each XCFramework slice.
     # The framework is *static* (an unlinked `ar` archive), so both the Kotlin and
@@ -67,7 +67,7 @@ function release_ios {
     # `strip -S` removes debug sections while keeping the global symbols required
     # for linking; `ranlib` rebuilds the archive symbol table afterwards.
     echo "Strip debug symbols from XCFramework slices"
-    find "$XCFRAMEWORK_RELEASE_DIR/KmpCalendar.xcframework" -type f -name 'KmpCalendar' | while read -r slice; do
+    find "$XCFRAMEWORK_RELEASE_DIR/MultiplatformCalendar.xcframework" -type f -name 'MultiplatformCalendar' | while read -r slice; do
         echo "  stripping $slice"
         strip -S "$slice"
         ranlib "$slice" >/dev/null 2>&1 || true
@@ -78,19 +78,19 @@ function release_ios {
     mkdir -p release
     (
         cd "$XCFRAMEWORK_RELEASE_DIR" || exit 1
-        zip -r ../../../../release/KmpCalendar.xcframework.zip KmpCalendar.xcframework
+        zip -r ../../../../release/MultiplatformCalendar.xcframework.zip MultiplatformCalendar.xcframework
     )
 
     # Calculate checksums
     echo "Calculate modules checksums from release folder"
-    MULTIPLATFORM_LIB_CHECKSUM=$(swift package compute-checksum release/KmpCalendar.xcframework.zip)
+    MULTIPLATFORM_LIB_CHECKSUM=$(swift package compute-checksum release/MultiplatformCalendar.xcframework.zip)
 
     # Update Package.swift
     echo "${BOLD}Update Package.swift${BOLD_OFF}"
-    MULTIPLATFORM_LIB_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$IOS_TAG/KmpCalendar.xcframework.zip"
+    MULTIPLATFORM_LIB_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$IOS_TAG/MultiplatformCalendar.xcframework.zip"
     if [ -f Package.swift ]; then
         # With the `sed` command the regex doesn't work, whereas with the `perl` command it does.
-        perl -0777 -pi -e "s|url: \".*KmpCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
+        perl -0777 -pi -e "s|url: \".*MultiplatformCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$MULTIPLATFORM_LIB_URL\",\1checksum: \"$MULTIPLATFORM_LIB_CHECKSUM\"|g" Package.swift
     else
         echo "Package.swift not found, skipping checksum update"
     fi

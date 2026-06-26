@@ -29,7 +29,7 @@ plugins {
     alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
     alias(kmpCalendar.plugins.skie)
-    id("infomaniak.publishPlugin")
+    alias(kmpCalendar.plugins.publish)
 }
 
 kotlin {

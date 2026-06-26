@@ -44,8 +44,8 @@ class PublishPlugin : Plugin<Project> {
                 publications {
                     withType<MavenPublication> {
                         pom {
-                            name.set("KmpCalendar")
-                            description.set("Multiplatform Calendar - KmpCalendar core library")
+                            name.set("MultiplatformeCalendar")
+                            description.set("Multiplatform Calendar - MultiplatformeCalendar core library")
                             licenses {
                                 license {
                                     name.set("GPL-3.0")

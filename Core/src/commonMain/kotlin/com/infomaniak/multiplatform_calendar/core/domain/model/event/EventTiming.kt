@@ -18,9 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import kotlinx.datetime.LocalTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
@@ -30,10 +27,9 @@ import kotlin.time.Instant
  * `DATE-TIME` (anchored instant). To keep a single shape that maps cleanly to `Foundation.Date` on iOS
  * (which has no date-only type), both are represented as [Instant] pairs and discriminated by [isAllDay].
  *
- * Invariants when [isAllDay] is `true`:
- *  - [start] and [end] sit on midnight **UTC** of their respective dates;
- *  - [end] is the exclusive day after the last covered day (so a single-day event has `end = start + 1d`,
- *    matching iCal `DTEND;VALUE=DATE` semantics).
+ * When [isAllDay] is `true`, consumers should read [start] / [end] as dates only (e.g.
+ * `start.toLocalDateTime(TimeZone.UTC).date`); the time component is meaningless. [end] is exclusive
+ * (a single-day event has `end = start + 1d`), matching iCal `DTEND;VALUE=DATE` semantics.
  *
  * TODO: Timezones are not parsed yet — every `Instant` is currently assumed to be UTC. The
  * "floating" iCal mode (no `TZID`, no `Z`) is not supported either; events with floating times are
@@ -45,15 +41,4 @@ public data class EventTiming(
     val end: Instant,
     val isAllDay: Boolean,
     val recurrenceRule: RecurrenceRule? = null,
-) {
-    init {
-        require(end >= start) { "EventTiming.end must be >= start ($start..$end)" }
-        if (isAllDay) {
-            val startLocal = start.toLocalDateTime(TimeZone.UTC)
-            val endLocal = end.toLocalDateTime(TimeZone.UTC)
-            require(startLocal.time == LocalTime(0, 0) && endLocal.time == LocalTime(0, 0)) {
-                "AllDay timing must sit on midnight UTC (got start=$start, end=$end)"
-            }
-        }
-    }
-}
+)

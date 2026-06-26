@@ -96,7 +96,7 @@ jobs:
       - name: Create snapshot release and upload asset
         run: |
           gh release create "ios-snapshot-$VERSION-$BUILD_ID" \
-            release/KmpCalendar.xcframework.zip \
+            release/MultiplatformCalendar.xcframework.zip \
             --title "iOS Snapshot $VERSION ($BUILD_ID)" \
             --notes "Snapshot build for version $VERSION. Not for production use." \
             --prerelease
@@ -105,11 +105,11 @@ jobs:
 
       - name: Update Package.swift on snapshot branch
         run: |
-          CHECKSUM=$(swift package compute-checksum release/KmpCalendar.xcframework.zip)
-          URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/ios-snapshot-$VERSION-$BUILD_ID/KmpCalendar.xcframework.zip"
+          CHECKSUM=$(swift package compute-checksum release/MultiplatformCalendar.xcframework.zip)
+          URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/ios-snapshot-$VERSION-$BUILD_ID/MultiplatformCalendar.xcframework.zip"
 
           # Update Package.swift with new URL and checksum
-          perl -0777 -pi -e "s|url: \".*KmpCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$URL\",\1checksum: \"$CHECKSUM\"|g" Package.swift
+          perl -0777 -pi -e "s|url: \".*MultiplatformCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$URL\",\1checksum: \"$CHECKSUM\"|g" Package.swift
 
           # Push to versioned spm branch (distinct from the release tag to avoid SPM ambiguity)
           git config user.name "dev-mobile-bot"

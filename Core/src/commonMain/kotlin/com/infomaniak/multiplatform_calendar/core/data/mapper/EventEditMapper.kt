@@ -22,47 +22,33 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalDate
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
 
-internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit = when (val timing = timing) {
-    is EventTiming.AllDay -> RemoteEventEdit(
-        summary = title.ifBlank { null },
-        dtStart = timing.startDate.toICalDate(),
-        dtEnd = timing.endDate.toICalDate(),
-        allDay = true,
-        location = location?.ifBlank { null },
-        description = description?.ifBlank { null },
-        stamp = stamp,
-    )
-
-    is EventTiming.Timed -> RemoteEventEdit(
-        summary = title.ifBlank { null },
-        dtStart = timing.start.toICalUtcDateTime(),
-        dtEnd = timing.end.toICalUtcDateTime(),
-        allDay = false,
-        location = location?.ifBlank { null },
-        description = description?.ifBlank { null },
-        stamp = stamp,
-    )
-}
+internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit = RemoteEventEdit(
+    summary = title.ifBlank { null },
+    dtStart = timing.start.toICal(timing.isAllDay),
+    dtEnd = timing.end.toICal(timing.isAllDay),
+    allDay = timing.isAllDay,
+    location = location?.ifBlank { null },
+    description = description?.ifBlank { null },
+    stamp = stamp,
+)
 
 internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: String): EventEntity {
-    val end = data.timing.entityEnd()
+    val end = data.timing.end.toLocalDateTime(TimeZone.UTC)
     return copy(
         calendarId = data.calendarId,
         summary = data.title,
         location = data.location,
         description = data.description,
-        dtStart = data.timing.entityStart(),
+        dtStart = data.timing.start.toLocalDateTime(TimeZone.UTC),
         dtEnd = end,
         dtEndEffective = end,
-        isAllDay = data.timing is EventTiming.AllDay,
+        isAllDay = data.timing.isAllDay,
         etag = etag,
         rawIcs = rawIcs,
         isSynced = true,
@@ -73,29 +59,22 @@ internal fun EventEditData.toNewEntity(
     ref: RemoteDavEventRef,
     rawIcs: String,
 ): EventEntity {
-    val end = timing.entityEnd()
+    val end = timing.end.toLocalDateTime(TimeZone.UTC)
     return EventEntity(
         id = EventId(ref.url),
         calendarId = calendarId,
         summary = title,
         location = location,
         description = description,
-        dtStart = timing.entityStart(),
+        dtStart = timing.start.toLocalDateTime(TimeZone.UTC),
         dtEnd = end,
         dtEndEffective = end,
-        isAllDay = timing is EventTiming.AllDay,
+        isAllDay = timing.isAllDay,
         etag = ref.etag,
         rawIcs = rawIcs,
         isSynced = true,
     )
 }
 
-private fun EventTiming.entityStart(): LocalDateTime = when (this) {
-    is EventTiming.AllDay -> LocalDateTime(startDate, LocalTime(0, 0))
-    is EventTiming.Timed -> start.toLocalDateTime(TimeZone.UTC)
-}
-
-private fun EventTiming.entityEnd(): LocalDateTime = when (this) {
-    is EventTiming.AllDay -> LocalDateTime(endDate, LocalTime(0, 0))
-    is EventTiming.Timed -> end.toLocalDateTime(TimeZone.UTC)
-}
+private fun Instant.toICal(isAllDay: Boolean): String =
+    if (isAllDay) toLocalDateTime(TimeZone.UTC).date.toICalDate() else toICalUtcDateTime()

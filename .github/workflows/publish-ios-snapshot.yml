@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Snapshot version to build (e.g. 0.1.0-SNAPSHOT)'
+        description: 'Snapshot version to build (e.g. 0.1.0)'
         required: true
         type: string
 

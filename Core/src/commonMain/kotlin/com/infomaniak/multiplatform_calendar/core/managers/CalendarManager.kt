@@ -56,12 +56,6 @@ public class CalendarManager internal constructor(
         }
     }
 
-    public fun observeEvents(calendarId: CalendarId): Flow<List<Event>> {
-        return calendarRepository.observeEvents(calendarId).catch {
-            //TODO: handle error
-        }
-    }
-
     /** Observe events from all *visible* calendars of the current account overlapping [start, end[. */
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
     public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
@@ -99,4 +93,3 @@ public class CalendarManager internal constructor(
         }
     }
 }
-

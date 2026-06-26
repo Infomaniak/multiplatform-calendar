@@ -51,6 +51,8 @@ kotlin {
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.kotlinx.datetime)
             implementation(kmpCalendar.bundles.ktor)
+
+            implementation(kmpCalendar.material.kolor)
         }
 
         androidMain.dependencies {
@@ -140,4 +142,3 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         linkerOpts.add("-lsqlite3")
     }
 }
-

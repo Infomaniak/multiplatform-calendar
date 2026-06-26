@@ -36,6 +36,14 @@ jobs:
   build:
     runs-on: [ self-hosted, Android ]
     steps:
+      - name: Normalize version (append -SNAPSHOT if missing)
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ "$VERSION" != *-SNAPSHOT ]]; then
+            VERSION="$VERSION-SNAPSHOT"
+          fi
+          echo "SNAPSHOT_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Checkout sources
         uses: actions/checkout@v6
         with:
@@ -58,7 +66,7 @@ jobs:
           # Cargo's target dir is not cleaned by Gradle — remove it to avoid stale Rust artifacts.
           rm -rf CalendarKmpDav/rust/caldav_bridge/target
       - name: Publish the snapshots
-        run: ./gradlew publishAggregationToCentralSnapshots -Pcore.version=${{ inputs.version }}
+        run: ./gradlew publishAggregationToCentralSnapshots -Pcore.version=${{ env.SNAPSHOT_VERSION }}
 
       - name: Notify KChat
         env:
@@ -66,7 +74,7 @@ jobs:
         run: |
           curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"text\": \":android: *Android Calendar snapshot ${{ inputs.version }}* is available on Maven Central Snapshots!\n\`\`\`\nimplementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore-android:${{ inputs.version }}\\\")\n\`\`\`\"}"
+            -d "{\"text\": \":android: *Android Calendar snapshot ${{ env.SNAPSHOT_VERSION }}* is available on Maven Central Snapshots!\n\`\`\`\nimplementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore-android:${{ env.SNAPSHOT_VERSION }}\\\")\n\`\`\`\"}"
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
   ossrhUsername: ${{ secrets.SONATYPE_USERNAME }}

@@ -1,0 +1,132 @@
+name: Build iOS Snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Snapshot version to build (e.g. 0.1.0-SNAPSHOT)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build iOS XCFramework snapshot
+    runs-on: [ self-hosted, Android ]
+    env:
+      VERSION: ${{ inputs.version }}
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v6.0.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6.2.0
+        with:
+          cache-provider: basic
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2.4.0
+
+      - name: Clean build environment
+        run: |
+          ./gradlew clean
+          rm -rf build Core/build kmpdav/build .gradle release
+          rm -rf kmpdav/rust/caldav_bridge/target
+
+      - name: Build XCFramework
+        run: ./gradlew :Core:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
+
+      - name: Strip debug symbols from XCFramework slices
+        run: |
+          find Core/build/XCFrameworks/release/MultiplatformCalendar.xcframework -type f -name 'MultiplatformCalendar' | while read -r slice; do
+            strip -S "$slice"
+            ranlib "$slice" >/dev/null 2>&1 || true
+          done
+
+      - name: Archive XCFramework
+        run: |
+          mkdir -p release
+          (
+            cd Core/build/XCFrameworks/release || exit 1
+            zip -r ../../../../release/MultiplatformCalendar.xcframework.zip MultiplatformCalendar.xcframework
+          )
+
+      - name: Import bot's GPG key for signing commits
+        id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        with:
+          gpg_private_key: ${{ secrets.BOT_MOBILE_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.BOT_MOBILE_GPG_PASSPHRASE }}
+          git_config_global: true
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
+      - name: Setup gh CLI
+        run: command -v gh >/dev/null 2>&1 || brew install gh
+
+      - name: Set build identifier
+        run: echo "BUILD_ID=$(date -u +%Y%m%d%H%M)" >> $GITHUB_ENV
+
+      - name: Clean up previous snapshot releases, tags and branches
+        run: |
+          # Delete all previous ios-snapshot-* pre-releases and their tags
+          gh release list --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease and (.tagName | startswith("ios-snapshot-"))) | .tagName' \
+            | while IFS= read -r tag; do
+                gh release delete "$tag" --yes --cleanup-tag || true
+              done
+          # Delete all remote spm-ios-snapshot-* branches
+          git ls-remote --heads origin 'refs/heads/spm-ios-snapshot-*' \
+            | awk '{ sub("refs/heads/","",$2); print $2 }' \
+            | while IFS= read -r branch; do git push origin --delete "$branch" || true; done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create snapshot release and upload asset
+        run: |
+          gh release create "ios-snapshot-$VERSION-$BUILD_ID" \
+            release/MultiplatformCalendar.xcframework.zip \
+            --title "iOS Snapshot $VERSION ($BUILD_ID)" \
+            --notes "Snapshot build for version $VERSION. Not for production use." \
+            --prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Package.swift on snapshot branch
+        run: |
+          CHECKSUM=$(swift package compute-checksum release/MultiplatformCalendar.xcframework.zip)
+          URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/ios-snapshot-$VERSION-$BUILD_ID/MultiplatformCalendar.xcframework.zip"
+
+          # Update Package.swift with new URL and checksum
+          perl -0777 -pi -e "s|url: \".*MultiplatformCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$URL\",\1checksum: \"$CHECKSUM\"|g" Package.swift
+
+          # Push to versioned spm branch (distinct from the release tag to avoid SPM ambiguity)
+          git config user.name "dev-mobile-bot"
+          git config user.email "mobile+github-bot@infomaniak-dev.ch"
+          git checkout -B "spm-ios-snapshot-$VERSION-$BUILD_ID"
+          git add Package.swift
+          git commit -m "chore: Update Package.swift snapshot to $VERSION ($BUILD_ID)"
+          git push origin "spm-ios-snapshot-$VERSION-$BUILD_ID"
+          echo "SPM_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify KChat
+        env:
+          KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
+        run: |
+          RELEASE_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/tag/ios-snapshot-$VERSION-$BUILD_ID"
+          curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"text\": \":building_construction: *iOS Calendar snapshot $VERSION* ($BUILD_ID) is available!\n:apple: SPM branch: \`spm-ios-snapshot-$VERSION-$BUILD_ID\` (commit: \`${{ env.SPM_COMMIT_SHA }}\`)\n:link: $RELEASE_URL\"}"

@@ -126,8 +126,7 @@ mapOf(
     "IosArm64" to "IosArm64",
     "IosSimulatorArm64" to "IosSimulatorArm64",
     "MacosArm64" to "MacOSArm64",
-)
-    .forEach { (kt, cargo) -> tasks.matching { it.name == "cinteropRust$kt" }.afterCargo(cargo) }
+).forEach { (kt, cargo) -> tasks.matching { it.name == "cinteropRust$kt" }.afterCargo(cargo) }
 listOf("Debug", "Release").forEach { v ->
     tasks.matching { it.name == "jarJvmRustRuntimeMacOSArm64$v" }.afterCargo("MacOSArm64")
 }

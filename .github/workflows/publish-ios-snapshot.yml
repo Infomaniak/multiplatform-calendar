@@ -84,7 +84,8 @@ jobs:
           gh release list --json tagName,isPrerelease \
             --jq '.[] | select(.isPrerelease and (.tagName | startswith("ios-snapshot-"))) | .tagName' \
             | while IFS= read -r tag; do
-                gh release delete "$tag" --cleanup-tag --yes || true
+                gh release delete "$tag" --yes || true
+                git push origin --delete "refs/tags/$tag" || true
               done
           # Delete all remote spm-ios-snapshot-* branches
           git ls-remote --heads origin 'refs/heads/spm-ios-snapshot-*' \

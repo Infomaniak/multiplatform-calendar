@@ -26,14 +26,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 // TODO: Timezones are not handled yet — we assume UTC when converting to Instant.
-@OptIn(ExperimentalTime::class)
 private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 
-@OptIn(ExperimentalTime::class)
 internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event = EventImpl(
     id = id,
     calendarId = calendarId,
@@ -49,19 +46,10 @@ internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors):
     canEdit = calendar.accessLevel.canWrite,
 )
 
-@OptIn(ExperimentalTime::class)
-private fun EventEntity.toTiming(): EventTiming = if (isAllDay) {
-    EventTiming.AllDay(
-        startDate = dtStart.date,
-        // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day); its date is the exclusive end.
-        endDate = dtEndEffective.date,
-        recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
-    )
-} else {
-    EventTiming.Timed(
-        start = dtStart.toUtcInstant(),
-        // Already-resolved end (DTEND, else DTSTART+DURATION, else == start). Single source of truth: dtEndEffective.
-        end = dtEndEffective.toUtcInstant(),
-        recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
-    )
-}
+private fun EventEntity.toTiming(): EventTiming = EventTiming(
+    start = dtStart.toUtcInstant(),
+    // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
+    end = dtEndEffective.toUtcInstant(),
+    isAllDay = isAllDay,
+    recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
+)

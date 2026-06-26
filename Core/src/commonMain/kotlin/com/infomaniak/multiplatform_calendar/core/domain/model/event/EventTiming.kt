@@ -18,43 +18,27 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import kotlinx.datetime.LocalDate
 import kotlin.time.Instant
 
 /**
  * When an event happens.
  *
- * RFC 5545 distinguishes two granularities by the value type of `DTSTART`, which is a structural
- * difference: a `DATE` start is a whole-day event ([AllDay], date-based, no time
- * nor timezone), while a `DATE-TIME` start is anchored to an instant ([Timed]).
+ * RFC 5545 distinguishes two value types on `DTSTART`: `DATE` (whole-day, no time / timezone) and
+ * `DATE-TIME` (anchored instant). To keep a single shape that maps cleanly to `Foundation.Date` on iOS
+ * (which has no date-only type), both are represented as [Instant] pairs and discriminated by [isAllDay].
+ *
+ * When [isAllDay] is `true`, consumers should read [start] / [end] as dates only (e.g.
+ * `start.toLocalDateTime(TimeZone.UTC).date`); the time component is meaningless. [end] is exclusive
+ * (a single-day event has `end = start + 1d`), matching iCal `DTEND;VALUE=DATE` semantics.
+ *
+ * TODO: Timezones are not parsed yet — every `Instant` is currently assumed to be UTC. The
+ * "floating" iCal mode (no `TZID`, no `Z`) is not supported either; events with floating times are
+ * treated as if anchored UTC. Add a `timeZone` field (and possibly an `isFloating` flag) when the
+ * CalDAV parser starts producing real `TZID` values.
  */
-public sealed interface EventTiming {
-
-    public val recurrenceRule: RecurrenceRule?
-
-    /**
-     * Whole-day event (`DTSTART;VALUE=DATE`). Spans the half-open day range `[startDate, endDate)`.
-     *
-     * Per RFC 5545 §3.6.1, when no `DTEND`/`DURATION` is given the duration is one day, so [endDate]
-     * defaults to the day after [startDate]. [endDate] is exclusive (as iCal `DTEND` is).
-     */
-    public data class AllDay(
-        val startDate: LocalDate,
-        val endDate: LocalDate,
-        override val recurrenceRule: RecurrenceRule? = null,
-    ) : EventTiming
-
-    /**
-     * Instant-anchored event (`DTSTART;VALUE=DATE-TIME`). Spans `[start, end]`.
-     *
-     * [end] is the **resolved** end: it already accounts for `DTEND` / `DURATION` (and equals [start] for a
-     * zero-length event with neither). The resolution rule lives in a single place — the write-side mapper that
-     * persists `EventEntity.dtEndEffective` — so consumers never have to recompute it.
-     */
-    public data class Timed(
-        val start: Instant,
-        val end: Instant,
-        override val recurrenceRule: RecurrenceRule? = null,
-    ) : EventTiming
-}
-
+public data class EventTiming(
+    val start: Instant,
+    val end: Instant,
+    val isAllDay: Boolean,
+    val recurrenceRule: RecurrenceRule? = null,
+)

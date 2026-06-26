@@ -37,7 +37,7 @@ kotlin {
     iosSimulatorArm64()
     macosArm64()
 
-    val xcFrameworkName = "KmpCalendar"
+    val xcFrameworkName = "MultiplatformCalendar"
     val xcf = project.XCFramework(xcFrameworkName)
     iosArm64 { configXCFramework(xcf, xcFrameworkName) }
     iosSimulatorArm64 { configXCFramework(xcf, xcFrameworkName) }

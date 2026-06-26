@@ -45,11 +45,11 @@ jobs:
           rm -rf kmpdav/rust/caldav_bridge/target
 
       - name: Build XCFramework
-        run: ./gradlew :Core:assembleKmpCalendarReleaseXCFramework -PrustNativeRelease=true
+        run: ./gradlew :Core:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
 
       - name: Strip debug symbols from XCFramework slices
         run: |
-          find Core/build/XCFrameworks/release/KmpCalendar.xcframework -type f -name 'KmpCalendar' | while read -r slice; do
+          find Core/build/XCFrameworks/release/MultiplatformCalendar.xcframework -type f -name 'MultiplatformCalendar' | while read -r slice; do
             strip -S "$slice"
             ranlib "$slice" >/dev/null 2>&1 || true
           done
@@ -59,32 +59,45 @@ jobs:
           mkdir -p release
           (
             cd Core/build/XCFrameworks/release || exit 1
-            zip -r ../../../../release/KmpCalendar.xcframework.zip KmpCalendar.xcframework
+            zip -r ../../../../release/MultiplatformCalendar.xcframework.zip MultiplatformCalendar.xcframework
           )
 
-      - name: Import bot's GPG key for signing commits
-        id: import-gpg
-        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
-        with:
-          gpg_private_key: ${{ secrets.BOT_MOBILE_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.BOT_MOBILE_GPG_PASSPHRASE }}
-          git_config_global: true
-          git_user_signingkey: true
-          git_commit_gpgsign: true
+#      - name: Import bot's GPG key for signing commits
+#        id: import-gpg
+#        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+#        with:
+#          gpg_private_key: ${{ secrets.BOT_MOBILE_GPG_PRIVATE_KEY }}
+#          passphrase: ${{ secrets.BOT_MOBILE_GPG_PASSPHRASE }}
+#          git_config_global: true
+#          git_user_signingkey: true
+#          git_commit_gpgsign: true
 
       - name: Setup gh CLI
         run: command -v gh >/dev/null 2>&1 || brew install gh
 
-      - name: Delete existing ios-snapshot release and tag
-        run: gh release delete "ios-snapshot" --cleanup-tag --yes || true
+      - name: Set build identifier
+        run: echo "BUILD_ID=$(date -u +%Y%m%d%H%M)" >> $GITHUB_ENV
+
+      - name: Clean up previous snapshot releases, tags and branches
+        run: |
+          # Delete all previous ios-snapshot-* pre-releases and their tags
+          gh release list --json tagName,isPrerelease \
+            --jq '.[] | select(.isPrerelease and (.tagName | startswith("ios-snapshot-"))) | .tagName' \
+            | while IFS= read -r tag; do
+                gh release delete "$tag" --cleanup-tag --yes || true
+              done
+          # Delete all remote spm-ios-snapshot-* branches
+          git ls-remote --heads origin 'refs/heads/spm-ios-snapshot-*' \
+            | awk '{ sub("refs/heads/","",$2); print $2 }' \
+            | while IFS= read -r branch; do git push origin --delete "$branch" || true; done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create ios-snapshot release and upload asset
+      - name: Create snapshot release and upload asset
         run: |
-          gh release create "ios-snapshot" \
+          gh release create "ios-snapshot-$VERSION-$BUILD_ID" \
             release/KmpCalendar.xcframework.zip \
-            --title "iOS Snapshot $VERSION" \
+            --title "iOS Snapshot $VERSION ($BUILD_ID)" \
             --notes "Snapshot build for version $VERSION. Not for production use." \
             --prerelease
         env:
@@ -93,18 +106,19 @@ jobs:
       - name: Update Package.swift on snapshot branch
         run: |
           CHECKSUM=$(swift package compute-checksum release/KmpCalendar.xcframework.zip)
-          URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/ios-snapshot/KmpCalendar.xcframework.zip"
+          URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/ios-snapshot-$VERSION-$BUILD_ID/KmpCalendar.xcframework.zip"
 
           # Update Package.swift with new URL and checksum
           perl -0777 -pi -e "s|url: \".*KmpCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$URL\",\1checksum: \"$CHECKSUM\"|g" Package.swift
 
-          # Push to snapshot branch (reset from current main + Package.swift change)
+          # Push to versioned spm branch (distinct from the release tag to avoid SPM ambiguity)
           git config user.name "dev-mobile-bot"
           git config user.email "mobile+github-bot@infomaniak-dev.ch"
-          git checkout -B ios-snapshot
+          git checkout -B "spm-ios-snapshot-$VERSION-$BUILD_ID"
           git add Package.swift
-          git commit -m "chore: Update Package.swift snapshot to $VERSION"
-          git push origin ios-snapshot --force
+          git commit -m "chore: Update Package.swift snapshot to $VERSION ($BUILD_ID)"
+          git push origin "spm-ios-snapshot-$VERSION-$BUILD_ID"
+          echo "SPM_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -112,7 +126,7 @@ jobs:
         env:
           KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
         run: |
-          RELEASE_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/tag/ios-snapshot"
+          RELEASE_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/tag/ios-snapshot-$VERSION-$BUILD_ID"
           curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"text\": \":building_construction: *iOS Calendar snapshot $VERSION* is available!\n:apple: SPM branch: \`ios-snapshot\`\n:link: $RELEASE_URL\"}"
+            -d "{\"text\": \":building_construction: *iOS Calendar snapshot $VERSION* ($BUILD_ID) is available!\n:apple: SPM branch: \`spm-ios-snapshot-$VERSION-$BUILD_ID\` (commit: \`${{ env.SPM_COMMIT_SHA }}\`)\n:link: $RELEASE_URL\"}"

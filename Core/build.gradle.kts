@@ -33,9 +33,6 @@ plugins {
 
 kotlin {
     androidTarget()
-    iosArm64()
-    iosSimulatorArm64()
-    macosArm64()
 
     val xcFrameworkName = "MultiplatformCalendar"
     val xcf = project.XCFramework(xcFrameworkName)

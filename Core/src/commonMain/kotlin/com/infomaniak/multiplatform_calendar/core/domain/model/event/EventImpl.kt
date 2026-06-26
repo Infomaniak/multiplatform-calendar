@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -34,8 +35,7 @@ internal data class EventImpl(
     override val lastModified: Instant? = null,
     override val attendees: List<Attendee> = emptyList(),
     override val organizer: Attendee? = null,
-    override val color: Int,
+    override val calendarColor: CalendarColor,
+    override val colors: EventColors,
     override val canEdit: Boolean,
 ) : Event
-
-

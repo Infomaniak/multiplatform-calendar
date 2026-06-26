@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,21 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
+package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
-
-@OptIn(ExperimentalObjCRefinement::class)
-public data class Calendar(
-    @HiddenFromObjC
-    val id: CalendarId,
-    @HiddenFromObjC
-    val accountId: AccountId,
-    val displayName: String,
-    @HiddenFromObjC
-    val color: CalendarColor,
-    val isVisible: Boolean,
-    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
+public data class EventColor(
+    val light: Int,
+    val dark: Int,
 )

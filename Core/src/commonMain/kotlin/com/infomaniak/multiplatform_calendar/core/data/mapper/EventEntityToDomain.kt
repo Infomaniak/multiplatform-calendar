@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventImpl
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.LocalDateTime
@@ -33,7 +34,7 @@ import kotlin.time.Instant
 private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 
 @OptIn(ExperimentalTime::class)
-internal fun EventEntity.toDomain(calendar: Calendar): Event = EventImpl(
+internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event = EventImpl(
     id = id,
     calendarId = calendarId,
     title = summary,
@@ -43,7 +44,8 @@ internal fun EventEntity.toDomain(calendar: Calendar): Event = EventImpl(
     categories = categories,
     timing = toTiming(),
     lastModified = lastModified?.toUtcInstant(),
-    color = calendar.color,
+    calendarColor = calendar.color,
+    colors = eventColors,
     canEdit = calendar.accessLevel.canWrite,
 )
 

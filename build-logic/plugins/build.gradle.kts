@@ -8,10 +8,14 @@ gradlePlugin {
             id = "ensure-ndk-version"
             implementationClass = "com.infomaniak.calendar.buildlogic.ndk.EnsureNdkVersionPlugin"
         }
+        register("infomaniak.publishPlugin") {
+            id = "infomaniak.publishPlugin"
+            implementationClass = "com.infomaniak.calendar.buildlogic.publish.PublishPlugin"
+        }
     }
 }
 
 dependencies {
     compileOnly(kmpCalendar.kotlin.gradle.plugin)
-    compileOnly("com.android.tools.build:gradle:${kmpCalendar.versions.agp.get()}")
+    compileOnly(kmpCalendar.android.gradle.plugin)
 }

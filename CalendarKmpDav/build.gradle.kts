@@ -25,6 +25,7 @@ plugins {
     alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.metro)
     kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin
+    id("infomaniak.publishPlugin")
 }
 
 kotlin {
@@ -33,7 +34,9 @@ kotlin {
         freeCompilerArgs.add("-Xreturn-value-checker=full")
     }
 
-    androidTarget()
+    androidTarget {
+        publishLibraryVariants("release")
+    }
     iosArm64()
     iosSimulatorArm64()
     macosArm64()

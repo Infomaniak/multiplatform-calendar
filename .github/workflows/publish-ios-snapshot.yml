@@ -41,15 +41,15 @@ jobs:
       - name: Clean build environment
         run: |
           ./gradlew clean
-          rm -rf build Core/build kmpdav/build .gradle release
-          rm -rf kmpdav/rust/caldav_bridge/target
+          rm -rf build CalendarCore/build CalendarKmpDav/build .gradle release
+          rm -rf CalendarKmpDav/rust/caldav_bridge/target
 
       - name: Build XCFramework
-        run: ./gradlew :Core:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
+        run: ./gradlew :CalendarCore:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
 
       - name: Strip debug symbols from XCFramework slices
         run: |
-          find Core/build/XCFrameworks/release/MultiplatformCalendar.xcframework -type f -name 'MultiplatformCalendar' | while read -r slice; do
+          find CalendarCore/build/XCFrameworks/release/MultiplatformCalendar.xcframework -type f -name 'MultiplatformCalendar' | while read -r slice; do
             strip -S "$slice"
             ranlib "$slice" >/dev/null 2>&1 || true
           done
@@ -58,7 +58,7 @@ jobs:
         run: |
           mkdir -p release
           (
-            cd Core/build/XCFrameworks/release || exit 1
+            cd CalendarCore/build/XCFrameworks/release || exit 1
             zip -r ../../../../release/MultiplatformCalendar.xcframework.zip MultiplatformCalendar.xcframework
           )
 

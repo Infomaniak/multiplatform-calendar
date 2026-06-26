@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toNewEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -50,7 +51,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -60,13 +60,13 @@ internal class CalendarRepository(
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
 ) {
+
     fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
         return calendarDao.observeByAccountId(accountId).map { calendarEntities ->
             calendarEntities.map(CalendarEntity::toDomain)
         }
     }
 
-    @OptIn(ExperimentalTime::class)
     fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
         // TODO: Timezones are not handled yet — range bounds are compared in UTC.
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
@@ -106,12 +106,19 @@ internal class CalendarRepository(
         calendarId: CalendarId,
     ): EventEntity? = getOrNull { event.toEntity(calendarId) }
 
-    suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
-        eventDao.getEvent(eventId)?.let { event ->
-            // TODO: Change when deleteEvent will return a result of success or failure
-            runCatching { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
-                .onSuccessOrReport { eventDao.deleteEvent(eventId) }
-        }
+    suspend fun createEvent(credentials: DavAccount, data: EventEditData) {
+        val now = Clock.System.now().toICalUtcDateTime()
+        val ics = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now))
+        val ref = caldavClient.createEvent(credentials, data.calendarId.url, ics)
+        eventDao.upsert(
+            listOf(
+                data.toNewEntity(
+                    eventId = EventId(ref.url),
+                    etag = ref.etag,
+                    rawIcs = ics,
+                ),
+            ),
+        )
     }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
@@ -124,6 +131,14 @@ internal class CalendarRepository(
             }.onSuccessOrReport { ref ->
                 eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
             }
+        }
+    }
+
+    suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
+        eventDao.getEvent(eventId)?.let { event ->
+            // TODO: Change when deleteEvent will return a result of success or failure
+            runCatching { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
+                .onSuccessOrReport { eventDao.deleteEvent(eventId) }
         }
     }
 

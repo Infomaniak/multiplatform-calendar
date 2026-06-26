@@ -31,6 +31,7 @@ import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
+import uniffi.caldav_bridge.buildEventIcs as rustBuildEventIcs
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
 import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
@@ -47,8 +48,8 @@ internal class RustCaldavBridge(
 ) : CalendarSyncRemoteSource {
 
     override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> = withContext(dispatcher) {
+        val entries = discover(credentials.baseUrl, credentials.username, credentials.password)
         try {
-            val entries = discover(credentials.baseUrl, credentials.username, credentials.password)
             return@withContext entries.map { entry ->
                 RemoteDavCalendar(
                     url = entry.url,
@@ -140,20 +141,27 @@ internal class RustCaldavBridge(
 
     override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String = withContext(dispatcher) {
         try {
-            rustPatchEventIcs(
-                icsData,
-                EventEdit(
-                    summary = edit.summary,
-                    dtstart = edit.dtStart,
-                    dtend = edit.dtEnd,
-                    allDay = edit.allDay,
-                    location = edit.location,
-                    description = edit.description,
-                    stamp = edit.stamp,
-                ),
-            )
+            rustPatchEventIcs(icsData, edit.toRust())
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("patchEventIcs")
         }
     }
+
+    override suspend fun buildEventIcs(edit: RemoteEventEdit): String = withContext(dispatcher) {
+        try {
+            rustBuildEventIcs(edit.toRust())
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("buildEventIcs")
+        }
+    }
 }
+
+private fun RemoteEventEdit.toRust() = EventEdit(
+    summary = summary,
+    dtstart = dtStart,
+    dtend = dtEnd,
+    allDay = allDay,
+    location = location,
+    description = description,
+    stamp = stamp,
+)

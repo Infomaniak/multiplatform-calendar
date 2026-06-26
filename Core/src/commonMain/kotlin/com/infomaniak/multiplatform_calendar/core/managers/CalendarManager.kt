@@ -21,10 +21,10 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -74,18 +74,22 @@ public class CalendarManager internal constructor(
     }
 
     @Throws(CancellationException::class)
-    public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
-        accountRepository.currentAccountIdFlow.first()
-            ?.let(accountRepository::getCredentials)
-            ?.let { credentials -> calendarRepository.deleteEvent(credentials, eventId) }
+    public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
+        currentAccountCredentials()?.let { credentials -> calendarRepository.createEvent(credentials, data) }
     }
-    
+
     @Throws(CancellationException::class)
     public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        accountRepository.currentAccountIdFlow.first()
-            ?.let(accountRepository::getCredentials)
-            ?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
+        currentAccountCredentials()?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
     }
+
+    @Throws(CancellationException::class)
+    public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
+        currentAccountCredentials()?.let { credentials -> calendarRepository.deleteEvent(credentials, eventId) }
+    }
+
+    private suspend fun currentAccountCredentials(): DavAccount? =
+        accountRepository.currentAccountIdFlow.first()?.let(accountRepository::getCredentials)
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return calendarRepository.observeEvent(eventId).catch {

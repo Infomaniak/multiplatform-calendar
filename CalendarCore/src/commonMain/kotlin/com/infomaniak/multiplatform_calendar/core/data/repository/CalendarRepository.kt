@@ -33,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -105,6 +106,20 @@ internal class CalendarRepository(
         event: RemoteDavEvent,
         calendarId: CalendarId,
     ): EventEntity? = getOrNull { event.toEntity(calendarId) }
+
+    suspend fun updateCalendar(credentials: DavAccount, calendarId: CalendarId, edit: CalendarEditData) {
+        calendarDao.findById(calendarId)?.let { calendarEntity ->
+            runCatching {
+                if (edit.hasRemoteChanges) {
+                    caldavClient.updateCalendar(
+                        credentials = credentials,
+                        calendarUrl = calendarId.url,
+                        edit = edit.toRemoteEdit(),
+                    )
+                }
+            }.onSuccessOrReport { calendarDao.update(calendar = calendarEntity.applyEdit(edit)) }
+        }
+    }
 
     suspend fun createEvent(credentials: DavAccount, data: EventEditData) {
         val now = Clock.System.now().toICalUtcDateTime()

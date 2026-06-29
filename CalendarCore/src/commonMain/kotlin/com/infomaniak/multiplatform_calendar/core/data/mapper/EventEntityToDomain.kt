@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
@@ -42,6 +43,8 @@ internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors):
     categories = categories,
     timing = toTiming(),
     lastModified = lastModified?.toUtcInstant(),
+    attendees = attendees.map(AttendeeEntity::toDomain),
+    organizer = attendees.firstOrNull { it.isOrganizer }?.toDomain(),
     calendarColor = calendar.color,
     colors = eventColors,
     canEdit = calendar.accessLevel.canWrite,

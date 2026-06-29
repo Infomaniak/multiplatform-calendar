@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException.Companion.toCaldavBridgeException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
@@ -28,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
+import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
@@ -36,6 +38,7 @@ import uniffi.caldav_bridge.buildEventIcs as rustBuildEventIcs
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
 import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
+import uniffi.caldav_bridge.updateCalendar as rustUpdateCalendar
 import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
 
 /**
@@ -63,6 +66,23 @@ internal class RustCaldavBridge(
             }
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("discoverCalendars")
+        }
+    }
+
+    override suspend fun updateCalendar(
+        credentials: DavAccount,
+        calendarUrl: String,
+        edit: RemoteCalendarEdit,
+    ) = withContext(dispatcher) {
+        if (!edit.hasChanges) return@withContext
+        try {
+            rustUpdateCalendar(
+                credentials.toRust(),
+                calendarUrl,
+                CalendarEdit(displayName = edit.displayName, color = edit.color),
+            )
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("updateCalendar")
         }
     }
 

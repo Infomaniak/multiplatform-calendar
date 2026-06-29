@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
@@ -35,6 +36,10 @@ interface CalendarSyncRemoteSource {
     /** Discover all calendars for the given credentials. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar>
+
+    /** Update editable CalDAV properties on a calendar collection (PROPPATCH). No-op if [edit] has no changes. */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
+    suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit)
 
     /** Fetch all events (iCalendar resources) inside a calendar. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

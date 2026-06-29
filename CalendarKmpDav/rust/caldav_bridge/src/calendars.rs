@@ -1,6 +1,6 @@
 //! Calendar discovery operations.
 
-use crate::client::{client, rt};
+use crate::client::{client, ensure_success, rt};
 use crate::error::{err, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount};
 use crate::props::{access_level, collection_props, normalize_href};
@@ -70,11 +70,7 @@ pub fn update_calendar(
 
     rt.block_on(async {
         let resp = cli.proppatch(calendar_url, &body).await.map_err(|e| err("Proppatch", e))?;
-        if !resp.status().is_success() {
-            return Err(CaldavError::Bridge {
-                msg: format!("PROPPATCH failed with {}", resp.status()),
-            });
-        }
+        ensure_success("PROPPATCH", &resp)?;
         check_propstat_success(resp.body().as_ref())
     })
 }

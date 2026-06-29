@@ -9,6 +9,7 @@ crate-type = ["staticlib", "cdylib"]
 [dependencies]
 fast-dav-rs = "0.4"
 bytes = "1"
+http = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 uuid = { version = "1", features = ["v4"] }
 uniffi = "0.29"

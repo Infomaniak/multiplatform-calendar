@@ -72,12 +72,12 @@ internal class CalendarRepository(
         return calendarDao.findById(calendarId)?.toDomain()
     }
 
-    fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
+    fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
         // TODO: Timezones are not handled yet — range bounds are compared in UTC.
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
         val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
 
-        return eventDao.observeVisibleInRange(accountId, startLocalDateTime, endLocalDateTime)
+        return eventDao.observeVisibleInRange(accountIds, startLocalDateTime, endLocalDateTime)
             .map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 

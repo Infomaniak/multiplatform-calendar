@@ -63,7 +63,7 @@ public class CalendarManager internal constructor(
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
     public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            calendarRepository.observeVisibleEvents(accountIds.first(), start, end)
+            calendarRepository.observeVisibleEvents(accountIds, start, end)
         }.catch {
             //TODO: handle error
         }

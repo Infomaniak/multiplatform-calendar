@@ -84,11 +84,12 @@ fn attendee_from_prop(p: &Property, is_organizer: bool) -> AttendeeEntry {
 
 /// Strip a `mailto:` (case-insensitive) prefix to yield a bare email address.
 fn strip_mailto(value: &str) -> String {
-    value
-        .strip_prefix("mailto:")
-        .or_else(|| value.strip_prefix("MAILTO:"))
-        .unwrap_or(value)
-        .to_string()
+    let prefix = "mailto:";
+    if value.len() >= prefix.len() && value[..prefix.len()].eq_ignore_ascii_case(prefix) {
+        value[prefix.len()..].to_string()
+    } else {
+        value.to_string()
+    }
 }
 
 /// Apply [`EventEdit`] onto an existing VEVENT, preserving every property we don't touch.

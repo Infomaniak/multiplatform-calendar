@@ -32,23 +32,26 @@ import kotlin.time.Instant
 // TODO: Timezones are not handled yet — we assume UTC when converting to Instant.
 private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 
-internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event = EventImpl(
-    id = id,
-    calendarId = calendarId,
-    accountId = calendar.accountId,
-    title = summary,
-    description = description,
-    location = location,
-    status = status,
-    categories = categories,
-    timing = toTiming(),
-    lastModified = lastModified?.toUtcInstant(),
-    attendees = attendees.map(AttendeeEntity::toDomain),
-    organizer = attendees.firstOrNull { it.isOrganizer }?.toDomain(),
-    calendarColor = calendar.color,
-    colors = eventColors,
-    canEdit = calendar.accessLevel.canWrite,
-)
+internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event {
+    val attendees = attendees.map(AttendeeEntity::toDomain)
+    return EventImpl(
+        id = id,
+        calendarId = calendarId,
+    	accountId = calendar.accountId,
+        title = summary,
+        description = description,
+        location = location,
+        status = status,
+        categories = categories,
+        timing = toTiming(),
+        lastModified = lastModified?.toUtcInstant(),
+        attendees = attendees,
+        organizer = attendees.firstOrNull { it.isOrganizer },
+        calendarColor = calendar.color,
+        colors = eventColors,
+        canEdit = calendar.accessLevel.canWrite,
+    )
+}
 
 private fun EventEntity.toTiming(): EventTiming = EventTiming(
     start = dtStart.toUtcInstant(),

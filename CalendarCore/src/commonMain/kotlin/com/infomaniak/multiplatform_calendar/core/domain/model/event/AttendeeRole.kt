@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 public enum class AttendeeRole {
-    Organizer,
+    Chair,
     Requested,
     Optional,
     NonParticipant;

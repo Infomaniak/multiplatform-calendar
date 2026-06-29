@@ -39,9 +39,10 @@ private fun parseStatus(raw: String?): ParticipationStatus = when (raw?.uppercas
     else -> ParticipationStatus.NeedsAction
 }
 
-// Maps raw iCal ROLE to the domain role (defaults to Requested).
+// Maps raw iCal ROLE to the persisted role (defaults to Requested). CHAIR is the meeting
+// chair (RFC 5545), distinct from the organizer which is flagged via isOrganizer.
 private fun parseRole(raw: String?): AttendeeRole = when (raw?.uppercase()) {
-    "CHAIR" -> AttendeeRole.Organizer
+    "CHAIR" -> AttendeeRole.Chair
     "OPT-PARTICIPANT" -> AttendeeRole.Optional
     "NON-PARTICIPANT" -> AttendeeRole.NonParticipant
     else -> AttendeeRole.Requested

@@ -123,6 +123,7 @@ fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
         msg: format!("PROPPATCH: malformed multistatus: {e}"),
     })?;
 
+    let mut found_propstat = false;
     for node in doc.root().descendants() {
         if !node.is_element() || !node.tag_name().name().eq_ignore_ascii_case("status") {
             continue;
@@ -134,6 +135,7 @@ fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
         if !parent_is_propstat {
             continue;
         }
+        found_propstat = true;
         let status = node.text().unwrap_or("").trim();
         // Expected form: "HTTP/1.1 200 OK". Reject anything that isn't 2xx.
         let code = status.split_whitespace().nth(1).and_then(|s| s.parse::<u16>().ok());
@@ -143,6 +145,14 @@ fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
             });
         }
     }
+
+    // A success requires confirmation: an empty/malformed multistatus is not implicit success.
+    if !found_propstat {
+        return Err(CaldavError::Bridge {
+            msg: "PROPPATCH: no propstat in multistatus".to_string(),
+        });
+    }
+
     Ok(())
 }
 

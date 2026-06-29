@@ -108,14 +108,16 @@ internal class CalendarRepository(
     ): EventEntity? = getOrNull { event.toEntity(calendarId) }
 
     suspend fun updateCalendar(credentials: DavAccount, calendarId: CalendarId, edit: CalendarEditData) {
-        calendarDao.findById(calendarId)?.let { entity ->
+        calendarDao.findById(calendarId)?.let { calendarEntity ->
             runCatching {
                 if (edit.hasRemoteChanges) {
-                    caldavClient.updateCalendar(credentials, calendarId.url, edit.toRemoteEdit())
+                    caldavClient.updateCalendar(
+                        credentials = credentials,
+                        calendarUrl = calendarId.url,
+                        edit = edit.toRemoteEdit(),
+                    )
                 }
-            }.onSuccessOrReport {
-                calendarDao.update(entity.applyEdit(edit))
-            }
+            }.onSuccessOrReport { calendarDao.update(calendar = calendarEntity.applyEdit(edit)) }
         }
     }
 

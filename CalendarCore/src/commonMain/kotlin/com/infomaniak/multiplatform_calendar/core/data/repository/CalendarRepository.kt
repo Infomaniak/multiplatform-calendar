@@ -62,10 +62,14 @@ internal class CalendarRepository(
     private val eventDao: EventDao,
 ) {
 
-    fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
-        return calendarDao.observeByAccountId(accountId).map { calendarEntities ->
+    fun observeCalendars(accountIds: Set<AccountId>): Flow<List<Calendar>> {
+        return calendarDao.observeByAccountIds(accountIds).map { calendarEntities ->
             calendarEntities.map(CalendarEntity::toDomain)
         }
+    }
+
+    suspend fun getCalendar(calendarId: CalendarId): Calendar? {
+        return calendarDao.findById(calendarId)?.toDomain()
     }
 
     fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
@@ -119,6 +123,11 @@ internal class CalendarRepository(
                 }
             }.onSuccessOrReport { calendarDao.update(calendar = calendarEntity.applyEdit(edit)) }
         }
+    }
+
+    suspend fun getAccountIdByEventId(eventId: EventId): AccountId? {
+        val eventWithCalendar = eventDao.getEventWithCalendar(eventId)
+        return eventWithCalendar?.calendar?.accountId
     }
 
     suspend fun createEvent(credentials: DavAccount, data: EventEditData) {

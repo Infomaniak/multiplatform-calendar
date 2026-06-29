@@ -38,8 +38,8 @@ internal class AccountRepository(
     private val accountDao: AccountDao,
     private val authDataSource: AuthDataSource,
 ) {
-    private val _currentAccountId = MutableSharedFlow<AccountId?>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    val currentAccountIdFlow = _currentAccountId.asSharedFlow()
+    private val _currentAccountIds = MutableSharedFlow<Set<AccountId>>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val currentAccountIdFlow = _currentAccountIds.asSharedFlow()
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
 
@@ -48,16 +48,25 @@ internal class AccountRepository(
     }
 
     suspend fun storeCredentials(accountId: AccountId, credentials: DavAccount) {
+        val currentIds = getCurrentAccountIds()
+        val accountAlreadyExists = accountId in currentIds
+        if (accountAlreadyExists && getCredentials(accountId) == credentials) return
+
         userCredentials[accountId] = credentials
         accountDao.insert(AccountEntity(id = accountId))
-        _currentAccountId.emit(accountId)
+
+        if (!accountAlreadyExists) {
+            _currentAccountIds.emit(currentIds + accountId)
+        }
     }
 
     suspend fun removeCredentials(accountId: AccountId) {
+        val currentIds = getCurrentAccountIds()
         userCredentials.remove(accountId)
         accountDao.delete(accountId)
-        if (_currentAccountId.replayCache.lastOrNull() == accountId) {
-            _currentAccountId.emit(null)
+
+        if (accountId in currentIds) {
+            _currentAccountIds.emit(currentIds - accountId)
         }
     }
 
@@ -74,5 +83,9 @@ internal class AccountRepository(
             if (it is CancellationException) throw it
             else throw CalendarSdkException(it.message, it)
         }
+    }
+
+    private fun getCurrentAccountIds(): Set<AccountId> {
+        return _currentAccountIds.replayCache.lastOrNull().orEmpty()
     }
 }

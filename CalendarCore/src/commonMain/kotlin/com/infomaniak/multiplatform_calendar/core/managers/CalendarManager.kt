@@ -115,9 +115,8 @@ public class CalendarManager internal constructor(
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
         runCatching {
             val accountId = calendarRepository.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
-            accountRepository.getCredentials(accountId)?.let { credentials ->
-                calendarRepository.deleteEvent(credentials, eventId)
-            }
+            val credentials = accountRepository.getCredentials(accountId) ?: error("Credentials for account $accountId not found")
+            calendarRepository.deleteEvent(credentials, eventId)
         }.cancellable().onFailure { throwable ->
             //TODO: handle error
             throw CalendarSdkException("Failed to delete event $eventId", throwable)

@@ -26,6 +26,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -74,31 +76,51 @@ public class CalendarManager internal constructor(
         }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateCalendar(calendarId: CalendarId, edit: CalendarEditData): Unit = withContext(Dispatchers.Default) {
-        if (edit.hasAnyChanges) {
-            val credentials = getCredentialsForCalendar(calendarId)
-            calendarRepository.updateCalendar(credentials, calendarId, edit)
+        runCatching {
+            if (edit.hasAnyChanges) {
+                val credentials = getCredentialsForCalendar(calendarId)
+                calendarRepository.updateCalendar(credentials, calendarId, edit)
+            }
+        }.cancellable().onFailure { throwable ->
+            // TODO: handle error
+            throw CalendarSdkException("Failed to update calendar $calendarId", throwable)
         }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        val credentials = getCredentialsForCalendar(data.calendarId)
-        calendarRepository.createEvent(credentials, data)
+        runCatching {
+            val credentials = getCredentialsForCalendar(data.calendarId)
+            calendarRepository.createEvent(credentials, data)
+        }.cancellable().onFailure { throwable ->
+            //TODO: handle error
+            throw CalendarSdkException("Failed to create event in calendar ${data.calendarId}", throwable)
+        }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        val credentials = getCredentialsForCalendar(data.calendarId)
-        calendarRepository.updateEvent(credentials, eventId, data)
+        runCatching {
+            val credentials = getCredentialsForCalendar(data.calendarId)
+            calendarRepository.updateEvent(credentials, eventId, data)
+        }.cancellable().onFailure { throwable ->
+            //TODO: handle error
+            throw CalendarSdkException("Failed to update event $eventId", throwable)
+        }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
-        val accountId = calendarRepository.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
-        accountRepository.getCredentials(accountId)?.let { credentials ->
-            calendarRepository.deleteEvent(credentials, eventId)
+        runCatching {
+            val accountId = calendarRepository.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
+            accountRepository.getCredentials(accountId)?.let { credentials ->
+                calendarRepository.deleteEvent(credentials, eventId)
+            }
+        }.cancellable().onFailure { throwable ->
+            //TODO: handle error
+            throw CalendarSdkException("Failed to delete event $eventId", throwable)
         }
     }
 

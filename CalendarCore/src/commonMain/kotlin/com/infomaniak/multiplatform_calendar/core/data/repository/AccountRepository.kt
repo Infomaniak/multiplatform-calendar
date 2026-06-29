@@ -30,6 +30,8 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
@@ -38,19 +40,20 @@ internal class AccountRepository(
     private val accountDao: AccountDao,
     private val authDataSource: AuthDataSource,
 ) {
+    private val mutex = Mutex()
     private val _currentAccountIds = MutableSharedFlow<Set<AccountId>>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val currentAccountIdsFlow = _currentAccountIds.asSharedFlow()
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
 
-    fun getCredentials(accountId: AccountId): DavAccount? {
+    suspend fun getCredentials(accountId: AccountId): DavAccount? = mutex.withLock {
         return userCredentials[accountId]
     }
 
-    suspend fun storeCredentials(accountId: AccountId, credentials: DavAccount) {
+    suspend fun storeCredentials(accountId: AccountId, credentials: DavAccount) = mutex.withLock {
         val currentIds = getCurrentAccountIds()
         val accountAlreadyExists = accountId in currentIds
-        if (accountAlreadyExists && getCredentials(accountId) == credentials) return
+        if (accountAlreadyExists && userCredentials[accountId] == credentials) return@withLock
 
         userCredentials[accountId] = credentials
         accountDao.insert(AccountEntity(id = accountId))
@@ -60,7 +63,7 @@ internal class AccountRepository(
         }
     }
 
-    suspend fun removeCredentials(accountId: AccountId) {
+    suspend fun removeCredentials(accountId: AccountId) = mutex.withLock {
         val currentIds = getCurrentAccountIds()
         userCredentials.remove(accountId)
         accountDao.delete(accountId)

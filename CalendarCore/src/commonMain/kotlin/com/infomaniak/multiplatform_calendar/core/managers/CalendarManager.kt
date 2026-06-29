@@ -131,8 +131,7 @@ public class CalendarManager internal constructor(
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
-        return calendarRepository.getCalendar(calendarId)?.accountId?.let { accountId ->
-            accountRepository.getCredentials(accountId)
-        } ?: error("Calendar $calendarId not found")
+        val accountId = calendarRepository.getCalendar(calendarId)?.accountId ?: error("Calendar $calendarId not found")
+        return accountRepository.getCredentials(accountId) ?: error("Credentials for account $accountId not found")
     }
 }

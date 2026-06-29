@@ -33,8 +33,8 @@ internal interface CalendarDao {
     @Query("SELECT * FROM calendars WHERE accountId = :accountId")
     fun observeByAccountId(accountId: AccountId): Flow<List<CalendarEntity>>
 
-    @Query("SELECT * FROM calendars WHERE accountId IN(:accountId)")
-    fun observeByAccountIds(accountId: Set<AccountId>): Flow<List<CalendarEntity>>
+    @Query("SELECT * FROM calendars WHERE accountId IN(:accountIds)")
+    fun observeByAccountIds(accountIds: Set<AccountId>): Flow<List<CalendarEntity>>
 
     @Query("SELECT * FROM calendars WHERE accountId = :accountId")
     suspend fun getByAccountId(accountId: AccountId): List<CalendarEntity>

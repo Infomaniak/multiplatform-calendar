@@ -126,8 +126,7 @@ internal class CalendarRepository(
     }
 
     suspend fun getAccountIdByEventId(eventId: EventId): AccountId? {
-        val eventWithCalendar = eventDao.getEventWithCalendar(eventId)
-        return eventWithCalendar?.calendar?.accountId
+        return eventDao.getAccountIdByEventId(eventId)
     }
 
     suspend fun createEvent(credentials: DavAccount, data: EventEditData) {

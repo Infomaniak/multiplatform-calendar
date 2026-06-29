@@ -68,6 +68,16 @@ pub struct MutateResult {
     pub etag: String,
 }
 
+/// Edited calendar properties applied onto a CalDAV collection by `update_calendar` (PROPPATCH).
+///
+/// Each `Some` is set on the server; each `None` is left untouched. Colors are CalDAV hex strings
+/// (`#RRGGBB` or `#RRGGBBAA`).
+#[derive(uniffi::Record)]
+pub struct CalendarEdit {
+    pub display_name: Option<String>,
+    pub color: Option<String>,
+}
+
 /// Edited event fields applied onto an existing VEVENT by `patch_event_ics`.
 ///
 /// Date/date-time values are raw RFC 5545 strings (e.g. "20260616T100000Z" or "20260616" when

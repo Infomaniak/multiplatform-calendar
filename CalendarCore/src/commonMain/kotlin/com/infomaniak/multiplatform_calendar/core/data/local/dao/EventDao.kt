@@ -60,6 +60,24 @@ internal interface EventDao {
         end: LocalDateTime,
     ): Flow<List<EventWithCalendarEntity>>
 
+    @Transaction
+    @Query(
+        """
+        SELECT event.* FROM events event
+        INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        WHERE calendar.accountId IN(:accountIds)
+          AND calendar.isVisible = 1
+          AND event.dtStart < :end
+          AND event.dtEndEffective >= :start
+        ORDER BY event.dtStart ASC
+        """,
+    )
+    fun observeVisibleInRange(
+        accountIds: Set<AccountId>,
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): Flow<List<EventWithCalendarEntity>>
+
     @Upsert
     suspend fun upsert(eventDao: List<EventEntity>)
 

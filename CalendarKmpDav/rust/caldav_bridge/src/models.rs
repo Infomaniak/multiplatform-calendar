@@ -58,7 +58,6 @@ pub struct EventEntry {
     pub priority: Option<String>,
     pub sequence: Option<String>,
     pub categories: Option<String>,
-    pub organizer: Option<String>,
     pub attendees: Vec<AttendeeEntry>,
 }
 

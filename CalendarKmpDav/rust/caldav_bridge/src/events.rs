@@ -40,7 +40,6 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
             priority: prop(ev, "PRIORITY"),
             sequence: prop(ev, "SEQUENCE"),
             categories: prop(ev, "CATEGORIES"),
-            organizer: prop(ev, "ORGANIZER"),
             attendees: parse_attendees(ev),
             ics_data,
         },
@@ -52,7 +51,7 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
             summary: None, description: None, location: None,
             dtstart: None, dtend: None, duration: None, created: None, last_modified: None, dtstamp: None,
             rrule: None, status: None, transp: None, classification: None, priority: None,
-            sequence: None, categories: None, organizer: None, attendees: Vec::new(),
+            sequence: None, categories: None, attendees: Vec::new(),
         },
     }
 }

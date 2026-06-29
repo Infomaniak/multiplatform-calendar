@@ -39,7 +39,7 @@ internal class AccountRepository(
     private val authDataSource: AuthDataSource,
 ) {
     private val _currentAccountIds = MutableSharedFlow<Set<AccountId>>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    val currentAccountIdFlow = _currentAccountIds.asSharedFlow()
+    val currentAccountIdsFlow = _currentAccountIds.asSharedFlow()
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
 

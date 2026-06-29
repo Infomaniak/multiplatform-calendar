@@ -52,7 +52,7 @@ public class CalendarManager internal constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<Calendar>> {
-        return accountRepository.currentAccountIdFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
             calendarRepository.observeCalendars(accountIds)
         }.catch {
             //TODO: handle error
@@ -62,7 +62,7 @@ public class CalendarManager internal constructor(
     /** Observe events from all *visible* calendars of the current account overlapping [start, end[. */
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
     public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
-        return accountRepository.currentAccountIdFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
             calendarRepository.observeVisibleEvents(accountIds.first(), start, end)
         }.catch {
             //TODO: handle error

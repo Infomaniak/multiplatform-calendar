@@ -9,10 +9,10 @@
 
 use std::collections::HashMap;
 
-use fast_dav_rs::{CalDavClient, Depth};
-use roxmltree::{Document, Node};
+use fast_dav_rs::{CalDavClient, Depth};use roxmltree::{Document, Node};
 
-use crate::error::{err, CaldavError};
+use crate::client::ensure_success;
+use crate::error::{bridge_error, CaldavError};
 use crate::models::CalendarAccessLevel;
 
 /// Single PROPFIND body requesting every collection property we care about.
@@ -84,13 +84,9 @@ async fn fetch(
     let resp = cli
         .propfind(home, Depth::One, PROPS_BODY)
         .await
-        .map_err(|e| err("PropsPropfind", e))?;
+        .map_err(|e| bridge_error("PropsPropfind", e))?;
 
-    if !resp.status().is_success() {
-        return Err(CaldavError::Bridge {
-            msg: format!("Props PROPFIND failed with {}", resp.status()),
-        });
-    }
+    ensure_success("PropsPropfind", &resp)?;
 
     Ok(parse(resp.body().as_ref()))
 }

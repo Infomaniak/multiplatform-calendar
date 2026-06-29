@@ -7,7 +7,7 @@ pub enum CaldavError {
 }
 
 /// Build a [`CaldavError::Bridge`] with a context-prefixed message.
-pub(crate) fn err(context: &str, e: impl std::fmt::Display) -> CaldavError {
+pub(crate) fn bridge_error(context: &str, e: impl std::fmt::Display) -> CaldavError {
     CaldavError::Bridge { msg: format!("{context}: {e}") }
 }
 

@@ -1,7 +1,7 @@
 //! Calendar discovery operations.
 
-use crate::client::{client, rt};
-use crate::error::{err, CaldavError};
+use crate::client::{client, ensure_success, rt};
+use crate::error::{bridge_error, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount};
 use crate::props::{access_level, collection_props, normalize_href};
 use roxmltree::Document;
@@ -14,16 +14,16 @@ pub fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavError> 
 
     rt.block_on(async {
         let principal = cli.discover_current_user_principal().await
-            .map_err(|e| err("Principal", e))?
-            .ok_or_else(|| CaldavError::Bridge { msg: "No current-user-principal".into() })?;
+            .map_err(|e| bridge_error("Principal", e))?
+            .ok_or_else(|| bridge_error("Principal", "no current-user-principal"))?;
 
         let homes = cli.discover_calendar_home_set(&principal).await
-            .map_err(|e| err("HomeSet", e))?;
+            .map_err(|e| bridge_error("HomeSet", e))?;
 
         let mut calendars = Vec::new();
         for home in &homes {
             let props = collection_props(&cli, home).await;
-            for cal in cli.list_calendars(home).await.map_err(|e| err("ListCalendars", e))? {
+            for cal in cli.list_calendars(home).await.map_err(|e| bridge_error("ListCalendars", e))? {
                 let entry_props = props.get(normalize_href(&cal.href).as_str());
                 let access_level = entry_props
                     .map(access_level)
@@ -69,12 +69,8 @@ pub fn update_calendar(
     let body = build_proppatch_body(&edit);
 
     rt.block_on(async {
-        let resp = cli.proppatch(calendar_url, &body).await.map_err(|e| err("Proppatch", e))?;
-        if !resp.status().is_success() {
-            return Err(CaldavError::Bridge {
-                msg: format!("PROPPATCH failed with {}", resp.status()),
-            });
-        }
+        let resp = cli.proppatch(calendar_url, &body).await.map_err(|e| bridge_error("Proppatch", e))?;
+        ensure_success("PROPPATCH", &resp)?;
         check_propstat_success(resp.body().as_ref())
     })
 }
@@ -119,9 +115,7 @@ fn escape_xml(input: &str) -> String {
 /// Parse a PROPPATCH multistatus body and fail when any `<propstat>` carries a non-2xx status.
 fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
     let text = String::from_utf8_lossy(xml);
-    let doc = Document::parse(&text).map_err(|e| CaldavError::Bridge {
-        msg: format!("PROPPATCH: malformed multistatus: {e}"),
-    })?;
+    let doc = Document::parse(&text).map_err(|e| bridge_error("Proppatch", format!("malformed multistatus: {e}")))?;
 
     let mut found_propstat = false;
     for node in doc.root().descendants() {
@@ -140,17 +134,13 @@ fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
         // Expected form: "HTTP/1.1 200 OK". Reject anything that isn't 2xx.
         let code = status.split_whitespace().nth(1).and_then(|s| s.parse::<u16>().ok());
         if !matches!(code, Some(200..=299)) {
-            return Err(CaldavError::Bridge {
-                msg: format!("PROPPATCH rejected: {status}"),
-            });
+            return Err(bridge_error("Proppatch", format!("rejected: {status}")));
         }
     }
 
     // A success requires confirmation: an empty/malformed multistatus is not implicit success.
     if !found_propstat {
-        return Err(CaldavError::Bridge {
-            msg: "PROPPATCH: no propstat in multistatus".to_string(),
-        });
+        return Err(bridge_error("Proppatch", "no propstat in multistatus"));
     }
 
     Ok(())

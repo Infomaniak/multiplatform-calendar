@@ -2,8 +2,8 @@
 
 use icalendar::{Calendar, CalendarComponent, Component, Property};
 
-use crate::client::{client, rt};
-use crate::error::{err, CaldavError};
+use crate::client::{client, ensure_success, rt};
+use crate::error::{bridge_error, CaldavError};
 use crate::models::{DavAccount, EventEdit, EventEntry, MutateResult};
 
 /// Read a single iCalendar property value as an owned [`String`].
@@ -62,7 +62,7 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
 /// re-serialized iCalendar object.
 #[uniffi::export]
 pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, CaldavError> {
-    let mut calendar: Calendar = ics_data.parse().map_err(|e| err("Patch", e))?;
+    let mut calendar: Calendar = ics_data.parse().map_err(|e| bridge_error("Patch", e))?;
 
     let event = calendar
         .components
@@ -71,7 +71,7 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, Caldav
             CalendarComponent::Event(event) => Some(event),
             _ => None,
         })
-        .ok_or_else(|| CaldavError::Bridge { msg: "Patch: no VEVENT in ICS".to_string() })?;
+        .ok_or_else(|| bridge_error("Patch", "no VEVENT in ICS"))?;
 
     apply_edited_fields(event, &edit);
     bump_revision(event, &edit.stamp);
@@ -149,7 +149,7 @@ pub fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<Event
 
     rt.block_on(async {
         let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
-            .await.map_err(|e| err("Query", e))?;
+            .await.map_err(|e| bridge_error("Query", e))?;
 
         Ok(objects.into_iter().filter_map(|obj| {
             let etag = obj.etag.unwrap_or_default();
@@ -169,7 +169,8 @@ pub fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> 
         let uid = uuid::Uuid::new_v4();
         let path = format!("{}/{uid}.ics", calendar_url.trim_end_matches('/'));
         let resp = cli.put_if_none_match(&path, body)
-            .await.map_err(|e| err("Create", e))?;
+            .await.map_err(|e| bridge_error("Create", e))?;
+        ensure_success("Create", &resp)?;
         let etag = resp.headers()
             .get("etag")
             .and_then(|v| v.to_str().ok())
@@ -188,7 +189,8 @@ pub fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: 
 
     rt.block_on(async {
         let resp = cli.put_if_match(event_url, body, etag)
-            .await.map_err(|e| err("Update", e))?;
+            .await.map_err(|e| bridge_error("Update", e))?;
+        ensure_success("Update", &resp)?;
         let new_etag = resp.headers()
             .get("etag")
             .and_then(|v| v.to_str().ok())
@@ -205,8 +207,8 @@ pub fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<
     let cli = client(&account)?;
 
     rt.block_on(async {
-        cli.delete_if_match(event_url, etag).await.map_err(|e| err("Delete", e))?;
-        Ok(())
+        let resp = cli.delete_if_match(event_url, etag).await.map_err(|e| bridge_error("Delete", e))?;
+        ensure_success("Delete", &resp)
     })
 }
 

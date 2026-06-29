@@ -1,5 +1,13 @@
 //! UniFFI records exposed to Kotlin as data classes.
 
+/// CalDAV credentials passed across the FFI boundary.
+#[derive(uniffi::Record)]
+pub struct DavAccount {
+    pub base_url: String,
+    pub username: String,
+    pub password: String,
+}
+
 /// Access level the current user holds on a calendar collection.
 ///
 /// Derived solely from the CalDAV `current-user-privilege-set` (RFC 3744).

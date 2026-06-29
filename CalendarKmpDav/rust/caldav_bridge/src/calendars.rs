@@ -2,14 +2,14 @@
 
 use crate::client::{client, rt};
 use crate::error::{err, CaldavError};
-use crate::models::{CalendarAccessLevel, CalendarEntry};
+use crate::models::{CalendarAccessLevel, CalendarEntry, DavAccount};
 use crate::props::{access_level, collection_props, normalize_href};
 
 /// Discover all calendars for the given credentials.
 #[uniffi::export]
-pub fn discover(base_url: &str, username: &str, password: &str) -> Result<Vec<CalendarEntry>, CaldavError> {
+pub fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavError> {
     let rt = rt()?;
-    let cli = client(base_url, username, password)?;
+    let cli = client(&account)?;
 
     rt.block_on(async {
         let principal = cli.discover_current_user_principal().await

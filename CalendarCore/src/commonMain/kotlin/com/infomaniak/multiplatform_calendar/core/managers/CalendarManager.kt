@@ -21,6 +21,8 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -70,6 +72,15 @@ public class CalendarManager internal constructor(
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         accountRepository.getCredentials(accountId)?.let { credentials ->
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }
+    }
+
+    @Throws(CancellationException::class)
+    public suspend fun updateCalendar(calendarId: CalendarId, edit: CalendarEditData): Unit = withContext(Dispatchers.Default) {
+        if (edit.hasAnyChanges) {
+            currentAccountCredentials()?.let { credentials ->
+                calendarRepository.updateCalendar(credentials, calendarId, edit)
+            }
         }
     }
 

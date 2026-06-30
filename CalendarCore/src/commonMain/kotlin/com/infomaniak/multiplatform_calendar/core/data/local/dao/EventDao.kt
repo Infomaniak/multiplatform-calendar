@@ -36,7 +36,7 @@ internal interface EventDao {
     fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
 
     /**
-     * Events (with their parent calendar) from all *visible* calendars of [accountId] that overlap
+     * Events (with their parent calendar) from all *visible* calendars of [accountIds] that overlap
      * the [start, end[ range. An event overlaps when it starts before [end] and its resolved end
      * ([EventEntity.dtEndEffective], which already accounts for `DTEND`/`DURATION`) is at/after [start].
      *

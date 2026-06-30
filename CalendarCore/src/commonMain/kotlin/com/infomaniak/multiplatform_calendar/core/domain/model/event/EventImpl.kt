@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlin.time.ExperimentalTime
@@ -26,6 +27,7 @@ import kotlin.time.Instant
 internal data class EventImpl(
     override val id: EventId,
     override val calendarId: CalendarId,
+    override val accountId: AccountId,
     override val title: String,
     override val description: String? = null,
     override val location: String? = null,

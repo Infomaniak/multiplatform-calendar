@@ -68,8 +68,8 @@ internal class CalendarRepository(
         }
     }
 
-    suspend fun getCalendar(calendarId: CalendarId): Calendar? {
-        return calendarDao.findById(calendarId)?.toDomain()
+    suspend fun getCalendar(calendarId: CalendarId): Calendar {
+        return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
     }
 
     fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
@@ -125,8 +125,8 @@ internal class CalendarRepository(
         }
     }
 
-    suspend fun getAccountIdByEventId(eventId: EventId): AccountId? {
-        return eventDao.getAccountIdByEventId(eventId)
+    suspend fun getAccountIdByEventId(eventId: EventId): AccountId {
+        return eventDao.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
     }
 
     suspend fun createEvent(credentials: DavAccount, data: EventEditData) {

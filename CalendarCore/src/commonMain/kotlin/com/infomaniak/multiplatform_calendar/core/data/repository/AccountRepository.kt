@@ -46,8 +46,8 @@ internal class AccountRepository(
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
 
-    suspend fun getCredentials(accountId: AccountId): DavAccount? = mutex.withLock {
-        return userCredentials[accountId]
+    suspend fun getCredentials(accountId: AccountId): DavAccount = mutex.withLock {
+        return userCredentials[accountId] ?: error("Credentials for account $accountId not found")
     }
 
     suspend fun storeCredentials(accountId: AccountId, credentials: DavAccount) = mutex.withLock {

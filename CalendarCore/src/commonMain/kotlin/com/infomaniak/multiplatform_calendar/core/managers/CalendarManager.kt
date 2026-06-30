@@ -71,8 +71,12 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class)
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        accountRepository.getCredentials(accountId)?.let { credentials ->
+        runCatching {
+            val credentials = accountRepository.getCredentials(accountId)
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }.cancellable().onFailure {
+            //TODO: handle error
+            throw CalendarSdkException("Failed to sync calendars for account $accountId", it)
         }
     }
 
@@ -114,8 +118,8 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
         runCatching {
-            val accountId = calendarRepository.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
-            val credentials = accountRepository.getCredentials(accountId) ?: error("Credentials for account $accountId not found")
+            val accountId = calendarRepository.getAccountIdByEventId(eventId)
+            val credentials = accountRepository.getCredentials(accountId)
             calendarRepository.deleteEvent(credentials, eventId)
         }.cancellable().onFailure { throwable ->
             //TODO: handle error
@@ -130,7 +134,7 @@ public class CalendarManager internal constructor(
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
-        val accountId = calendarRepository.getCalendar(calendarId)?.accountId ?: error("Calendar $calendarId not found")
-        return accountRepository.getCredentials(accountId) ?: error("Credentials for account $accountId not found")
+        val accountId = calendarRepository.getCalendar(calendarId).accountId
+        return accountRepository.getCredentials(accountId)
     }
 }

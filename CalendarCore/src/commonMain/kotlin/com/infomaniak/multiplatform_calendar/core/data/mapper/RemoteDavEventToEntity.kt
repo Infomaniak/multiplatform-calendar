@@ -62,7 +62,7 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         priority = priority?.toIntOrNull(),
         sequence = sequence?.toIntOrNull(),
         categories = categories,
-        organizer = organizer,
+        attendees = attendees.map { it.toEntity() },
         etag = etag,
         rawIcs = icsData,
     )

@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
@@ -31,21 +32,26 @@ import kotlin.time.Instant
 // TODO: Timezones are not handled yet — we assume UTC when converting to Instant.
 private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 
-internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event = EventImpl(
-    id = id,
-    calendarId = calendarId,
-    accountId = calendar.accountId,
-    title = summary,
-    description = description,
-    location = location,
-    status = status,
-    categories = categories,
-    timing = toTiming(),
-    lastModified = lastModified?.toUtcInstant(),
-    calendarColor = calendar.color,
-    colors = eventColors,
-    canEdit = calendar.accessLevel.canWrite,
-)
+internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event {
+    val attendees = attendees.map(AttendeeEntity::toDomain)
+    return EventImpl(
+        id = id,
+        calendarId = calendarId,
+    	accountId = calendar.accountId,
+        title = summary,
+        description = description,
+        location = location,
+        status = status,
+        categories = categories,
+        timing = toTiming(),
+        lastModified = lastModified?.toUtcInstant(),
+        attendees = attendees,
+        organizer = attendees.firstOrNull { it.isOrganizer },
+        calendarColor = calendar.color,
+        colors = eventColors,
+        canEdit = calendar.accessLevel.canWrite,
+    )
+}
 
 private fun EventEntity.toTiming(): EventTiming = EventTiming(
     start = dtStart.toUtcInstant(),

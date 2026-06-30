@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException.Companion.toCaldavBridgeException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
@@ -114,7 +115,16 @@ internal class RustCaldavBridge(
                     priority = entry.priority,
                     sequence = entry.sequence,
                     categories = entry.categories,
-                    organizer = entry.organizer,
+                    attendees = entry.attendees.map { attendee ->
+                        RemoteDavAttendee(
+                            email = attendee.email,
+                            displayName = attendee.displayName,
+                            status = attendee.status,
+                            role = attendee.role,
+                            isOrganizer = attendee.isOrganizer,
+                            responseNeeded = attendee.responseNeeded,
+                        )
+                    },
                 )
             }
         } catch (e: CaldavException) {

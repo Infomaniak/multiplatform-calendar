@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,15 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-package com.infomaniak.multiplatform_calendar.core.domain.model.event
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Attendee
 
-import kotlinx.serialization.Serializable
-
-@Serializable
-public enum class ParticipationStatus {
-    Accepted,
-    Declined,
-    Tentative,
-    NeedsAction;
-}
+internal fun AttendeeEntity.toDomain(): Attendee = Attendee(
+    email = email,
+    displayName = displayName,
+    status = status,
+    role = role,
+    isOrganizer = isOrganizer,
+    responseNeeded = responseNeeded,
+)

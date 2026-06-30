@@ -1,5 +1,5 @@
 /*
- * Infomaniak Core - Android
+ * Infomaniak Calendar - Multiplatform
  * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,8 +18,11 @@
 
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 public enum class AttendeeRole {
-    Organizer,
+    Chair,
     Requested,
     Optional,
     NonParticipant;

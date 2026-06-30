@@ -4,7 +4,7 @@ use icalendar::{Calendar, CalendarComponent, Component, Property};
 
 use crate::client::{client, ensure_success, rt};
 use crate::error::{bridge_error, CaldavError};
-use crate::models::{DavAccount, EventEdit, EventEntry, MutateResult};
+use crate::models::{AttendeeEntry, DavAccount, EventEdit, EventEntry, MutateResult};
 
 /// Read a single iCalendar property value as an owned [`String`].
 fn prop(event: &icalendar::Event, name: &str) -> Option<String> {
@@ -40,7 +40,7 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
             priority: prop(ev, "PRIORITY"),
             sequence: prop(ev, "SEQUENCE"),
             categories: prop(ev, "CATEGORIES"),
-            organizer: prop(ev, "ORGANIZER"),
+            attendees: parse_attendees(ev),
             ics_data,
         },
         None => EventEntry {
@@ -51,8 +51,44 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
             summary: None, description: None, location: None,
             dtstart: None, dtend: None, duration: None, created: None, last_modified: None, dtstamp: None,
             rrule: None, status: None, transp: None, classification: None, priority: None,
-            sequence: None, categories: None, organizer: None,
+            sequence: None, categories: None, attendees: Vec::new(),
         },
+    }
+}
+
+/// Collect ORGANIZER + every ATTENDEE of a VEVENT into a flat participant list.
+fn parse_attendees(ev: &icalendar::Event) -> Vec<AttendeeEntry> {
+    use icalendar::Component;
+    let mut attendees = Vec::new();
+    if let Some(org) = ev.properties().get("ORGANIZER") {
+        attendees.push(attendee_from_prop(org, true));
+    }
+    if let Some(list) = ev.multi_properties().get("ATTENDEE") {
+        attendees.extend(list.iter().map(|p| attendee_from_prop(p, false)));
+    }
+    attendees
+}
+
+/// Build an [`AttendeeEntry`] from an ATTENDEE/ORGANIZER [`Property`], extracting CN/PARTSTAT/ROLE/RSVP.
+fn attendee_from_prop(p: &Property, is_organizer: bool) -> AttendeeEntry {
+    let param = |key: &str| p.get_param_as(key, |s| Some(s.to_string()));
+    AttendeeEntry {
+        email: strip_mailto(p.value()),
+        display_name: param("CN"),
+        status: param("PARTSTAT"),
+        role: param("ROLE"),
+        is_organizer,
+        response_needed: param("RSVP").is_some_and(|v| v.eq_ignore_ascii_case("TRUE")),
+    }
+}
+
+/// Strip a `mailto:` (case-insensitive) prefix to yield a bare email address.
+fn strip_mailto(value: &str) -> String {
+    let prefix = "mailto:";
+    if value.len() >= prefix.len() && value[..prefix.len()].eq_ignore_ascii_case(prefix) {
+        value[prefix.len()..].to_string()
+    } else {
+        value.to_string()
     }
 }
 
@@ -211,4 +247,5 @@ pub fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<
         ensure_success("Delete", &resp)
     })
 }
+
 

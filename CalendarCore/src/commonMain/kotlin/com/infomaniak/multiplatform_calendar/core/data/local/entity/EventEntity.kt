@@ -61,7 +61,7 @@ internal data class EventEntity(
     val priority: Int? = null,
     val sequence: Int? = null,
     val categories: String? = null,
-    val organizer: String? = null,
+    val attendees: List<AttendeeEntity> = emptyList(),
     val etag: String,
     // The raw ICS text of the event, as returned by the CalDAV server. This is used for syncing and for editing events.
     val rawIcs: String,

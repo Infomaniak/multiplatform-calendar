@@ -18,7 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core.data.local
 
 import androidx.room.TypeConverter
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 
 internal class CalendarTypeConverters {
@@ -34,4 +36,10 @@ internal class CalendarTypeConverters {
 
     @TypeConverter
     fun toDuration(value: String?): Duration? = value?.let { Duration.parseIsoString(it) }
+
+    @TypeConverter
+    fun fromAttendees(value: List<AttendeeEntity>): String = Json.encodeToString(value)
+
+    @TypeConverter
+    fun toAttendees(value: String): List<AttendeeEntity> = Json.decodeFromString(value)
 }

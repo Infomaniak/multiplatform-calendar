@@ -58,7 +58,22 @@ pub struct EventEntry {
     pub priority: Option<String>,
     pub sequence: Option<String>,
     pub categories: Option<String>,
-    pub organizer: Option<String>,
+    pub attendees: Vec<AttendeeEntry>,
+}
+
+/// A single ATTENDEE/ORGANIZER participant parsed from a VEVENT. Raw iCal parameter values
+/// (PARTSTAT/ROLE) are kept verbatim and mapped to domain enums Kotlin-side.
+#[derive(uniffi::Record)]
+pub struct AttendeeEntry {
+    pub email: String,
+    pub display_name: Option<String>,
+    /// Raw `PARTSTAT` (e.g. "ACCEPTED", "NEEDS-ACTION").
+    pub status: Option<String>,
+    /// Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT").
+    pub role: Option<String>,
+    pub is_organizer: bool,
+    /// `RSVP=TRUE`: a response is expected from this attendee.
+    pub response_needed: bool,
 }
 
 /// Reference to a created/updated event on the server (URL + etag).

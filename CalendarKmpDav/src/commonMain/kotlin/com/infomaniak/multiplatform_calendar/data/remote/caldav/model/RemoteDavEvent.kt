@@ -55,7 +55,7 @@ data class RemoteDavEvent(
     val sequence: String?,
     /** Comma-separated categories. */
     val categories: String?,
-    /** Organizer (e.g. "mailto:user@example.com"). */
-    val organizer: String?,
+    /** ORGANIZER + ATTENDEE participants parsed from the VEVENT. */
+    val attendees: List<RemoteDavAttendee>,
 )
 

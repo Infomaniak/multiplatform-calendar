@@ -15,15 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-package com.infomaniak.multiplatform_calendar.core.domain.model.event
-
-import kotlinx.serialization.Serializable
-
-@Serializable
-public enum class ParticipationStatus {
-    Accepted,
-    Declined,
-    Tentative,
-    NeedsAction;
-}
+/** A single participant (ORGANIZER or ATTENDEE) parsed from a VEVENT. Raw iCal values. */
+data class RemoteDavAttendee(
+    val email: String,
+    val displayName: String?,
+    /** Raw `PARTSTAT` (e.g. "ACCEPTED", "NEEDS-ACTION"). */
+    val status: String?,
+    /** Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT"). */
+    val role: String?,
+    val isOrganizer: Boolean,
+    /** `RSVP=TRUE`: a response is expected. */
+    val responseNeeded: Boolean,
+)

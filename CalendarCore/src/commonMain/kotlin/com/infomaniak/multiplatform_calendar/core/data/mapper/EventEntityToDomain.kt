@@ -34,6 +34,7 @@ private fun LocalDateTime.toUtcInstant(): Instant = toInstant(TimeZone.UTC)
 internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors): Event = EventImpl(
     id = id,
     calendarId = calendarId,
+    accountId = calendar.accountId,
     title = summary,
     description = description,
     location = location,

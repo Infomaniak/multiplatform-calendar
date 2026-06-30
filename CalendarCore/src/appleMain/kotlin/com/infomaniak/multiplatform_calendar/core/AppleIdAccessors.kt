@@ -33,3 +33,4 @@ public val Calendar.colorValue: Int get() = color.argb
 public val Event.idValue: String get() = id.url
 public val Event.calendarIdValue: String get() = calendarId.url
 public val Event.calendarColorValue: Int get() = calendarColor.argb
+public val Event.accountIdValue: Long get() = accountId.value

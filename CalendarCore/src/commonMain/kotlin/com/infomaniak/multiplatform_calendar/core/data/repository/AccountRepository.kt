@@ -65,10 +65,10 @@ internal class AccountRepository(
 
     suspend fun removeCredentials(accountId: AccountId) = mutex.withLock {
         val currentIds = getCurrentAccountIds()
-        userCredentials.remove(accountId)
-        accountDao.delete(accountId)
 
         if (accountId in currentIds) {
+            userCredentials.remove(accountId)
+            accountDao.delete(accountId)
             _currentAccountIds.emit(currentIds - accountId)
         }
     }

@@ -66,14 +66,6 @@ internal interface EventDao {
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     suspend fun getEvent(eventId: EventId): EventEntity?
 
-    @Query(
-        """
-        SELECT calendars.accountId FROM events 
-        INNER JOIN calendars ON events.calendarId = calendars.id
-        WHERE events.id = :eventId LIMIT 1
-        """,
-    )
-    suspend fun getAccountIdByEventId(eventId: EventId): AccountId?
 
     @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")

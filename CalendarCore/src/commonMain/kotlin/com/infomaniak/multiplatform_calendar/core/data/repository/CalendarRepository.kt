@@ -18,6 +18,7 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -58,6 +59,7 @@ import kotlin.time.Instant
 @Inject
 internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,
+    private val accountDao: AccountDao,
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
 ) {
@@ -126,7 +128,7 @@ internal class CalendarRepository(
     }
 
     suspend fun getAccountIdByEventId(eventId: EventId): AccountId {
-        return eventDao.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
+        return accountDao.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
     }
 
     suspend fun createEvent(credentials: DavAccount, data: EventEditData) {

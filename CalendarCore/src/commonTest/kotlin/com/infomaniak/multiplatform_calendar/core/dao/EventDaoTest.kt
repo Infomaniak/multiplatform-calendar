@@ -150,30 +150,6 @@ class EventDaoTest : RobolectricTestsBase() {
         assertEquals(listOf(visibleCalendar), observed.map { it.calendar.id })
     }
 
-    @Test
-    fun getAccountIdByEventId_returnsOwningAccountId() = runTest {
-        val accountId = AccountId(42)
-        val calendarId = CalendarId("calendar://owner")
-        val eventId = EventId("event://owner")
-        seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
-        eventDao.upsert(
-            listOf(
-                createEvent(
-                    eventId = eventId,
-                    calendarId = calendarId,
-                    dtStart = LocalDateTime(2026, 6, 29, 9, 0),
-                    dtEndEffective = LocalDateTime(2026, 6, 29, 10, 0),
-                ),
-            ),
-        )
-
-        assertEquals(accountId, eventDao.getAccountIdByEventId(eventId))
-    }
-
-    @Test
-    fun getAccountIdByEventId_returnsNullWhenEventIsMissing() = runTest {
-        assertNull(eventDao.getAccountIdByEventId(EventId("event://missing")))
-    }
 
     @Test
     fun observeEventWithCalendar_returnsEventAndCalendar() = runTest {

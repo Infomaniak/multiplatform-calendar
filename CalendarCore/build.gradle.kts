@@ -67,6 +67,7 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(kmpCalendar.kotlinx.coroutines.test)
+            implementation(kmpCalendar.ktor.client.mock)
         }
 
         androidUnitTest.dependencies {

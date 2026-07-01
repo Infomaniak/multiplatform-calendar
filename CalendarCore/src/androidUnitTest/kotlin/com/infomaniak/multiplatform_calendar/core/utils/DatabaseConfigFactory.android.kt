@@ -15,15 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core
+package com.infomaniak.multiplatform_calendar.core.utils
 
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.driver.AndroidSQLiteDriver
+import androidx.test.core.app.ApplicationProvider
+import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseProvider
 
-class SharedCommonTest {
-
-    @Test
-    fun example() {
-        assertEquals(3, 1 + 2)
+internal actual object DatabaseProviderFactory {
+    actual fun createTestDatabaseConfig(): DatabaseProvider {
+        return DatabaseProvider(ApplicationProvider.getApplicationContext())
     }
+
+    actual fun driver(): SQLiteDriver = AndroidSQLiteDriver()
 }

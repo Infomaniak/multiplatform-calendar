@@ -36,7 +36,7 @@ internal interface EventDao {
     fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
 
     /**
-     * Events (with their parent calendar) from all *visible* calendars of [accountId] that overlap
+     * Events (with their parent calendar) from all *visible* calendars of [accountIds] that overlap
      * the [start, end[ range. An event overlaps when it starts before [end] and its resolved end
      * ([EventEntity.dtEndEffective], which already accounts for `DTEND`/`DURATION`) is at/after [start].
      *
@@ -47,7 +47,7 @@ internal interface EventDao {
         """
         SELECT event.* FROM events event
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
-        WHERE calendar.accountId = :accountId
+        WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND event.dtStart < :end
           AND event.dtEndEffective >= :start
@@ -55,7 +55,7 @@ internal interface EventDao {
         """,
     )
     fun observeVisibleInRange(
-        accountId: AccountId,
+        accountIds: Set<AccountId>,
         start: LocalDateTime,
         end: LocalDateTime,
     ): Flow<List<EventWithCalendarEntity>>
@@ -65,6 +65,7 @@ internal interface EventDao {
 
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     suspend fun getEvent(eventId: EventId): EventEntity?
+
 
     @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")

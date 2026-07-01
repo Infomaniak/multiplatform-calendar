@@ -18,6 +18,7 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -58,22 +59,27 @@ import kotlin.time.Instant
 @Inject
 internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,
+    private val accountDao: AccountDao,
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
 ) {
 
-    fun observeCalendars(accountId: AccountId): Flow<List<Calendar>> {
-        return calendarDao.observeByAccountId(accountId).map { calendarEntities ->
+    fun observeCalendars(accountIds: Set<AccountId>): Flow<List<Calendar>> {
+        return calendarDao.observeByAccountIds(accountIds).map { calendarEntities ->
             calendarEntities.map(CalendarEntity::toDomain)
         }
     }
 
-    fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
+    suspend fun getCalendar(calendarId: CalendarId): Calendar {
+        return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
+    }
+
+    fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
         // TODO: Timezones are not handled yet — range bounds are compared in UTC.
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
         val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
 
-        return eventDao.observeVisibleInRange(accountId, startLocalDateTime, endLocalDateTime)
+        return eventDao.observeVisibleInRange(accountIds, startLocalDateTime, endLocalDateTime)
             .map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 
@@ -119,6 +125,10 @@ internal class CalendarRepository(
                 }
             }.onSuccessOrReport { calendarDao.update(calendar = calendarEntity.applyEdit(edit)) }
         }
+    }
+
+    suspend fun getAccountIdByEventId(eventId: EventId): AccountId {
+        return accountDao.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
     }
 
     suspend fun createEvent(credentials: DavAccount, data: EventEditData) {

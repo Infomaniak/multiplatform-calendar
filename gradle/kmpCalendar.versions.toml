@@ -3,6 +3,7 @@
 agp = "8.13.2" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
 nmcp = "1.6.0"
 coroutines = "1.11.0"
+coreKtx = "1.7.0"
 datetime = "0.8.0"
 gobley = "0.3.7"
 kotlin = "2.3.21"
@@ -14,6 +15,7 @@ room = "2.8.4"
 skie = "0.10.12"
 serialization = "1.9.0"
 sqlite = "2.6.2"
+robolectric = "4.16.1"
 # Rust
 atomicfu = "0.29.0"
 
@@ -23,7 +25,6 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
-kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "datetime" }
 kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 ktor-client-content-negociation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
@@ -34,6 +35,11 @@ ktor-client-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 material-kolor = { module = "com.materialkolor:material-color-utilities", version.ref = "materialKolor" }
+#Test
+android-test = { module = "androidx.test:core-ktx", version.ref = "coreKtx" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }

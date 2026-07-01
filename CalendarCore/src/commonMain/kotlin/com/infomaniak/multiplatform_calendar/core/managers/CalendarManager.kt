@@ -26,6 +26,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -34,8 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -51,8 +52,8 @@ public class CalendarManager internal constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<Calendar>> {
-        return accountRepository.currentAccountIdFlow.filterNotNull().flatMapLatest { accountId ->
-            calendarRepository.observeCalendars(accountId)
+        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+            calendarRepository.observeCalendars(accountIds)
         }.catch {
             //TODO: handle error
         }
@@ -61,8 +62,8 @@ public class CalendarManager internal constructor(
     /** Observe events from all *visible* calendars of the current account overlapping [start, end[. */
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
     public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
-        return accountRepository.currentAccountIdFlow.filterNotNull().flatMapLatest { accountId ->
-            calendarRepository.observeVisibleEvents(accountId, start, end)
+        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+            calendarRepository.observeVisibleEvents(accountIds, start, end)
         }.catch {
             //TODO: handle error
         }
@@ -70,41 +71,70 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class)
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        accountRepository.getCredentials(accountId)?.let { credentials ->
+        runCatching {
+            val credentials = accountRepository.getCredentials(accountId)
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }.cancellable().onFailure {
+            //TODO: handle error
+            throw CalendarSdkException("Failed to sync calendars for account $accountId", it)
         }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateCalendar(calendarId: CalendarId, edit: CalendarEditData): Unit = withContext(Dispatchers.Default) {
-        if (edit.hasAnyChanges) {
-            currentAccountCredentials()?.let { credentials ->
+        runCatching {
+            if (edit.hasAnyChanges) {
+                val credentials = getCredentialsForCalendar(calendarId)
                 calendarRepository.updateCalendar(credentials, calendarId, edit)
             }
+        }.cancellable().onFailure { throwable ->
+            // TODO: handle error
+            throw CalendarSdkException("Failed to update calendar $calendarId", throwable)
         }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        currentAccountCredentials()?.let { credentials -> calendarRepository.createEvent(credentials, data) }
+        runCatching {
+            val credentials = getCredentialsForCalendar(data.calendarId)
+            calendarRepository.createEvent(credentials, data)
+        }.cancellable().onFailure { throwable ->
+            //TODO: handle error
+            throw CalendarSdkException("Failed to create event in calendar ${data.calendarId}", throwable)
+        }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        currentAccountCredentials()?.let { credentials -> calendarRepository.updateEvent(credentials, eventId, data) }
+        runCatching {
+            val credentials = getCredentialsForCalendar(data.calendarId)
+            calendarRepository.updateEvent(credentials, eventId, data)
+        }.cancellable().onFailure { throwable ->
+            //TODO: handle error
+            throw CalendarSdkException("Failed to update event $eventId", throwable)
+        }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
-        currentAccountCredentials()?.let { credentials -> calendarRepository.deleteEvent(credentials, eventId) }
+        runCatching {
+            val accountId = calendarRepository.getAccountIdByEventId(eventId)
+            val credentials = accountRepository.getCredentials(accountId)
+            calendarRepository.deleteEvent(credentials, eventId)
+        }.cancellable().onFailure { throwable ->
+            //TODO: handle error
+            throw CalendarSdkException("Failed to delete event $eventId", throwable)
+        }
     }
-
-    private suspend fun currentAccountCredentials(): DavAccount? =
-        accountRepository.currentAccountIdFlow.first()?.let(accountRepository::getCredentials)
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return calendarRepository.observeEvent(eventId).catch {
             //TODO: handle error
         }
+    }
+
+    private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
+        val accountId = calendarRepository.getCalendar(calendarId).accountId
+        return accountRepository.getCredentials(accountId)
     }
 }

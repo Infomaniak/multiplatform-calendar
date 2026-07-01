@@ -30,6 +30,8 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
@@ -38,26 +40,36 @@ internal class AccountRepository(
     private val accountDao: AccountDao,
     private val authDataSource: AuthDataSource,
 ) {
-    private val _currentAccountId = MutableSharedFlow<AccountId?>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
-    val currentAccountIdFlow = _currentAccountId.asSharedFlow()
+    private val mutex = Mutex()
+    private val _currentAccountIds = MutableSharedFlow<Set<AccountId>>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val currentAccountIdsFlow = _currentAccountIds.asSharedFlow()
 
     private val userCredentials: HashMap<AccountId, DavAccount> = HashMap()
 
-    fun getCredentials(accountId: AccountId): DavAccount? {
-        return userCredentials[accountId]
+    suspend fun getCredentials(accountId: AccountId): DavAccount = mutex.withLock {
+        return userCredentials[accountId] ?: error("Credentials for account $accountId not found")
     }
 
-    suspend fun storeCredentials(accountId: AccountId, credentials: DavAccount) {
+    suspend fun storeCredentials(accountId: AccountId, credentials: DavAccount) = mutex.withLock {
+        val currentIds = getCurrentAccountIds()
+        val accountAlreadyExists = accountId in currentIds
+        if (accountAlreadyExists && userCredentials[accountId] == credentials) return@withLock
+
         userCredentials[accountId] = credentials
         accountDao.insert(AccountEntity(id = accountId))
-        _currentAccountId.emit(accountId)
+
+        if (!accountAlreadyExists) {
+            _currentAccountIds.emit(currentIds + accountId)
+        }
     }
 
-    suspend fun removeCredentials(accountId: AccountId) {
-        userCredentials.remove(accountId)
-        accountDao.delete(accountId)
-        if (_currentAccountId.replayCache.lastOrNull() == accountId) {
-            _currentAccountId.emit(null)
+    suspend fun removeCredentials(accountId: AccountId) = mutex.withLock {
+        val currentIds = getCurrentAccountIds()
+
+        if (accountId in currentIds) {
+            userCredentials.remove(accountId)
+            accountDao.delete(accountId)
+            _currentAccountIds.emit(currentIds - accountId)
         }
     }
 
@@ -74,5 +86,9 @@ internal class AccountRepository(
             if (it is CancellationException) throw it
             else throw CalendarSdkException(it.message, it)
         }
+    }
+
+    private fun getCurrentAccountIds(): Set<AccountId> {
+        return _currentAccountIds.replayCache.lastOrNull().orEmpty()
     }
 }

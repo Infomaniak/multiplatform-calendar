@@ -24,6 +24,7 @@ import androidx.room.Query
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -34,6 +35,15 @@ internal interface AccountDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(account: AccountEntity)
+
+    @Query(
+        """
+        SELECT calendars.accountId FROM events
+        INNER JOIN calendars ON events.calendarId = calendars.id
+        WHERE events.id = :eventId LIMIT 1
+        """,
+    )
+    suspend fun getAccountIdByEventId(eventId: EventId): AccountId?
 
 
     @Query("DELETE FROM accounts WHERE id = :accountId")

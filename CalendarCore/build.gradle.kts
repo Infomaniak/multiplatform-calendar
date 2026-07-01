@@ -64,10 +64,15 @@ kotlin {
             implementation(kmpCalendar.ktor.client.darwin)
         }
 
-        commonTest {
-            dependencies {
-                implementation(kotlin("test"))
-            }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(kmpCalendar.kotlinx.coroutines.test)
+            implementation(kmpCalendar.ktor.client.mock)
+        }
+
+        androidUnitTest.dependencies {
+            implementation(kmpCalendar.android.test)
+            implementation(kmpCalendar.robolectric)
         }
 
         listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->
@@ -94,6 +99,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+    }
+    testOptions {
+        // Enable only for Robolectric tests that need access to Android resources (res/, AndroidManifest).
+        // Keep disabled otherwise to avoid unnecessary test setup overhead.
+        unitTests.isIncludeAndroidResources = false
     }
 }
 

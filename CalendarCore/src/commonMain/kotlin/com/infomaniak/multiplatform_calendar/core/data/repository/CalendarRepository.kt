@@ -74,13 +74,19 @@ internal class CalendarRepository(
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
     }
 
-    fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
-        // TODO: Timezones are not handled yet — range bounds are compared in UTC.
-        val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
-        val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
-
-        return eventDao.observeVisibleInRange(accountIds, startLocalDateTime, endLocalDateTime)
-            .map(List<EventWithCalendarEntity>::toDomainEvents)
+    fun observeVisibleEvents(accountId: AccountId, start: Instant, end: Instant): Flow<List<Event>> {
+        // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
+        // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
+        // - Wall-clock strings for floating events, re-interpreted in the device's current zone,
+        //   so a floating event stays visible at "10:00 local" wherever the user travels.
+        val deviceZone = TimeZone.currentSystemDefault()
+        return eventDao.observeVisibleInRange(
+            accountId = accountId,
+            startInstantMs = start.toEpochMilliseconds(),
+            endInstantMs = end.toEpochMilliseconds(),
+            startWall = start.toLocalDateTime(deviceZone),
+            endWall = end.toLocalDateTime(deviceZone),
+        ).map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 
     suspend fun syncCalendars(

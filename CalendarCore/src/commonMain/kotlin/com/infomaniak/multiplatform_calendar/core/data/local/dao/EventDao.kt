@@ -36,11 +36,18 @@ internal interface EventDao {
     fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
 
     /**
-     * Events (with their parent calendar) from all *visible* calendars of [accountIds] that overlap
-     * the [start, end[ range. An event overlaps when it starts before [end] and its resolved end
-     * ([EventEntity.dtEndEffective], which already accounts for `DTEND`/`DURATION`) is at/after [start].
+     * Events (with their parent calendar) from all *visible* calendars of [accountId] that overlap
+     * the [`[startInstantMs, endInstantMs[`] range. An event overlaps when it starts before [endInstantMs]
+     * and its resolved end ([EventEntity.dtEndInstantMs], which already accounts for `DTEND`/`DURATION`)
+     * is at/after [startInstantMs].
      *
-     * Note: bounds are compared as stored wall-clock values (UTC assumed) — see timezone TODO.
+     * Two branches, unioned:
+     * - **Anchored events** (zoned / UTC / all-day): comparison on absolute UTC epoch milliseconds.
+     *   Correct across mixed time-zones since bounds are absolute.
+     * - **Floating events** (RFC 5545 FORM #1, [EventEntity.dtStartInstantMs] `IS NULL`): comparison
+     *   on wall-clock strings, using [startWall]/[endWall] which are the range bounds re-interpreted
+     *   in the recipient's *current* zone. This branch re-anchors automatically on device zone
+     *   change (travel, DST) — a floating event has no fixed absolute instant by definition.
      */
     @Transaction
     @Query(
@@ -49,15 +56,24 @@ internal interface EventDao {
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
-          AND event.dtStart < :end
-          AND event.dtEndEffective >= :start
-        ORDER BY event.dtStart ASC
+          AND (
+            (event.dtStartInstantMs IS NOT NULL
+              AND event.dtStartInstantMs < :endInstantMs
+              AND event.dtEndInstantMs >= :startInstantMs)
+            OR
+            (event.dtStartInstantMs IS NULL
+              AND event.dtStart < :endWall
+              AND event.dtEndEffective >= :startWall)
+          )
+        ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
     )
     fun observeVisibleInRange(
-        accountIds: Set<AccountId>,
-        start: LocalDateTime,
-        end: LocalDateTime,
+    	accountIds: Set<AccountId>,
+        startInstantMs: Long,
+        endInstantMs: Long,
+        startWall: LocalDateTime,
+        endWall: LocalDateTime,
     ): Flow<List<EventWithCalendarEntity>>
 
     @Upsert

@@ -134,4 +134,22 @@ listOf("Debug", "Release").forEach { v ->
     tasks.matching { it.name == "jarJvmRustRuntimeMacOSArm64$v" }.afterCargo("MacOSArm64")
 }
 
+// Workaround for aws-lc-sys (pulled by fast-dav-rs → hyper-rustls → rustls → aws-lc-rs) under Xcode 26:
+// its C objects are compiled by the `cc` crate at the SDK default (iOS 26.x) while rustc links at
+// its default min iOS 10.0, yielding `___chkstk_darwin` undefined + version-mismatch link errors.
+// Aligning both sides via `IPHONEOS_DEPLOYMENT_TARGET=16.0` fixes it — but ONLY on iOS cargo
+// invocations: setting it globally (formerly via `.cargo/config.toml [env]`) also poisons the
+// native macOS host build of aws-lc-sys 0.42.0's memcmp probe (compiles a binary targeting iOS
+// that then can't execute on macOS → probe panics). Using cargo's `--config env.KEY=VAL` per iOS
+// task scopes it correctly. Remove once aws-lc-sys ships a proper fix.
+val iosCargoTaskNames = setOf(
+    "cargoBuildIosArm64Debug", "cargoBuildIosArm64Release",
+    "cargoBuildIosSimulatorArm64Debug", "cargoBuildIosSimulatorArm64Release",
+)
+tasks.withType<gobley.gradle.cargo.tasks.CargoBuildTask>().configureEach {
+    if (name in iosCargoTaskNames) {
+        extraArguments.add("--config=env.IPHONEOS_DEPLOYMENT_TARGET=\"16.0\"")
+    }
+}
+
 

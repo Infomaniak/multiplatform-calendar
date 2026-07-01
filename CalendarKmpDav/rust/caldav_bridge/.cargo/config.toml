@@ -1,8 +1,0 @@
-# Workaround for aws-lc-sys + Xcode 26 beta: the default iOS deployment target
-# (10.0) causes a linker error (___chkstk_darwin undefined) because the Xcode 26
-# SDK emits objects for iOS 26.x while Rust still links against ios10.0.
-# Setting IPHONEOS_DEPLOYMENT_TARGET to 16.0 fixes the symbol mismatch.
-# Remove this file once aws-lc-sys ships a proper fix.
-[env]
-IPHONEOS_DEPLOYMENT_TARGET = "16.0"
-

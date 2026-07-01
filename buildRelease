@@ -44,7 +44,7 @@ function show_help {
 
 function release_ios {
     IOS_TAG=$1
-    XCFRAMEWORK_RELEASE_DIR="Core/build/XCFrameworks/release"
+    XCFRAMEWORK_RELEASE_DIR="CalendarCore/build/XCFrameworks/release"
     echo "Releasing iOS version $1"
     echo "Deletes all old caches"
     ./gradlew clean
@@ -59,7 +59,7 @@ function release_ios {
     # `-PrustNativeRelease=true` forces the native Rust static lib to be compiled
     # in release (~14 MB) instead of Gobley's default debug (~140 MB), which would
     # otherwise bloat the "release" XCFramework (see kmpdav/build.gradle.kts).
-    ./gradlew :Core:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
+    ./gradlew :CalendarCore:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
 
     # Strip debug info (DWARF) from each XCFramework slice.
     # The framework is *static* (an unlinked `ar` archive), so both the Kotlin and

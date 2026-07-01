@@ -52,7 +52,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 
 class AccountRepositoryTest : RobolectricTestsBase() {
 
@@ -84,10 +83,13 @@ class AccountRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun getCredentials_returnsNullForUnknownAccount() = runTest {
+    fun getCredentials_throwsForUnknownAccount() = runTest {
         val repository = createRepositoryWithLocalAuthCalls()
-
-        assertNull(repository.getCredentials(AccountId(999)))
+        val accountId = AccountId(999)
+        val exception = assertFailsWith<IllegalStateException> {
+            repository.getCredentials(accountId)
+        }
+        assertEquals("Credentials for account $accountId not found", exception.message)
     }
 
     @Test
@@ -102,7 +104,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun removeCredentials_removesCredentials_deletesAccount_andEmitsUpdatedIds() = runTest {
+    fun removeCredentials_removesCredentials_thenGetCredentialsThrows_andEmitsUpdatedIds() = runTest {
         val repository = createRepositoryWithLocalAuthCalls()
         val accountId = AccountId(11)
         val credentials = DavAccount(baseUrl = "https://dav.example", username = "john", password = "secret")
@@ -110,7 +112,10 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         repository.storeCredentials(accountId, credentials)
         repository.removeCredentials(accountId)
 
-        assertNull(repository.getCredentials(accountId))
+        val exception = assertFailsWith<IllegalStateException> {
+            repository.getCredentials(accountId)
+        }
+        assertEquals("Credentials for account $accountId not found", exception.message)
         assertEquals(emptySet(), repository.currentAccountIdsFlow.first())
     }
 

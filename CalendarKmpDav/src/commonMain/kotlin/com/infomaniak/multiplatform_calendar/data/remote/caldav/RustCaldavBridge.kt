@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -32,6 +33,7 @@ import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.EventEdit
+import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
 import uniffi.caldav_bridge.DavAccount as RustDavAccount
@@ -103,7 +105,9 @@ internal class RustCaldavBridge(
                     description = entry.description,
                     location = entry.location,
                     dtstart = entry.dtstart,
+                    dtStartTzid = entry.dtstartTzid,
                     dtend = entry.dtend,
+                    dtEndTzid = entry.dtendTzid,
                     duration = entry.duration,
                     created = entry.created,
                     lastModified = entry.lastModified,
@@ -194,9 +198,14 @@ private fun DavAccount.toRust() = RustDavAccount(
 private fun RemoteEventEdit.toRust() = EventEdit(
     summary = summary,
     dtstart = dtStart,
+    dtstartTzid = dtStartTzid,
     dtend = dtEnd,
+    dtendTzid = dtEndTzid,
     allDay = allDay,
     location = location,
     description = description,
+    timezones = timeZones.map { it.toRust() },
     stamp = stamp,
 )
+
+private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)

@@ -36,9 +36,7 @@ on:
       GPG_PRIVATE_PASSWORD:
         required: true
 
-permissions:
-  contents: read
-
+permissions: {}
 jobs:
   build:
     runs-on: [ self-hosted, Android ]

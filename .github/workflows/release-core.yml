@@ -41,11 +41,13 @@ jobs:
             | while IFS=$'\t' read -r PR_NUMBER BRANCH; do
                 gh pr close "$PR_NUMBER" --comment "Superseded by a new release workflow run."
                 VERSION_TO_DELETE="${BRANCH#release/}"
-                gh release delete "$VERSION_TO_DELETE" --yes || true
+                # Only delete if it's a draft release to avoid accidentally removing published releases
+                IS_DRAFT=$(gh release view "$VERSION_TO_DELETE" --json isDraft --jq '.isDraft' 2>/dev/null || echo "false")
+                if [ "$IS_DRAFT" = "true" ]; then
+                  gh release delete "$VERSION_TO_DELETE" --yes --cleanup-tag || true
+                fi
+                git push origin --delete "refs/heads/$BRANCH" || true
               done
-          git ls-remote --heads origin 'refs/heads/release/*' \
-            | awk '{ sub("refs/heads/","",$2); print $2 }' \
-            | while IFS= read -r branch; do git push origin --delete "$branch" || true; done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -142,6 +144,7 @@ jobs:
     needs: [ build-xcframework, publish-snapshot-android ]
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - name: Open release PR

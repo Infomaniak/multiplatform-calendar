@@ -69,7 +69,7 @@ internal interface EventDao {
         """,
     )
     fun observeVisibleInRange(
-    	accountIds: Set<AccountId>,
+        accountIds: Set<AccountId>,
         startInstantMs: Long,
         endInstantMs: Long,
         startWall: LocalDateTime,

@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
@@ -48,6 +49,7 @@ import kotlin.time.Instant
 public class CalendarManager internal constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
+    private val eventRepository: EventRepository,
 ) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -63,7 +65,7 @@ public class CalendarManager internal constructor(
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
     public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            calendarRepository.observeVisibleEvents(accountIds, start, end)
+            eventRepository.observeVisibleEvents(accountIds, start, end)
         }.catch {
             //TODO: handle error
         }
@@ -97,7 +99,7 @@ public class CalendarManager internal constructor(
     public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
         runCatching {
             val credentials = getCredentialsForCalendar(data.calendarId)
-            calendarRepository.createEvent(credentials, data)
+            eventRepository.createEvent(credentials, data)
         }.cancellable().onFailure { throwable ->
             //TODO: handle error
             throw CalendarSdkException("Failed to create event in calendar ${data.calendarId}", throwable)
@@ -108,7 +110,7 @@ public class CalendarManager internal constructor(
     public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
         runCatching {
             val credentials = getCredentialsForCalendar(data.calendarId)
-            calendarRepository.updateEvent(credentials, eventId, data)
+            eventRepository.updateEvent(credentials, eventId, data)
         }.cancellable().onFailure { throwable ->
             //TODO: handle error
             throw CalendarSdkException("Failed to update event $eventId", throwable)
@@ -118,9 +120,9 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
         runCatching {
-            val accountId = calendarRepository.getAccountIdByEventId(eventId)
+            val accountId = eventRepository.getAccountIdByEventId(eventId)
             val credentials = accountRepository.getCredentials(accountId)
-            calendarRepository.deleteEvent(credentials, eventId)
+            eventRepository.deleteEvent(credentials, eventId)
         }.cancellable().onFailure { throwable ->
             //TODO: handle error
             throw CalendarSdkException("Failed to delete event $eventId", throwable)
@@ -128,7 +130,7 @@ public class CalendarManager internal constructor(
     }
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {
-        return calendarRepository.observeEvent(eventId).catch {
+        return eventRepository.observeEvent(eventId).catch {
             //TODO: handle error
         }
     }

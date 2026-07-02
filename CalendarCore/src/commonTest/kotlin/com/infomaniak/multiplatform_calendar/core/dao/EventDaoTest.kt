@@ -33,11 +33,14 @@ import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class EventDaoTest : RobolectricTestsBase() {
 
@@ -142,12 +145,138 @@ class EventDaoTest : RobolectricTestsBase() {
 
         val observed = eventDao.observeVisibleInRange(
             accountIds = setOf(account1),
-            start = LocalDateTime(2026, 6, 29, 8, 30),
-            end = LocalDateTime(2026, 6, 29, 12, 0),
+            startInstantMs = LocalDateTime(2026, 6, 29, 8, 30).toEpochMs(TimeZone.UTC),
+            endInstantMs = LocalDateTime(2026, 6, 29, 12, 0).toEpochMs(TimeZone.UTC),
+            startWall = LocalDateTime(2026, 6, 29, 8, 30),
+            endWall = LocalDateTime(2026, 6, 29, 12, 0),
         ).first()
 
         assertEquals(listOf(inRangeVisible.id), observed.map { it.event.id })
         assertEquals(listOf(visibleCalendar), observed.map { it.calendar.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_zonedEvent_overlapsBasedOnAbsoluteInstant() = runTest {
+        // Query range in device (Tokyo) wall-clock 09:00-12:00 = 00:00-03:00 UTC.
+        // Two events stored in Paris (UTC+2 in summer):
+        //   in-range: Paris 02:00-03:00 (= UTC 00:00-01:00) → OVERLAPS
+        //   out-of-range: Paris 12:00-13:00 (= UTC 10:00-11:00) → does not overlap
+        val account = AccountId(10)
+        val calendarId = CalendarId("calendar://zoned")
+        val paris = TimeZone.of("Europe/Paris")
+        val tokyo = TimeZone.of("Asia/Tokyo")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        val inRange = createEvent(
+            eventId = EventId("event://paris-inrange"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 2, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 3, 0),
+            startZone = paris,
+            endZone = paris,
+        )
+        val outside = createEvent(
+            eventId = EventId("event://paris-outside"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 12, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 13, 0),
+            startZone = paris,
+            endZone = paris,
+        )
+        eventDao.upsert(listOf(inRange, outside))
+
+        val queryStart = LocalDateTime(2026, 6, 29, 9, 0)
+        val queryEnd = LocalDateTime(2026, 6, 29, 12, 0)
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = queryStart.toEpochMs(tokyo),
+            endInstantMs = queryEnd.toEpochMs(tokyo),
+            startWall = queryStart,
+            endWall = queryEnd,
+        ).first()
+
+        assertEquals(listOf(inRange.id), observed.map { it.event.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_floatingEvent_overlapsBasedOnWallClock() = runTest {
+        // Floating events have no absolute instant — comparison must fall back to the wall-clock
+        // branch that uses the device zone at query time (re-anchors automatically on travel).
+        val account = AccountId(11)
+        val calendarId = CalendarId("calendar://floating")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        val inRange = createEvent(
+            eventId = EventId("event://float-inrange"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 10, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 11, 0),
+            startZone = null,
+            endZone = null,
+        )
+        val outside = createEvent(
+            eventId = EventId("event://float-outside"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 20, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 21, 0),
+            startZone = null,
+            endZone = null,
+        )
+        eventDao.upsert(listOf(inRange, outside))
+
+        // Absolute bounds are arbitrary here since the floating branch ignores them; only the
+        // wall-clock ones matter for these rows.
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = 0L,
+            endInstantMs = Long.MAX_VALUE,
+            startWall = LocalDateTime(2026, 6, 29, 9, 0),
+            endWall = LocalDateTime(2026, 6, 29, 12, 0),
+        ).first()
+
+        assertEquals(listOf(inRange.id), observed.map { it.event.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_mixesAnchoredAndFloating_inSameQuery() = runTest {
+        // Both branches must contribute; ordering puts anchored (non-null dtStartInstantMs) first
+        // then floating, sorted by their respective wall-clock.
+        val account = AccountId(12)
+        val calendarId = CalendarId("calendar://mixed")
+        val paris = TimeZone.of("Europe/Paris")
+        val tokyo = TimeZone.of("Asia/Tokyo")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        val zoned = createEvent(
+            eventId = EventId("event://mixed-zoned"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 2, 30),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 3, 0),
+            startZone = paris,
+            endZone = paris,
+        )
+        val floating = createEvent(
+            eventId = EventId("event://mixed-floating"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 10, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 11, 0),
+            startZone = null,
+            endZone = null,
+        )
+        eventDao.upsert(listOf(zoned, floating))
+
+        val queryStart = LocalDateTime(2026, 6, 29, 9, 0)
+        val queryEnd = LocalDateTime(2026, 6, 29, 12, 0)
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = queryStart.toEpochMs(tokyo),
+            endInstantMs = queryEnd.toEpochMs(tokyo),
+            startWall = queryStart,
+            endWall = queryEnd,
+        ).first()
+
+        assertTrue(observed.map { it.event.id }.containsAll(listOf(zoned.id, floating.id)))
+        assertEquals(2, observed.size)
     }
 
 
@@ -214,13 +343,21 @@ class EventDaoTest : RobolectricTestsBase() {
         calendarId: CalendarId,
         dtStart: LocalDateTime,
         dtEndEffective: LocalDateTime,
+        startZone: TimeZone? = TimeZone.UTC,
+        endZone: TimeZone? = TimeZone.UTC,
     ) = EventEntity(
         id = eventId,
         calendarId = calendarId,
         summary = "Summary ${eventId.url}",
         dtStart = dtStart,
         dtEndEffective = dtEndEffective,
+        startTimeZone = startZone?.id,
+        endTimeZone = endZone?.id,
+        dtStartInstantMs = startZone?.let { dtStart.toEpochMs(it) },
+        dtEndInstantMs = endZone?.let { dtEndEffective.toEpochMs(it) },
         etag = "etag-${eventId.url}",
         rawIcs = "BEGIN:VEVENT\\nUID:${eventId.url}\\nEND:VEVENT",
     )
+
+    private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
 }

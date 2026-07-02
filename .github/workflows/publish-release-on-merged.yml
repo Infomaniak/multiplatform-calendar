@@ -9,10 +9,12 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
-    name: Publish draft GitHub Release and Android to Maven Central
+  prepare:
+    name: Undraft GitHub Release
     if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
     runs-on: [ self-hosted, Android ]
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Extract version from branch name
@@ -27,51 +29,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Checkout sources
-        uses: actions/checkout@v6.0.3
-        with:
-          ref: ${{ steps.version.outputs.version }}
-          submodules: recursive
+  publish-android:
+    name: Publish Android release to Maven Central
+    needs: prepare
+    permissions: {}
+    uses: ./.github/workflows/publish-to-maven-central.yml
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+    secrets:
+      SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+      SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PRIVATE_PASSWORD: ${{ secrets.GPG_PRIVATE_PASSWORD }}
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: 21
-
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6.2.0
-        with:
-          cache-provider: basic
-
-      - name: Clean build environment
-        run: |
-          ./gradlew clean
-          rm -rf build CalendarCore/build CalendarKmpDav/build .gradle
-          rm -rf CalendarKmpDav/rust/caldav_bridge/target
-
-      - name: Publish Android release to Maven Central
-        run: ./gradlew publishAggregationToCentralPortal -Pcore.version=${{ steps.version.outputs.version }}
-
+  notify:
+    name: Notify KChat
+    needs: [ prepare, publish-android ]
+    runs-on: ubuntu-latest
+    steps:
       - name: Notify KChat
         env:
           KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
           RELEASE_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/tag/$VERSION"
           curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "{\"text\": \":rocket: *Calendar lib $VERSION* is now available!\n:apple: SPM: \`.package(url: \\\"https://github.com/Infomaniak/multiplatform-calendar\\\", from: \\\"$VERSION\\\")\`\n:android: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:$VERSION\\\")\`\n:link: $RELEASE_URL\"}"
-
-    env:
-      GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
-      ossrhUsername: ${{ secrets.SONATYPE_USERNAME }}
-      ossrhPassword: ${{ secrets.SONATYPE_PASSWORD }}
-      GPG_key_id: ${{ secrets.GPG_KEY_ID }}
-      GPG_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_private_password: ${{ secrets.GPG_PRIVATE_PASSWORD }}

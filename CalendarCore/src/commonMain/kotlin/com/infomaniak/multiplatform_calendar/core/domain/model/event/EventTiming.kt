@@ -39,7 +39,7 @@ import kotlin.time.Instant
  * | `DATE` (whole-day)         | wall-clock midnight (time=0)   | `null`                        | `true`     |
  * | `DATE-TIME` UTC            | wall-clock in UTC              | `TimeZone.UTC`                | `false`    |
  * | `DATE-TIME` with `TZID`    | wall-clock in that zone        | the IANA zone                 | `false`    |
- * | `DATE-TIME` floating       | wall-clock                     | `null`                        | `false`    *
+ * | `DATE-TIME` floating       | wall-clock                     | `null`                        | `false`    |
  *
  * RFC 5545 §3.8.2.2 allows `DTEND` to carry a `TZID` different from `DTSTART` (e.g. a flight
  * "9:00 America/New_York → 16:00 Europe/Paris"), hence the two zones are kept independent. For

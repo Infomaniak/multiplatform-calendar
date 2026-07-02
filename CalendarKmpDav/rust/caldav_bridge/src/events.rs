@@ -62,7 +62,7 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
                 priority: prop(ev, "PRIORITY"),
                 sequence: prop(ev, "SEQUENCE"),
                 categories: prop(ev, "CATEGORIES"),
-            	attendees: parse_attendees(ev),
+                attendees: parse_attendees(ev),
                 ics_data,
             }
         }

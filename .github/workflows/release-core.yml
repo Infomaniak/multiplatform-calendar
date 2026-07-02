@@ -127,7 +127,6 @@ jobs:
 
   publish-snapshot-android:
     name: Publish Android snapshot to Maven Central
-    permissions: {}
     uses: ./.github/workflows/publish-to-maven-central-snapshots.yml
     with:
       version: ${{ inputs.version }}-SNAPSHOT

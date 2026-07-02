@@ -92,14 +92,14 @@ jobs:
           URL="https://github.com/Infomaniak/multiplatform-calendar/releases/download/$VERSION/MultiplatformCalendar.xcframework.zip"
           perl -0777 -pi -e "s|url: \".*MultiplatformCalendar.xcframework.zip\",(\s*)checksum: \".*\"|url: \"$URL\",\1checksum: \"$CHECKSUM\"|g" Package.swift
 
-#      - name: Import bot's GPG key for signing commits
-#        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
-#        with:
-#          gpg_private_key: ${{ secrets.BOT_MOBILE_GPG_PRIVATE_KEY }}
-#          passphrase: ${{ secrets.BOT_MOBILE_GPG_PASSPHRASE }}
-#          git_config_global: true
-#          git_user_signingkey: true
-#          git_commit_gpgsign: true
+      - name: Import bot's GPG key for signing commits
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        with:
+          gpg_private_key: ${{ secrets.BOT_MOBILE_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.BOT_MOBILE_GPG_PASSPHRASE }}
+          git_config_global: true
+          git_user_signingkey: true
+          git_commit_gpgsign: true
 
       - name: Commit Package.swift and push release branch
         run: |

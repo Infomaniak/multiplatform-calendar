@@ -1,7 +1,5 @@
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
 name: Publish to Maven Central Snapshots
-permissions:
-  contents: read
 on:
   workflow_dispatch:
     inputs:
@@ -35,6 +33,8 @@ on:
 jobs:
   build:
     runs-on: [ self-hosted, Android ]
+    permissions:
+      contents: read
     steps:
       - name: Normalize version (append -SNAPSHOT if missing)
         run: |

@@ -72,7 +72,7 @@ internal class CalendarRepository(
             calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
             calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
                 val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
-                eventDao.upsert(remoteEvents.mapNotNull { event -> event.toEntity(calendarEntity.id) })
+                eventDao.upsert(remoteEvents.map { event -> event.toEntity(calendarEntity.id) })
             }
         }
     }

@@ -28,10 +28,17 @@ data class RemoteDavEvent(
     val summary: String?,
     val description: String?,
     val location: String?,
-    /** Raw RFC 5545 date/date-time string (e.g. "20260526T100000Z"). */
+    /** Raw RFC 5545 date/date-time string (e.g. "20260526T100000Z" or "20260526T100000" when [dtStartTzid] is set). */
     val dtstart: String?,
-    /** Raw RFC 5545 date/date-time string (e.g. "20260526T110000Z"). */
+    /**
+     * IANA `TZID` parameter of `DTSTART` (RFC 5545 FORM #3, e.g. "Europe/Paris"). `null` when the value is a
+     * `DATE`, a UTC `DATE-TIME` (Z suffix), or floating (no `TZID`, no `Z`).
+     */
+    val dtStartTzid: String?,
+    /** Raw RFC 5545 date/date-time string (e.g. "20260526T110000Z" or "20260526T110000" when [dtEndTzid] is set). */
     val dtend: String?,
+    /** IANA `TZID` parameter of `DTEND`. Same semantics as [dtStartTzid]. */
+    val dtEndTzid: String?,
     /**
      * Raw RFC 5545 `DURATION` value (e.g. "PT1H", "P2W"). Mutually exclusive with [dtend]:
      * a conformant VEVENT carries at most one of the two.

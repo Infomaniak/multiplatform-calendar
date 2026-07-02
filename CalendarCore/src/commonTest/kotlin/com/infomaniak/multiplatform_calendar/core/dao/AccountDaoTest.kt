@@ -32,6 +32,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -104,12 +106,18 @@ class AccountDaoTest : RobolectricTestsBase() {
         calendarId: CalendarId,
         dtStart: LocalDateTime,
         dtEndEffective: LocalDateTime,
+        startZone: TimeZone? = TimeZone.UTC,
+        endZone: TimeZone? = TimeZone.UTC,
     ) = EventEntity(
         id = eventId,
         calendarId = calendarId,
         summary = "Summary ${eventId.url}",
         dtStart = dtStart,
         dtEndEffective = dtEndEffective,
+        startTimeZone = startZone?.id,
+        endTimeZone = endZone?.id,
+        dtStartInstantMs = startZone?.let { dtStart.toInstant(it).toEpochMilliseconds() },
+        dtEndInstantMs = endZone?.let { dtEndEffective.toInstant(it).toEpochMilliseconds() },
         etag = "etag-${eventId.url}",
         rawIcs = "BEGIN:VEVENT\\nUID:${eventId.url}\\nEND:VEVENT",
     )

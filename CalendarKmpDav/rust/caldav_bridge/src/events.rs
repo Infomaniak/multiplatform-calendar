@@ -231,8 +231,15 @@ fn existing_vtimezone_tzids(ics: &str) -> HashSet<String> {
             "BEGIN:VTIMEZONE" => in_vtimezone = true,
             "END:VTIMEZONE" => in_vtimezone = false,
             _ if in_vtimezone => {
-                if let Some(tzid) = line.strip_prefix("TZID:") {
-                    tzids.insert(tzid.to_string());
+                // Accept both `TZID:VALUE` (RFC bare form) and `TZID;PARAM=x:VALUE` (with
+                // property parameters, e.g. `TZID;X-RICAL-TZSOURCE=zoneinfo:Europe/Paris`).
+                if let Some(rest) = line
+                    .strip_prefix("TZID")
+                    .filter(|r| r.starts_with(':') || r.starts_with(';'))
+                {
+                    if let Some((_, value)) = rest.split_once(':') {
+                        tzids.insert(value.to_string());
+                    }
                 }
             }
             _ => {}

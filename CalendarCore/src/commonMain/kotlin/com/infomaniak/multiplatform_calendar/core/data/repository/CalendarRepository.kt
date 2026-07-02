@@ -21,7 +21,6 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
@@ -30,8 +29,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.utils.RepositoryCallUtils.getOrNull
-import com.infomaniak.multiplatform_calendar.core.utils.RepositoryCallUtils.onSuccessOrReport
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -58,7 +55,7 @@ internal class CalendarRepository(
 
     suspend fun getCalendars(
         credentials: DavAccount,
-    ): List<RemoteDavCalendar>? = getOrNull { caldavClient.discoverCalendars(credentials).excludeScheduling() }
+    ): List<RemoteDavCalendar> = caldavClient.discoverCalendars(credentials).excludeScheduling()
 
     suspend fun getCalendar(calendarId: CalendarId): Calendar {
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
@@ -68,41 +65,35 @@ internal class CalendarRepository(
         accountId: AccountId,
         credentials: DavAccount,
     ) {
-        val remoteCalendars = getCalendars(credentials) ?: return
+        val remoteCalendars = getCalendars(credentials)
 
         calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
         remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
             calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
-            calendarDao.getByAccountId(accountId).forEach {
-                val remoteEvents = getRemoteEvents(credentials, it.id) ?: return@forEach
-                eventDao.upsert(remoteEvents.mapNotNull { event -> eventToEntity(event, it.id) })
+            calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+                val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
+                eventDao.upsert(remoteEvents.map { event -> event.toEntity(calendarEntity.id) })
             }
         }
     }
 
     suspend fun updateCalendar(credentials: DavAccount, calendarId: CalendarId, edit: CalendarEditData) {
         calendarDao.findById(calendarId)?.let { calendarEntity ->
-            runCatching {
-                if (edit.hasRemoteChanges) {
-                    caldavClient.updateCalendar(
-                        credentials = credentials,
-                        calendarUrl = calendarId.url,
-                        edit = edit.toRemoteEdit(),
-                    )
-                }
-            }.onSuccessOrReport { calendarDao.update(calendar = calendarEntity.applyEdit(edit)) }
+            if (edit.hasRemoteChanges) {
+                caldavClient.updateCalendar(
+                    credentials = credentials,
+                    calendarUrl = calendarId.url,
+                    edit = edit.toRemoteEdit(),
+                )
+            }
+            calendarDao.update(calendar = calendarEntity.applyEdit(edit))
         }
     }
-
-    private fun eventToEntity(
-        event: RemoteDavEvent,
-        calendarId: CalendarId,
-    ): EventEntity? = getOrNull { event.toEntity(calendarId) }
 
     private suspend fun getRemoteEvents(
         credentials: DavAccount,
         id: CalendarId,
-    ): List<RemoteDavEvent>? = getOrNull { caldavClient.getEvents(credentials, id.url) }
+    ): List<RemoteDavEvent> = caldavClient.getEvents(credentials, id.url)
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

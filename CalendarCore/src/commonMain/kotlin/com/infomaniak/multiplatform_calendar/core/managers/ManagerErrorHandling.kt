@@ -15,21 +15,32 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.utils
+package com.infomaniak.multiplatform_calendar.core.managers
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 
-internal object RepositoryCallUtils {
-
-    inline fun <T> getOrNull(block: () -> T): T? =
-        runCatching { block() }
-            .cancellable()
-            .logFailuresToSentry()
-            .getOrNull()
-
-    inline fun <T> Result<T>.onSuccessOrReport(block: (T) -> Unit) =
-        cancellable()
-            .logFailuresToSentry()
-            .onSuccess(block)
+internal suspend inline fun <T> runSdkCall(
+    operation: String,
+    crossinline block: suspend () -> T,
+): T {
+    val errorMessage = "Failed to $operation"
+    return runCatching {
+        block()
+    }.cancellable()
+        .getOrElse { throwable ->
+            throwable.logFailuresToSentry(message = errorMessage)
+            throw CalendarSdkException(errorMessage, throwable)
+        }
 }
+
+internal fun <T> Flow<T>.reportFlowFailures(operation: String): Flow<T> = catch { throwable ->
+    // Flow errors are reported but intentionally not propagated to the SDK consumer.
+    throwable.logFailuresToSentry(message = "Flow failed to $operation")
+}
+
+
+

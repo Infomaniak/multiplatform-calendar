@@ -74,7 +74,7 @@ jobs:
         run: |
           curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"text\": \":android: *Android Calendar snapshot ${{ env.SNAPSHOT_VERSION }}* is available on Maven Central Snapshots!\n\`\`\`\nimplementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore-android:${{ env.SNAPSHOT_VERSION }}\\\")\n\`\`\`\"}"
+            -d "{\"text\": \":android: *Android Calendar snapshot ${{ env.SNAPSHOT_VERSION }}* is available on Maven Central Snapshots!\n:android: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:${{ env.SNAPSHOT_VERSION }}\\\")\`\n:link: https://central.sonatype.com/service/rest/repository/browse/maven-snapshots/com/infomaniak/multiplatform_calendar/\"}"
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
   ossrhUsername: ${{ secrets.SONATYPE_USERNAME }}

@@ -45,7 +45,7 @@ internal interface EventDao {
      * - **Anchored events** (zoned / UTC / all-day): comparison on absolute UTC epoch milliseconds.
      *   Correct across mixed time-zones since bounds are absolute.
      * - **Floating events** (RFC 5545 FORM #1, [EventEntity.dtStartInstantMs] `IS NULL`): comparison
-     *   on wall-clock strings, using [startWall]/[endWall] which are the range bounds re-interpreted
+     *   on wall-clock strings, using [startLocalDateTime]/[endLocalDateTime] which are the range bounds re-interpreted
      *   in the recipient's *current* zone. This branch re-anchors automatically on device zone
      *   change (travel, DST) — a floating event has no fixed absolute instant by definition.
      */
@@ -62,8 +62,8 @@ internal interface EventDao {
               AND event.dtEndInstantMs >= :startInstantMs)
             OR
             (event.dtStartInstantMs IS NULL
-              AND event.dtStart < :endWall
-              AND event.dtEndEffective >= :startWall)
+              AND event.dtStart < :endLocalDateTime
+              AND event.dtEndEffective >= :startLocalDateTime)
           )
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
@@ -72,8 +72,8 @@ internal interface EventDao {
         accountIds: Set<AccountId>,
         startInstantMs: Long,
         endInstantMs: Long,
-        startWall: LocalDateTime,
-        endWall: LocalDateTime,
+        startLocalDateTime: LocalDateTime,
+        endLocalDateTime: LocalDateTime,
     ): Flow<List<EventWithCalendarEntity>>
 
     @Upsert

@@ -84,8 +84,8 @@ internal class CalendarRepository(
             accountIds = accountIds,
             startInstantMs = start.toEpochMilliseconds(),
             endInstantMs = end.toEpochMilliseconds(),
-            startWall = start.toLocalDateTime(deviceZone),
-            endWall = end.toLocalDateTime(deviceZone),
+            startLocalDateTime = start.toLocalDateTime(deviceZone),
+            endLocalDateTime = end.toLocalDateTime(deviceZone),
         ).map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 

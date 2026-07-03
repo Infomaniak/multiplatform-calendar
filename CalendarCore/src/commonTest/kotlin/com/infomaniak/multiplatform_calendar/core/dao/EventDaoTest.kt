@@ -147,8 +147,8 @@ class EventDaoTest : RobolectricTestsBase() {
             accountIds = setOf(account1),
             startInstantMs = LocalDateTime(2026, 6, 29, 8, 30).toEpochMs(TimeZone.UTC),
             endInstantMs = LocalDateTime(2026, 6, 29, 12, 0).toEpochMs(TimeZone.UTC),
-            startWall = LocalDateTime(2026, 6, 29, 8, 30),
-            endWall = LocalDateTime(2026, 6, 29, 12, 0),
+            startLocalDateTime = LocalDateTime(2026, 6, 29, 8, 30),
+            endLocalDateTime = LocalDateTime(2026, 6, 29, 12, 0),
         ).first()
 
         assertEquals(listOf(inRangeVisible.id), observed.map { it.event.id })
@@ -191,8 +191,8 @@ class EventDaoTest : RobolectricTestsBase() {
             accountIds = setOf(account),
             startInstantMs = queryStart.toEpochMs(tokyo),
             endInstantMs = queryEnd.toEpochMs(tokyo),
-            startWall = queryStart,
-            endWall = queryEnd,
+            startLocalDateTime = queryStart,
+            endLocalDateTime = queryEnd,
         ).first()
 
         assertEquals(listOf(inRange.id), observed.map { it.event.id })
@@ -230,8 +230,8 @@ class EventDaoTest : RobolectricTestsBase() {
             accountIds = setOf(account),
             startInstantMs = 0L,
             endInstantMs = Long.MAX_VALUE,
-            startWall = LocalDateTime(2026, 6, 29, 9, 0),
-            endWall = LocalDateTime(2026, 6, 29, 12, 0),
+            startLocalDateTime = LocalDateTime(2026, 6, 29, 9, 0),
+            endLocalDateTime = LocalDateTime(2026, 6, 29, 12, 0),
         ).first()
 
         assertEquals(listOf(inRange.id), observed.map { it.event.id })
@@ -271,8 +271,8 @@ class EventDaoTest : RobolectricTestsBase() {
             accountIds = setOf(account),
             startInstantMs = queryStart.toEpochMs(tokyo),
             endInstantMs = queryEnd.toEpochMs(tokyo),
-            startWall = queryStart,
-            endWall = queryEnd,
+            startLocalDateTime = queryStart,
+            endLocalDateTime = queryEnd,
         ).first()
 
         assertTrue(observed.map { it.event.id }.containsAll(listOf(zoned.id, floating.id)))

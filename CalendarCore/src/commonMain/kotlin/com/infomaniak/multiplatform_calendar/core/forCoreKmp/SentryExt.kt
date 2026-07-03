@@ -23,6 +23,7 @@ internal fun <T> Result<T>.logFailuresToSentry(
     vararg ignoredClasses: KClass<*>,
 ): Result<T> = onFailure { exception ->
     if (ignoredClasses.none { klass -> klass.isInstance(exception) }) {
+        exception.printStackTrace()
         // TODO: sentry log
     }
 }

@@ -48,7 +48,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v6.0.3
         with:
-          ref: ${{ inputs.version }}
+          ref: refs/tags/${{ inputs.version }}
           submodules: recursive
       - name: Setup Java
         uses: actions/setup-java@v5

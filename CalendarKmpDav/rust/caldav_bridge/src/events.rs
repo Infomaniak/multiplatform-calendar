@@ -40,7 +40,7 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> 
         Some(ev) => {
             let (dtstart, dtstart_tzid) = prop_with_tzid(ev, "DTSTART");
             let (dtend, dtend_tzid) = prop_with_tzid(ev, "DTEND");
-            EventEntry {
+            Some(EventEntry {
                 url,
                 etag,
                 uid: prop(ev, "UID").unwrap_or_default(),
@@ -64,7 +64,7 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> 
                 categories: prop(ev, "CATEGORIES"),
                 attendees: parse_attendees(ev),
                 ics_data,
-            }
+            })
         }
         None => {
             // TODO: Support non-VEVENT components (e.g. VTODO / VJOURNAL) instead of skipping them.

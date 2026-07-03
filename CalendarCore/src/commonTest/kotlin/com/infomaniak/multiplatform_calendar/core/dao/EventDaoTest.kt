@@ -156,7 +156,7 @@ class EventDaoTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun observeVisibleInRange_zonedEvent_overlapsBasedOnAbsoluteInstant() = runTest {
+    fun observeVisibleInRange_zonedEvent_overlapsBasedOnUtcInstant() = runTest {
         // Query range in device (Tokyo) wall-clock 09:00-12:00 = 00:00-03:00 UTC.
         // Two events stored in Paris (UTC+2 in summer):
         //   in-range: Paris 02:00-03:00 (= UTC 00:00-01:00) → OVERLAPS
@@ -277,6 +277,64 @@ class EventDaoTest : RobolectricTestsBase() {
 
         assertTrue(observed.map { it.event.id }.containsAll(listOf(zoned.id, floating.id)))
         assertEquals(2, observed.size)
+        // Anchored (non-null dtStartInstantMs) sorts before floating regardless of wall-clock.
+        assertEquals(listOf(zoned.id, floating.id), observed.map { it.event.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_ordersAnchoredBeforeFloating_eachSortedInternally() = runTest {
+        // ORDER BY dtStartInstantMs IS NULL, dtStartInstantMs ASC, dtStart ASC:
+        // anchored events first (by absolute instant), then floating events (by wall-clock).
+        val account = AccountId(13)
+        val calendarId = CalendarId("calendar://ordering")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        val anchoredEarly = createEvent(
+            eventId = EventId("event://anchored-early"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 8, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 9, 0),
+        ) // UTC anchored by default
+        val anchoredLate = createEvent(
+            eventId = EventId("event://anchored-late"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 10, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 11, 0),
+        )
+        val floatingEarly = createEvent(
+            eventId = EventId("event://floating-early"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 7, 0), // earlier wall-clock than the anchored ones...
+            dtEndEffective = LocalDateTime(2026, 6, 29, 8, 0),
+            startZone = null,
+            endZone = null,
+        )
+        val floatingLate = createEvent(
+            eventId = EventId("event://floating-late"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 12, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 13, 0),
+            startZone = null,
+            endZone = null,
+        )
+        // Insert scrambled to prove the ORDER BY (not insertion order) drives the result.
+        eventDao.upsert(listOf(floatingLate, anchoredLate, floatingEarly, anchoredEarly))
+
+        val queryStart = LocalDateTime(2026, 6, 29, 0, 0)
+        val queryEnd = LocalDateTime(2026, 6, 30, 0, 0)
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = queryStart.toEpochMs(TimeZone.UTC),
+            endInstantMs = queryEnd.toEpochMs(TimeZone.UTC),
+            startLocalDateTime = queryStart,
+            endLocalDateTime = queryEnd,
+        ).first()
+
+        // ...yet floatingEarly still comes after both anchored events (anchored group is always first).
+        assertEquals(
+            listOf(anchoredEarly.id, anchoredLate.id, floatingEarly.id, floatingLate.id),
+            observed.map { it.event.id },
+        )
     }
 
 

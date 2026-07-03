@@ -25,6 +25,15 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout the code
+        uses: actions/checkout@v6.0.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+
+      - name: Setup gh CLI
+        run: command -v gh >/dev/null 2>&1 || brew install gh
+
       - name: Check version does not already exist
         run: |
           if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
@@ -37,15 +46,6 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout the code
-        uses: actions/checkout@v6.0.3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          submodules: recursive
-
-      - name: Setup gh CLI
-        run: command -v gh >/dev/null 2>&1 || brew install gh
 
       - name: Close existing release PRs, delete draft releases, and prune release branches
         run: |

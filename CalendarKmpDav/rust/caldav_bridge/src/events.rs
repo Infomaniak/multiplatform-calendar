@@ -1,14 +1,31 @@
 //! Event operations (fetch / create / update / delete) and iCalendar parsing.
 
 use icalendar::{Calendar, CalendarComponent, Component, Property};
+use std::collections::HashSet;
 
 use crate::client::{client, ensure_success, rt};
 use crate::error::{bridge_error, CaldavError};
-use crate::models::{AttendeeEntry, DavAccount, EventEdit, EventEntry, MutateResult};
+use crate::models::{AttendeeEntry, DavAccount, EventEdit, EventEntry, MutateResult, VTimeZoneSpec};
 
 /// Read a single iCalendar property value as an owned [`String`].
 fn prop(event: &icalendar::Event, name: &str) -> Option<String> {
     event.property_value(name).map(|s| s.to_string())
+}
+
+/// Read a single iCalendar property as `(value, TZID parameter)`.
+///
+/// `icalendar::Event::property_value` returns only the value and silently drops parameters, so for
+/// `DTSTART`/`DTEND` (the only properties that can carry a `TZID` per RFC 5545 FORM #3) we go
+/// through `properties().get()` to also surface the time-zone reference. Returns `None` if the
+/// property is absent.
+fn prop_with_tzid(event: &icalendar::Event, name: &str) -> (Option<String>, Option<String>) {
+    match event.properties().get(name) {
+        Some(p) => {
+            let tzid = p.params().get("TZID").map(|v| v.value().to_string());
+            (Some(p.value().to_string()), tzid)
+        }
+        None => (None, None),
+    }
 }
 
 /// Parse raw iCS data into an [`EventEntry`], extracting the first `VEVENT`.
@@ -20,36 +37,43 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
     });
 
     match vevent {
-        Some(ev) => EventEntry {
-            url,
-            etag,
-            uid: prop(ev, "UID").unwrap_or_default(),
-            summary: prop(ev, "SUMMARY"),
-            description: prop(ev, "DESCRIPTION"),
-            location: prop(ev, "LOCATION"),
-            dtstart: prop(ev, "DTSTART"),
-            dtend: prop(ev, "DTEND"),
-            duration: prop(ev, "DURATION"),
-            created: prop(ev, "CREATED"),
-            last_modified: prop(ev, "LAST-MODIFIED"),
-            dtstamp: prop(ev, "DTSTAMP"),
-            rrule: prop(ev, "RRULE"),
-            status: prop(ev, "STATUS"),
-            transp: prop(ev, "TRANSP"),
-            classification: prop(ev, "CLASS"),
-            priority: prop(ev, "PRIORITY"),
-            sequence: prop(ev, "SEQUENCE"),
-            categories: prop(ev, "CATEGORIES"),
-            attendees: parse_attendees(ev),
-            ics_data,
-        },
+        Some(ev) => {
+            let (dtstart, dtstart_tzid) = prop_with_tzid(ev, "DTSTART");
+            let (dtend, dtend_tzid) = prop_with_tzid(ev, "DTEND");
+            EventEntry {
+                url,
+                etag,
+                uid: prop(ev, "UID").unwrap_or_default(),
+                summary: prop(ev, "SUMMARY"),
+                description: prop(ev, "DESCRIPTION"),
+                location: prop(ev, "LOCATION"),
+                dtstart,
+                dtstart_tzid,
+                dtend,
+                dtend_tzid,
+                duration: prop(ev, "DURATION"),
+                created: prop(ev, "CREATED"),
+                last_modified: prop(ev, "LAST-MODIFIED"),
+                dtstamp: prop(ev, "DTSTAMP"),
+                rrule: prop(ev, "RRULE"),
+                status: prop(ev, "STATUS"),
+                transp: prop(ev, "TRANSP"),
+                classification: prop(ev, "CLASS"),
+                priority: prop(ev, "PRIORITY"),
+                sequence: prop(ev, "SEQUENCE"),
+                categories: prop(ev, "CATEGORIES"),
+                attendees: parse_attendees(ev),
+                ics_data,
+            }
+        }
         None => EventEntry {
             url,
             etag,
             ics_data,
             uid: String::new(),
             summary: None, description: None, location: None,
-            dtstart: None, dtend: None, duration: None, created: None, last_modified: None, dtstamp: None,
+            dtstart: None, dtstart_tzid: None, dtend: None, dtend_tzid: None,
+            duration: None, created: None, last_modified: None, dtstamp: None,
             rrule: None, status: None, transp: None, classification: None, priority: None,
             sequence: None, categories: None, attendees: Vec::new(),
         },
@@ -112,7 +136,7 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, Caldav
     apply_edited_fields(event, &edit);
     bump_revision(event, &edit.stamp);
 
-    Ok(calendar.to_string())
+    Ok(inject_missing_vtimezones(calendar.to_string(), &edit.timezones))
 }
 
 /// Replace the user-edited content fields (keeps DTEND/DURATION mutually exclusive).
@@ -130,11 +154,21 @@ fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
             event.append_property(Property::new("DTEND", dtend).add_parameter("VALUE", "DATE").done());
         }
     } else {
-        event.add_property("DTSTART", &edit.dtstart);
+        event.append_property(date_time_property("DTSTART", &edit.dtstart, edit.dtstart_tzid.as_deref()));
         if let Some(dtend) = edit.dtend.as_deref() {
-            event.add_property("DTEND", dtend);
+            event.append_property(date_time_property("DTEND", dtend, edit.dtend_tzid.as_deref()));
         }
     }
+}
+
+/// Build a `DATE-TIME` property carrying a `TZID` parameter when present (RFC 5545 FORM #3),
+/// otherwise emit the value as-is (FORM #2 UTC `Z` suffix is already embedded in `value`).
+fn date_time_property(key: &str, value: &str, tzid: Option<&str>) -> Property {
+    let mut prop = Property::new(key, value);
+    if let Some(tzid) = tzid {
+        prop.add_parameter("TZID", tzid);
+    }
+    prop.done()
 }
 
 /// Build a fresh iCalendar object (one VEVENT) from [`EventEdit`], with a new UID and SEQUENCE 0.
@@ -147,7 +181,86 @@ pub fn build_event_ics(edit: EventEdit) -> Result<String, CaldavError> {
 
     let mut calendar = Calendar::new();
     calendar.push(event);
-    Ok(calendar.to_string())
+    Ok(inject_missing_vtimezones(calendar.to_string(), &edit.timezones))
+}
+
+/// Insert a `VTIMEZONE` component for every spec whose `TZID` isn't already declared in `ics`.
+///
+/// The `icalendar` builder doesn't model nested `VTIMEZONE`/`STANDARD` sub-components, so we splice
+/// the blocks in textually, right before the first `BEGIN:VEVENT` (the conventional position, ahead
+/// of any component that references them). Already-present TZIDs (e.g. carried by the source ICS on a
+/// patch) are skipped to avoid duplicates. Uses CRLF line endings to match `icalendar`'s output.
+fn inject_missing_vtimezones(ics: String, specs: &[VTimeZoneSpec]) -> String {
+    if specs.is_empty() {
+        return ics;
+    }
+
+    let existing = existing_vtimezone_tzids(&ics);
+    let mut emitted: HashSet<&str> = HashSet::new();
+    let mut blocks = String::new();
+    for spec in specs {
+        if existing.contains(&spec.tzid) || !emitted.insert(spec.tzid.as_str()) {
+            continue;
+        }
+        blocks.push_str(&build_vtimezone(spec));
+    }
+
+    if blocks.is_empty() {
+        return ics;
+    }
+
+    match ics.find("BEGIN:VEVENT") {
+        Some(index) => {
+            let mut out = String::with_capacity(ics.len() + blocks.len());
+            out.push_str(&ics[..index]);
+            out.push_str(&blocks);
+            out.push_str(&ics[index..]);
+            out
+        }
+        None => ics,
+    }
+}
+
+/// Collect the `TZID`s already declared by `VTIMEZONE` components in `ics`.
+fn existing_vtimezone_tzids(ics: &str) -> HashSet<String> {
+    let mut tzids = HashSet::new();
+    let mut in_vtimezone = false;
+    for line in ics.lines() {
+        let line = line.trim_end_matches(['\r', '\n']);
+        match line {
+            "BEGIN:VTIMEZONE" => in_vtimezone = true,
+            "END:VTIMEZONE" => in_vtimezone = false,
+            _ if in_vtimezone => {
+                // Accept both `TZID:VALUE` (RFC bare form) and `TZID;PARAM=x:VALUE` (with
+                // property parameters, e.g. `TZID;X-RICAL-TZSOURCE=zoneinfo:Europe/Paris`).
+                if let Some(tzid) = line.strip_prefix("TZID:") {
+                    tzids.insert(tzid.to_string());
+                } else if let Some(rest) = line.strip_prefix("TZID;") {
+                    if let Some((_, tzid)) = rest.split_once(':') {
+                        tzids.insert(tzid.to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    tzids
+}
+
+/// Render a minimal single-offset `VTIMEZONE` block (one static `STANDARD` sub-component). CRLF-terminated.
+fn build_vtimezone(spec: &VTimeZoneSpec) -> String {
+    format!(
+        "BEGIN:VTIMEZONE\r\n\
+         TZID:{tzid}\r\n\
+         BEGIN:STANDARD\r\n\
+         DTSTART:19700101T000000\r\n\
+         TZOFFSETFROM:{offset}\r\n\
+         TZOFFSETTO:{offset}\r\n\
+         END:STANDARD\r\n\
+         END:VTIMEZONE\r\n",
+        tzid = spec.tzid,
+        offset = spec.offset,
+    )
 }
 
 /// Refresh the revision metadata: set SEQUENCE (bump existing, else 0) and DTSTAMP/LAST-MODIFIED.

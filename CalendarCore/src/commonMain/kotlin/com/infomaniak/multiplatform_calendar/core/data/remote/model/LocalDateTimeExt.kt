@@ -58,10 +58,25 @@ internal fun parseICalDateTime(value: String?): LocalDateTime? {
  */
 internal fun isICalDateOnly(value: String?): Boolean = value != null && 'T' !in value
 
+/**
+ * Whether an iCalendar `DATE-TIME` value is anchored in UTC (RFC 5545 FORM #2: `Z` suffix).
+ *
+ * Returns `false` for `DATE`, floating local time (FORM #1) and local time with a `TZID` reference (FORM #3).
+ */
+internal fun isICalUtcDateTime(value: String?): Boolean = value != null && value.endsWith('Z')
+
 internal fun LocalDate.toICalDate(): String = format(ICAL_DATE)
 
 @OptIn(ExperimentalTime::class)
 internal fun Instant.toICalUtcDateTime(): String = toLocalDateTime(TimeZone.UTC).format(ICAL_DATE_TIME_UTC)
+
+/**
+ * Format a wall-clock [LocalDateTime] as an RFC 5545 `DATE-TIME` value without a `Z` suffix.
+ *
+ * Use this for FORM #1 (floating) and FORM #3 (with `TZID`) values. For FORM #2 (UTC) use
+ * [toICalUtcDateTime] on the absolute [Instant].
+ */
+internal fun LocalDateTime.toICalLocalDateTime(): String = format(ICAL_DATE_TIME_BASE)
 
 private val ICAL_DATE = LocalDate.Format { year(); monthNumber(); day() }
 private val ICAL_DATE_TIME_BASE = LocalDateTime.Format {

@@ -18,24 +18,13 @@
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
 /**
- * Edited VEVENT fields applied onto an existing iCS by [CalendarSyncRemoteSource.patchEventIcs].
+ * `VTIMEZONE` definition for a single [tzid] referenced by [RemoteEventEdit].
  *
- * Forms of [dtStart]/[dtEnd] (RFC 5545):
- * - [allDay] = true                  → date only ("20260616"), [dtStartTzid]/[dtEndTzid] must be `null`.
- * - [dtStartTzid] / [dtEndTzid] set  → local wall-clock ("20260616T100000"), serialized with `TZID=<id>` (FORM #3).
- * - otherwise                        → UTC ("20260616T100000Z") (FORM #2).
- *
- * [stamp] is the UTC DTSTAMP/LAST-MODIFIED value.
+ * [offset] is the UTC offset valid at the event's date, formatted as RFC 5545 `TZOFFSETTO`
+ * (e.g. "+0200"). The Rust side emits a minimal single-offset `VTIMEZONE` so the produced iCalendar
+ * object is self-contained even on strict servers.
  */
-data class RemoteEventEdit(
-    val summary: String?,
-    val dtStart: String,
-    val dtStartTzid: String?,
-    val dtEnd: String?,
-    val dtEndTzid: String?,
-    val allDay: Boolean,
-    val location: String?,
-    val description: String?,
-    val timeZones: List<RemoteVTimeZone>,
-    val stamp: String,
+data class RemoteVTimeZone(
+    val tzid: String,
+    val offset: String,
 )

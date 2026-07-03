@@ -45,7 +45,12 @@ pub struct EventEntry {
     pub description: Option<String>,
     pub location: Option<String>,
     pub dtstart: Option<String>,
+    /// IANA TZID parameter of `DTSTART`, when present (RFC 5545 FORM #3). `None` if the value is a
+    /// `DATE`, a UTC `DATE-TIME` (Z suffix) or floating (no `TZID`, no `Z`).
+    pub dtstart_tzid: Option<String>,
     pub dtend: Option<String>,
+    /// IANA TZID parameter of `DTEND`, when present. Same semantics as [`dtstart_tzid`].
+    pub dtend_tzid: Option<String>,
     /// Raw RFC 5545 `DURATION` value (e.g. "PT1H"). Mutually exclusive with `dtend`.
     pub duration: Option<String>,
     pub created: Option<String>,
@@ -93,18 +98,44 @@ pub struct CalendarEdit {
     pub color: Option<String>,
 }
 
+/// Minimal `VTIMEZONE` definition for a single IANA TZID referenced by an event.
+///
+/// We can't synthesize a full RFC 5545 `VTIMEZONE` (with every DST transition) in Rust without a
+/// time-zone database, so the Kotlin side — which already has one (`kotlinx-datetime`) — provides the
+/// UTC offset valid at the event's date. The Rust side emits a single static `STANDARD` sub-component
+/// with `TZOFFSETFROM`/`TZOFFSETTO` set to this offset. This resolves the event's wall-clock correctly
+/// in every client; it is only approximate for other dates of a DST zone, which is acceptable for a
+/// per-event reference.
+#[derive(uniffi::Record)]
+pub struct VTimeZoneSpec {
+    /// IANA TZID, e.g. "Europe/Paris".
+    pub tzid: String,
+    /// UTC offset in RFC 5545 `TZOFFSETTO` format, e.g. "+0200" or "-0500".
+    pub offset: String,
+}
+
 /// Edited event fields applied onto an existing VEVENT by `patch_event_ics`.
 ///
-/// Date/date-time values are raw RFC 5545 strings (e.g. "20260616T100000Z" or "20260616" when
-/// `all_day`). `stamp` is the UTC `DTSTAMP`/`LAST-MODIFIED` value (the caller owns the clock).
+/// Date/date-time values are raw RFC 5545 strings:
+/// - `all_day = true`           → `dtstart`/`dtend` are dates ("20260616"), no TZID.
+/// - `dtstart_tzid = Some(id)`  → `dtstart` is local wall-clock ("20260616T100000"), serialized with `TZID=<id>`.
+/// - otherwise                  → `dtstart` is UTC ("20260616T100000Z"), no TZID.
+///
+/// `timezones` carries a `VTIMEZONE` definition for every `TZID` referenced above, so the emitted
+/// iCalendar object is self-contained (RFC 5545 §3.6.5). Empty for all-day/UTC/floating events.
+///
+/// `stamp` is the UTC `DTSTAMP`/`LAST-MODIFIED` value (the caller owns the clock).
 #[derive(uniffi::Record)]
 pub struct EventEdit {
     pub summary: Option<String>,
     pub dtstart: String,
+    pub dtstart_tzid: Option<String>,
     pub dtend: Option<String>,
+    pub dtend_tzid: Option<String>,
     pub all_day: bool,
     pub location: Option<String>,
     pub description: Option<String>,
+    pub timezones: Vec<VTimeZoneSpec>,
     pub stamp: String,
 }
 

@@ -25,6 +25,19 @@ jobs:
             exit 1
           fi
 
+      - name: Check version does not already exist
+        run: |
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Error: release $VERSION already exists"
+            exit 1
+          fi
+          if git ls-remote --tags origin "refs/tags/$VERSION" | grep -q .; then
+            echo "Error: tag $VERSION already exists"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout the code
         uses: actions/checkout@v6.0.3
         with:

@@ -29,7 +29,7 @@ fn prop_with_tzid(event: &icalendar::Event, name: &str) -> (Option<String>, Opti
 }
 
 /// Parse raw iCS data into an [`EventEntry`], extracting the first `VEVENT`.
-fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
+fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> {
     let parsed: Calendar = ics_data.parse().unwrap_or_default();
 
     let vevent = parsed.components.iter().find_map(|c| {
@@ -66,16 +66,9 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> EventEntry {
                 ics_data,
             }
         }
-        None => EventEntry {
-            url,
-            etag,
-            ics_data,
-            uid: String::new(),
-            summary: None, description: None, location: None,
-            dtstart: None, dtstart_tzid: None, dtend: None, dtend_tzid: None,
-            duration: None, created: None, last_modified: None, dtstamp: None,
-            rrule: None, status: None, transp: None, classification: None, priority: None,
-            sequence: None, categories: None, attendees: Vec::new(),
+        None => {
+            // TODO: Support non-VEVENT components (e.g. VTODO / VJOURNAL) instead of skipping them.
+            None
         },
     }
 }
@@ -300,10 +293,14 @@ pub fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<Event
         let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
             .await.map_err(|e| bridge_error("Query", e))?;
 
-        Ok(objects.into_iter().filter_map(|obj| {
-            let etag = obj.etag.unwrap_or_default();
-            obj.calendar_data.map(|data| parse_ics(obj.href, etag, data))
-        }).collect())
+        Ok(objects
+            .into_iter()
+            .filter_map(|obj| {
+                let etag = obj.etag.unwrap_or_default();
+                obj.calendar_data
+                    .and_then(|data| parse_ics(obj.href, etag, data))
+            })
+            .collect())
     })
 }
 

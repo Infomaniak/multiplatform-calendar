@@ -24,6 +24,9 @@ jobs:
         run: |
           echo "version=${BRANCH#release/}" >> $GITHUB_OUTPUT
 
+      - name: Setup gh CLI
+        run: command -v gh >/dev/null 2>&1 || brew install gh
+
       - name: Publish draft release
         run: gh release edit "${{ steps.version.outputs.version }}" --draft=false --repo ${{ github.repository }}
         env:

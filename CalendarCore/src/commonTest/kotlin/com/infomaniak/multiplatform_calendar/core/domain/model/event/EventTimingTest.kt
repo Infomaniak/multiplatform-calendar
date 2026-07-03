@@ -36,8 +36,8 @@ class EventTimingTest {
 
     @Test
     fun startInstant_zonedEvent_usesOwnZone() {
-        val timing = zoned(start = ldt(2026, 6, 15, 14, 0), zone = paris)
-        val expected = ldt(2026, 6, 15, 14, 0).toInstant(paris)
+        val timing = zoned(start = LocalDateTime(2026, 6, 15, 14, 0), zone = paris)
+        val expected = LocalDateTime(2026, 6, 15, 14, 0).toInstant(paris)
         // defaultZone should be ignored when the event carries its own zone.
         assertEquals(expected, timing.startInstant(defaultZone = tokyo))
     }
@@ -45,29 +45,29 @@ class EventTimingTest {
     @Test
     fun startInstant_floating_usesDefaultZone() {
         // Floating "10:00" anchored in Tokyo per RFC 5545 FORM #1.
-        val timing = floating(start = ldt(2026, 6, 15, 10, 0))
-        val expected = ldt(2026, 6, 15, 10, 0).toInstant(tokyo)
+        val timing = floating(start = LocalDateTime(2026, 6, 15, 10, 0))
+        val expected = LocalDateTime(2026, 6, 15, 10, 0).toInstant(tokyo)
         assertEquals(expected, timing.startInstant(defaultZone = tokyo))
     }
 
     @Test
     fun endInstant_usesEndZone_notStartZone_forCrossZoneEvent() {
         val timing = EventTiming(
-            start = ldt(2026, 6, 15, 9, 0),
-            end = ldt(2026, 6, 15, 21, 0),
+            start = LocalDateTime(2026, 6, 15, 9, 0),
+            end = LocalDateTime(2026, 6, 15, 21, 0),
             startTimeZone = newYork,
             endTimeZone = paris,
             isAllDay = false,
         )
-        assertEquals(ldt(2026, 6, 15, 9, 0).toInstant(newYork), timing.startInstant(TimeZone.UTC))
-        assertEquals(ldt(2026, 6, 15, 21, 0).toInstant(paris), timing.endInstant(TimeZone.UTC))
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0).toInstant(newYork), timing.startInstant(TimeZone.UTC))
+        assertEquals(LocalDateTime(2026, 6, 15, 21, 0).toInstant(paris), timing.endInstant(TimeZone.UTC))
     }
 
     // ---- startIn / endIn (LocalDateTime reprojection) -------------------------------------------
 
     @Test
     fun startIn_sameZone_returnsStartAsIs_withoutRoundTrip() {
-        val start = ldt(2026, 6, 15, 14, 0)
+        val start = LocalDateTime(2026, 6, 15, 14, 0)
         val timing = zoned(start = start, zone = paris)
         // Fast path: identity, no conversion.
         assertSame(start, timing.startIn(paris))
@@ -75,7 +75,7 @@ class EventTimingTest {
 
     @Test
     fun startIn_floating_returnsStartAsIs_forAnyTargetZone() {
-        val start = ldt(2026, 6, 15, 10, 0)
+        val start = LocalDateTime(2026, 6, 15, 10, 0)
         val timing = floating(start = start)
         assertSame(start, timing.startIn(paris))
         assertSame(start, timing.startIn(tokyo))
@@ -85,35 +85,35 @@ class EventTimingTest {
     @Test
     fun startIn_differentZone_reprojectsViaInstant() {
         // Paris 14:00 (summer, UTC+2) → Tokyo 21:00 (UTC+9), delta +7h.
-        val timing = zoned(start = ldt(2026, 6, 15, 14, 0), zone = paris)
-        assertEquals(ldt(2026, 6, 15, 21, 0), timing.startIn(tokyo))
+        val timing = zoned(start = LocalDateTime(2026, 6, 15, 14, 0), zone = paris)
+        assertEquals(LocalDateTime(2026, 6, 15, 21, 0), timing.startIn(tokyo))
     }
 
     @Test
     fun endIn_usesEndZone_notStartZone() {
         val timing = EventTiming(
-            start = ldt(2026, 6, 15, 9, 0),
-            end = ldt(2026, 6, 15, 21, 0),
+            start = LocalDateTime(2026, 6, 15, 9, 0),
+            end = LocalDateTime(2026, 6, 15, 21, 0),
             startTimeZone = newYork,
             endTimeZone = paris,
             isAllDay = false,
         )
         // Paris 21:00 == 19:00 UTC == Tokyo 04:00 next day.
-        assertEquals(ldt(2026, 6, 16, 4, 0), timing.endIn(tokyo))
+        assertEquals(LocalDateTime(2026, 6, 16, 4, 0), timing.endIn(tokyo))
     }
 
     // ---- Local variants (device zone) -----------------------------------------------------------
 
     @Test
     fun startInLocal_matchesStartIn_currentSystemDefault() {
-        val timing = zoned(start = ldt(2026, 6, 15, 14, 0), zone = paris)
+        val timing = zoned(start = LocalDateTime(2026, 6, 15, 14, 0), zone = paris)
         val current = TimeZone.currentSystemDefault()
         assertEquals(timing.startIn(current), timing.startInLocal())
     }
 
     @Test
     fun startInstantLocal_matchesStartInstant_currentSystemDefault() {
-        val timing = floating(start = ldt(2026, 6, 15, 10, 0))
+        val timing = floating(start = LocalDateTime(2026, 6, 15, 10, 0))
         val current = TimeZone.currentSystemDefault()
         assertEquals(timing.startInstant(current), timing.startInstantLocal())
     }
@@ -123,10 +123,10 @@ class EventTimingTest {
     @Test
     fun startIn_allDay_returnsMidnightAsIs_regardlessOfTargetZone() {
         // All-day events store both zones as null; startIn should not attempt any reprojection.
-        val start = ldt(2026, 6, 15, 0, 0)
+        val start = LocalDateTime(2026, 6, 15, 0, 0)
         val timing = EventTiming(
             start = start,
-            end = ldt(2026, 6, 16, 0, 0),
+            end = LocalDateTime(2026, 6, 16, 0, 0),
             startTimeZone = null,
             endTimeZone = null,
             isAllDay = true,
@@ -139,14 +139,11 @@ class EventTimingTest {
 
     @Test
     fun startIn_utcEvent_reprojectsToTargetZone() {
-        val timing = zoned(start = ldt(2026, 6, 15, 12, 0), zone = TimeZone.UTC)
-        assertEquals(ldt(2026, 6, 15, 14, 0), timing.startIn(paris))
+        val timing = zoned(start = LocalDateTime(2026, 6, 15, 12, 0), zone = TimeZone.UTC)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), timing.startIn(paris))
     }
 
     // ---- Helpers --------------------------------------------------------------------------------
-
-    private fun ldt(year: Int, month: Int, day: Int, hour: Int, minute: Int): LocalDateTime =
-        LocalDateTime(year, month, day, hour, minute)
 
     private fun zoned(start: LocalDateTime, zone: TimeZone): EventTiming = EventTiming(
         start = start,

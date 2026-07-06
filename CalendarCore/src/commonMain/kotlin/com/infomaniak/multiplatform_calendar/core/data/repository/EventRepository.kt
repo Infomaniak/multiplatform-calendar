@@ -30,7 +30,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.utils.RepositoryCallUtils.onSuccessOrReport
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
@@ -86,11 +85,8 @@ internal class EventRepository(
             val now = Clock.System.now().toICalUtcDateTime()
             val newIcs = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now))
             if (data.calendarId == entity.calendarId) {
-                runCatching {
-                    caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
-                }.onSuccessOrReport { ref ->
-                    eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
-                }
+                val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
+                eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
             } else {
                 updateCrossCalendarEvent(credentials, eventId, data, newIcs)
             }
@@ -100,8 +96,8 @@ internal class EventRepository(
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->
             // TODO: Change when deleteEvent will return a result of success or failure
-            runCatching { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
-                .onSuccessOrReport { eventDao.deleteEvent(eventId) }
+            caldavClient.deleteEvent(credentials, eventId.url, event.etag)
+            eventDao.deleteEvent(eventId)
         }
     }
 
@@ -110,9 +106,9 @@ internal class EventRepository(
         eventId: EventId,
         data: EventEditData,
         newIcs: String,
-    ) = runCatching { caldavClient.createEvent(credentials, data.calendarId.url, newIcs) }
-        .onSuccessOrReport { ref ->
-            deleteEvent(credentials, eventId)
-            eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs)))
-        }
+    ) {
+        val ref = caldavClient.createEvent(credentials, data.calendarId.url, newIcs)
+        deleteEvent(credentials, eventId)
+        eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs)))
+    }
 }

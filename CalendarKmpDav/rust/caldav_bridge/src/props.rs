@@ -84,7 +84,7 @@ async fn fetch(
     let resp = cli
         .propfind(home, Depth::One, PROPS_BODY)
         .await
-        .map_err(|e| network_or_bridge_error("PropsPropfind", e))?;
+        .map_err(|error| network_or_bridge_error("PropsPropfind", error.as_ref()))?;
 
     ensure_success("PropsPropfind", &resp)?;
 

@@ -14,16 +14,16 @@ pub fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavError> 
 
     rt.block_on(async {
         let principal = cli.discover_current_user_principal().await
-            .map_err(|e| network_or_bridge_error("Principal", e))?
+            .map_err(|error| network_or_bridge_error("Principal", error.as_ref()))?
             .ok_or_else(|| bridge_error("Principal", "no current-user-principal"))?;
 
         let homes = cli.discover_calendar_home_set(&principal).await
-            .map_err(|e| network_or_bridge_error("HomeSet", e))?;
+            .map_err(|error| network_or_bridge_error("HomeSet", error.as_ref()))?;
 
         let mut calendars = Vec::new();
         for home in &homes {
             let props = collection_props(&cli, home).await;
-            for cal in cli.list_calendars(home).await.map_err(|e| network_or_bridge_error("ListCalendars", e))? {
+            for cal in cli.list_calendars(home).await.map_err(|error| network_or_bridge_error("ListCalendars", error.as_ref()))? {
                 let entry_props = props.get(normalize_href(&cal.href).as_str());
                 let access_level = entry_props
                     .map(access_level)
@@ -69,7 +69,7 @@ pub fn update_calendar(
     let body = build_proppatch_body(&edit);
 
     rt.block_on(async {
-        let resp = cli.proppatch(calendar_url, &body).await.map_err(|e| network_or_bridge_error("Proppatch", e))?;
+        let resp = cli.proppatch(calendar_url, &body).await.map_err(|error| network_or_bridge_error("Proppatch", error.as_ref()))?;
         ensure_success("PROPPATCH", &resp)?;
         check_propstat_success(resp.body().as_ref())
     })

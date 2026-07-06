@@ -19,7 +19,6 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -45,8 +44,6 @@ public interface Event {
     public val lastModified: Instant?
     public val attendees: List<Attendee>
     public val organizer: Attendee?
-    @HiddenFromObjC
-    public val calendarColor: CalendarColor
     public val colors: EventColors
     public val canEdit: Boolean
 }

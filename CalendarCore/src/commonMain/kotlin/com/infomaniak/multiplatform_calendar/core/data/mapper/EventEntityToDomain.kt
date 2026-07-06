@@ -43,7 +43,6 @@ internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors):
         lastModified = lastModified?.toInstant(TimeZone.UTC),
         attendees = attendees,
         organizer = attendees.firstOrNull { it.isOrganizer },
-        calendarColor = calendar.color,
         colors = eventColors,
         canEdit = calendar.accessLevel.canWrite,
     )

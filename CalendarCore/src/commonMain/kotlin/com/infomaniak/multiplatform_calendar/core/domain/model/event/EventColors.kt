@@ -17,23 +17,36 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.materialkolor.hct.Hct
 import com.materialkolor.palettes.TonalPalette
 
 public data class EventColors(
+    val color: Int,
+    val onColor: Int,
     val datavizContainer: EventColor,
     val onDatavizContainer: EventColor,
     val datavizContainerVariant: EventColor,
     val onDatavizContainerVariant: EventColor,
 ) {
     public companion object {
+        private const val ON_COLOR_TONE_FOR_DARK_INPUT = 100
+        private const val ON_COLOR_TONE_FOR_LIGHT_INPUT = 20
+
         public fun from(color: Int): EventColors {
             val palette = TonalPalette.fromInt(color)
             return EventColors(
+                color = color, // Kept exactly as given
+                onColor = palette.onColor(inputTone = Hct.fromInt(color).tone),
                 datavizContainer = palette.eventColor(ColorRoleTone.DatavizContainer),
                 onDatavizContainer = palette.eventColor(ColorRoleTone.OnDatavizContainer),
                 datavizContainerVariant = palette.eventColor(ColorRoleTone.DatavizContainerVariant),
                 onDatavizContainerVariant = palette.eventColor(ColorRoleTone.OnDatavizContainerVariant),
             )
+        }
+
+        private fun TonalPalette.onColor(inputTone: Double): Int {
+            val onTone = if (inputTone < 50) ON_COLOR_TONE_FOR_DARK_INPUT else ON_COLOR_TONE_FOR_LIGHT_INPUT
+            return tone(onTone)
         }
 
         private fun TonalPalette.eventColor(tone: ColorRoleTone): EventColor = EventColor(

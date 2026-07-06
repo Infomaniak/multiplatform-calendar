@@ -29,6 +29,13 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -38,6 +45,11 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
@@ -59,6 +71,40 @@ internal class CalendarRepository(
 
     suspend fun getCalendar(calendarId: CalendarId): Calendar {
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
+    }
+
+    fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
+        // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
+        // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
+        // - Wall-clock strings for floating events, re-interpreted in the device's current zone,
+        //   so a floating event stays visible at "10:00 local" wherever the user travels.
+        val deviceZone = TimeZone.currentSystemDefault()
+        return eventDao.observeVisibleInRange(
+            accountIds = accountIds,
+            startInstantMs = start.toEpochMilliseconds(),
+            endInstantMs = end.toEpochMilliseconds(),
+            startLocalDateTime = start.toLocalDateTime(deviceZone),
+            endLocalDateTime = end.toLocalDateTime(deviceZone),
+        ).map(List<EventWithCalendarEntity>::toDomainEvents)
+    }
+
+    /**
+     * Like [observeVisibleEvents], but each multi-day event is split into one [EventDaySlice] per day
+     * it covers (see [groupDaySlicesByDay]), then grouped by day and sorted for direct planning
+     * display (all-day first, then by start time).
+     *
+     * [gridZone] should match the zone used for floating-event visibility in [observeVisibleEvents];
+     * it defaults to the device zone for both.
+     */
+    fun observeVisibleDaySlices(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        gridZone: TimeZone,
+    ): Flow<Map<LocalDate, List<EventDaySlice>>> {
+        return observeVisibleEvents(accountIds, start, end).map { events ->
+            events.groupDaySlicesByDay(start, end, gridZone)
+        }
     }
 
     suspend fun syncCalendars(

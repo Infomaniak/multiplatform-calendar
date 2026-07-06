@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
@@ -38,6 +39,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -63,6 +66,26 @@ public class CalendarManager internal constructor(
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
             eventRepository.observeVisibleEvents(accountIds, start, end)
         }.reportFlowFailures("observe events from $start to $end")
+    }
+
+    /**
+     * Like [observeEvents], but multi-day events are split into one [EventDaySlice] per day and the
+     * result is grouped by day and sorted, ready for a planning grid (all-day first, then by start).
+     *
+     * [gridZone] is the zone the planning grid is displayed in (device zone by default); it is
+     * forwarded to the repository so floating-event visibility and the day split share the same zone.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    public fun observeDaySlices(
+        start: Instant,
+        end: Instant,
+        gridZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<Map<LocalDate, List<EventDaySlice>>> {
+        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+            calendarRepository.observeVisibleDaySlices(accountIds, start, end, gridZone)
+        }.catch {
+            //TODO: handle error
+        }
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)

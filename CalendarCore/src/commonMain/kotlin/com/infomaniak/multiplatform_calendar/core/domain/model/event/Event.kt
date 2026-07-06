@@ -38,7 +38,7 @@ public interface Event {
     public val title: String
     public val description: String?
     public val location: String?
-    public val status: String?
+    public val status: EventStatus?
     public val categories: String?
     public val timing: EventTiming
     public val lastModified: Instant?

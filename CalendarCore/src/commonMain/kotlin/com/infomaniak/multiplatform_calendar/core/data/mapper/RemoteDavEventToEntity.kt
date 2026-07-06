@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDat
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
@@ -91,7 +92,7 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         lastModified = parseICalDateTime(lastModified),
         dtStamp = parseICalDateTime(dtstamp),
         rrule = rrule,
-        status = status,
+        status = EventStatus.fromIcalString(status),
         transp = transp,
         classification = classification,
         priority = priority?.toIntOrNull(),

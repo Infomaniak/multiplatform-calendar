@@ -18,29 +18,20 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toNewEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
-import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
+import com.infomaniak.multiplatform_calendar.core.utils.RepositoryCallUtils.getOrNull
+import com.infomaniak.multiplatform_calendar.core.utils.RepositoryCallUtils.onSuccessOrReport
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -50,16 +41,11 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
-import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
 internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,
-    private val accountDao: AccountDao,
     private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
 ) {
@@ -70,23 +56,12 @@ internal class CalendarRepository(
         }
     }
 
+    suspend fun getCalendars(
+        credentials: DavAccount,
+    ): List<RemoteDavCalendar>? = getOrNull { caldavClient.discoverCalendars(credentials).excludeScheduling() }
+
     suspend fun getCalendar(calendarId: CalendarId): Calendar {
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
-    }
-
-    fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
-        // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
-        // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
-        // - Wall-clock strings for floating events, re-interpreted in the device's current zone,
-        //   so a floating event stays visible at "10:00 local" wherever the user travels.
-        val deviceZone = TimeZone.currentSystemDefault()
-        return eventDao.observeVisibleInRange(
-            accountIds = accountIds,
-            startInstantMs = start.toEpochMilliseconds(),
-            endInstantMs = end.toEpochMilliseconds(),
-            startLocalDateTime = start.toLocalDateTime(deviceZone),
-            endLocalDateTime = end.toLocalDateTime(deviceZone),
-        ).map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 
     suspend fun syncCalendars(
@@ -105,20 +80,6 @@ internal class CalendarRepository(
         }
     }
 
-    private suspend fun getCalendars(
-        credentials: DavAccount,
-    ): List<RemoteDavCalendar>? = getOrNull { caldavClient.discoverCalendars(credentials).excludeScheduling() }
-
-    private suspend fun getRemoteEvents(
-        credentials: DavAccount,
-        id: CalendarId,
-    ): List<RemoteDavEvent>? = getOrNull { caldavClient.getEvents(credentials, id.url) }
-
-    private fun eventToEntity(
-        event: RemoteDavEvent,
-        calendarId: CalendarId,
-    ): EventEntity? = getOrNull { event.toEntity(calendarId) }
-
     suspend fun updateCalendar(credentials: DavAccount, calendarId: CalendarId, edit: CalendarEditData) {
         calendarDao.findById(calendarId)?.let { calendarEntity ->
             runCatching {
@@ -133,66 +94,15 @@ internal class CalendarRepository(
         }
     }
 
-    suspend fun getAccountIdByEventId(eventId: EventId): AccountId {
-        return accountDao.getAccountIdByEventId(eventId) ?: error("Event $eventId not found")
-    }
+    private fun eventToEntity(
+        event: RemoteDavEvent,
+        calendarId: CalendarId,
+    ): EventEntity? = getOrNull { event.toEntity(calendarId) }
 
-    suspend fun createEvent(credentials: DavAccount, data: EventEditData) {
-        val now = Clock.System.now().toICalUtcDateTime()
-        val ics = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now))
-        val ref = caldavClient.createEvent(credentials, data.calendarId.url, ics)
-        eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = ics)))
-    }
-
-    suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
-        eventDao.getEvent(eventId)?.let { entity ->
-            val now = Clock.System.now().toICalUtcDateTime()
-            val newIcs = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now))
-            if (data.calendarId == entity.calendarId) {
-                runCatching {
-                    caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
-                }.onSuccessOrReport { ref ->
-                    eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
-                }
-            } else {
-                updateCrossCalendarEvent(credentials, eventId, data, newIcs)
-            }
-        }
-    }
-
-    suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
-        eventDao.getEvent(eventId)?.let { event ->
-            // TODO: Change when deleteEvent will return a result of success or failure
-            runCatching { caldavClient.deleteEvent(credentials, eventId.url, event.etag) }
-                .onSuccessOrReport { eventDao.deleteEvent(eventId) }
-        }
-    }
-
-    private suspend fun updateCrossCalendarEvent(
+    private suspend fun getRemoteEvents(
         credentials: DavAccount,
-        eventId: EventId,
-        data: EventEditData,
-        newIcs: String,
-    ) = runCatching { caldavClient.createEvent(credentials, data.calendarId.url, newIcs) }
-        .onSuccessOrReport { ref ->
-            deleteEvent(credentials, eventId)
-            eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs)))
-        }
-
-    fun observeEvent(eventId: EventId): Flow<Event?> {
-        return eventDao.observeEventWithCalendar(eventId).map(EventWithCalendarEntity?::toDomainEvent)
-    }
-
-    private inline fun <T> getOrNull(block: () -> T): T? =
-        runCatching { block() }
-            .cancellable()
-            .logFailuresToSentry()
-            .getOrNull()
-
-    private inline fun <T> Result<T>.onSuccessOrReport(block: (T) -> Unit) =
-        cancellable()
-            .logFailuresToSentry()
-            .onSuccess(block)
+        id: CalendarId,
+    ): List<RemoteDavEvent>? = getOrNull { caldavClient.getEvents(credentials, id.url) }
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

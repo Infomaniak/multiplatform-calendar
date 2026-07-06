@@ -27,10 +27,9 @@ open class CaldavBridgeException(
     companion object {
         fun CaldavException.toCaldavBridgeException(methodName: String): CaldavBridgeException {
             val resolvedMessage = message ?: "Unknown error: $methodName"
-            return if (this::class.simpleName?.contains("RustNetworkException") == true) {
-                RustNetworkException(message = resolvedMessage, cause = this)
-            } else {
-                CaldavBridgeException(message = resolvedMessage, cause = this)
+            return when (this) {
+                is CaldavException.RustNetworkException -> RustNetworkException(message = resolvedMessage, cause = this)
+                else -> CaldavBridgeException(message = resolvedMessage, cause = this)
             }
         }
     }

@@ -29,6 +29,7 @@ public data class EventColors(
     val onDatavizContainerVariant: EventColor,
 ) {
     public companion object {
+        private const val LIGHT_DARK_THRESHOLD = 50
         private const val ON_COLOR_TONE_FOR_DARK_INPUT = 100
         private const val ON_COLOR_TONE_FOR_LIGHT_INPUT = 20
 
@@ -45,7 +46,7 @@ public data class EventColors(
         }
 
         private fun TonalPalette.onColor(inputTone: Double): Int {
-            val onTone = if (inputTone < 50) ON_COLOR_TONE_FOR_DARK_INPUT else ON_COLOR_TONE_FOR_LIGHT_INPUT
+            val onTone = if (inputTone < LIGHT_DARK_THRESHOLD) ON_COLOR_TONE_FOR_DARK_INPUT else ON_COLOR_TONE_FOR_LIGHT_INPUT
             return tone(onTone)
         }
 

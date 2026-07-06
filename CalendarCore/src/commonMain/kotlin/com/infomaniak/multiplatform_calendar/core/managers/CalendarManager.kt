@@ -71,11 +71,11 @@ public class CalendarManager internal constructor(
     public fun observeEvents(
         start: Instant,
         end: Instant,
-        zone: TimeZone = TimeZone.currentSystemDefault(),
+        gridZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<List<Event>> {
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            calendarRepository.observeVisibleEvents(accountIds, start, end, zone)
-        }.reportFlowFailures("observe events from $start to $end")
+            eventRepository.observeVisibleEvents(accountIds, start, end, gridZone)
+        }.reportFlowFailures("observe events from $start to $end for zone $gridZone")
     }
 
     /**
@@ -92,10 +92,8 @@ public class CalendarManager internal constructor(
         gridZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            calendarRepository.observeVisibleDaySlices(accountIds, start, end, gridZone)
-        }.catch {
-            //TODO: handle error
-        }
+            eventRepository.observeVisibleDaySlices(accountIds, start, end, gridZone)
+        }.reportFlowFailures("observe day slices from $start to $end for zone $gridZone")
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)

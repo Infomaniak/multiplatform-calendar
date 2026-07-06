@@ -60,11 +60,21 @@ public class CalendarManager internal constructor(
         }.reportFlowFailures("observe calendars")
     }
 
-    /** Observe events from all *visible* calendars of the current account overlapping [start, end[. */
+    /**
+     * Observe events from all *visible* calendars of the current account overlapping [start, end[.
+     *
+     * [zone] is used to re-interpret the wall-clock of floating events against the range so a
+     * floating event stays visible at "10:00 local" wherever the user travels. Defaults to the
+     * device zone, which is what a standard planning grid wants.
+     */
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
-    public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
+    public fun observeEvents(
+        start: Instant,
+        end: Instant,
+        zone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<List<Event>> {
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            eventRepository.observeVisibleEvents(accountIds, start, end)
+            calendarRepository.observeVisibleEvents(accountIds, start, end, zone)
         }.reportFlowFailures("observe events from $start to $end")
     }
 

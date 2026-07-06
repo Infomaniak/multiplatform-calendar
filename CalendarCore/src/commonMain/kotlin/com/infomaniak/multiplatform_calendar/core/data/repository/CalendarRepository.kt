@@ -73,18 +73,24 @@ internal class CalendarRepository(
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
     }
 
-    fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
+    fun observeVisibleEvents(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        zone: TimeZone,
+    ): Flow<List<Event>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
         // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
-        // - Wall-clock strings for floating events, re-interpreted in the device's current zone,
-        //   so a floating event stays visible at "10:00 local" wherever the user travels.
-        val deviceZone = TimeZone.currentSystemDefault()
+        // - Wall-clock strings for floating events, re-interpreted in [zone] so a floating event
+        //   stays visible at "10:00 local" wherever the user travels. Callers that also expand or
+        //   group events by day (e.g. [observeVisibleDaySlices]) must pass the *same* zone here so
+        //   the SQL filter and the downstream day split agree on which floating events are visible.
         return eventDao.observeVisibleInRange(
             accountIds = accountIds,
             startInstantMs = start.toEpochMilliseconds(),
             endInstantMs = end.toEpochMilliseconds(),
-            startLocalDateTime = start.toLocalDateTime(deviceZone),
-            endLocalDateTime = end.toLocalDateTime(deviceZone),
+            startLocalDateTime = start.toLocalDateTime(zone),
+            endLocalDateTime = end.toLocalDateTime(zone),
         ).map(List<EventWithCalendarEntity>::toDomainEvents)
     }
 
@@ -93,8 +99,9 @@ internal class CalendarRepository(
      * it covers (see [groupDaySlicesByDay]), then grouped by day and sorted for direct planning
      * display (all-day first, then by start time).
      *
-     * [gridZone] should match the zone used for floating-event visibility in [observeVisibleEvents];
-     * it defaults to the device zone for both.
+     * [gridZone] drives both the SQL wall-clock filter for floating events (forwarded to
+     * [observeVisibleEvents]) and the day split, so the two always agree on which floating events
+     * are visible.
      */
     fun observeVisibleDaySlices(
         accountIds: Set<AccountId>,
@@ -102,7 +109,7 @@ internal class CalendarRepository(
         end: Instant,
         gridZone: TimeZone,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
-        return observeVisibleEvents(accountIds, start, end).map { events ->
+        return observeVisibleEvents(accountIds, start, end, zone = gridZone).map { events ->
             events.groupDaySlicesByDay(start, end, gridZone)
         }
     }

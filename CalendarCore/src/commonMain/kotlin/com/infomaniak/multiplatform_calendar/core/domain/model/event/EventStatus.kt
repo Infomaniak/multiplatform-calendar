@@ -40,8 +40,8 @@ public enum class EventStatus {
          * outside the VEVENT-legal set return `null`.
          */
         public fun fromIcalString(value: String?): EventStatus? {
-            val normalized = value?.trim()?.takeIf { it.isNotEmpty() }?.uppercase() ?: return null
-            return entries.firstOrNull { it.name == normalized }
+            val normalized = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            return entries.firstOrNull { it.name.equals(normalized, ignoreCase = true) }
         }
     }
 }

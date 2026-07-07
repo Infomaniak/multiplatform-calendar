@@ -18,6 +18,8 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice.Companion.MIDNIGHT
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -78,8 +80,12 @@ public data class EventDaySlice(
  *
  * The visible day span is derived from the range in [timeZone]; a [rangeEnd] landing exactly on
  * midnight is exclusive (it does not reveal the following day).
+ *
+ * This is a CPU-bound `suspend` function: it checks for cancellation before each event so a caller
+ * using `mapLatest` (see `EventRepository.observeVisibleDaySlices`) can abandon an in-flight grouping
+ * as soon as a fresher event list arrives.
  */
-internal fun List<Event>.groupDaySlicesByDay(
+internal suspend fun List<Event>.groupDaySlicesByDay(
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -88,7 +94,12 @@ internal fun List<Event>.groupDaySlicesByDay(
     val toDay = rangeEnd.toLocalDateTime(timeZone).lastInclusiveDay(notBefore = fromDay)
     val visibleDays = fromDay..toDay
 
-    return flatMap { it.expandDaySlices(visibleDays, timeZone) }
+    return buildList {
+        for (event in this@groupDaySlicesByDay) {
+            currentCoroutineContext().ensureActive()
+            event.expandDaySlicesInto(this, visibleDays, timeZone)
+        }
+    }
         .sortedWith(daySliceComparator)
         .groupBy(EventDaySlice::date)
 }
@@ -105,7 +116,22 @@ internal fun List<Event>.groupDaySlicesByDay(
  *
  * The result is **unsorted** and side-effect free; ordering/grouping for display is the caller's job.
  */
-internal fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> {
+internal suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> =
+    buildList { expandDaySlicesInto(target = this, visibleDays = visibleDays, timeZone = timeZone) }
+
+/**
+ * Same as [expandDaySlices] but appends the slices into [target] instead of allocating a new list.
+ *
+ * This lets a caller expand many events into a single shared buffer ([groupDaySlicesByDay]),
+ * avoiding one intermediate list per event and the concatenation cost of `flatMap`. Cancellation is
+ * checked before each emitted day so an in-flight expansion (e.g. a long event over a wide window)
+ * stops promptly when the caller's `mapLatest` abandons it.
+ */
+internal suspend fun Event.expandDaySlicesInto(
+    target: MutableList<EventDaySlice>,
+    visibleDays: ClosedRange<LocalDate>,
+    timeZone: TimeZone,
+) {
     val startLocalDateTime = timing.startIn(targetZone = timeZone)
     val endLocalDateTime = timing.endIn(targetZone = timeZone)
 
@@ -115,11 +141,12 @@ internal fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone
 
     val from = maxOf(firstDay, visibleDays.start)
     val to = minOf(lastDay, visibleDays.endInclusive)
-    if (from > to) return emptyList()
+    if (from > to) return
 
-    return List(from.daysUntil(to) + 1) { index ->
-        val day = from.plus(index, DateTimeUnit.DAY)
-        EventDaySlice(
+    var day = from
+    while (day <= to) {
+        currentCoroutineContext().ensureActive()
+        target += EventDaySlice(
             event = this,
             date = day,
             displayStart = if (day == firstDay) startLocalDateTime else LocalDateTime(date = day, time = MIDNIGHT),
@@ -127,6 +154,7 @@ internal fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone
             else LocalDateTime(date = day.plus(1, DateTimeUnit.DAY), time = MIDNIGHT),
             position = DaySpanPosition(index = firstDay.daysUntil(day), count = eventDayCount),
         )
+        day = day.plus(1, DateTimeUnit.DAY)
     }
 }
 

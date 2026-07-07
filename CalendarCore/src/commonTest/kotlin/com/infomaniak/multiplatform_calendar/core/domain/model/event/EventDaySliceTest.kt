@@ -20,6 +20,9 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.job
+import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -42,7 +45,7 @@ class EventDaySliceTest {
     // ---- Single day ----------------------------------------------------------------------------
 
     @Test
-    fun singleDayTimed_yieldsOneSlice() {
+    fun singleDayTimed_yieldsOneSlice() = runTest {
         val slices = timed(
             start = LocalDateTime(2026, 1, 5, 14, 0),
             end = LocalDateTime(2026, 1, 5, 15, 30),
@@ -63,7 +66,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun zeroLengthTimed_yieldsOneSlice() {
+    fun zeroLengthTimed_yieldsOneSlice() = runTest {
         val slices = timed(
             start = LocalDateTime(2026, 1, 5, 9, 0),
             end = LocalDateTime(2026, 1, 5, 9, 0),
@@ -78,7 +81,7 @@ class EventDaySliceTest {
     // ---- Multi-day timed -----------------------------------------------------------------------
 
     @Test
-    fun multiDayTimed_splitsPerDay_withAbsoluteIndicesAndClampedBounds() {
+    fun multiDayTimed_splitsPerDay_withAbsoluteIndicesAndClampedBounds() = runTest {
         val slices = timed(
             start = LocalDateTime(2026, 1, 5, 14, 0),
             end = LocalDateTime(2026, 1, 7, 10, 0),
@@ -112,7 +115,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun endExactlyOnMidnight_doesNotSpillPhantomSlice() {
+    fun endExactlyOnMidnight_doesNotSpillPhantomSlice() = runTest {
         val slices = timed(
             start = LocalDateTime(2026, 1, 5, 22, 0),
             end = LocalDateTime(2026, 1, 6, 0, 0),
@@ -128,7 +131,7 @@ class EventDaySliceTest {
     // ---- All-day -------------------------------------------------------------------------------
 
     @Test
-    fun allDaySingle_isAllDay_fillsWholeDay() {
+    fun allDaySingle_isAllDay_fillsWholeDay() = runTest {
         val slices = allDay(
             start = LocalDate(2026, 1, 5),
             endExclusive = LocalDate(2026, 1, 6),
@@ -141,7 +144,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun allDayMultiDay_splitsPerDay() {
+    fun allDayMultiDay_splitsPerDay() = runTest {
         val slices = allDay(
             start = LocalDate(2026, 1, 5),
             endExclusive = LocalDate(2026, 1, 8),
@@ -154,7 +157,7 @@ class EventDaySliceTest {
     // ---- Floating & cross-zone -----------------------------------------------------------------
 
     @Test
-    fun floatingMultiDay_isExpandedOnItsWallClock_regardlessOfGridZone() {
+    fun floatingMultiDay_isExpandedOnItsWallClock_regardlessOfGridZone() = runTest {
         // Floating (no zone): wall-clock is taken as-is in the grid, per RFC 5545 FORM #1.
         val slices = EventTiming(
             start = LocalDateTime(2026, 1, 5, 22, 0),
@@ -172,7 +175,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun crossZoneFlight_usesPerSideZonesWhenReprojecting() {
+    fun crossZoneFlight_usesPerSideZonesWhenReprojecting() = runTest {
         // 09:00 New York (UTC-5) → 21:00 Paris (UTC+1), both in January.
         val slices = EventTiming(
             start = LocalDateTime(2026, 1, 5, 9, 0),
@@ -191,7 +194,7 @@ class EventDaySliceTest {
     // ---- Window clamping & DST -----------------------------------------------------------------
 
     @Test
-    fun windowSmallerThanEvent_clampsSlicesButKeepsAbsoluteIndices() {
+    fun windowSmallerThanEvent_clampsSlicesButKeepsAbsoluteIndices() = runTest {
         val slices = allDay(
             start = LocalDate(2026, 1, 5),
             endExclusive = LocalDate(2026, 1, 10), // 5 days: 5,6,7,8,9
@@ -205,7 +208,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun dstSpringForward_dayArithmeticIsUnaffected() {
+    fun dstSpringForward_dayArithmeticIsUnaffected() = runTest {
         // Europe/Paris springs forward on 2026-03-29 (02:00 → 03:00); the day is only 23h long.
         val slices = timed(
             start = LocalDateTime(2026, 3, 28, 23, 0),
@@ -224,7 +227,7 @@ class EventDaySliceTest {
     // ---- Grouping / sorting (groupDaySlicesByDay) ----------------------------------------------
 
     @Test
-    fun groupDaySlicesByDay_groupsAscending_andMultiDayEventAppearsInEachDay() {
+    fun groupDaySlicesByDay_groupsAscending_andMultiDayEventAppearsInEachDay() = runTest {
         val events = listOf(
             timed(LocalDateTime(2026, 1, 5, 14, 0), LocalDateTime(2026, 1, 7, 10, 0), paris, id = "event://timed"),
             allDay(LocalDate(2026, 1, 6), LocalDate(2026, 1, 7), id = "event://allday"),
@@ -247,7 +250,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun groupDaySlicesByDay_withinDay_allDayFirstThenTimedByStart() {
+    fun groupDaySlicesByDay_withinDay_allDayFirstThenTimedByStart() = runTest {
         val events = listOf(
             timed(LocalDateTime(2026, 1, 5, 14, 0), LocalDateTime(2026, 1, 5, 15, 0), paris, id = "event://afternoon"),
             allDay(LocalDate(2026, 1, 5), LocalDate(2026, 1, 6), id = "event://allday"),
@@ -267,7 +270,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun groupDaySlicesByDay_tieBreaksByEventIdUrl() {
+    fun groupDaySlicesByDay_tieBreaksByEventIdUrl() = runTest {
         val events = listOf(
             timed(LocalDateTime(2026, 1, 5, 10, 0), LocalDateTime(2026, 1, 5, 11, 0), paris, id = "event://b"),
             timed(LocalDateTime(2026, 1, 5, 10, 0), LocalDateTime(2026, 1, 5, 11, 0), paris, id = "event://a"),
@@ -283,7 +286,7 @@ class EventDaySliceTest {
     }
 
     @Test
-    fun groupDaySlicesByDay_rangeEndOnMidnight_excludesFollowingDay() {
+    fun groupDaySlicesByDay_rangeEndOnMidnight_excludesFollowingDay() = runTest {
         val events = listOf(
             allDay(LocalDate(2026, 1, 5), LocalDate(2026, 1, 6), id = "event://day5"),
             allDay(LocalDate(2026, 1, 6), LocalDate(2026, 1, 7), id = "event://day6"),
@@ -296,6 +299,47 @@ class EventDaySliceTest {
         )
 
         assertEquals(listOf(LocalDate(2026, 1, 5)), byDay.keys.toList())
+    }
+
+    // ---- Cancellation --------------------------------------------------------------------------
+
+    @Test
+    fun groupDaySlicesByDay_cooperatesWithCancellation_beforeEachEvent() = runTest {
+        val events = List(50) { allDay(LocalDate(2026, 1, 5), LocalDate(2026, 1, 6), id = "event://$it") }
+
+        var completed = false
+        // Swallow the CancellationException coroutineScope re-raises at completion; the point of the
+        // test is whether groupDaySlicesByDay bailed *before* finishing (completed stays false).
+        runCatching {
+            coroutineScope {
+                coroutineContext.job.cancel() // already cancelled: the per-event ensureActive() must trip
+                events.groupDaySlicesByDay(
+                    rangeStart = parisInstant(2026, 1, 5, 0, 0),
+                    rangeEnd = parisInstant(2026, 1, 6, 0, 0),
+                    timeZone = paris,
+                )
+                completed = true
+            }
+        }
+
+        assertFalse(completed, "groupDaySlicesByDay should abort on cancellation, not run to completion")
+    }
+
+    @Test
+    fun expandDaySlices_cooperatesWithCancellation_insideDayLoop() = runTest {
+        // A single long event: only the inner while-loop guard can catch cancellation here.
+        val longEvent = timed(LocalDateTime(2026, 1, 1, 8, 0), LocalDateTime(2026, 3, 31, 18, 0), paris)
+
+        var completed = false
+        runCatching {
+            coroutineScope {
+                coroutineContext.job.cancel()
+                longEvent.expandDaySlices(wideWindow, paris)
+                completed = true
+            }
+        }
+
+        assertFalse(completed, "expandDaySlices should abort inside the day loop on cancellation")
     }
 
     // ---- lastInclusiveDay -----------------------------------------------------------------------

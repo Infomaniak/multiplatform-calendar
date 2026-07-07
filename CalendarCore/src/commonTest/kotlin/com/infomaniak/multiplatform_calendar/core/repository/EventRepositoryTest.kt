@@ -23,7 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntit
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
-import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -45,10 +45,10 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class CalendarRepositoryTest : RobolectricTestsBase() {
+class EventRepositoryTest : RobolectricTestsBase() {
 
     private lateinit var database: CalendarDatabase
-    private lateinit var repository: CalendarRepository
+    private lateinit var repository: EventRepository
 
     @BeforeTest
     fun setUp() {
@@ -57,10 +57,9 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             driver = DatabaseProviderFactory.driver(),
             inMemory = true,
         )
-        repository = CalendarRepository(
-            caldavClient = NoOpCaldavClient,
+        repository = EventRepository(
             accountDao = database.accountDao(),
-            calendarDao = database.calendarDao(),
+            caldavClient = NoOpCaldavClient,
             eventDao = database.eventDao(),
         )
     }
@@ -144,7 +143,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     private fun eventDao() = database.eventDao()
 }
 
-/** Stub — [CalendarRepositoryTest] only exercises the read path, no remote call is made. */
+/** Stub — [EventRepositoryTest] only exercises the read path, no remote call is made. */
 private object NoOpCaldavClient : CalendarSyncRemoteSource {
     override suspend fun discoverCalendars(credentials: DavAccount) = emptyList<RemoteDavCalendar>()
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit

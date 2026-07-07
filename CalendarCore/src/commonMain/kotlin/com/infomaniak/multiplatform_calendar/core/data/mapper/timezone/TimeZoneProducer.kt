@@ -27,8 +27,8 @@ import kotlinx.datetime.TimeZone
  * - `TZID` parameter         → resolved in this order:
  *     1. `TimeZone.of(tzid)` — canonical IANA identifier.
  *     2. RFC 5545 §3.2.19 "globally unique" prefixed form (e.g. Thunderbird / Mozilla
- *        `/mozilla.org/20050126_1/Europe/Paris`): strip everything before the last `/`
- *        and retry — the trailing segment is usually a valid IANA id.
+ *        `/mozilla.org/20050126_1/Europe/Paris`): strip the leading `/domain/version/` prefix
+ *        and retry with the trailing path (e.g. `Europe/Paris`), which is usually a valid IANA id.
  *     3. [MS_TO_IANA_TIME_ZONES] fallback for Microsoft's non-IANA names
  *        (e.g. `Romance Standard Time` → `Europe/Paris`).
  *   If none match we throw [com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException], which causes the caller to skip
@@ -61,6 +61,7 @@ private fun stripGloballyUniqueTzidPrefix(tzid: String): String =
     tzid.takeIf { it.startsWith('/') }
         ?.run { removePrefix("/").split('/', limit = 3).getOrNull(2) }
         ?: tzid
+
 /**
  * Whether an iCalendar `DATE-TIME` value is anchored in UTC (RFC 5545 FORM #2: `Z` suffix).
  *

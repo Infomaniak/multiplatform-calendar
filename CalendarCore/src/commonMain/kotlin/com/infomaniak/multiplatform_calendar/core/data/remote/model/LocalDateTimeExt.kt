@@ -25,7 +25,6 @@ import kotlinx.datetime.format
 import kotlinx.datetime.format.char
 import kotlinx.datetime.format.optional
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
@@ -58,16 +57,8 @@ internal fun parseICalDateTime(value: String?): LocalDateTime? {
  */
 internal fun isICalDateOnly(value: String?): Boolean = value != null && 'T' !in value
 
-/**
- * Whether an iCalendar `DATE-TIME` value is anchored in UTC (RFC 5545 FORM #2: `Z` suffix).
- *
- * Returns `false` for `DATE`, floating local time (FORM #1) and local time with a `TZID` reference (FORM #3).
- */
-internal fun isICalUtcDateTime(value: String?): Boolean = value != null && value.endsWith('Z')
-
 internal fun LocalDate.toICalDate(): String = format(ICAL_DATE)
 
-@OptIn(ExperimentalTime::class)
 internal fun Instant.toICalUtcDateTime(): String = toLocalDateTime(TimeZone.UTC).format(ICAL_DATE_TIME_UTC)
 
 /**

@@ -151,7 +151,7 @@ private val daySliceComparator = compareBy<EventDaySlice>(
  * - Mon 00:00 → Mon 00:00  ⇒ Mon (clamped to notBefore, no negative span)
  * - Mon 10:00 → Tue 14:00  ⇒ Tue (non-midnight end day kept as-is)
  */
-private fun LocalDateTime.lastInclusiveDay(notBefore: LocalDate): LocalDate =
+internal fun LocalDateTime.lastInclusiveDay(notBefore: LocalDate): LocalDate =
     if (time == MIDNIGHT && date > notBefore) date.minus(1) else maxOf(date, notBefore)
 
 private fun LocalDate.minus(days: Int): LocalDate = plus(-days, DateTimeUnit.DAY)

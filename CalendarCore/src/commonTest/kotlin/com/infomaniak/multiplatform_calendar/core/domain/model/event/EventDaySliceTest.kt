@@ -298,6 +298,35 @@ class EventDaySliceTest {
         assertEquals(listOf(LocalDate(2026, 1, 5)), byDay.keys.toList())
     }
 
+    // ---- lastInclusiveDay -----------------------------------------------------------------------
+
+    @Test
+    fun lastInclusiveDay_midnightOnLaterDay_returnsPreviousDay() {
+        // DTEND is exclusive: midnight belongs to the day before.
+        val end = LocalDateTime(2026, 1, 7, 0, 0)
+        assertEquals(LocalDate(2026, 1, 6), end.lastInclusiveDay(notBefore = LocalDate(2026, 1, 5)))
+    }
+
+    @Test
+    fun lastInclusiveDay_midnightOnStartDay_isClampedToNotBefore() {
+        // Zero-length span at midnight: don't roll back below the start day.
+        val end = LocalDateTime(2026, 1, 5, 0, 0)
+        assertEquals(LocalDate(2026, 1, 5), end.lastInclusiveDay(notBefore = LocalDate(2026, 1, 5)))
+    }
+
+    @Test
+    fun lastInclusiveDay_nonMidnightEnd_keepsEndDay() {
+        val end = LocalDateTime(2026, 1, 6, 14, 0)
+        assertEquals(LocalDate(2026, 1, 6), end.lastInclusiveDay(notBefore = LocalDate(2026, 1, 5)))
+    }
+
+    @Test
+    fun lastInclusiveDay_endBeforeStart_isClampedToNotBefore() {
+        // Corrupted data (DTEND < DTSTART): never go below the start day.
+        val end = LocalDateTime(2026, 1, 3, 9, 0)
+        assertEquals(LocalDate(2026, 1, 5), end.lastInclusiveDay(notBefore = LocalDate(2026, 1, 5)))
+    }
+
     // ---- Builders ------------------------------------------------------------------------------
 
     private fun parisInstant(year: Int, month: Int, day: Int, hour: Int, minute: Int): Instant =

@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors.onColor
 import com.materialkolor.hct.Hct
 import com.materialkolor.palettes.TonalPalette
 
@@ -29,10 +30,6 @@ public data class EventColors(
     val onDatavizContainerVariant: EventColor,
 ) {
     public companion object {
-        private const val LIGHT_DARK_THRESHOLD = 50
-        private const val ON_COLOR_TONE_FOR_DARK_INPUT = 100
-        private const val ON_COLOR_TONE_FOR_LIGHT_INPUT = 20
-
         public fun from(color: Int): EventColors {
             val palette = TonalPalette.fromInt(color)
             return EventColors(
@@ -43,11 +40,6 @@ public data class EventColors(
                 datavizContainerVariant = palette.eventColor(ColorRoleTone.DatavizContainerVariant),
                 onDatavizContainerVariant = palette.eventColor(ColorRoleTone.OnDatavizContainerVariant),
             )
-        }
-
-        private fun TonalPalette.onColor(inputTone: Double): Int {
-            val onTone = if (inputTone < LIGHT_DARK_THRESHOLD) ON_COLOR_TONE_FOR_DARK_INPUT else ON_COLOR_TONE_FOR_LIGHT_INPUT
-            return tone(onTone)
         }
 
         private fun TonalPalette.eventColor(tone: ColorRoleTone): EventColor = EventColor(

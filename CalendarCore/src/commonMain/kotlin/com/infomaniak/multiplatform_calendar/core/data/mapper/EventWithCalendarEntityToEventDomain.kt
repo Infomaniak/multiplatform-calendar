@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
@@ -27,13 +27,13 @@ import kotlin.collections.getOrPut
 
 internal fun List<EventWithCalendarEntity>.toDomainEvents(): List<Event> {
     val calendarsDomains = mutableMapOf<CalendarId, Calendar>()
-    val calendarColors = mutableMapOf<CalendarColor, EventColors>()
+    val calendarColors = mutableMapOf<Int, EventColors>()
     return map { it.toDomainEvent(calendarsDomains, calendarColors) }
 }
 
 private fun EventWithCalendarEntity.toDomainEvent(
     calendarsDomains: MutableMap<CalendarId, Calendar>,
-    calendarColors: MutableMap<CalendarColor, EventColors>,
+    calendarColors: MutableMap<Int, EventColors>,
 ): Event {
     val calendar = with(calendar) {
         calendarsDomains.getOrPut(id) { toDomain() }
@@ -51,4 +51,4 @@ internal fun EventWithCalendarEntity?.toDomainEvent(): Event? {
     }
 }
 
-private fun Calendar.eventColors(): EventColors = EventColors.from(color.argb)
+private fun Calendar.eventColors(): EventColors = EventColors.from(color)

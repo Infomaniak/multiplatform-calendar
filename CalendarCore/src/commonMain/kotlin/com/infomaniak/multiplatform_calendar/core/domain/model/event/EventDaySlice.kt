@@ -38,7 +38,7 @@ import kotlin.time.Instant
  * for planning: recurrence (RRULE), when added later, will expand a master [Event] into synthetic
  * per-instance [Event]s *before* the day split, so the day-split contract below never changes.
  *
- * All fields are expressed in the `timeZone` passed to [expandDaySlices]:
+ * All fields are expressed in the `timeZone` passed to [expandDaySlicesInto]:
  * - [displayStart] / [displayEnd] are always full `date + time`, clamped to this [date] (never null,
  *   which maps cleanly onto platforms with a single mandatory date-time type such as Apple `Date`).
  *   [displayStart] is `>= date 00:00`, [displayEnd] is `<= (date + 1) 00:00` and **exclusive**.
@@ -105,27 +105,16 @@ internal suspend fun List<Event>.groupDaySlicesByDay(
 }
 
 /**
- * Expand this event into one [EventDaySlice] per day it covers, restricted to [visibleDays]
- * (inclusive on both ends) and expressed in [timeZone].
+ * Expand this event into one [EventDaySlice] per day it covers within [visibleDays] (inclusive),
+ * expressed in [timeZone], **appending** the slices into [target].
  *
- * The event is first reprojected into [timeZone] via [EventTiming.startIn] / [EventTiming.endIn], so
- * a cross-zone "flight" (start zone ≠ end zone) and floating events are placed on the grid the user
- * is looking at. `dayIndex` / `dayCount` are computed against the event's own first/last day, then
- * only the days intersecting [visibleDays] are emitted (a long event seen through a small window
- * produces just the visible slices, but with their true absolute indices).
+ * The event is reprojected into [timeZone] via [EventTiming.startIn] / [EventTiming.endIn] so
+ * cross-zone "flights" and floating events land on the grid the user sees; `dayIndex` / `dayCount`
+ * stay absolute to the event's own span, even when clamped to a smaller window.
  *
- * The result is **unsorted** and side-effect free; ordering/grouping for display is the caller's job.
- */
-internal suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> =
-    buildList { expandDaySlicesInto(target = this, visibleDays = visibleDays, timeZone = timeZone) }
-
-/**
- * Same as [expandDaySlices] but appends the slices into [target] instead of allocating a new list.
- *
- * This lets a caller expand many events into a single shared buffer ([groupDaySlicesByDay]),
- * avoiding one intermediate list per event and the concatenation cost of `flatMap`. Cancellation is
- * checked before each emitted day so an in-flight expansion (e.g. a long event over a wide window)
- * stops promptly when the caller's `mapLatest` abandons it.
+ * Appending into a caller-owned buffer lets [groupDaySlicesByDay] expand every event into one shared
+ * list (no per-event list, no `flatMap`). The slices are **unsorted**; cancellation is checked before
+ * each day so a long expansion stops promptly when the caller's `mapLatest` abandons it.
  */
 internal suspend fun Event.expandDaySlicesInto(
     target: MutableList<EventDaySlice>,

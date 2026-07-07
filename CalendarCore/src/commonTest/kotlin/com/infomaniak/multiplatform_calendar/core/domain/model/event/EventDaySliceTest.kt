@@ -373,6 +373,10 @@ class EventDaySliceTest {
 
     // ---- Builders ------------------------------------------------------------------------------
 
+    // Test-only convenience: production code appends into a shared buffer via expandDaySlicesInto.
+    private suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> =
+        buildList { expandDaySlicesInto(target = this, visibleDays = visibleDays, timeZone = timeZone) }
+
     private fun parisInstant(year: Int, month: Int, day: Int, hour: Int, minute: Int): Instant =
         LocalDateTime(year, month, day, hour, minute).toInstant(paris)
 

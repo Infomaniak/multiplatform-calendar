@@ -40,9 +40,9 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -94,11 +94,9 @@ internal class EventRepository(
         end: Instant,
         timeZone: TimeZone,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
-        return observeVisibleEvents(accountIds, start, end, zone = timeZone).mapLatest { events ->
-            withContext(Dispatchers.Default) {
-                events.groupDaySlicesByDay(start, end, timeZone)
-            }
-        }
+        return observeVisibleEvents(accountIds, start, end, zone = timeZone)
+            .mapLatest { events -> events.groupDaySlicesByDay(start, end, timeZone) }
+            .flowOn(Dispatchers.Default)
     }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {

@@ -95,7 +95,6 @@ internal class EventRepository(
 
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->
-            // TODO: Change when deleteEvent will return a result of success or failure
             caldavClient.deleteEvent(credentials, eventId.url, event.etag)
             eventDao.deleteEvent(eventId)
         }

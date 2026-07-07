@@ -72,7 +72,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     /**
      * Regression: `observeVisibleEvents(zone = X)` must feed the wall-clock range bounds in [X]
      * to the DAO so floating events are filtered against the caller-provided zone, not the device
-     * zone. Otherwise `observeVisibleDaySlices(gridZone = X)` (which forwards the same [X]) would
+     * zone. Otherwise `observeVisibleDaySlices(timeZone = X)` (which forwards the same [X]) would
      * filter events in one zone and slice them in another, producing inconsistent results.
      */
     @Test

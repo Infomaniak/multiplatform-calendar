@@ -79,7 +79,7 @@ internal class EventRepository(
      * it covers (see [groupDaySlicesByDay]), then grouped by day and sorted for direct planning
      * display (all-day first, then by start time).
      *
-     * [gridZone] drives both the SQL wall-clock filter for floating events (forwarded to
+     * [timeZone] drives both the SQL wall-clock filter for floating events (forwarded to
      * [observeVisibleEvents]) and the day split, so the two always agree on which floating events
      * are visible.
      */
@@ -87,10 +87,10 @@ internal class EventRepository(
         accountIds: Set<AccountId>,
         start: Instant,
         end: Instant,
-        gridZone: TimeZone,
+        timeZone: TimeZone,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
-        return observeVisibleEvents(accountIds, start, end, zone = gridZone).map { events ->
-            events.groupDaySlicesByDay(start, end, gridZone)
+        return observeVisibleEvents(accountIds, start, end, zone = timeZone).map { events ->
+            events.groupDaySlicesByDay(start, end, timeZone)
         }
     }
 

@@ -63,7 +63,7 @@ public class CalendarManager internal constructor(
     /**
      * Observe events from all *visible* calendars of the current account overlapping [start, end[.
      *
-     * [zone] is used to re-interpret the wall-clock of floating events against the range so a
+     * [timeZone] is used to re-interpret the wall-clock of floating events against the range so a
      * floating event stays visible at "10:00 local" wherever the user travels. Defaults to the
      * device zone, which is what a standard planning grid wants.
      */
@@ -71,29 +71,29 @@ public class CalendarManager internal constructor(
     public fun observeEvents(
         start: Instant,
         end: Instant,
-        gridZone: TimeZone = TimeZone.currentSystemDefault(),
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<List<Event>> {
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            eventRepository.observeVisibleEvents(accountIds, start, end, gridZone)
-        }.reportFlowFailures("observe events from $start to $end for zone $gridZone")
+            eventRepository.observeVisibleEvents(accountIds, start, end, timeZone)
+        }.reportFlowFailures("observe events from $start to $end for zone $timeZone")
     }
 
     /**
      * Like [observeEvents], but multi-day events are split into one [EventDaySlice] per day and the
      * result is grouped by day and sorted, ready for a planning grid (all-day first, then by start).
      *
-     * [gridZone] is the zone the planning grid is displayed in (device zone by default); it is
+     * [timeZone] is the zone the planning grid is displayed in (device zone by default); it is
      * forwarded to the repository so floating-event visibility and the day split share the same zone.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeDaySlices(
         start: Instant,
         end: Instant,
-        gridZone: TimeZone = TimeZone.currentSystemDefault(),
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
         return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            eventRepository.observeVisibleDaySlices(accountIds, start, end, gridZone)
-        }.reportFlowFailures("observe day slices from $start to $end for zone $gridZone")
+            eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone)
+        }.reportFlowFailures("observe day slices from $start to $end for zone $timeZone")
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)

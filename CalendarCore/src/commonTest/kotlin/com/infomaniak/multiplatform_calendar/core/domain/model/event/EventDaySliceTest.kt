@@ -233,7 +233,7 @@ class EventDaySliceTest {
         val byDay = events.groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 8, 0, 0),
-            gridZone = paris,
+            timeZone = paris,
         )
 
         assertEquals(listOf(LocalDate(2026, 1, 5), LocalDate(2026, 1, 6), LocalDate(2026, 1, 7)), byDay.keys.toList())
@@ -257,7 +257,7 @@ class EventDaySliceTest {
         val day = events.groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0),
-            gridZone = paris,
+            timeZone = paris,
         ).getValue(LocalDate(2026, 1, 5))
 
         assertEquals(
@@ -276,7 +276,7 @@ class EventDaySliceTest {
         val day = events.groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0),
-            gridZone = paris,
+            timeZone = paris,
         ).getValue(LocalDate(2026, 1, 5))
 
         assertEquals(listOf("event://a", "event://b"), day.map { it.event.id.url })
@@ -292,7 +292,7 @@ class EventDaySliceTest {
         val byDay = events.groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0), // exclusive: day 6 must not appear
-            gridZone = paris,
+            timeZone = paris,
         )
 
         assertEquals(listOf(LocalDate(2026, 1, 5)), byDay.keys.toList())

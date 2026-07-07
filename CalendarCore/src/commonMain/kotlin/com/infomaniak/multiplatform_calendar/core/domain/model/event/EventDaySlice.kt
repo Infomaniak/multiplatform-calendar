@@ -36,7 +36,7 @@ import kotlin.time.Instant
  * for planning: recurrence (RRULE), when added later, will expand a master [Event] into synthetic
  * per-instance [Event]s *before* the day split, so the day-split contract below never changes.
  *
- * All fields are expressed in the `gridZone` passed to [expandDaySlices]:
+ * All fields are expressed in the `timeZone` passed to [expandDaySlices]:
  * - [displayStart] / [displayEnd] are always full `date + time`, clamped to this [date] (never null,
  *   which maps cleanly onto platforms with a single mandatory date-time type such as Apple `Date`).
  *   [displayStart] is `>= date 00:00`, [displayEnd] is `<= (date + 1) 00:00` and **exclusive**.
@@ -70,34 +70,34 @@ public data class EventDaySlice(
 }
 
 /**
- * Expand every event into [EventDaySlice]s over the range `[rangeStart, rangeEnd[` (in [gridZone]),
+ * Expand every event into [EventDaySlice]s over the range `[rangeStart, rangeEnd[` (in [timeZone]),
  * then group them by day and sort each day for direct planning display.
  *
  * Within a day: all-day slices first, then timed slices by [EventDaySlice.displayStart], with
  * [EventId.url] as a stable tie-breaker. The map preserves ascending day order.
  *
- * The visible day span is derived from the range in [gridZone]; a [rangeEnd] landing exactly on
+ * The visible day span is derived from the range in [timeZone]; a [rangeEnd] landing exactly on
  * midnight is exclusive (it does not reveal the following day).
  */
 internal fun List<Event>.groupDaySlicesByDay(
     rangeStart: Instant,
     rangeEnd: Instant,
-    gridZone: TimeZone,
+    timeZone: TimeZone,
 ): Map<LocalDate, List<EventDaySlice>> {
-    val fromDay = rangeStart.toLocalDateTime(gridZone).date
-    val toDay = rangeEnd.toLocalDateTime(gridZone).lastInclusiveDay(notBefore = fromDay)
+    val fromDay = rangeStart.toLocalDateTime(timeZone).date
+    val toDay = rangeEnd.toLocalDateTime(timeZone).lastInclusiveDay(notBefore = fromDay)
     val visibleDays = fromDay..toDay
 
-    return flatMap { it.expandDaySlices(visibleDays, gridZone) }
+    return flatMap { it.expandDaySlices(visibleDays, timeZone) }
         .sortedWith(daySliceComparator)
         .groupBy(EventDaySlice::date)
 }
 
 /**
  * Expand this event into one [EventDaySlice] per day it covers, restricted to [visibleDays]
- * (inclusive on both ends) and expressed in [gridZone].
+ * (inclusive on both ends) and expressed in [timeZone].
  *
- * The event is first reprojected into [gridZone] via [EventTiming.startIn] / [EventTiming.endIn], so
+ * The event is first reprojected into [timeZone] via [EventTiming.startIn] / [EventTiming.endIn], so
  * a cross-zone "flight" (start zone ≠ end zone) and floating events are placed on the grid the user
  * is looking at. `dayIndex` / `dayCount` are computed against the event's own first/last day, then
  * only the days intersecting [visibleDays] are emitted (a long event seen through a small window
@@ -105,9 +105,9 @@ internal fun List<Event>.groupDaySlicesByDay(
  *
  * The result is **unsorted** and side-effect free; ordering/grouping for display is the caller's job.
  */
-internal fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, gridZone: TimeZone): List<EventDaySlice> {
-    val startLocalDateTime = timing.startIn(targetZone = gridZone)
-    val endLocalDateTime = timing.endIn(targetZone = gridZone)
+internal fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> {
+    val startLocalDateTime = timing.startIn(targetZone = timeZone)
+    val endLocalDateTime = timing.endIn(targetZone = timeZone)
 
     val firstDay = startLocalDateTime.date
     val lastDay = endLocalDateTime.lastInclusiveDay(notBefore = firstDay)

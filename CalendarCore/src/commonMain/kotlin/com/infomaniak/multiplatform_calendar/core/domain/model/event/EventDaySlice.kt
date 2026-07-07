@@ -145,6 +145,11 @@ private val daySliceComparator = compareBy<EventDaySlice>(
  * timed event finishing at 00:00 (or an all-day event) doesn't spill a phantom slice onto the next
  * day. The result is clamped to [notBefore] to keep single-instant or zero-length spans valid
  * (e.g. an event that starts and ends on the same day still yields that day).
+ *
+ * Examples (start day = Mon):
+ * - Mon 10:00 → Wed 00:00  ⇒ Tue (midnight on a later day = previous day)
+ * - Mon 00:00 → Mon 00:00  ⇒ Mon (clamped to notBefore, no negative span)
+ * - Mon 10:00 → Tue 14:00  ⇒ Tue (non-midnight end day kept as-is)
  */
 private fun LocalDateTime.lastInclusiveDay(notBefore: LocalDate): LocalDate =
     if (time == MIDNIGHT && date > notBefore) date.minus(1) else maxOf(date, notBefore)

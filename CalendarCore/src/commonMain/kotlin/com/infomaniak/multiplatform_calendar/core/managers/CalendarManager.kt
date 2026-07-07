@@ -42,7 +42,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -67,7 +66,7 @@ public class CalendarManager internal constructor(
      * floating event stays visible at "10:00 local" wherever the user travels. Defaults to the
      * device zone, which is what a standard planning grid wants.
      */
-    @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
+    @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeEvents(
         start: Instant,
         end: Instant,

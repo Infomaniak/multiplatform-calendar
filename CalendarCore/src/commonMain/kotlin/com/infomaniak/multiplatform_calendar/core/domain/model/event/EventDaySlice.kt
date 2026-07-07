@@ -111,21 +111,21 @@ internal fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone
 
     val firstDay = startLocalDateTime.date
     val lastDay = endLocalDateTime.lastInclusiveDay(notBefore = firstDay)
-    val dayCount = firstDay.daysUntil(lastDay) + 1
+    val eventDayCount = firstDay.daysUntil(lastDay) + 1
 
     val from = maxOf(firstDay, visibleDays.start)
     val to = minOf(lastDay, visibleDays.endInclusive)
     if (from > to) return emptyList()
 
-    return List(from.daysUntil(to) + 1) { offset ->
-        val day = from.plus(offset, DateTimeUnit.DAY)
+    return List(from.daysUntil(to) + 1) { index ->
+        val day = from.plus(index, DateTimeUnit.DAY)
         EventDaySlice(
             event = this,
             date = day,
             displayStart = if (day == firstDay) startLocalDateTime else LocalDateTime(date = day, time = MIDNIGHT),
             displayEnd = if (day == lastDay) endLocalDateTime
             else LocalDateTime(date = day.plus(1, DateTimeUnit.DAY), time = MIDNIGHT),
-            position = DaySpanPosition(index = firstDay.daysUntil(day), count = dayCount),
+            position = DaySpanPosition(index = firstDay.daysUntil(day), count = eventDayCount),
         )
     }
 }

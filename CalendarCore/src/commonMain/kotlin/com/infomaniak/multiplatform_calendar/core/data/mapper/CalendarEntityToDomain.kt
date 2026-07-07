@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors.onColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.materialkolor.hct.Hct
 import com.materialkolor.palettes.TonalPalette
 
@@ -29,8 +30,7 @@ internal fun CalendarEntity.toDomain() = Calendar(
     id = id,
     accountId = accountId,
     displayName = displayName,
-    color = getColor(),
-    onColor = getColor().onColor(),
+    colors = EventColors.from(getColor()),
     isVisible = isVisible,
     accessLevel = accessLevel,
 )

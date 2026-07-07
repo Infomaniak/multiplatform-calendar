@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
@@ -28,8 +29,7 @@ public data class Calendar(
     @HiddenFromObjC
     val accountId: AccountId,
     val displayName: String,
-    val color: Int,
-    val onColor: Int,
+    val colors: EventColors,
     val isVisible: Boolean,
     val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
 )

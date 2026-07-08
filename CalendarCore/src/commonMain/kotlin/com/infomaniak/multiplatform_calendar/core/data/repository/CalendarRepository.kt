@@ -25,10 +25,12 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -38,6 +40,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
@@ -65,15 +68,62 @@ internal class CalendarRepository(
         accountId: AccountId,
         credentials: DavAccount,
     ) {
-        val remoteCalendars = getCalendars(credentials)
+        syncCalendarMetadata(accountId, credentials)
+    }
 
-        calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
-        remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
-            calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
-            calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
-                val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
-                eventDao.upsert(remoteEvents.map { event -> event.toEntity(calendarEntity.id) })
+    suspend fun syncEvents(
+        accountId: AccountId,
+        credentials: DavAccount,
+    ) {
+        syncCalendarMetadata(accountId, credentials)
+        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+            val syncResult = caldavClient.syncCollection(
+                credentials = credentials,
+                calendarUrl = calendarEntity.id.url,
+                syncToken = calendarEntity.syncToken,
+            )
+
+            val changedEventUrls = syncResult.items.filterNot { it.isDeleted }.map { it.eventUrl }
+            if (changedEventUrls.isNotEmpty()) {
+                val changedEvents = caldavClient.getEventsByUrls(
+                    credentials = credentials,
+                    calendarUrl = calendarEntity.id.url,
+                    eventUrls = changedEventUrls,
+                )
+                upsertEventsByChangeType(calendarEntity.id, changedEvents)
             }
+
+            val deletedEventIds = syncResult.items
+                .filter { it.isDeleted }
+                .map { item -> EventId(item.eventUrl) }
+            if (deletedEventIds.isNotEmpty()) {
+                eventDao.deleteEvents(calendarId = calendarEntity.id, eventIds = deletedEventIds)
+            }
+
+            if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
+                calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
+            }
+        }
+    }
+
+    suspend fun downloadEventsByRange(
+        accountId: AccountId,
+        credentials: DavAccount,
+        start: Instant,
+        end: Instant,
+    ) {
+        syncCalendarMetadata(accountId, credentials)
+        val startValue = start.toICalUtcDateTime()
+        val endValue = end.toICalUtcDateTime()
+
+        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+            val rangeEvents = caldavClient.getEventsInRange(
+                credentials = credentials,
+                calendarUrl = calendarEntity.id.url,
+                start = startValue,
+                end = endValue,
+            )
+            upsertEventsByChangeType(calendarEntity.id, rangeEvents)
         }
     }
 
@@ -90,10 +140,37 @@ internal class CalendarRepository(
         }
     }
 
-    private suspend fun getRemoteEvents(
-        credentials: DavAccount,
-        id: CalendarId,
-    ): List<RemoteDavEvent> = caldavClient.getEvents(credentials, id.url)
+    private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
+        println("sisi> syncCalendarMetadata for account $accountId")
+        val existingCalendars = calendarDao.getByAccountId(accountId).associateBy(CalendarEntity::id)
+        val remoteCalendars = getCalendars(credentials)
+        val mergedCalendars = remoteCalendars.map { remoteCalendar ->
+            val id = CalendarId(remoteCalendar.url)
+            remoteCalendar.toEntity(accountId).copy(syncToken = existingCalendars[id]?.syncToken)
+        }
+
+        calendarDao.upsert(mergedCalendars)
+        val keepIds = remoteCalendars.map { remote -> CalendarId(remote.url) }
+        calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
+        println("sisi> syncCalendarMetadata for account $accountId done, ${mergedCalendars.size} calendars")
+    }
+
+    private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {
+        if (remoteEvents.isEmpty()) return
+
+        val remoteIds = remoteEvents.map { event -> EventId(event.url) }
+        val existingIds = eventDao.getExistingEventIds(calendarId, remoteIds).toSet()
+        val (updatedEvents, insertedEvents) = remoteEvents.partition { remoteEvent ->
+            EventId(remoteEvent.url) in existingIds
+        }
+
+        if (insertedEvents.isNotEmpty()) {
+            eventDao.upsert(insertedEvents.map { event -> event.toEntity(calendarId) })
+        }
+        if (updatedEvents.isNotEmpty()) {
+            eventDao.upsert(updatedEvents.map { event -> event.toEntity(calendarId) })
+        }
+    }
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

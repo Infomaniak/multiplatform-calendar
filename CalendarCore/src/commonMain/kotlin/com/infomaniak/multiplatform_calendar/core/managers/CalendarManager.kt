@@ -74,6 +74,32 @@ public class CalendarManager internal constructor(
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun syncEvents(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
+        runSdkCall(operation = "sync events for account $accountId") {
+            val credentials = accountRepository.getCredentials(accountId)
+            calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
+        }
+    }
+
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    @OptIn(ExperimentalTime::class)
+    public suspend fun downloadEventsByRange(
+        accountId: AccountId,
+        start: Instant,
+        end: Instant,
+    ): Unit = withContext(Dispatchers.Default) {
+        runSdkCall(operation = "download events for account $accountId from $start to $end") {
+            val credentials = accountRepository.getCredentials(accountId)
+            calendarRepository.downloadEventsByRange(
+                accountId = accountId,
+                credentials = credentials,
+                start = start,
+                end = end,
+            )
+        }
+    }
+
+    @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateCalendar(calendarId: CalendarId, edit: CalendarEditData): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "update calendar $calendarId") {
             if (edit.hasAnyChanges) {

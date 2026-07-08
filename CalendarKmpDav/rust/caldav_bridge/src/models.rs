@@ -66,6 +66,20 @@ pub struct EventEntry {
     pub attendees: Vec<AttendeeEntry>,
 }
 
+/// A single item returned by `sync-collection`.
+#[derive(uniffi::Record)]
+pub struct SyncCollectionItem {
+    pub href: String,
+    pub is_deleted: bool,
+}
+
+/// Incremental sync response containing the next token and changed/deleted resources.
+#[derive(uniffi::Record)]
+pub struct SyncCollectionResult {
+    pub sync_token: Option<String>,
+    pub items: Vec<SyncCollectionItem>,
+}
+
 /// A single ATTENDEE/ORGANIZER participant parsed from a VEVENT. Raw iCal parameter values
 /// (PARTSTAT/ROLE) are kept verbatim and mapped to domain enums Kotlin-side.
 #[derive(uniffi::Record)]

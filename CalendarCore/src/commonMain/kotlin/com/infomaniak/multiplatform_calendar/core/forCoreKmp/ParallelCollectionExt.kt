@@ -36,8 +36,13 @@ internal suspend fun <T> Iterable<T>.forEachParallelLimited(
         if (iterator.hasNext()) iterator.next() else null
     }
 
+    val workerCount = when (this) {
+        is Collection<*> -> minOf(parallelism, size)
+        else -> parallelism
+    }
+
     coroutineScope {
-        repeat(parallelism) {
+        repeat(workerCount) {
             launch {
                 while (isActive) {
                     val item = nextOrNull() ?: break

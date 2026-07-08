@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 4,
-    "identityHash": "57fe10ddfc686514fbdd6c94477e5438",
+    "identityHash": "f030b18e56fe538cfea1f5e98e93e4c7",
     "entities": [
       {
         "tableName": "accounts",
@@ -24,7 +24,7 @@
       },
       {
         "tableName": "calendars",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `displayName` TEXT NOT NULL, `color` INTEGER, `caldavColor` INTEGER, `isVisible` INTEGER NOT NULL, `ctag` TEXT, `accessLevel` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `displayName` TEXT NOT NULL, `color` INTEGER, `caldavColor` INTEGER, `isVisible` INTEGER NOT NULL, `ctag` TEXT, `syncToken` TEXT, `accessLevel` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -63,6 +63,11 @@
           {
             "fieldPath": "ctag",
             "columnName": "ctag",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncToken",
+            "columnName": "syncToken",
             "affinity": "TEXT"
           },
           {
@@ -310,7 +315,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '57fe10ddfc686514fbdd6c94477e5438')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f030b18e56fe538cfea1f5e98e93e4c7')"
     ]
   }
 }

@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -116,7 +117,7 @@ internal class CalendarRepository(
         val startValue = start.toICalUtcDateTime()
         val endValue = end.toICalUtcDateTime()
 
-        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+        calendarDao.getByAccountId(accountId).forEachParallelLimited(parallelism = 4) { calendarEntity ->
             val rangeEvents = caldavClient.getEventsInRange(
                 credentials = credentials,
                 calendarUrl = calendarEntity.id.url,

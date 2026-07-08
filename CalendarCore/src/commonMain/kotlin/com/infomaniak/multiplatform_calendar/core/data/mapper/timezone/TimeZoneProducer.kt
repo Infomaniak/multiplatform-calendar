@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper.timezone
 
-import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import kotlinx.datetime.TimeZone
 
 /**
@@ -47,7 +47,11 @@ internal fun resolveTimeZone(
     tzid != null -> runCatching { TimeZone.of(tzid) }
         .recoverCatching { TimeZone.of(stripGloballyUniqueTzidPrefix(tzid)) }
         .recoverCatching { TimeZone.of(MS_TO_IANA_TIME_ZONES.getValue(tzid)) }
-        .getOrElse { throw CaldavParsingException("Unknown $propertyName TZID '$tzid' for event $eventUrl", it) }
+        .recoverCatching {
+            it.logFailuresToSentry("Unknown $propertyName TZID '$tzid' for event $eventUrl")
+            TimeZone.UTC
+        }
+        .getOrNull()
     else -> null // Floating: no time-zone anchor (RFC 5545 FORM #1).
 }
 

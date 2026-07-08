@@ -66,6 +66,10 @@ public class CalendarManager internal constructor(
         }.reportFlowFailures("observe events from $start to $end")
     }
 
+    @Deprecated(
+        message = "Use observeEvents(start, end) instead",
+        replaceWith = ReplaceWith("observeEvents(start, end)"),
+    )
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "sync calendars for account $accountId") {

@@ -22,7 +22,24 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.jvm.JvmInline
 
+/**
+ * Executes [block] for each element with a maximum number of concurrent workers.
+ *
+ * - If this function completes successfully, each element is processed exactly once.
+ * - Processing order is not guaranteed when [parallelism] > 1.
+ * - If [block] fails for one element, the exception is rethrown, sibling workers are cancelled,
+ *   and remaining elements may not be processed.
+ * - Cancellation of the caller cancels all workers.
+ *
+ * When this iterable is a [Collection], worker count is capped to [parallelism] and [Collection.size]
+ * to avoid spawning unnecessary coroutines.
+ *
+ * @param parallelism Maximum number of concurrent workers. Must be strictly positive.
+ * @param block Suspended work executed for each element.
+ * @throws IllegalArgumentException when [parallelism] <= 0.
+ */
 internal suspend fun <T> Iterable<T>.forEachParallelLimited(
     parallelism: Int,
     block: suspend (T) -> Unit,
@@ -32,8 +49,8 @@ internal suspend fun <T> Iterable<T>.forEachParallelLimited(
     val iterator = iterator()
     val mutex = Mutex()
 
-    suspend fun nextOrNull(): T? = mutex.withLock {
-        if (iterator.hasNext()) iterator.next() else null
+    suspend fun nextOrNull(): Item<T>? = mutex.withLock {
+        if (iterator.hasNext()) Item(iterator.next()) else null
     }
 
     val workerCount = when (this) {
@@ -46,10 +63,13 @@ internal suspend fun <T> Iterable<T>.forEachParallelLimited(
             launch {
                 while (isActive) {
                     val item = nextOrNull() ?: break
-                    block(item)
+                    block(item.value)
                 }
             }
         }
     }
 }
+
+@JvmInline
+private value class Item<T>(val value: T)
 

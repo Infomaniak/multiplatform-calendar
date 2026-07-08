@@ -25,6 +25,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionItem
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionResult
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -33,14 +35,18 @@ import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.EventEdit
+import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
 import uniffi.caldav_bridge.DavAccount as RustDavAccount
 import uniffi.caldav_bridge.buildEventIcs as rustBuildEventIcs
+import uniffi.caldav_bridge.calendarMultiget as rustCalendarMultiget
+import uniffi.caldav_bridge.calendarQueryTimerange as rustCalendarQueryTimerange
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
 import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
+import uniffi.caldav_bridge.syncCollection as rustSyncCollection
 import uniffi.caldav_bridge.updateCalendar as rustUpdateCalendar
 import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
 
@@ -95,44 +101,59 @@ internal class RustCaldavBridge(
     ): List<RemoteDavEvent> = withContext(dispatcher) {
         try {
             val entries = fetchEvents(credentials.toRust(), calendarUrl)
-            return@withContext entries.map { entry ->
-                RemoteDavEvent(
-                    url = entry.url,
-                    etag = entry.etag,
-                    icsData = entry.icsData,
-                    uid = entry.uid,
-                    summary = entry.summary,
-                    description = entry.description,
-                    location = entry.location,
-                    dtstart = entry.dtstart,
-                    dtStartTzid = entry.dtstartTzid,
-                    dtend = entry.dtend,
-                    dtEndTzid = entry.dtendTzid,
-                    duration = entry.duration,
-                    created = entry.created,
-                    lastModified = entry.lastModified,
-                    dtstamp = entry.dtstamp,
-                    rrule = entry.rrule,
-                    status = entry.status,
-                    transp = entry.transp,
-                    classification = entry.classification,
-                    priority = entry.priority,
-                    sequence = entry.sequence,
-                    categories = entry.categories,
-                    attendees = entry.attendees.map { attendee ->
-                        RemoteDavAttendee(
-                            email = attendee.email,
-                            displayName = attendee.displayName,
-                            status = attendee.status,
-                            role = attendee.role,
-                            isOrganizer = attendee.isOrganizer,
-                            responseNeeded = attendee.responseNeeded,
-                        )
-                    },
-                )
-            }
+            return@withContext entries.map(EventEntry::toRemoteEvent)
+
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("getEvents")
+        }
+    }
+
+    override suspend fun getEventsInRange(
+        credentials: DavAccount,
+        calendarUrl: String,
+        start: String,
+        end: String,
+    ): List<RemoteDavEvent> = withContext(dispatcher) {
+        try {
+            val entries = rustCalendarQueryTimerange(credentials.toRust(), calendarUrl, start, end)
+            return@withContext entries.map(EventEntry::toRemoteEvent)
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("getEventsInRange")
+        }
+    }
+
+    override suspend fun syncCollection(
+        credentials: DavAccount,
+        calendarUrl: String,
+        syncToken: String?,
+    ): RemoteSyncCollectionResult = withContext(dispatcher) {
+        try {
+            val result = rustSyncCollection(credentials.toRust(), calendarUrl, syncToken)
+            RemoteSyncCollectionResult(
+                syncToken = result.syncToken,
+                items = result.items.map { item ->
+                    RemoteSyncCollectionItem(
+                        eventUrl = item.href,
+                        isDeleted = item.isDeleted,
+                    )
+                },
+            )
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("syncCollection")
+        }
+    }
+
+    override suspend fun getEventsByUrls(
+        credentials: DavAccount,
+        calendarUrl: String,
+        eventUrls: List<String>,
+    ): List<RemoteDavEvent> = withContext(dispatcher) {
+        if (eventUrls.isEmpty()) return@withContext emptyList()
+        try {
+            val entries = rustCalendarMultiget(credentials.toRust(), calendarUrl, eventUrls)
+            return@withContext entries.map(EventEntry::toRemoteEvent)
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("getEventsByUrls")
         }
     }
 
@@ -209,3 +230,41 @@ private fun RemoteEventEdit.toRust() = EventEdit(
 )
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)
+
+private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
+    return RemoteDavEvent(
+        url = this.url,
+        etag = this.etag,
+        icsData = this.icsData,
+        uid = this.uid,
+        summary = this.summary,
+        description = this.description,
+        location = this.location,
+        dtstart = this.dtstart,
+        dtStartTzid = this.dtstartTzid,
+        dtend = this.dtend,
+        dtEndTzid = this.dtendTzid,
+        duration = this.duration,
+        created = this.created,
+        lastModified = this.lastModified,
+        dtstamp = this.dtstamp,
+        rrule = this.rrule,
+        status = this.status,
+        transp = this.transp,
+        classification = this.classification,
+        priority = this.priority,
+        sequence = this.sequence,
+        categories = this.categories,
+        attendees = this.attendees.map { attendee ->
+            RemoteDavAttendee(
+                email = attendee.email,
+                displayName = attendee.displayName,
+                status = attendee.status,
+                role = attendee.role,
+                isOrganizer = attendee.isOrganizer,
+                responseNeeded = attendee.responseNeeded,
+            )
+        },
+    )
+}
+

@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionResult
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -44,6 +45,31 @@ interface CalendarSyncRemoteSource {
     /** Fetch all events (iCalendar resources) inside a calendar. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent>
+
+    /** Fetch only VEVENT resources overlapping the UTC iCal range [start, end]. */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
+    suspend fun getEventsInRange(
+        credentials: DavAccount,
+        calendarUrl: String,
+        start: String,
+        end: String,
+    ): List<RemoteDavEvent>
+
+    /** Sync a calendar incrementally. [syncToken] can be null for a first full sync pass. */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
+    suspend fun syncCollection(
+        credentials: DavAccount,
+        calendarUrl: String,
+        syncToken: String?,
+    ): RemoteSyncCollectionResult
+
+    /** Fetch a specific list of event URLs (href) using CalDAV calendar-multiget. */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
+    suspend fun getEventsByUrls(
+        credentials: DavAccount,
+        calendarUrl: String,
+        eventUrls: List<String>,
+    ): List<RemoteDavEvent>
 
     /** Apply [edit] onto an existing iCS, returning the re-serialized iCalendar object (no network). */
     suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String

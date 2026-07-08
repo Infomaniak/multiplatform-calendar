@@ -23,8 +23,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
@@ -69,15 +67,11 @@ internal class CalendarRepository(
         accountId: AccountId,
         credentials: DavAccount,
     ) {
-        val remoteCalendars = getCalendars(credentials) ?: return
-        val existingPrefsById = calendarDao.getByAccountId(accountId).associateBy { it.id }
+        val remoteCalendars = getCalendars(credentials)
+        calendarDao.syncCalendars(accountId) { existingCalendarsById ->
+            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
+        }
 
-        calendarDao.upsert(
-            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingPrefsById),
-        )
-
-        remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
-            calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
             calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
                 val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
                 val entities = remoteEvents.mapNotNull { event ->
@@ -86,7 +80,6 @@ internal class CalendarRepository(
                         .getOrNull()
                 }
                 eventDao.upsert(entities)
-            }
         }
     }
 

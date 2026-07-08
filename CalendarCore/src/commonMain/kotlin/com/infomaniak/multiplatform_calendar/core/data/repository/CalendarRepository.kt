@@ -72,14 +72,14 @@ internal class CalendarRepository(
             remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
         }
 
-            calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
-                val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
-                val entities = remoteEvents.mapNotNull { event ->
-                    runCatching { event.toEntity(calendarEntity.id) }
-                        .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
-                        .getOrNull()
-                }
-                eventDao.upsert(entities)
+        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+            val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
+            val entities = remoteEvents.mapNotNull { event ->
+                runCatching { event.toEntity(calendarEntity.id) }
+                    .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                    .getOrNull()
+            }
+            eventDao.upsert(entities)
         }
     }
 

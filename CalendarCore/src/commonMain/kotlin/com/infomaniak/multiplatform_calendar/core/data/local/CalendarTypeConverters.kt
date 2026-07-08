@@ -49,4 +49,10 @@ internal class CalendarTypeConverters {
 
     @TypeConverter
     fun toClassification(value: String?): Classification? = Classification.fromIcalString(value)
+
+    @TypeConverter
+    fun fromStringList(value: List<String>?): String? = value?.let { Json.encodeToString(it) }
+
+    @TypeConverter
+    fun toStringList(value: String?): List<String>? = value?.let { Json.decodeFromString(it) }
 }

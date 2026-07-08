@@ -33,7 +33,7 @@ internal data class EventImpl(
     override val location: String? = null,
     override val status: EventStatus? = null,
     override val classification: Classification? = null,
-    override val categories: String? = null,
+    override val categories: List<String>? = null,
     override val timing: EventTiming,
     override val lastModified: Instant? = null,
     override val attendees: List<Attendee> = emptyList(),

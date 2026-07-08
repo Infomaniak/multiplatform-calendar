@@ -234,7 +234,7 @@ class RemoteDavEventToEntityTest {
         assertFailsWith<CaldavParsingException> { remote.toEntity(calendarId) }
     }
 
-    // ---- Classification -------------------------------------------------------------------------
+    // ---- Classification & categories ------------------------------------------------------------
 
     @Test
     fun classification_standardValue_isParsedCaseInsensitively() {
@@ -257,6 +257,19 @@ class RemoteDavEventToEntityTest {
         assertNull(entity.classification)
     }
 
+    @Test
+    fun categories_areSplitTrimmedAndBlanksDropped() {
+        val entity = remoteEvent(dtstart = "20260615T100000Z", categories = " work , ,personal ").toEntity(calendarId)
+
+        assertEquals(listOf("work", "personal"), entity.categories)
+    }
+
+    @Test
+    fun categories_absentOrBlank_isNull() {
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).categories)
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).categories)
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
 
     private fun remoteEvent(
@@ -266,6 +279,7 @@ class RemoteDavEventToEntityTest {
         dtEndTzid: String? = null,
         duration: String? = null,
         classification: String? = null,
+        categories: String? = null,
     ) = RemoteDavEvent(
         url = "https://cal/tests/${dtstart ?: "empty"}.ics",
         etag = "etag-1",
@@ -288,7 +302,7 @@ class RemoteDavEventToEntityTest {
         classification = classification,
         priority = null,
         sequence = null,
-        categories = null,
+        categories = categories,
         attendees = emptyList(),
     )
 

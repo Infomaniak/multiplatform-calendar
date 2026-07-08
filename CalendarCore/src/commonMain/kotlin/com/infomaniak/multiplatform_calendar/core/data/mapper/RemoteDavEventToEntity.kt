@@ -98,7 +98,7 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         classification = Classification.fromIcalString(classification),
         priority = priority?.toIntOrNull(),
         sequence = sequence?.toIntOrNull(),
-        categories = categories,
+        categories = parseICalCategories(categories),
         attendees = attendees.map { it.toEntity() },
         etag = etag,
         rawIcs = icsData,
@@ -106,6 +106,15 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
 }
 
 private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
+
+/**
+ * Parse a raw iCalendar `CATEGORIES` value (RFC 5545 §3.8.1.2) into a list of individual tokens.
+ *
+ * Values are comma-separated; each is trimmed and blanks are dropped. Returns `null` when the
+ * property is absent or yields no usable token, so "no categories" stays distinct from an empty list.
+ */
+private fun parseICalCategories(raw: String?): List<String>? =
+    raw?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
 
 /**
  * Resolve the end used both for range-overlap queries ([EventEntity.dtEndEffective]) and for the domain timing.

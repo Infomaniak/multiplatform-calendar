@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.forCoreKmp
 
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -38,7 +39,7 @@ internal suspend fun <T> Iterable<T>.forEachParallelLimited(
     coroutineScope {
         repeat(parallelism) {
             launch {
-                while (true) {
+                while (isActive) {
                     val item = nextOrNull() ?: break
                     block(item)
                 }

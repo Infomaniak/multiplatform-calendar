@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -72,7 +73,12 @@ internal class CalendarRepository(
             calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
             calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
                 val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
-                eventDao.upsert(remoteEvents.map { event -> event.toEntity(calendarEntity.id) })
+                val entities = remoteEvents.mapNotNull { event ->
+                    runCatching { event.toEntity(calendarEntity.id) }
+                        .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                        .getOrNull()
+                }
+                eventDao.upsert(entities)
             }
         }
     }

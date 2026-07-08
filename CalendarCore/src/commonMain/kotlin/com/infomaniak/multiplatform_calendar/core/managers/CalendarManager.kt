@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -82,20 +83,21 @@ public class CalendarManager internal constructor(
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)
-    @OptIn(ExperimentalTime::class)
+    @OptIn(ExperimentalTime::class, ExperimentalCoroutinesApi::class)
     public suspend fun downloadEventsByRange(
-        accountId: AccountId,
         start: Instant,
         end: Instant,
     ): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "download events for account $accountId from $start to $end") {
-            val credentials = accountRepository.getCredentials(accountId)
-            calendarRepository.downloadEventsByRange(
-                accountId = accountId,
-                credentials = credentials,
-                start = start,
-                end = end,
-            )
+        runSdkCall(operation = "download events from $start to $end") {
+            accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.first().forEach { accountId ->
+                val credentials = accountRepository.getCredentials(accountId)
+                calendarRepository.downloadEventsByRange(
+                    accountId = accountId,
+                    credentials = credentials,
+                    start = start,
+                    end = end,
+                )
+            }
         }
     }
 

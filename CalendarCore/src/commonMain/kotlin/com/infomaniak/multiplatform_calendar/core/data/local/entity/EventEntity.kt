@@ -22,6 +22,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import kotlinx.datetime.LocalDateTime
@@ -85,7 +86,7 @@ internal data class EventEntity(
     val rrule: String? = null,
     val status: EventStatus? = null,
     val transp: String? = null,
-    val classification: String? = null,
+    val classification: Classification? = null,
     val priority: Int? = null,
     val sequence: Int? = null,
     val categories: String? = null,

@@ -37,6 +37,7 @@ internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors):
         description = description,
         location = location,
         status = status,
+        classification = classification,
         categories = categories,
         timing = toTiming(),
         lastModified = lastModified?.toInstant(TimeZone.UTC),

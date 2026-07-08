@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalDateOn
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -94,7 +95,7 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         rrule = rrule,
         status = EventStatus.fromIcalString(status),
         transp = transp,
-        classification = classification,
+        classification = Classification.fromIcalString(classification),
         priority = priority?.toIntOrNull(),
         sequence = sequence?.toIntOrNull(),
         categories = categories,

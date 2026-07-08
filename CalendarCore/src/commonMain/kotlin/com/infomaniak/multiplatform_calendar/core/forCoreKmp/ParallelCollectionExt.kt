@@ -28,23 +28,23 @@ import kotlin.jvm.JvmInline
  * Executes [block] for each element with a maximum number of concurrent workers.
  *
  * - If this function completes successfully, each element is processed exactly once.
- * - Processing order is not guaranteed when [parallelism] > 1.
+ * - Processing order is not guaranteed when [limit] > 1.
  * - If [block] fails for one element, the exception is rethrown, sibling workers are cancelled,
  *   and remaining elements may not be processed.
  * - Cancellation of the caller cancels all workers.
  *
- * When this iterable is a [Collection], worker count is capped to [parallelism] and [Collection.size]
+ * When this iterable is a [Collection], worker count is capped to [limit] and [Collection.size]
  * to avoid spawning unnecessary coroutines.
  *
- * @param parallelism Maximum number of concurrent workers. Must be strictly positive.
+ * @param limit Maximum number of concurrent workers. Must be strictly positive.
  * @param block Suspended work executed for each element.
- * @throws IllegalArgumentException when [parallelism] <= 0.
+ * @throws IllegalArgumentException when [limit] <= 0.
  */
 internal suspend fun <T> Iterable<T>.forEachParallelLimited(
-    parallelism: Int,
+    limit: Int,
     block: suspend (T) -> Unit,
 ) {
-    require(parallelism > 0) { "parallelism must be > 0" }
+    require(limit > 0) { "parallelism must be > 0" }
 
     val iterator = iterator()
     val mutex = Mutex()
@@ -54,8 +54,8 @@ internal suspend fun <T> Iterable<T>.forEachParallelLimited(
     }
 
     val workerCount = when (this) {
-        is Collection<*> -> minOf(parallelism, size)
-        else -> parallelism
+        is Collection<*> -> minOf(limit, size)
+        else -> limit
     }
 
     coroutineScope {

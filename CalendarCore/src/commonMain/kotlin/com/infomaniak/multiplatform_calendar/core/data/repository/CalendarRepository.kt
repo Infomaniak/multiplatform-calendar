@@ -117,7 +117,7 @@ internal class CalendarRepository(
         val startValue = start.toICalUtcDateTime()
         val endValue = end.toICalUtcDateTime()
 
-        calendarDao.getByAccountId(accountId).forEachParallelLimited(parallelism = 4) { calendarEntity ->
+        calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
             val rangeEvents = caldavClient.getEventsInRange(
                 credentials = credentials,
                 calendarUrl = calendarEntity.id.url,

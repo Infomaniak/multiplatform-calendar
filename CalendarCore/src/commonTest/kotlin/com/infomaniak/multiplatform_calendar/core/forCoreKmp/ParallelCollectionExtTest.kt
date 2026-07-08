@@ -41,7 +41,7 @@ class ParallelCollectionExtTest {
     fun forEachParallelLimited_parallelismOne_preservesIterationOrder() = runTest {
         val processed = mutableListOf<Int>()
 
-        (1..5).asIterable().forEachParallelLimited(parallelism = 1) { item ->
+        (1..5).asIterable().forEachParallelLimited(limit = 1) { item ->
             processed += item
         }
 
@@ -52,7 +52,7 @@ class ParallelCollectionExtTest {
     fun forEachParallelLimited_emptyIterable_doesNotInvokeBlock() = runTest {
         var calls = 0
 
-        emptyList<Int>().forEachParallelLimited(parallelism = 3) {
+        emptyList<Int>().forEachParallelLimited(limit = 3) {
             calls += 1
         }
 
@@ -65,7 +65,7 @@ class ParallelCollectionExtTest {
         val seen = mutableSetOf<Int>()
         val seenLock = Mutex()
 
-        values.forEachParallelLimited(parallelism = 32) { item ->
+        values.forEachParallelLimited(limit = 32) { item ->
             seenLock.withLock {
                 seen += item
             }
@@ -77,12 +77,12 @@ class ParallelCollectionExtTest {
     @Test
     fun forEachParallelLimited_invalidParallelism_throws() = runTest {
         val zero = assertFailsWith<IllegalArgumentException> {
-            listOf(1).forEachParallelLimited(parallelism = 0) { }
+            listOf(1).forEachParallelLimited(limit = 0) { }
         }
         assertEquals("parallelism must be > 0", zero.message)
 
         val negative = assertFailsWith<IllegalArgumentException> {
-            listOf(1).forEachParallelLimited(parallelism = -2) { }
+            listOf(1).forEachParallelLimited(limit = -2) { }
         }
         assertEquals("parallelism must be > 0", negative.message)
     }
@@ -93,7 +93,7 @@ class ParallelCollectionExtTest {
         val canceled = CompletableDeferred<Unit>()
 
         val thrown = assertFailsWith<IllegalStateException> {
-            listOf(1, 2).forEachParallelLimited(parallelism = 2) { item ->
+            listOf(1, 2).forEachParallelLimited(limit = 2) { item ->
                 if (item == 1) {
                     started.complete(Unit)
                     try {
@@ -120,7 +120,7 @@ class ParallelCollectionExtTest {
         var maxActive = 0
         val lock = Mutex()
 
-        (1..30).asIterable().forEachParallelLimited(parallelism = 4) {
+        (1..30).asIterable().forEachParallelLimited(limit = 4) {
             lock.withLock {
                 active += 1
                 if (active > maxActive) maxActive = active
@@ -141,7 +141,7 @@ class ParallelCollectionExtTest {
         val started = CompletableDeferred<Unit>()
 
         val job: Job = launch {
-            (1..100).asIterable().forEachParallelLimited(parallelism = 4) {
+            (1..100).asIterable().forEachParallelLimited(limit = 4) {
                 started.complete(Unit)
                 gate.await()
             }

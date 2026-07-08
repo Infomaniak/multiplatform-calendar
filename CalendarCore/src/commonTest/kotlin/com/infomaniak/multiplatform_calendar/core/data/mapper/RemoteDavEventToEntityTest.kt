@@ -265,6 +265,17 @@ class RemoteDavEventToEntityTest {
     }
 
     @Test
+    fun categories_preserveEscapedTextChars() {
+        // RFC 5545 §3.3.11: comma-separated TEXT values with \, \\ \; \n escapes.
+        val entity = remoteEvent(
+            dtstart = "20260615T100000Z",
+            categories = """work\, ops,path\\to,semi\;colon,line\nbreak""",
+        ).toEntity(calendarId)
+
+        assertEquals(listOf("work, ops", """path\to""", "semi;colon", "line\nbreak"), entity.categories)
+    }
+
+    @Test
     fun categories_absentOrBlank_isNull() {
         assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).categories)
         assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).categories)

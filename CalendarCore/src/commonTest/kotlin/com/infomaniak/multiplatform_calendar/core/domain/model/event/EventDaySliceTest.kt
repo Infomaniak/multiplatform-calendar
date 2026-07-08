@@ -20,8 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.job
+import com.infomaniak.multiplatform_calendar.core.utils.assertCancels
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -304,42 +303,28 @@ class EventDaySliceTest {
     // ---- Cancellation --------------------------------------------------------------------------
 
     @Test
-    fun groupDaySlicesByDay_cooperatesWithCancellation_beforeEachEvent() = runTest {
-        val events = List(50) { allDay(LocalDate(2026, 1, 5), LocalDate(2026, 1, 6), id = "event://$it") }
+    fun groupDaySlicesByDay_throwsWhenCancelled_beforeEachEvent() = runTest {
+        // Events entirely outside the visible window: each expandDaySlicesInto early-returns before its
+        // inner while-loop guard, so only the per-event guard in groupDaySlicesByDay can catch cancellation.
+        val events = List(50) { allDay(LocalDate(2026, 6, 5), LocalDate(2026, 6, 6), id = "event://$it") }
 
-        var completed = false
-        // Swallow the CancellationException coroutineScope re-raises at completion; the point of the
-        // test is whether groupDaySlicesByDay bailed *before* finishing (completed stays false).
-        runCatching {
-            coroutineScope {
-                coroutineContext.job.cancel() // already cancelled: the per-event ensureActive() must trip
-                events.groupDaySlicesByDay(
-                    rangeStart = parisInstant(2026, 1, 5, 0, 0),
-                    rangeEnd = parisInstant(2026, 1, 6, 0, 0),
-                    timeZone = paris,
-                )
-                completed = true
-            }
+        assertCancels {
+            events.groupDaySlicesByDay(
+                rangeStart = parisInstant(2026, 1, 5, 0, 0),
+                rangeEnd = parisInstant(2026, 1, 6, 0, 0),
+                timeZone = paris,
+            )
         }
-
-        assertFalse(completed, "groupDaySlicesByDay should abort on cancellation, not run to completion")
     }
 
     @Test
-    fun expandDaySlices_cooperatesWithCancellation_insideDayLoop() = runTest {
+    fun expandDaySlices_throwsWhenCancelled_insideDayLoop() = runTest {
         // A single long event: only the inner while-loop guard can catch cancellation here.
         val longEvent = timed(LocalDateTime(2026, 1, 1, 8, 0), LocalDateTime(2026, 3, 31, 18, 0), paris)
 
-        var completed = false
-        runCatching {
-            coroutineScope {
-                coroutineContext.job.cancel()
-                longEvent.expandDaySlices(wideWindow, paris)
-                completed = true
-            }
+        assertCancels {
+            longEvent.expandDaySlices(wideWindow, paris)
         }
-
-        assertFalse(completed, "expandDaySlices should abort inside the day loop on cancellation")
     }
 
     // ---- lastInclusiveDay -----------------------------------------------------------------------

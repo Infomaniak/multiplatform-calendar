@@ -23,7 +23,6 @@ import com.materialkolor.palettes.TonalPalette
 // Every color is computed at the calendar level, even if some are hidden, so computations are optimized and only done once per
 // calendar instead of doing it once per event.
 public data class CalendarColors(
-    val color: Int,
     internal val datavizContainer: ThemedColor,
     internal val onDatavizContainer: ThemedColor,
     val datavizContainerVariant: ThemedColor,
@@ -38,7 +37,6 @@ public data class CalendarColors(
             val color = calendarColor ?: DEFAULT_COLOR
             val palette = TonalPalette.fromInt(color)
             return CalendarColors(
-                color = color, // Kept exactly as given
                 datavizContainer = palette.themedColor(ThemedColorRole.DatavizContainer),
                 onDatavizContainer = palette.themedColor(ThemedColorRole.OnDatavizContainer),
                 datavizContainerVariant = palette.themedColor(ThemedColorRole.DatavizContainerVariant),

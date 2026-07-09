@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -67,19 +68,18 @@ internal class CalendarRepository(
         credentials: DavAccount,
     ) {
         val remoteCalendars = getCalendars(credentials)
+        calendarDao.syncCalendars(accountId) { existingCalendarsById ->
+            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
+        }
 
-        calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
-        remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
-            calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
-            calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
-                val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
-                val entities = remoteEvents.mapNotNull { event ->
-                    runCatching { event.toEntity(calendarEntity.id) }
-                        .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
-                        .getOrNull()
-                }
-                eventDao.upsert(entities)
+        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+            val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
+            val entities = remoteEvents.mapNotNull { event ->
+                runCatching { event.toEntity(calendarEntity.id) }
+                    .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                    .getOrNull()
             }
+            eventDao.upsert(entities)
         }
     }
 

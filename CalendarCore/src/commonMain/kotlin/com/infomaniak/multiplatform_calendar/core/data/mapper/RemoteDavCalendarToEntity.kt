@@ -24,7 +24,24 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 
-internal fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
+/**
+ * Maps each remote calendar to a [CalendarEntity], preserving local-only fields (e.g.
+ * [CalendarEntity.isVisible]) from [existingByCalendarId] when a matching row exists.
+ *
+ * Without this merge, an `@Upsert` of the mapped remote rows would reset the local prefs to their
+ * entity defaults on every sync (`isVisible = true`, …).
+ */
+internal fun List<RemoteDavCalendar>.toEntitiesPreservingLocalPrefs(
+    accountId: AccountId,
+    existingByCalendarId: Map<CalendarId, CalendarEntity>,
+): List<CalendarEntity> = map { remoteCalendar ->
+    val freshEntity = remoteCalendar.toEntity(accountId)
+    existingByCalendarId[freshEntity.id]
+        ?.let { existing -> freshEntity.copy(isVisible = existing.isVisible) }
+        ?: freshEntity
+}
+
+private fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
     id = CalendarId(url),
     accountId = accountId,
     displayName = displayName,

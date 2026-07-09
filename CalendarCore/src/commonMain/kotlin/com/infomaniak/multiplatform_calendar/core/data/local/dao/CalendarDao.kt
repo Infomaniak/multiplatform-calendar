@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -50,6 +51,17 @@ internal interface CalendarDao {
 
     @Upsert
     suspend fun upsert(calendars: List<CalendarEntity>)
+
+    @Transaction
+    suspend fun syncCalendars(
+        accountId: AccountId,
+        updater: (Map<CalendarId, CalendarEntity>) -> List<CalendarEntity>,
+    ) {
+        val existing = getByAccountId(accountId).associateBy { it.id }
+        val next = updater(existing)
+        upsert(next)
+        deleteCalendarsNotExisting(accountId, next.map { it.id })
+    }
 
     @Insert
     suspend fun insert(calendar: CalendarEntity)

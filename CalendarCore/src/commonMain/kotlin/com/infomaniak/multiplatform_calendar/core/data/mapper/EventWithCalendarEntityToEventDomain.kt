@@ -37,9 +37,4 @@ private fun EventWithCalendarEntity.toDomainEvent(
     return event.toDomain(calendar)
 }
 
-internal fun EventWithCalendarEntity?.toDomainEvent(): Event? {
-    return this?.let {
-        val calendar = calendar.toDomain()
-        event.toDomain(calendar)
-    }
-}
+internal fun EventWithCalendarEntity?.toDomainEvent(): Event? = this?.let { event.toDomain(calendar.toDomain()) }

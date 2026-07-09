@@ -63,10 +63,10 @@ class EventEntityToDomainTest {
     }
 
     @Test
-    fun categoriesLeftEmptyAfterFiltering_becomeNull() {
+    fun categoriesLeftEmptyAfterFiltering_becomeEmptyList() {
         val event = eventEntity(categories = listOf("  ", "")).toDomain(calendar, eventColors)
 
-        assertNull(event.categories)
+        assertEquals(emptyList(), event.categories)
     }
 
     private val calendarId = CalendarId("calendar://tests")

@@ -38,7 +38,7 @@ internal fun EventEntity.toDomain(calendar: Calendar, eventColors: EventColors):
         location = location?.ifBlank { null },
         status = status,
         classification = classification,
-        categories = categories?.filter { it.isNotBlank() }?.takeIf { it.isNotEmpty() },
+        categories = categories?.filter { it.isNotBlank() }.orEmpty(),
         timing = toTiming(),
         lastModified = lastModified?.toInstant(TimeZone.UTC),
         attendees = attendees,

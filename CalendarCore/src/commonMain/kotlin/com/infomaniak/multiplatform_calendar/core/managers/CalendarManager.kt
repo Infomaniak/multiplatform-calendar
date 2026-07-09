@@ -112,7 +112,9 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "sync events for all accounts") {
-            nonEmptyAccountIdsFlow().first().forEach { accountId ->
+            val accountIds = accountRepository.currentAccountIdsFlow.replayCache.lastOrNull().orEmpty()
+            if (accountIds.isEmpty()) return@runSdkCall
+            accountIds.forEach { accountId ->
                 val credentials = accountRepository.getCredentials(accountId)
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
             }

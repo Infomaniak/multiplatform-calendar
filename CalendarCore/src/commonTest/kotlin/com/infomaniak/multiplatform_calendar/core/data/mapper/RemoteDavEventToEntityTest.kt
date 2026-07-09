@@ -163,12 +163,68 @@ class RemoteDavEventToEntityTest {
     // ---- Errors ---------------------------------------------------------------------------------
 
     @Test
-    fun unknownTzid_throwsCaldavParsingException() {
-        val remote = remoteEvent(
+    fun unknownTzid_fallsBackToUtc() {
+        val entity = remoteEvent(
             dtstart = "20260615T100000",
             dtStartTzid = "Not/A/Real_Zone",
-        )
-        assertFailsWith<CaldavParsingException> { remote.toEntity(calendarId) }
+        ).toEntity(calendarId)
+
+        assertEquals("UTC", entity.startTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 10, 0).toEpochMs(TimeZone.UTC), entity.dtStartInstantMs)
+    }
+
+    // ---- Windows TZIDs (Outlook / Exchange / M365) ---------------------------------------------
+
+    @Test
+    fun windowsTzid_isMappedToIanaZone() {
+        val entity = remoteEvent(
+            dtstart = "20260615T140000",
+            dtStartTzid = "Romance Standard Time",
+            dtend = "20260615T150000",
+            dtEndTzid = "Romance Standard Time",
+        ).toEntity(calendarId)
+
+        assertEquals("Europe/Paris", entity.startTimeZone)
+        assertEquals("Europe/Paris", entity.endTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0).toEpochMs(paris), entity.dtStartInstantMs)
+    }
+
+    @Test
+    fun windowsTzid_dtstartAndDtendCanUseDifferentWindowsZones() {
+        val entity = remoteEvent(
+            dtstart = "20260615T090000",
+            dtStartTzid = "Eastern Standard Time",
+            dtend = "20260615T210000",
+            dtEndTzid = "W. Europe Standard Time",
+        ).toEntity(calendarId)
+
+        assertEquals("America/New_York", entity.startTimeZone)
+        assertEquals("Europe/Berlin", entity.endTimeZone)
+    }
+
+    // ---- Mozilla / Thunderbird "globally unique" TZIDs (RFC 5545 §3.2.19) ----------------------
+
+    @Test
+    fun mozillaPrefixedTzid_isStrippedToIana() {
+        val entity = remoteEvent(
+            dtstart = "20260615T140000",
+            dtStartTzid = "/mozilla.org/20050126_1/Europe/Paris",
+        ).toEntity(calendarId)
+
+        assertEquals("Europe/Paris", entity.startTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0).toEpochMs(paris), entity.dtStartInstantMs)
+    }
+
+    @Test
+    fun freeassociationPrefixedTzid_isStrippedToIana() {
+        // GNOME Evolution emits TZIDs of the form `/freeassociation.sourceforge.net/Tzfile/<IANA>`.
+        val entity = remoteEvent(
+            dtstart = "20260615T140000",
+            dtStartTzid = "/freeassociation.sourceforge.net/Tzfile/Europe/Paris",
+        ).toEntity(calendarId)
+
+        assertEquals("Europe/Paris", entity.startTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0).toEpochMs(paris), entity.dtStartInstantMs)
     }
 
     @Test

@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
@@ -154,10 +155,8 @@ internal class CalendarRepository(
 
     private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
         val remoteCalendars = getCalendars(credentials)
-
-        calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
-        remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
-            calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
+        calendarDao.syncCalendars(accountId) { existingCalendarsById ->
+            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
         }
     }
 

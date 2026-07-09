@@ -87,7 +87,7 @@ internal class CalendarRepository(
         credentials: DavAccount,
     ) {
         syncCalendarMetadata(accountId, credentials)
-        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+        calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 2) { calendarEntity ->
             val syncResult = caldavClient.syncCollection(
                 credentials = credentials,
                 calendarUrl = calendarEntity.id.url,

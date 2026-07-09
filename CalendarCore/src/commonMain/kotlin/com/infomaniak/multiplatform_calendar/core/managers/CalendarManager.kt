@@ -53,7 +53,7 @@ public class CalendarManager internal constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<Calendar>> {
-        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+        return nonEmptyAccountIdsFlow().flatMapLatest { accountIds ->
             calendarRepository.observeCalendars(accountIds)
         }.reportFlowFailures("observe calendars")
     }
@@ -61,7 +61,7 @@ public class CalendarManager internal constructor(
     /** Observe events from all *visible* calendars of the current account overlapping [start, end[. */
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
     public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
-        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+        return nonEmptyAccountIdsFlow().flatMapLatest { accountIds ->
             eventRepository.observeVisibleEvents(accountIds, start, end)
         }.reportFlowFailures("observe events from $start to $end")
     }
@@ -81,7 +81,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "sync events for all accounts") {
-            accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.first().forEach { accountId ->
+            nonEmptyAccountIdsFlow().first().forEach { accountId ->
                 val credentials = accountRepository.getCredentials(accountId)
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
             }
@@ -95,7 +95,7 @@ public class CalendarManager internal constructor(
         end: Instant,
     ): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "download events from $start to $end") {
-            accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.first().forEach { accountId ->
+            nonEmptyAccountIdsFlow().first().forEach { accountId ->
                 val credentials = accountRepository.getCredentials(accountId)
                 calendarRepository.downloadEventsByRange(
                     accountId = accountId,
@@ -144,6 +144,10 @@ public class CalendarManager internal constructor(
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventRepository.observeEvent(eventId).reportFlowFailures("observe event $eventId")
+    }
+
+    private fun nonEmptyAccountIdsFlow(): Flow<Set<AccountId>> {
+        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

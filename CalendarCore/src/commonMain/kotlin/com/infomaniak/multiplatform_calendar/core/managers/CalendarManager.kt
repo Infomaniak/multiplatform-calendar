@@ -98,8 +98,8 @@ public class CalendarManager internal constructor(
     }
 
     @Deprecated(
-        message = "Use observeEvents(start, end) instead",
-        replaceWith = ReplaceWith("observeEvents(start, end)"),
+        message = "Use syncEvents() instead",
+        replaceWith = ReplaceWith("syncEvents()"),
     )
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {

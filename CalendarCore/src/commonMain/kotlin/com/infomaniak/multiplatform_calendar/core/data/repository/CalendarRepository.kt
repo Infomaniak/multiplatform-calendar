@@ -96,6 +96,7 @@ internal class CalendarRepository(
 
             val changedEventUrls = syncResult.items.filterNot { it.isDeleted }.map { it.eventUrl }
             if (changedEventUrls.isNotEmpty()) {
+                // TODO[Optimize]: fetch batched events instead of all events at once
                 val changedEvents = caldavClient.getEventsByUrls(
                     credentials = credentials,
                     calendarUrl = calendarEntity.id.url,

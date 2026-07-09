@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalDateOn
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -94,10 +95,10 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         rrule = rrule,
         status = EventStatus.fromIcalString(status),
         transp = transp,
-        classification = classification,
+        classification = Classification.fromIcalString(classification),
         priority = priority?.toIntOrNull(),
         sequence = sequence?.toIntOrNull(),
-        categories = categories,
+        categories = parseICalCategories(categories),
         attendees = attendees.map { it.toEntity() },
         etag = etag,
         rawIcs = icsData,
@@ -105,6 +106,31 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
 }
 
 private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
+
+private val CATEGORY_TOKEN = Regex("""(?:\\.|[^,])+""")
+private val TEXT_ESCAPE = Regex("""\\[\\;,nN]""")
+
+/**
+ * Parse a raw iCalendar `CATEGORIES` value (RFC 5545 §3.8.1.2) into a list of individual tokens.
+ *
+ * Values are comma-separated per RFC 5545 §3.3.11 (TEXT list), but commas escaped as `\,` belong to
+ * the token. The 4 TEXT escapes defined by the RFC are decoded: `\\` → `\`, `\;` → `;`, `\,` → `,`,
+ * `\n`/`\N` → newline. Any other `\X` sequence is not defined by the grammar and is left verbatim.
+ * Each token is trimmed and blanks are dropped. Returns `null` when the property is absent or yields
+ * no usable token, so "no categories" stays distinct from an empty list.
+ */
+private fun parseICalCategories(raw: String?): List<String>? {
+    if (raw == null) return null
+    return CATEGORY_TOKEN.findAll(raw)
+        .map { it.value.unescapeIcalText().trim() }
+        .filter(String::isNotEmpty)
+        .toList()
+        .takeIf(List<String>::isNotEmpty)
+}
+
+private fun String.unescapeIcalText(): String = TEXT_ESCAPE.replace(this) {
+    if (it.value[1].equals('n', ignoreCase = true)) "\n" else it.value[1].toString()
+}
 
 /**
  * Resolve the end used both for range-overlap queries ([EventEntity.dtEndEffective]) and for the domain timing.

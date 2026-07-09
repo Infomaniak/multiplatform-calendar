@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -233,6 +234,53 @@ class RemoteDavEventToEntityTest {
         assertFailsWith<CaldavParsingException> { remote.toEntity(calendarId) }
     }
 
+    // ---- Classification & categories ------------------------------------------------------------
+
+    @Test
+    fun classification_standardValue_isParsedCaseInsensitively() {
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "private").toEntity(calendarId)
+
+        assertEquals(Classification.Private, entity.classification)
+    }
+
+    @Test
+    fun classification_customValue_isKeptVerbatim() {
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "X-CUSTOM").toEntity(calendarId)
+
+        assertEquals(Classification.Custom("X-CUSTOM"), entity.classification)
+    }
+
+    @Test
+    fun classification_absent_isNull() {
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = null).toEntity(calendarId)
+
+        assertNull(entity.classification)
+    }
+
+    @Test
+    fun categories_areSplitTrimmedAndBlanksDropped() {
+        val entity = remoteEvent(dtstart = "20260615T100000Z", categories = " work , ,personal ").toEntity(calendarId)
+
+        assertEquals(listOf("work", "personal"), entity.categories)
+    }
+
+    @Test
+    fun categories_preserveEscapedTextChars() {
+        // RFC 5545 §3.3.11: comma-separated TEXT values with \, \\ \; \n escapes.
+        val entity = remoteEvent(
+            dtstart = "20260615T100000Z",
+            categories = """work\, ops,path\\to,semi\;colon,line\nbreak""",
+        ).toEntity(calendarId)
+
+        assertEquals(listOf("work, ops", """path\to""", "semi;colon", "line\nbreak"), entity.categories)
+    }
+
+    @Test
+    fun categories_absentOrBlank_isNull() {
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).categories)
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).categories)
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
 
     private fun remoteEvent(
@@ -241,6 +289,8 @@ class RemoteDavEventToEntityTest {
         dtend: String? = null,
         dtEndTzid: String? = null,
         duration: String? = null,
+        classification: String? = null,
+        categories: String? = null,
     ) = RemoteDavEvent(
         url = "https://cal/tests/${dtstart ?: "empty"}.ics",
         etag = "etag-1",
@@ -260,10 +310,10 @@ class RemoteDavEventToEntityTest {
         rrule = null,
         status = null,
         transp = null,
-        classification = null,
+        classification = classification,
         priority = null,
         sequence = null,
-        categories = null,
+        categories = categories,
         attendees = emptyList(),
     )
 

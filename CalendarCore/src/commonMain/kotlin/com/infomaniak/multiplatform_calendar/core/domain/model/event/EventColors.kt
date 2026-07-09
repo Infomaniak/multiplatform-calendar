@@ -15,19 +15,22 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.mapper
+package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 
-private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
-
-internal fun CalendarEntity.toDomain() = Calendar(
-    id = id,
-    accountId = accountId,
-    displayName = displayName,
-    colors = CalendarColors.from(color ?: DEFAULT_COLOR),
-    isVisible = isVisible,
-    accessLevel = accessLevel,
-)
+public data class EventColors(
+    val datavizContainer: ThemedColor,
+    val onDatavizContainer: ThemedColor,
+    val datavizContainerVariant: ThemedColor,
+    val onDatavizContainerVariant: ThemedColor,
+) {
+    public companion object {
+        public fun from(color: CalendarColors): EventColors = EventColors(
+            datavizContainer = color.datavizContainer,
+            onDatavizContainer = color.onDatavizContainer,
+            datavizContainerVariant = color.datavizContainerVariant,
+            onDatavizContainerVariant = color.onDatavizContainerVariant,
+        )
+    }
+}

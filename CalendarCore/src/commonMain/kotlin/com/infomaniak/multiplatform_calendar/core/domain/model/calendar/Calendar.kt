@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.CalendarColors
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 

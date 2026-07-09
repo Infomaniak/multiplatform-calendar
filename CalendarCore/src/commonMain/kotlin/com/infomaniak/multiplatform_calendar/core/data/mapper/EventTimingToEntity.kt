@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.TimeZone
@@ -29,7 +28,7 @@ import kotlinx.datetime.toInstant
  * The edited timing always carries an explicit end, so any pre-existing `DURATION` is dropped
  * (RFC 5545 §3.8.2.5: `DTEND` and `DURATION` are mutually exclusive) and [EventTimingEntity.dtEndEffective]
  * is simply [EventTiming.end]. Epoch-ms columns are anchored via [startStorageZone] / [endStorageZone]
- * (`null` for floating events — see [EventEntity.dtStartInstantMs]).
+ * (`null` for floating events — see [EventTimingEntity.dtStartInstantMs]).
  */
 internal fun EventTiming.toEntity(): EventTimingEntity {
     val startZone = startStorageZone()
@@ -50,7 +49,7 @@ internal fun EventTiming.toEntity(): EventTimingEntity {
 /**
  * Time-zone in which to resolve [EventTiming.start] for storage (epoch-ms columns), or `null` for
  * floating events (RFC 5545 FORM #1) which have no absolute instant by definition. See
- * [EventEntity.dtStartInstantMs] for the DAO's wall-clock fallback branch on `null`.
+ * [EventTimingEntity.dtStartInstantMs] for the DAO's wall-clock fallback branch on `null`.
  *
  * - All-day → `TimeZone.UTC` so the recorded epoch ms is device-independent.
  * - Zoned   → [EventTiming.startTimeZone].

@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalUtcDateTime
@@ -114,7 +113,7 @@ private fun resolveTimeZone(
 private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
 
 /**
- * Resolve the end used both for range-overlap queries ([EventEntity.dtEndEffective]) and for the domain timing.
+ * Resolve the end used both for range-overlap queries ([EventTimingEntity.dtEndEffective]) and for the domain timing.
  *
  * **Single source of truth** for an event's resolved end (RFC 5545): explicit `DTEND`, else `dtStart + DURATION`,
  * else (whole-day, per RFC 5545 §3.6.1) `dtStart + 1 day`, else `dtStart` (zero-length `DATE-TIME` event).

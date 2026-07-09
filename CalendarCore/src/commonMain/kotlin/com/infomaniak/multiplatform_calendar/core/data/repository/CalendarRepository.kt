@@ -142,7 +142,6 @@ internal class CalendarRepository(
     }
 
     private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
-        println("sisi> syncCalendarMetadata for account $accountId")
         val existingCalendars = calendarDao.getByAccountId(accountId).associateBy(CalendarEntity::id)
         val remoteCalendars = getCalendars(credentials)
         val mergedCalendars = remoteCalendars.map { remoteCalendar ->
@@ -153,7 +152,6 @@ internal class CalendarRepository(
         calendarDao.upsert(mergedCalendars)
         val keepIds = remoteCalendars.map { remote -> CalendarId(remote.url) }
         calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
-        println("sisi> syncCalendarMetadata for account $accountId done, ${mergedCalendars.size} calendars")
     }
 
     private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {

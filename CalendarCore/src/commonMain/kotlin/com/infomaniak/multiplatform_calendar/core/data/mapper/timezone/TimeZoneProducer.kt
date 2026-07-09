@@ -48,7 +48,7 @@ internal fun resolveTimeZone(
         .recoverCatching { TimeZone.of(stripGloballyUniqueTzidPrefix(tzid)) }
         .recoverCatching { TimeZone.of(MS_TO_IANA_TIME_ZONES.getValue(tzid)) }
         .recoverCatching {
-            it.logFailuresToSentry("Unknown $propertyName TZID '$tzid' for event $eventUrl")
+            it.logFailuresToSentry("Unknown $propertyName TZID '$tzid' for event $eventUrl")//TODO:sentry log with extra for eventUrl
             TimeZone.UTC
         }
         .getOrNull()

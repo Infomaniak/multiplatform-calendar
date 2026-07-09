@@ -163,12 +163,14 @@ class RemoteDavEventToEntityTest {
     // ---- Errors ---------------------------------------------------------------------------------
 
     @Test
-    fun unknownTzid_throwsCaldavParsingException() {
-        val remote = remoteEvent(
+    fun unknownTzid_fallsBackToUtc() {
+        val entity = remoteEvent(
             dtstart = "20260615T100000",
             dtStartTzid = "Not/A/Real_Zone",
-        )
-        assertFailsWith<CaldavParsingException> { remote.toEntity(calendarId) }
+        ).toEntity(calendarId)
+
+        assertEquals("UTC", entity.startTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 10, 0).toEpochMs(TimeZone.UTC), entity.dtStartInstantMs)
     }
 
     // ---- Windows TZIDs (Outlook / Exchange / M365) ---------------------------------------------

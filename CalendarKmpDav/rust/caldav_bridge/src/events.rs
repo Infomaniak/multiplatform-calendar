@@ -4,7 +4,7 @@ use icalendar::{Calendar, CalendarComponent, Component, Property};
 use std::collections::HashSet;
 
 use crate::client::{client, ensure_success, rt};
-use crate::error::{bridge_error, CaldavError};
+use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{
     AttendeeEntry,
     DavAccount,
@@ -300,7 +300,7 @@ pub fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<Event
 
     rt.block_on(async {
         let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
-            .await.map_err(|e| bridge_error("Query", e))?;
+            .await.map_err(|error| network_or_bridge_error("Query", error.as_ref()))?;
 
         Ok(objects
             .into_iter()
@@ -412,7 +412,7 @@ pub fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> 
         let uid = uuid::Uuid::new_v4();
         let path = format!("{}/{uid}.ics", calendar_url.trim_end_matches('/'));
         let resp = cli.put_if_none_match(&path, body)
-            .await.map_err(|e| bridge_error("Create", e))?;
+            .await.map_err(|error| network_or_bridge_error("Create", error.as_ref()))?;
         ensure_success("Create", &resp)?;
         let etag = resp.headers()
             .get("etag")
@@ -432,7 +432,7 @@ pub fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: 
 
     rt.block_on(async {
         let resp = cli.put_if_match(event_url, body, etag)
-            .await.map_err(|e| bridge_error("Update", e))?;
+            .await.map_err(|error| network_or_bridge_error("Update", error.as_ref()))?;
         ensure_success("Update", &resp)?;
         let new_etag = resp.headers()
             .get("etag")
@@ -450,7 +450,7 @@ pub fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<
     let cli = client(&account)?;
 
     rt.block_on(async {
-        let resp = cli.delete_if_match(event_url, etag).await.map_err(|e| bridge_error("Delete", e))?;
+        let resp = cli.delete_if_match(event_url, etag).await.map_err(|error| network_or_bridge_error("Delete", error.as_ref()))?;
         ensure_success("Delete", &resp)
     })
 }

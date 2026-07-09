@@ -32,6 +32,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -70,6 +71,15 @@ internal class CalendarRepository(
         credentials: DavAccount,
     ) {
         syncCalendarMetadata(accountId, credentials)
+        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
+            val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
+            val entities = remoteEvents.mapNotNull { event ->
+                runCatching { event.toEntity(calendarEntity.id) }
+                    .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                    .getOrNull()
+            }
+            eventDao.upsert(entities)
+        }
     }
 
     suspend fun syncEvents(
@@ -142,16 +152,12 @@ internal class CalendarRepository(
     }
 
     private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
-        val existingCalendars = calendarDao.getByAccountId(accountId).associateBy(CalendarEntity::id)
         val remoteCalendars = getCalendars(credentials)
-        val mergedCalendars = remoteCalendars.map { remoteCalendar ->
-            val id = CalendarId(remoteCalendar.url)
-            remoteCalendar.toEntity(accountId).copy(syncToken = existingCalendars[id]?.syncToken)
-        }
 
-        calendarDao.upsert(mergedCalendars)
-        val keepIds = remoteCalendars.map { remote -> CalendarId(remote.url) }
-        calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
+        calendarDao.upsert(remoteCalendars.map { it.toEntity(accountId) })
+        remoteCalendars.map { CalendarId(it.url) }.let { keepIds ->
+            calendarDao.deleteCalendarsNotExisting(accountId, keepIds)
+        }
     }
 
     private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {
@@ -170,6 +176,11 @@ internal class CalendarRepository(
             eventDao.upsert(updatedEvents.map { event -> event.toEntity(calendarId) })
         }
     }
+
+    private suspend fun getRemoteEvents(
+        credentials: DavAccount,
+        id: CalendarId,
+    ): List<RemoteDavEvent> = caldavClient.getEvents(credentials, id.url)
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

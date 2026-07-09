@@ -28,15 +28,22 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
@@ -50,19 +57,46 @@ internal class EventRepository(
     private val eventDao: EventDao,
 ) {
 
-    fun observeVisibleEvents(accountIds: Set<AccountId>, start: Instant, end: Instant): Flow<List<Event>> {
+    fun observeVisibleEvents(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        zone: TimeZone,
+    ): Flow<List<Event>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
         // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
-        // - Wall-clock strings for floating events, re-interpreted in the device's current zone,
-        //   so a floating event stays visible at "10:00 local" wherever the user travels.
-        val deviceZone = TimeZone.currentSystemDefault()
+        // - Wall-clock strings for floating events, re-interpreted in [zone] so a floating event
+        //   stays visible at "10:00 local" wherever the user travels. Callers that also expand or
+        //   group events by day (e.g. [observeVisibleDaySlices]) must pass the *same* zone here so
+        //   the SQL filter and the downstream day split agree on which floating events are visible.
         return eventDao.observeVisibleInRange(
             accountIds = accountIds,
             startInstantMs = start.toEpochMilliseconds(),
             endInstantMs = end.toEpochMilliseconds(),
-            startLocalDateTime = start.toLocalDateTime(deviceZone),
-            endLocalDateTime = end.toLocalDateTime(deviceZone),
+            startLocalDateTime = start.toLocalDateTime(zone),
+            endLocalDateTime = end.toLocalDateTime(zone),
         ).map(List<EventWithCalendarEntity>::toDomainEvents)
+    }
+
+    /**
+     * Like [observeVisibleEvents], but each multi-day event is split into one [EventDaySlice] per day
+     * it covers (see [groupDaySlicesByDay]), then grouped by day and sorted for direct planning
+     * display (all-day first, then by start time).
+     *
+     * [timeZone] drives both the SQL wall-clock filter for floating events (forwarded to
+     * [observeVisibleEvents]) and the day split, so the two always agree on which floating events
+     * are visible.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeVisibleDaySlices(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone,
+    ): Flow<Map<LocalDate, List<EventDaySlice>>> {
+        return observeVisibleEvents(accountIds, start, end, zone = timeZone)
+            .mapLatest { events -> events.groupDaySlicesByDay(start, end, timeZone) }
+            .flowOn(Dispatchers.Default)
     }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {
@@ -95,7 +129,6 @@ internal class EventRepository(
 
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->
-            // TODO: Change when deleteEvent will return a result of success or failure
             caldavClient.deleteEvent(credentials, eventId.url, event.etag)
             eventDao.deleteEvent(eventId)
         }

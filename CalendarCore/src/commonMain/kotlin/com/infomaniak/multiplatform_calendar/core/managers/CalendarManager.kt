@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
@@ -39,6 +40,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -58,12 +61,40 @@ public class CalendarManager internal constructor(
         }.reportFlowFailures("observe calendars")
     }
 
-    /** Observe events from all *visible* calendars of the current account overlapping [start, end[. */
-    @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
-    public fun observeEvents(start: Instant, end: Instant): Flow<List<Event>> {
+    /**
+     * Observe events from all *visible* calendars of the current account overlapping [start, end[.
+     *
+     * [timeZone] is used to re-interpret the wall-clock of floating events against the range so a
+     * floating event stays visible at "10:00 local" wherever the user travels. Defaults to the
+     * device zone, which is what a standard planning grid wants.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    public fun observeEvents(
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<List<Event>> {
         return nonEmptyAccountIdsFlow().flatMapLatest { accountIds ->
-            eventRepository.observeVisibleEvents(accountIds, start, end)
-        }.reportFlowFailures("observe events from $start to $end")
+            eventRepository.observeVisibleEvents(accountIds, start, end, timeZone)
+        }.reportFlowFailures("observe events from $start to $end for zone $timeZone")
+    }
+
+    /**
+     * Like [observeEvents], but multi-day events are split into one [EventDaySlice] per day and the
+     * result is grouped by day and sorted, ready for a planning grid (all-day first, then by start).
+     *
+     * [timeZone] is the zone the planning grid is displayed in (device zone by default); it is
+     * forwarded to the repository so floating-event visibility and the day split share the same zone.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    public fun observeDaySlices(
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<Map<LocalDate, List<EventDaySlice>>> {
+        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+            eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone)
+        }.reportFlowFailures("observe day slices from $start to $end for zone $timeZone")
     }
 
     @Deprecated(

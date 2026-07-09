@@ -8,6 +8,7 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 fast-dav-rs = "0.4"
+hyper-util = "0.1"
 bytes = "1"
 http = "1"
 tokio = { version = "1", features = ["rt-multi-thread"] }

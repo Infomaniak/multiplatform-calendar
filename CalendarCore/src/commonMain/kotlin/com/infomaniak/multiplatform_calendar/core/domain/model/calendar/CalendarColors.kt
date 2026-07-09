@@ -30,7 +30,12 @@ public data class CalendarColors(
     val onDatavizContainerVariant: ThemedColor,
 ) {
     public companion object {
-        public fun from(color: Int): CalendarColors {
+        private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
+
+        internal fun from(calendarColor: CalendarColor?): CalendarColors = from(calendarColor?.argb)
+
+        public fun from(calendarColor: Int?): CalendarColors {
+            val color = calendarColor ?: DEFAULT_COLOR
             val palette = TonalPalette.fromInt(color)
             return CalendarColors(
                 color = color, // Kept exactly as given

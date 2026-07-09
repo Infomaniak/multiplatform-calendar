@@ -32,7 +32,7 @@ public data class CalendarColors(
     public companion object {
         private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
 
-        internal fun from(calendarColor: CalendarColor?): CalendarColors = from(calendarColor?.argb)
+        internal fun from(calendarColor: CalendarSourceColor?): CalendarColors = from(calendarColor?.argb)
 
         public fun from(calendarColor: Int?): CalendarColors {
             val color = calendarColor ?: DEFAULT_COLOR

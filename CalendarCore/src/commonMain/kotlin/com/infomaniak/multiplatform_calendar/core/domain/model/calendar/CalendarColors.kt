@@ -20,12 +20,4 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 import com.materialkolor.palettes.TonalPalette
 
 internal object CalendarColors {
-    private const val LIGHT_DARK_THRESHOLD = 50
-    private const val ON_COLOR_TONE_FOR_DARK_INPUT = 100
-    private const val ON_COLOR_TONE_FOR_LIGHT_INPUT = 20
-
-    internal fun TonalPalette.onColor(inputTone: Double): Int {
-        val onTone = if (inputTone < LIGHT_DARK_THRESHOLD) ON_COLOR_TONE_FOR_DARK_INPUT else ON_COLOR_TONE_FOR_LIGHT_INPUT
-        return tone(onTone)
-    }
 }

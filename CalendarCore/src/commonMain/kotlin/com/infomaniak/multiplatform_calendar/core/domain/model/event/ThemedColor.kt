@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-public data class EventColor(
+public data class ThemedColor(
     val light: Int,
     val dark: Int,
 )

@@ -37,6 +37,6 @@ internal data class EventImpl(
     override val lastModified: Instant? = null,
     override val attendees: List<Attendee> = emptyList(),
     override val organizer: Attendee? = null,
-    override val colors: EventColors,
+    override val colors: CalendarColors,
     override val canEdit: Boolean,
 ) : Event

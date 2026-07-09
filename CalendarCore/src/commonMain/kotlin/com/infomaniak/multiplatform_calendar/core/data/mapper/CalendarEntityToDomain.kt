@@ -19,10 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors.onColor
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
-import com.materialkolor.hct.Hct
-import com.materialkolor.palettes.TonalPalette
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.CalendarColors
 
 private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
 
@@ -30,14 +27,7 @@ internal fun CalendarEntity.toDomain() = Calendar(
     id = id,
     accountId = accountId,
     displayName = displayName,
-    colors = EventColors.from(getColor()),
+    colors = CalendarColors.from(color ?: DEFAULT_COLOR),
     isVisible = isVisible,
     accessLevel = accessLevel,
 )
-
-private fun CalendarEntity.getColor(): Int = color ?: DEFAULT_COLOR
-
-private fun Int.onColor(): Int {
-    val tonalPalette = TonalPalette.fromInt(this)
-    return tonalPalette.onColor(inputTone = Hct.fromInt(this).tone)
-}

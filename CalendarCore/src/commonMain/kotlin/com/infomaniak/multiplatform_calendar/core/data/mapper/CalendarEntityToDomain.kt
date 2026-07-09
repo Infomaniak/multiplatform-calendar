@@ -27,7 +27,7 @@ internal fun CalendarEntity.toDomain() = Calendar(
     id = id,
     accountId = accountId,
     displayName = displayName,
-    colors = CalendarColors.from(color ?: DEFAULT_COLOR),
+    colors = CalendarColors.from(color?.argb ?: DEFAULT_COLOR),
     isVisible = isVisible,
     accessLevel = accessLevel,
 )

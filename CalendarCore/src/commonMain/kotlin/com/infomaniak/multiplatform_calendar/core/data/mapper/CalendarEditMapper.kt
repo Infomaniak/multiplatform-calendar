@@ -18,7 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 
@@ -30,16 +30,16 @@ internal fun CalendarEditData.toRemoteEdit() = RemoteCalendarEdit(
 internal fun CalendarEntity.applyEdit(edit: CalendarEditData): CalendarEntity = copy(
     displayName = edit.displayName ?: displayName,
     color = edit.color ?: color,
-    caldavColor = edit.color ?: caldavColor,
+    caldavColor = edit.color?.argb ?: caldavColor,
     isVisible = edit.isVisible ?: isVisible,
 )
 
 /** Apple `calendar-color` format: `#RRGGBBAA`. */
-private fun Int.toCaldavHex(): String {
-    val a = (this ushr 24) and 0xFF
-    val r = (this ushr 16) and 0xFF
-    val g = (this ushr 8) and 0xFF
-    val b = this and 0xFF
+private fun CalendarColor.toCaldavHex(): String {
+    val a = (argb ushr 24) and 0xFF
+    val r = (argb ushr 16) and 0xFF
+    val g = (argb ushr 8) and 0xFF
+    val b = argb and 0xFF
     return "#" + r.toHex2() + g.toHex2() + b.toHex2() + a.toHex2()
 }
 

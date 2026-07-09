@@ -17,19 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-/**
- * Partial update to apply to a [Calendar].
- *
- * Each property is nullable: `null` means *leave it unchanged*; a non-null value means *set it to this*.
- * [displayName] and [color] are propagated to the server via a CalDAV PROPPATCH; [isVisible] is a
- * local-only flag and is never sent over the wire.
- */
-public data class CalendarEditData(
-    val displayName: String? = null,
-    val color: CalendarColor? = null,
-    val isVisible: Boolean? = null,
-) {
-    internal val hasAnyChanges = hasLocalChanges || hasRemoteChanges
-    internal val hasRemoteChanges: Boolean get() = displayName != null || color != null
-    private val hasLocalChanges: Boolean get() = isVisible != null
-}
+import kotlin.jvm.JvmInline
+
+@JvmInline
+public value class CalendarColor(public val argb: Int)

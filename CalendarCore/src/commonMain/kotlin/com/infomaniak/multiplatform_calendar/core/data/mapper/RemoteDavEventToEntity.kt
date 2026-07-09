@@ -19,76 +19,22 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.plus
-import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Duration
 
 @Throws(CaldavParsingException::class)
 internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
-    val rawStart = dtstart ?: throw CaldavParsingException("DTSTART is required for event $url")
-    val start = parseICalDateTime(rawStart) ?: throw CaldavParsingException("Unparsable DTSTART '$rawStart' for event $url")
-    val end = parseICalDateTime(dtend)
-    // DTEND and DURATION are mutually exclusive (RFC 5545); keep DURATION only when DTEND is absent.
-    val parsedDuration = if (end == null) parseICalDuration(duration) else null
-    // A `VALUE=DATE` DTSTART (no time component) denotes a whole-day event (RFC 5545).
-    val allDay = isICalDateOnly(rawStart)
-
-    val startTz = resolveTimeZone(allDay, rawStart, dtStartTzid, url, "DTSTART")
-    val rawEnd = dtend
-    // DTEND can technically carry its own TZID different from DTSTART (RFC 5545 §3.8.2.2).
-    // Resolve it independently — but fall back to the start zone when DTEND has no `TZID`
-    // attribute and is not UTC, since a bare local DATE-TIME inherits its anchor from DTSTART.
-    val endTz = if (rawEnd != null) {
-        resolveTimeZone(allDay, rawEnd, dtEndTzid, url, "DTEND") ?: startTz
-    } else {
-        startTz
-    }
-
-    // Anchor zones to materialise wall-clocks into UTC instants for SQL range queries.
-    // - All-day is always anchored in UTC so the epoch ms stays device-independent.
-    // - Zoned / UTC events use their own zone.
-    // - Floating DATE-TIME events (no `TZID`, no `Z`) have NO absolute instant by RFC 5545
-    //   semantics — the wall-clock is meant to be reinterpreted in the recipient's current zone at
-    //   display time. We store `null` epoch ms for them and let the DAO fall back to a wall-clock
-    //   comparison branch, which re-anchors automatically on device zone change (travel, DST).
-    val startAnchor = startTz ?: TimeZone.UTC.takeIf { allDay }
-    val endAnchor = endTz ?: TimeZone.UTC.takeIf { allDay }
-
-    // Keep DTEND's wall-clock in its own zone (no normalisation): the two zones are stored
-    // independently so mixed-zone events (RFC 5545 §3.8.2.2) round-trip losslessly.
-    // The DURATION math below uses an arbitrary UTC anchor when the event is fully floating (no
-    // DST → the resulting wall-clock is the same regardless of the zone chosen).
-    val durationZone = endAnchor ?: TimeZone.UTC
-    val effectiveEnd = resolveEffectiveEnd(start, end, parsedDuration, allDay, durationZone)
-
     return EventEntity(
         id = EventId(url),
         calendarId = calendarId,
         summary = summary ?: "",
         description = description,
         location = location,
-        dtStart = start,
-        dtEnd = end,
-        duration = parsedDuration,
-        dtEndEffective = effectiveEnd,
-        startTimeZone = startTz?.id,
-        endTimeZone = endTz?.id,
-        dtStartInstantMs = startAnchor?.let { start.toEpochMs(it) },
-        dtEndInstantMs = endAnchor?.let { effectiveEnd.toEpochMs(it) },
-        isAllDay = allDay,
+        timing = toTimingEntity(),
         created = parseICalDateTime(created),
         lastModified = parseICalDateTime(lastModified),
         dtStamp = parseICalDateTime(dtstamp),
@@ -105,7 +51,6 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
     )
 }
 
-private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
 
 private val CATEGORY_TOKEN = Regex("""(?:\\.|[^,])+""")
 private val TEXT_ESCAPE = Regex("""\\[\\;,nN]""")
@@ -130,27 +75,5 @@ private fun parseICalCategories(raw: String?): List<String>? {
 
 private fun String.unescapeIcalText(): String = TEXT_ESCAPE.replace(this) {
     if (it.value[1].equals('n', ignoreCase = true)) "\n" else it.value[1].toString()
-}
-
-/**
- * Resolve the end used both for range-overlap queries ([EventEntity.dtEndEffective]) and for the domain timing.
- *
- * **Single source of truth** for an event's resolved end (RFC 5545): explicit `DTEND`, else `dtStart + DURATION`,
- * else (whole-day, per RFC 5545 §3.6.1) `dtStart + 1 day`, else `dtStart` (zero-length `DATE-TIME` event).
- *
- * The [endZone] anchors the `DURATION` math; for all-day or floating events any zone works since the
- * computation is purely on the wall-clock.
- */
-private fun resolveEffectiveEnd(
-    start: LocalDateTime,
-    end: LocalDateTime?,
-    duration: Duration?,
-    allDay: Boolean,
-    endZone: TimeZone,
-): LocalDateTime = when {
-    end != null -> end
-    duration != null -> start.toInstant(endZone).plus(duration).toLocalDateTime(endZone)
-    allDay -> LocalDateTime(start.date.plus(1, DateTimeUnit.DAY), start.time)
-    else -> start
 }
 

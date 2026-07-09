@@ -32,9 +32,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
-class RemoteDavEventToEntityTest {
-
-    private val calendarId = CalendarId("calendar://tests")
+class RemoteDavEventToTimingEntityTest {
     private val paris = TimeZone.of("Europe/Paris")
     private val newYork = TimeZone.of("America/New_York")
 
@@ -42,123 +40,123 @@ class RemoteDavEventToEntityTest {
 
     @Test
     fun allDay_storesBothZonesAsNull_andEpochAnchoredInUtc() {
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615", // VALUE=DATE
             dtend = "20260616",
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertEquals(true, entity.isAllDay)
-        assertNull(entity.startTimeZone)
-        assertNull(entity.endTimeZone)
-        assertEquals(LocalDateTime(2026, 6, 15, 0, 0).toEpochMs(TimeZone.UTC), entity.dtStartInstantMs)
-        assertEquals(LocalDateTime(2026, 6, 16, 0, 0).toEpochMs(TimeZone.UTC), entity.dtEndInstantMs)
+        assertEquals(true, timing.isAllDay)
+        assertNull(timing.startTimeZone)
+        assertNull(timing.endTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 0, 0).toEpochMs(TimeZone.UTC), timing.dtStartInstantMs)
+        assertEquals(LocalDateTime(2026, 6, 16, 0, 0).toEpochMs(TimeZone.UTC), timing.dtEndInstantMs)
     }
 
     // ---- UTC (Z suffix) -------------------------------------------------------------------------
 
     @Test
     fun utcEvent_storesUtcZone_andAnchoredInstants() {
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615T100000Z",
             dtend = "20260615T110000Z",
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertEquals(false, entity.isAllDay)
-        assertEquals("UTC", entity.startTimeZone)
-        assertEquals("UTC", entity.endTimeZone)
-        assertEquals(LocalDateTime(2026, 6, 15, 10, 0).toEpochMs(TimeZone.UTC), entity.dtStartInstantMs)
-        assertEquals(LocalDateTime(2026, 6, 15, 11, 0).toEpochMs(TimeZone.UTC), entity.dtEndInstantMs)
+        assertEquals(false, timing.isAllDay)
+        assertEquals("UTC", timing.startTimeZone)
+        assertEquals("UTC", timing.endTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 10, 0).toEpochMs(TimeZone.UTC), timing.dtStartInstantMs)
+        assertEquals(LocalDateTime(2026, 6, 15, 11, 0).toEpochMs(TimeZone.UTC), timing.dtEndInstantMs)
     }
 
     // ---- Zoned (TZID) ---------------------------------------------------------------------------
 
     @Test
     fun zonedEvent_storesTzid_andAnchoredInstantsInThatZone() {
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615T140000",
             dtStartTzid = "Europe/Paris",
             dtend = "20260615T150000",
             dtEndTzid = "Europe/Paris",
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertEquals("Europe/Paris", entity.startTimeZone)
-        assertEquals("Europe/Paris", entity.endTimeZone)
-        assertEquals(LocalDateTime(2026, 6, 15, 14, 0).toEpochMs(paris), entity.dtStartInstantMs)
-        assertEquals(LocalDateTime(2026, 6, 15, 15, 0).toEpochMs(paris), entity.dtEndInstantMs)
+        assertEquals("Europe/Paris", timing.startTimeZone)
+        assertEquals("Europe/Paris", timing.endTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0).toEpochMs(paris), timing.dtStartInstantMs)
+        assertEquals(LocalDateTime(2026, 6, 15, 15, 0).toEpochMs(paris), timing.dtEndInstantMs)
     }
 
     // ---- Cross-zone (RFC 5545 §3.8.2.2) ---------------------------------------------------------
 
     @Test
     fun flightEvent_keepsBothZonesIndependent() {
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615T090000",
             dtStartTzid = "America/New_York",
             dtend = "20260615T210000",
             dtEndTzid = "Europe/Paris",
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertEquals("America/New_York", entity.startTimeZone)
-        assertEquals("Europe/Paris", entity.endTimeZone)
-        assertEquals(LocalDateTime(2026, 6, 15, 9, 0).toEpochMs(newYork), entity.dtStartInstantMs)
-        assertEquals(LocalDateTime(2026, 6, 15, 21, 0).toEpochMs(paris), entity.dtEndInstantMs)
+        assertEquals("America/New_York", timing.startTimeZone)
+        assertEquals("Europe/Paris", timing.endTimeZone)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0).toEpochMs(newYork), timing.dtStartInstantMs)
+        assertEquals(LocalDateTime(2026, 6, 15, 21, 0).toEpochMs(paris), timing.dtEndInstantMs)
     }
 
     @Test
     fun zonedEvent_dtendWithoutOwnTzid_inheritsStartZone() {
         // RFC 5545: a bare local DATE-TIME on DTEND inherits DTSTART's anchor unless flagged UTC.
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615T140000",
             dtStartTzid = "Europe/Paris",
             dtend = "20260615T150000",
             dtEndTzid = null,
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertEquals("Europe/Paris", entity.startTimeZone)
-        assertEquals("Europe/Paris", entity.endTimeZone)
+        assertEquals("Europe/Paris", timing.startTimeZone)
+        assertEquals("Europe/Paris", timing.endTimeZone)
     }
 
     // ---- Floating (FORM #1: no TZID, no Z) ------------------------------------------------------
 
     @Test
     fun floatingEvent_storesBothZonesAndInstantsAsNull() {
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615T100000",
             dtend = "20260615T110000",
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertNull(entity.startTimeZone)
-        assertNull(entity.endTimeZone)
+        assertNull(timing.startTimeZone)
+        assertNull(timing.endTimeZone)
         // Per RFC 5545 FORM #1 a floating event has no absolute instant — DAO uses wall-clock branch.
-        assertNull(entity.dtStartInstantMs)
-        assertNull(entity.dtEndInstantMs)
+        assertNull(timing.dtStartInstantMs)
+        assertNull(timing.dtEndInstantMs)
     }
 
     // ---- DURATION -------------------------------------------------------------------------------
 
     @Test
     fun durationEvent_computesDtEndEffective_fromStartPlusDuration() {
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615T100000Z",
             dtend = null,
             duration = "PT2H",
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertEquals(LocalDateTime(2026, 6, 15, 12, 0), entity.dtEndEffective)
-        assertEquals(2.hours, entity.duration)
+        assertEquals(LocalDateTime(2026, 6, 15, 12, 0), timing.dtEndEffective)
+        assertEquals(2.hours, timing.duration)
         // Anchored via the end zone (== start zone for a single-zoned event).
-        assertEquals(LocalDateTime(2026, 6, 15, 12, 0).toEpochMs(TimeZone.UTC), entity.dtEndInstantMs)
+        assertEquals(LocalDateTime(2026, 6, 15, 12, 0).toEpochMs(TimeZone.UTC), timing.dtEndInstantMs)
     }
 
     @Test
     fun allDayEvent_withNoDtEnd_defaultsToPlusOneDay() {
         // RFC 5545 §3.6.1: an all-day event without DTEND spans one day.
-        val entity = remoteEvent(
+        val timing = remoteEvent(
             dtstart = "20260615",
             dtend = null,
-        ).toEntity(calendarId)
+        ).toTimingEntity()
 
-        assertEquals(LocalDateTime(2026, 6, 16, 0, 0), entity.dtEndEffective)
+        assertEquals(LocalDateTime(2026, 6, 16, 0, 0), timing.dtEndEffective)
     }
 
     // ---- Errors ---------------------------------------------------------------------------------
@@ -231,7 +229,7 @@ class RemoteDavEventToEntityTest {
     @Test
     fun missingDtstart_throwsCaldavParsingException() {
         val remote = remoteEvent(dtstart = null)
-        assertFailsWith<CaldavParsingException> { remote.toEntity(calendarId) }
+        assertFailsWith<CaldavParsingException> { remote.toTimingEntity() }
     }
 
     // ---- Classification & categories ------------------------------------------------------------

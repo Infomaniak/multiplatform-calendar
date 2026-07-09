@@ -163,18 +163,12 @@ internal class CalendarRepository(
     private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {
         if (remoteEvents.isEmpty()) return
 
-        val remoteIds = remoteEvents.map { event -> EventId(event.url) }
-        val existingIds = eventDao.getExistingEventIds(calendarId, remoteIds).toSet()
-        val (updatedEvents, insertedEvents) = remoteEvents.partition { remoteEvent ->
-            EventId(remoteEvent.url) in existingIds
+        val entities = remoteEvents.mapNotNull { event ->
+            runCatching { event.toEntity(calendarId) }
+                .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                .getOrNull()
         }
-
-        if (insertedEvents.isNotEmpty()) {
-            eventDao.upsert(insertedEvents.map { event -> event.toEntity(calendarId) })
-        }
-        if (updatedEvents.isNotEmpty()) {
-            eventDao.upsert(updatedEvents.map { event -> event.toEntity(calendarId) })
-        }
+        if (entities.isNotEmpty()) eventDao.upsert(entities)
     }
 
     private suspend fun getRemoteEvents(

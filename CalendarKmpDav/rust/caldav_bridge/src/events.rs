@@ -11,7 +11,7 @@ use crate::models::{
     EventEdit,
     EventEntry,
     MutateResult,
-	VTimeZoneSpec,
+    VTimeZoneSpec,
     SyncCollectionItem,
     SyncCollectionResult,
 };

@@ -188,8 +188,8 @@ public class CalendarManager internal constructor(
         var currentAccountId: AccountId? = null
         accountRepository.currentAccountIdsFlow.collectRestartingUntilComplete(
             initialValue = initialAccountIds,
-            shouldRestart = { _, newIds ->
-                shouldRestartCurrentSync(currentAccountId, newIds)
+            shouldRestart = { newAccountIds ->
+                shouldRestartCurrentSync(currentAccountId, newAccountIds)
             },
             action = { accountIds ->
                 try {

@@ -33,17 +33,16 @@ import kotlinx.coroutines.selects.select
  */
 internal suspend fun <T> Flow<T>.collectRestartingUntilComplete(
     initialValue: T,
-    shouldRestart: (currentValue: T, newValue: T) -> Boolean,
+    shouldRestart: (newValue: T) -> Boolean,
     action: suspend (T) -> Unit,
 ) = coroutineScope {
-    var runningValue = initialValue
     val updates = Channel<T>(Channel.CONFLATED)
     val collectorJob = launch {
         collect { value ->
             updates.trySend(value)
         }
     }
-    var actionJob = launch { action(runningValue) }
+    var actionJob = launch { action(initialValue) }
 
     try {
         var isCompleted = false
@@ -55,11 +54,10 @@ internal suspend fun <T> Flow<T>.collectRestartingUntilComplete(
 
                 updates.onReceiveCatching { result ->
                     val newValue = result.getOrNull() ?: return@onReceiveCatching
-                    if (!shouldRestart(runningValue, newValue)) return@onReceiveCatching
+                    if (!shouldRestart(newValue)) return@onReceiveCatching
 
-                    runningValue = newValue
                     actionJob.cancelAndJoin()
-                    actionJob = launch { action(runningValue) }
+                    actionJob = launch { action(newValue) }
                 }
             }
         }

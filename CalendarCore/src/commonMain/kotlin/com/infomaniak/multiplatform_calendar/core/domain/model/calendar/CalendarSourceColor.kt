@@ -20,4 +20,4 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 import kotlin.jvm.JvmInline
 
 @JvmInline
-public value class CalendarColor(public val argb: Int)
+public value class CalendarSourceColor(public val argb: Int)

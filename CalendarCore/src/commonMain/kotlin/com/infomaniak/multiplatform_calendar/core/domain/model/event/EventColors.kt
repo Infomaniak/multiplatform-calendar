@@ -17,36 +17,20 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.materialkolor.palettes.TonalPalette
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 
 public data class EventColors(
-    val datavizContainer: EventColor,
-    val onDatavizContainer: EventColor,
-    val datavizContainerVariant: EventColor,
-    val onDatavizContainerVariant: EventColor,
+    val datavizContainer: ThemedColor,
+    val onDatavizContainer: ThemedColor,
+    val datavizContainerVariant: ThemedColor,
+    val onDatavizContainerVariant: ThemedColor,
 ) {
     public companion object {
-        public fun from(color: Int): EventColors {
-            val palette = TonalPalette.fromInt(color)
-            return EventColors(
-                datavizContainer = palette.eventColor(ColorRoleTone.DatavizContainer),
-                onDatavizContainer = palette.eventColor(ColorRoleTone.OnDatavizContainer),
-                datavizContainerVariant = palette.eventColor(ColorRoleTone.DatavizContainerVariant),
-                onDatavizContainerVariant = palette.eventColor(ColorRoleTone.OnDatavizContainerVariant),
-            )
-        }
-
-        private fun TonalPalette.eventColor(tone: ColorRoleTone): EventColor = EventColor(
-            light = tone(tone.light),
-            dark = tone(tone.dark),
+        public fun from(color: CalendarColors): EventColors = EventColors(
+            datavizContainer = color.datavizContainer,
+            onDatavizContainer = color.onDatavizContainer,
+            datavizContainerVariant = color.datavizContainerVariant,
+            onDatavizContainerVariant = color.onDatavizContainerVariant,
         )
-
-        // Tones are based on what the spec uses for dataviz colors which is itself based on the material logic of what tones to pair
-        private enum class ColorRoleTone(val light: Int, val dark: Int) {
-            DatavizContainer(light = 100, dark = 20),
-            OnDatavizContainer(light = 40, dark = 80),
-            DatavizContainerVariant(light = 90, dark = 30),
-            OnDatavizContainerVariant(light = 30, dark = 90),
-        }
     }
 }

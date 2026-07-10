@@ -26,7 +26,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
  */
 public data class CalendarEditData(
     val displayName: String? = null,
-    val color: CalendarColor? = null,
+    val color: CalendarSourceColor? = null,
     val isVisible: Boolean? = null,
 ) {
     internal val hasAnyChanges = hasLocalChanges || hasRemoteChanges

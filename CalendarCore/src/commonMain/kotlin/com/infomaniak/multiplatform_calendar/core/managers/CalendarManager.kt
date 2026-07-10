@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySli
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.collectRestartingUntilComplete
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -37,7 +38,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
@@ -116,8 +116,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "sync events for all accounts") {
-            accountRepository.currentAccountIdsFlow.replayCache.lastOrNull()?.forEach { accountId ->
-                val credentials = accountRepository.getCredentials(accountId)
+            syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
             }
         }
@@ -130,8 +129,7 @@ public class CalendarManager internal constructor(
         end: Instant,
     ): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "download events from $start to $end") {
-            nonEmptyAccountIdsFlow.first().forEach { accountId ->
-                val credentials = accountRepository.getCredentials(accountId)
+            syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.downloadEventsByRange(
                     accountId = accountId,
                     credentials = credentials,
@@ -179,6 +177,56 @@ public class CalendarManager internal constructor(
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventRepository.observeEvent(eventId).reportFlowFailures("observe event $eventId")
+    }
+
+    private suspend fun syncAccountsWithRestartingCollection(
+        syncAction: suspend (AccountId, DavAccount) -> Unit,
+    ) {
+        val initialAccountIds = currentAccountIdsSnapshot()
+        if (initialAccountIds.isEmpty()) return
+
+        var currentAccountId: AccountId? = null
+        accountRepository.currentAccountIdsFlow.collectRestartingUntilComplete(
+            initialValue = initialAccountIds,
+            shouldRestart = { _, newIds ->
+                shouldRestartCurrentSync(currentAccountId, newIds)
+            },
+            action = { accountIds ->
+                try {
+                    accountIds.forEach { accountId ->
+                        currentAccountId = accountId
+                        syncAccountIfConnected(accountId, syncAction)
+                    }
+                } finally {
+                    currentAccountId = null
+                }
+            },
+        )
+    }
+
+    private fun currentAccountIdsSnapshot(): Set<AccountId> {
+        return accountRepository.currentAccountIdsFlow.replayCache.lastOrNull().orEmpty()
+    }
+
+    private fun shouldRestartCurrentSync(currentAccountId: AccountId?, newAccountIds: Set<AccountId>): Boolean {
+        return newAccountIds.isEmpty() || (currentAccountId != null && currentAccountId !in newAccountIds)
+    }
+
+    private suspend inline fun syncAccountIfConnected(
+        accountId: AccountId,
+        syncAction: suspend (AccountId, DavAccount) -> Unit,
+    ) {
+        if (accountId !in currentAccountIdsSnapshot()) return
+        val credentials = getCredentialsOrNull(accountId) ?: return
+        syncAction(accountId, credentials)
+    }
+
+    private suspend inline fun getCredentialsOrNull(accountId: AccountId): DavAccount? {
+        return try {
+            accountRepository.getCredentials(accountId)
+        } catch (_: IllegalStateException) {
+            null
+        }
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

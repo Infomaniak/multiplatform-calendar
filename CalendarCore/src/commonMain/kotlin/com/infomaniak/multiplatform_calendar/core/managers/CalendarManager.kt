@@ -37,11 +37,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -52,9 +54,13 @@ public class CalendarManager internal constructor(
     private val eventRepository: EventRepository,
 ) {
 
+    private val nonEmptyAccountIdsFlow by lazy {
+        accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<Calendar>> {
-        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+        return nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
             calendarRepository.observeCalendars(accountIds)
         }.reportFlowFailures("observe calendars")
     }
@@ -72,7 +78,7 @@ public class CalendarManager internal constructor(
         end: Instant,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<List<Event>> {
-        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+        return nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
             eventRepository.observeVisibleEvents(accountIds, start, end, timeZone)
         }.reportFlowFailures("observe events from $start to $end for zone $timeZone")
     }
@@ -95,11 +101,44 @@ public class CalendarManager internal constructor(
         }.reportFlowFailures("observe day slices from $start to $end for zone $timeZone")
     }
 
+    @Deprecated(
+        message = "Use syncEvents() instead",
+        replaceWith = ReplaceWith("syncEvents()"),
+    )
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "sync calendars for account $accountId") {
             val credentials = accountRepository.getCredentials(accountId)
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
+        }
+    }
+
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
+        runSdkCall(operation = "sync events for all accounts") {
+            accountRepository.currentAccountIdsFlow.replayCache.lastOrNull()?.forEach { accountId ->
+                val credentials = accountRepository.getCredentials(accountId)
+                calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
+            }
+        }
+    }
+
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    @OptIn(ExperimentalTime::class, ExperimentalCoroutinesApi::class)
+    public suspend fun downloadEventsByRange(
+        start: Instant,
+        end: Instant,
+    ): Unit = withContext(Dispatchers.Default) {
+        runSdkCall(operation = "download events from $start to $end") {
+            nonEmptyAccountIdsFlow.first().forEach { accountId ->
+                val credentials = accountRepository.getCredentials(accountId)
+                calendarRepository.downloadEventsByRange(
+                    accountId = accountId,
+                    credentials = credentials,
+                    start = start,
+                    end = end,
+                )
+            }
         }
     }
 

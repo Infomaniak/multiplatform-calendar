@@ -26,10 +26,13 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -40,6 +43,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
@@ -67,11 +71,7 @@ internal class CalendarRepository(
         accountId: AccountId,
         credentials: DavAccount,
     ) {
-        val remoteCalendars = getCalendars(credentials)
-        calendarDao.syncCalendars(accountId) { existingCalendarsById ->
-            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
-        }
-
+        syncCalendarMetadata(accountId, credentials)
         calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
             val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
             val entities = remoteEvents.mapNotNull { event ->
@@ -80,6 +80,63 @@ internal class CalendarRepository(
                     .getOrNull()
             }
             eventDao.upsert(entities)
+        }
+    }
+
+    suspend fun syncEvents(
+        accountId: AccountId,
+        credentials: DavAccount,
+    ) {
+        syncCalendarMetadata(accountId, credentials)
+        calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 2) { calendarEntity ->
+            val syncResult = caldavClient.syncCollection(
+                credentials = credentials,
+                calendarUrl = calendarEntity.id.url,
+                syncToken = calendarEntity.syncToken,
+            )
+
+            val changedEventUrls = syncResult.items.filterNot { it.isDeleted }.map { it.eventUrl }
+            if (changedEventUrls.isNotEmpty()) {
+                // TODO[Optimize]: fetch batched events instead of all events at once
+                val changedEvents = caldavClient.getEventsByUrls(
+                    credentials = credentials,
+                    calendarUrl = calendarEntity.id.url,
+                    eventUrls = changedEventUrls,
+                )
+                upsertEventsByChangeType(calendarEntity.id, changedEvents)
+            }
+
+            val deletedEventIds = syncResult.items
+                .filter { it.isDeleted }
+                .map { item -> EventId(item.eventUrl) }
+            if (deletedEventIds.isNotEmpty()) {
+                eventDao.deleteEvents(calendarId = calendarEntity.id, eventIds = deletedEventIds)
+            }
+
+            if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
+                calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
+            }
+        }
+    }
+
+    suspend fun downloadEventsByRange(
+        accountId: AccountId,
+        credentials: DavAccount,
+        start: Instant,
+        end: Instant,
+    ) {
+        syncCalendarMetadata(accountId, credentials)
+        val startValue = start.toICalUtcDateTime()
+        val endValue = end.toICalUtcDateTime()
+
+        calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
+            val rangeEvents = caldavClient.getEventsInRange(
+                credentials = credentials,
+                calendarUrl = calendarEntity.id.url,
+                start = startValue,
+                end = endValue,
+            )
+            upsertEventsByChangeType(calendarEntity.id, rangeEvents)
         }
     }
 
@@ -94,6 +151,24 @@ internal class CalendarRepository(
             }
             calendarDao.update(calendar = calendarEntity.applyEdit(edit))
         }
+    }
+
+    private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
+        val remoteCalendars = getCalendars(credentials)
+        calendarDao.syncCalendars(accountId) { existingCalendarsById ->
+            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
+        }
+    }
+
+    private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {
+        if (remoteEvents.isEmpty()) return
+
+        val entities = remoteEvents.mapNotNull { event ->
+            runCatching { event.toEntity(calendarId) }
+                .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                .getOrNull()
+        }
+        if (entities.isNotEmpty()) eventDao.upsert(entities)
     }
 
     private suspend fun getRemoteEvents(

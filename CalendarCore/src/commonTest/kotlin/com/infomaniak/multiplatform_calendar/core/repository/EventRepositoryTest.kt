@@ -35,6 +35,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -148,6 +149,15 @@ private object NoOpCaldavClient : CalendarSyncRemoteSource {
     override suspend fun discoverCalendars(credentials: DavAccount) = emptyList<RemoteDavCalendar>()
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
     override suspend fun getEvents(credentials: DavAccount, calendarUrl: String) = emptyList<RemoteDavEvent>()
+    override suspend fun getEventsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
+        emptyList<RemoteDavEvent>()
+
+    override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
+        RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
+
+    override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
+        emptyList<RemoteDavEvent>()
+
     override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = icsData
     override suspend fun buildEventIcs(edit: RemoteEventEdit) = ""
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String) =

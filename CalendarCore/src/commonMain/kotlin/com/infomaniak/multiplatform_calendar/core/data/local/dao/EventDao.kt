@@ -79,6 +79,9 @@ internal interface EventDao {
     @Upsert
     suspend fun upsert(eventDao: List<EventEntity>)
 
+    @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
+    suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>
+
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     suspend fun getEvent(eventId: EventId): EventEntity?
 
@@ -89,5 +92,8 @@ internal interface EventDao {
 
     @Query("DELETE FROM events WHERE id = :eventId")
     suspend fun deleteEvent(eventId: EventId)
+
+    @Query("DELETE FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
+    suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
 }
 

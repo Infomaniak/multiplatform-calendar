@@ -5,7 +5,16 @@ use std::collections::HashSet;
 
 use crate::client::{client, ensure_success, rt};
 use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
-use crate::models::{AttendeeEntry, DavAccount, EventEdit, EventEntry, MutateResult, VTimeZoneSpec};
+use crate::models::{
+    AttendeeEntry,
+    DavAccount,
+    EventChangeRef,
+    EventEdit,
+    EventEntry,
+    EventSyncDelta,
+    MutateResult,
+    VTimeZoneSpec,
+};
 
 /// Read a single iCalendar property value as an owned [`String`].
 fn prop(event: &icalendar::Event, name: &str) -> Option<String> {
@@ -292,6 +301,94 @@ pub fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<Event
     rt.block_on(async {
         let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
             .await.map_err(|error| network_or_bridge_error("Query", error.as_ref()))?;
+
+        Ok(objects
+            .into_iter()
+            .filter_map(|obj| {
+                let etag = obj.etag.unwrap_or_default();
+                obj.calendar_data
+                    .and_then(|data| parse_ics(obj.href, etag, data))
+            })
+            .collect())
+    })
+}
+
+/// Fetch events overlapping a specific UTC iCalendar time range.
+#[uniffi::export]
+pub fn calendar_query_timerange(
+    account: DavAccount,
+    calendar_url: &str,
+    start: &str,
+    end: &str,
+) -> Result<Vec<EventEntry>, CaldavError> {
+    let rt = rt()?;
+    let cli = client(&account)?;
+
+    rt.block_on(async {
+        let objects = cli
+            .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), true)
+            .await
+            .map_err(|e| bridge_error("CalendarQueryTimeRange", e))?;
+
+        Ok(objects
+            .into_iter()
+            .filter_map(|obj| {
+                let etag = obj.etag.unwrap_or_default();
+                obj.calendar_data.and_then(|data| parse_ics(obj.href, etag, data))
+            })
+            .collect())
+    })
+}
+
+/// Incrementally synchronize a calendar collection using WebDAV `sync-collection`.
+#[uniffi::export]
+pub fn sync_collection(
+    account: DavAccount,
+    calendar_url: &str,
+    sync_token: Option<String>,
+) -> Result<EventSyncDelta, CaldavError> {
+    let rt = rt()?;
+    let cli = client(&account)?;
+
+    rt.block_on(async {
+        let result = cli
+            .sync_collection(calendar_url, sync_token.as_deref(), None, false)
+            .await
+            .map_err(|e| bridge_error("SyncCollection", e))?;
+
+        Ok(EventSyncDelta {
+            sync_token: result.sync_token,
+            items: result
+                .items
+                .into_iter()
+                .map(|item| EventChangeRef {
+                    href: item.href,
+                    is_deleted: item.is_deleted,
+                })
+                .collect(),
+        })
+    })
+}
+
+/// Fetch a set of events by href using CalDAV `calendar-multiget`.
+#[uniffi::export]
+pub fn calendar_multiget(
+    account: DavAccount,
+    calendar_url: &str,
+    hrefs: Vec<String>,
+) -> Result<Vec<EventEntry>, CaldavError> {
+    if hrefs.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let rt = rt()?;
+    let cli = client(&account)?;
+
+    rt.block_on(async {
+        let objects = cli
+            .calendar_multiget(calendar_url, hrefs.iter().map(String::as_str), true)
+            .await
+            .map_err(|e| bridge_error("CalendarMultiGet", e))?;
 
         Ok(objects
             .into_iter()

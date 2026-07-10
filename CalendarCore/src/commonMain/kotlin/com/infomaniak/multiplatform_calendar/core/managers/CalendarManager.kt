@@ -54,9 +54,13 @@ public class CalendarManager internal constructor(
     private val eventRepository: EventRepository,
 ) {
 
+    private val nonEmptyAccountIdsFlow by lazy {
+        accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<Calendar>> {
-        return nonEmptyAccountIdsFlow().flatMapLatest { accountIds ->
+        return nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
             calendarRepository.observeCalendars(accountIds)
         }.reportFlowFailures("observe calendars")
     }
@@ -74,7 +78,7 @@ public class CalendarManager internal constructor(
         end: Instant,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<List<Event>> {
-        return nonEmptyAccountIdsFlow().flatMapLatest { accountIds ->
+        return nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
             eventRepository.observeVisibleEvents(accountIds, start, end, timeZone)
         }.reportFlowFailures("observe events from $start to $end for zone $timeZone")
     }
@@ -126,7 +130,7 @@ public class CalendarManager internal constructor(
         end: Instant,
     ): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "download events from $start to $end") {
-            nonEmptyAccountIdsFlow().first().forEach { accountId ->
+            nonEmptyAccountIdsFlow.first().forEach { accountId ->
                 val credentials = accountRepository.getCredentials(accountId)
                 calendarRepository.downloadEventsByRange(
                     accountId = accountId,
@@ -175,10 +179,6 @@ public class CalendarManager internal constructor(
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventRepository.observeEvent(eventId).reportFlowFailures("observe event $eventId")
-    }
-
-    private fun nonEmptyAccountIdsFlow(): Flow<Set<AccountId>> {
-        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

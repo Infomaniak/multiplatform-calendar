@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -31,6 +32,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCale
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionItem
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionResult
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -38,6 +40,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 class CalendarRepositoryTest : RobolectricTestsBase() {
 
@@ -100,6 +103,72 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         assertEquals(emptyList(), database.eventDao().observeEvents(calendarId).first())
     }
 
+    @Test
+    fun syncEvents_upsertsChanged_deletesRemoved_andUpdatesSyncToken() = runTest {
+        val accountId = AccountId(3)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/sync/"
+        val calendarId = CalendarId(calendarUrl)
+        val toDelete = remoteEvent(url = "${calendarUrl}to-delete.ics", uid = "uid-delete")
+        val changed = remoteEvent(url = "${calendarUrl}changed.ics", uid = "uid-changed")
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            events = mapOf(calendarUrl to listOf(toDelete)),
+        ).apply {
+            syncResults[calendarUrl] = RemoteSyncCollectionResult(
+                syncToken = "sync-token-2",
+                items = listOf(
+                    RemoteSyncCollectionItem(eventUrl = toDelete.url, isDeleted = true),
+                    RemoteSyncCollectionItem(eventUrl = changed.url, isDeleted = false),
+                ),
+            )
+            eventsByUrls[chainedKey(calendarUrl, listOf(changed.url))] = listOf(changed)
+        }
+        val repository = CalendarRepository(
+            caldavClient = remote,
+            calendarDao = database.calendarDao(),
+            eventDao = database.eventDao(),
+        )
+
+        // Seed one event that should be removed by incremental sync.
+        repository.syncCalendars(accountId, fakeCredentials())
+
+        repository.syncEvents(accountId, fakeCredentials())
+
+        val storedIds = database.eventDao().observeEvents(calendarId).first().map { it.id.url }
+        assertEquals(listOf(changed.url), storedIds)
+        assertEquals("sync-token-2", database.calendarDao().findById(calendarId)?.syncToken)
+    }
+
+    @Test
+    fun downloadEventsByRange_usesUtcBounds_andUpsertsFetchedEvents() = runTest {
+        val accountId = AccountId(4)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/range/"
+        val calendarId = CalendarId(calendarUrl)
+        val inRange = remoteEvent(url = "${calendarUrl}in-range.ics", uid = "uid-range")
+        val start = Instant.parse("2026-06-15T10:00:00Z")
+        val end = Instant.parse("2026-06-15T12:00:00Z")
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            events = emptyMap(),
+        ).apply {
+            rangeEvents[calendarUrl] = listOf(inRange)
+        }
+        val repository = CalendarRepository(
+            caldavClient = remote,
+            calendarDao = database.calendarDao(),
+            eventDao = database.eventDao(),
+        )
+
+        repository.downloadEventsByRange(accountId, fakeCredentials(), start, end)
+
+        val storedIds = database.eventDao().observeEvents(calendarId).first().map { it.id.url }
+        assertEquals(listOf(inRange.url), storedIds)
+        assertEquals(start.toICalUtcDateTime(), remote.lastRangeStart)
+        assertEquals(end.toICalUtcDateTime(), remote.lastRangeEnd)
+    }
+
     // ---- helpers --------------------------------------------------------------------------------
 
     private fun fakeCredentials() = DavAccount(baseUrl = "https://dav.example", username = "u", password = "p")
@@ -138,16 +207,31 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         private val calendars: List<RemoteDavCalendar>,
         private val events: Map<String, List<RemoteDavEvent>>,
     ) : CalendarSyncRemoteSource {
+        val syncResults: MutableMap<String, RemoteSyncCollectionResult> = mutableMapOf()
+        val eventsByUrls: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
+        val rangeEvents: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
+        var lastRangeStart: String? = null
+        var lastRangeEnd: String? = null
+
         override suspend fun discoverCalendars(credentials: DavAccount) = calendars
         override suspend fun getEvents(credentials: DavAccount, calendarUrl: String) = events[calendarUrl].orEmpty()
-        override suspend fun getEventsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
-            emptyList<RemoteDavEvent>()
+
+        override suspend fun getEventsInRange(
+            credentials: DavAccount,
+            calendarUrl: String,
+            start: String,
+            end: String,
+        ): List<RemoteDavEvent> {
+            lastRangeStart = start
+            lastRangeEnd = end
+            return rangeEvents[calendarUrl].orEmpty()
+        }
 
         override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
-            RemoteSyncCollectionResult(syncToken = syncToken, items = emptyList())
+            syncResults[calendarUrl] ?: RemoteSyncCollectionResult(syncToken = syncToken, items = emptyList())
 
         override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
-            emptyList<RemoteDavEvent>()
+            eventsByUrls[chainedKey(calendarUrl, eventUrls)].orEmpty()
 
         override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
         override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String = icsData
@@ -160,4 +244,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
 
         override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) = Unit
     }
+}
+
+private fun chainedKey(calendarUrl: String, eventUrls: List<String>): String {
+    return "$calendarUrl|${eventUrls.sorted().joinToString(",")}"
 }

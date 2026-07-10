@@ -20,9 +20,8 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
@@ -33,7 +32,7 @@ class EventEntityToDomainTest {
 
     @Test
     fun blankDescriptionAndLocation_areNormalizedToNull() {
-        val event = eventEntity(description = "   ", location = "").toDomain(calendar, eventColors)
+        val event = eventEntity(description = "   ", location = "").toDomain(calendar)
 
         assertNull(event.description)
         assertNull(event.location)
@@ -41,7 +40,7 @@ class EventEntityToDomainTest {
 
     @Test
     fun nonBlankDescriptionAndLocation_arePreserved() {
-        val event = eventEntity(description = "Some notes", location = "Paris").toDomain(calendar, eventColors)
+        val event = eventEntity(description = "Some notes", location = "Paris").toDomain(calendar)
 
         assertEquals("Some notes", event.description)
         assertEquals("Paris", event.location)
@@ -49,7 +48,7 @@ class EventEntityToDomainTest {
 
     @Test
     fun absentDescriptionAndLocation_stayNull() {
-        val event = eventEntity(description = null, location = null).toDomain(calendar, eventColors)
+        val event = eventEntity(description = null, location = null).toDomain(calendar)
 
         assertNull(event.description)
         assertNull(event.location)
@@ -57,14 +56,14 @@ class EventEntityToDomainTest {
 
     @Test
     fun blankCategoryEntries_areDropped() {
-        val event = eventEntity(categories = listOf("work", "  ", "", "personal")).toDomain(calendar, eventColors)
+        val event = eventEntity(categories = listOf("work", "  ", "", "personal")).toDomain(calendar)
 
         assertEquals(listOf("work", "personal"), event.categories)
     }
 
     @Test
     fun categoriesLeftEmptyAfterFiltering_becomeEmptyList() {
-        val event = eventEntity(categories = listOf("  ", "")).toDomain(calendar, eventColors)
+        val event = eventEntity(categories = listOf("  ", "")).toDomain(calendar)
 
         assertEquals(emptyList(), event.categories)
     }
@@ -75,10 +74,9 @@ class EventEntityToDomainTest {
         id = calendarId,
         accountId = accountId,
         displayName = "Tests",
-        color = CalendarColor(0xFF0000FF.toInt()),
+        colors = CalendarColors.from(0xFF0000FF.toInt()),
         isVisible = true,
     )
-    private val eventColors = EventColors.from(0xFF0000FF.toInt())
 
     private fun eventEntity(
         description: String? = null,

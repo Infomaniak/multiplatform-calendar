@@ -19,8 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalDateOnly
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.isICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -85,29 +85,6 @@ internal fun RemoteDavEvent.toTimingEntity(): EventTimingEntity {
         dtEndInstantMs = endAnchor?.let { effectiveEnd.toEpochMs(it) },
         isAllDay = allDay,
     )
-}
-
-/**
- * Resolve the [TimeZone] anchoring an iCalendar date/date-time value (RFC 5545):
- * - `VALUE=DATE` (all-day) → `null` (no time-zone applies).
- * - `Z` suffix              → `TimeZone.UTC`.
- * - `TZID` parameter         → `TimeZone.of(tzid)`; throws [CaldavParsingException] if the id is unknown,
- *                              which causes the caller to skip the whole event rather than guess.
- * - otherwise (floating)     → `null` (the recipient supplies its local zone at display time).
- */
-private fun resolveTimeZone(
-    isAllDay: Boolean,
-    rawValue: String,
-    tzid: String?,
-    eventUrl: String,
-    propertyName: String,
-): TimeZone? = when {
-    isAllDay -> null
-    isICalUtcDateTime(rawValue) -> TimeZone.UTC
-    tzid != null -> runCatching { TimeZone.of(tzid) }.getOrElse {
-        throw CaldavParsingException("Unknown $propertyName TZID '$tzid' for event $eventUrl", it)
-    }
-    else -> null // Floating: no time-zone anchor (RFC 5545 FORM #1).
 }
 
 private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()

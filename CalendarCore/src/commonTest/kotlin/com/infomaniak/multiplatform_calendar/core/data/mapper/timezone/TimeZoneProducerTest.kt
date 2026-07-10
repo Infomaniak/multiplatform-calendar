@@ -53,6 +53,19 @@ class TimeZoneProducerTest {
     }
 
     @Test
+    fun freeassociationGloballyUniqueTzid_isStrippedAndResolved() {
+        // Same RFC 5545 §3.2.19 "globally unique" form, emitted by GNOME Evolution.
+        assertEquals(
+            TimeZone.of("Europe/Paris"),
+            resolve(
+                isAllDay = false,
+                rawValue = "20260615T100000",
+                tzid = "/freeassociation.sourceforge.net/Tzfile/Europe/Paris",
+            ),
+        )
+    }
+
+    @Test
     fun msTzid_isMappedToIana() {
         assertEquals(
             TimeZone.of("Europe/Paris"),

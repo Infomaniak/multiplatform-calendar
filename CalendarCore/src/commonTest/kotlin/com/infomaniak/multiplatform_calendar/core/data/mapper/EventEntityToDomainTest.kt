@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
@@ -88,10 +89,12 @@ class EventEntityToDomainTest {
         summary = "Test",
         description = description,
         location = location,
-        dtStart = LocalDateTime(2026, 6, 15, 10, 0),
-        dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
-        dtStartInstantMs = null,
-        dtEndInstantMs = null,
+        timing = EventTimingEntity(
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+            dtStartInstantMs = null,
+            dtEndInstantMs = null,
+        ),
         categories = categories,
         etag = "etag-1",
         rawIcs = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",

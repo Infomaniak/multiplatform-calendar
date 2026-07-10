@@ -23,7 +23,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionResult
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -61,7 +61,7 @@ interface CalendarSyncRemoteSource {
         credentials: DavAccount,
         calendarUrl: String,
         syncToken: String?,
-    ): RemoteSyncCollectionResult
+    ): RemoteEventSyncDelta
 
     /** Fetch a specific list of event URLs (href) using CalDAV calendar-multiget. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

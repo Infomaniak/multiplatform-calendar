@@ -18,13 +18,13 @@
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
 /** Incremental sync payload for one calendar collection. */
-data class RemoteSyncCollectionResult(
+data class RemoteEventSyncDelta(
     val syncToken: String?,
-    val items: List<RemoteSyncCollectionItem>,
+    val items: List<RemoteEventChangeRef>,
 )
 
 /** One changed calendar object href returned by `sync-collection`. */
-data class RemoteSyncCollectionItem(
+data class RemoteEventChangeRef(
     val eventUrl: String,
     val isDeleted: Boolean,
 )

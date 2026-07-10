@@ -31,9 +31,9 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionItem
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionResult
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
@@ -115,11 +115,11 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
             events = mapOf(calendarUrl to listOf(toDelete)),
         ).apply {
-            syncResults[calendarUrl] = RemoteSyncCollectionResult(
+            syncResults[calendarUrl] = RemoteEventSyncDelta(
                 syncToken = "sync-token-2",
                 items = listOf(
-                    RemoteSyncCollectionItem(eventUrl = toDelete.url, isDeleted = true),
-                    RemoteSyncCollectionItem(eventUrl = changed.url, isDeleted = false),
+                    RemoteEventChangeRef(eventUrl = toDelete.url, isDeleted = true),
+                    RemoteEventChangeRef(eventUrl = changed.url, isDeleted = false),
                 ),
             )
             eventsByUrls[chainedKey(calendarUrl, listOf(changed.url))] = listOf(changed)
@@ -207,7 +207,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         private val calendars: List<RemoteDavCalendar>,
         private val events: Map<String, List<RemoteDavEvent>>,
     ) : CalendarSyncRemoteSource {
-        val syncResults: MutableMap<String, RemoteSyncCollectionResult> = mutableMapOf()
+        val syncResults: MutableMap<String, RemoteEventSyncDelta> = mutableMapOf()
         val eventsByUrls: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
         val rangeEvents: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
         var lastRangeStart: String? = null
@@ -228,7 +228,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         }
 
         override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
-            syncResults[calendarUrl] ?: RemoteSyncCollectionResult(syncToken = syncToken, items = emptyList())
+            syncResults[calendarUrl] ?: RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
 
         override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
             eventsByUrls[chainedKey(calendarUrl, eventUrls)].orEmpty()

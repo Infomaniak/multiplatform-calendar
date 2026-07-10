@@ -35,7 +35,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionResult
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -153,7 +153,7 @@ private object NoOpCaldavClient : CalendarSyncRemoteSource {
         emptyList<RemoteDavEvent>()
 
     override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
-        RemoteSyncCollectionResult(syncToken = syncToken, items = emptyList())
+        RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
 
     override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
         emptyList<RemoteDavEvent>()

@@ -24,9 +24,9 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavA
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionItem
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteSyncCollectionResult
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -126,13 +126,13 @@ internal class RustCaldavBridge(
         credentials: DavAccount,
         calendarUrl: String,
         syncToken: String?,
-    ): RemoteSyncCollectionResult = withContext(dispatcher) {
+    ): RemoteEventSyncDelta = withContext(dispatcher) {
         try {
             val result = rustSyncCollection(credentials.toRust(), calendarUrl, syncToken)
-            RemoteSyncCollectionResult(
+            RemoteEventSyncDelta(
                 syncToken = result.syncToken,
                 items = result.items.map { item ->
-                    RemoteSyncCollectionItem(
+                    RemoteEventChangeRef(
                         eventUrl = item.href,
                         isDeleted = item.isDeleted,
                     )

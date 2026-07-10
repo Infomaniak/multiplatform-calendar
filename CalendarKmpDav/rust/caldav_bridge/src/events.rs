@@ -8,12 +8,12 @@ use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{
     AttendeeEntry,
     DavAccount,
+    EventChangeRef,
     EventEdit,
     EventEntry,
+    EventSyncDelta,
     MutateResult,
     VTimeZoneSpec,
-    SyncCollectionItem,
-    SyncCollectionResult,
 };
 
 /// Read a single iCalendar property value as an owned [`String`].
@@ -346,7 +346,7 @@ pub fn sync_collection(
     account: DavAccount,
     calendar_url: &str,
     sync_token: Option<String>,
-) -> Result<SyncCollectionResult, CaldavError> {
+) -> Result<EventSyncDelta, CaldavError> {
     let rt = rt()?;
     let cli = client(&account)?;
 
@@ -356,12 +356,12 @@ pub fn sync_collection(
             .await
             .map_err(|e| bridge_error("SyncCollection", e))?;
 
-        Ok(SyncCollectionResult {
+        Ok(EventSyncDelta {
             sync_token: result.sync_token,
             items: result
                 .items
                 .into_iter()
-                .map(|item| SyncCollectionItem {
+                .map(|item| EventChangeRef {
                     href: item.href,
                     is_deleted: item.is_deleted,
                 })

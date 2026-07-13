@@ -197,7 +197,7 @@ internal class CalendarRepository(
 
         val entities = remoteEvents.mapNotNull { event ->
             runCatching { event.toEntity(calendarId) }
-                .onFailure { crashReport.capture(message = "Skip event ${event.url}", error = it) }
+                .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
         }
         if (entities.isNotEmpty()) eventDao.upsert(entities)

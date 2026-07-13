@@ -60,12 +60,12 @@ public interface CrashReport {
      * and additional metadata.
      *
      * @param message A custom message to be reported (e.g., an error message or event description).
-     * @param error The [Throwable] to be reported.
+     * @param exception The [Throwable] to be reported.
      * @param data Optional contextual data to provide more insight into the environment or state when the error occurred.
      */
     public fun capture(
         message: String,
-        error: Throwable,
+        exception: Throwable,
         data: Map<String, String>? = null,
     )
 

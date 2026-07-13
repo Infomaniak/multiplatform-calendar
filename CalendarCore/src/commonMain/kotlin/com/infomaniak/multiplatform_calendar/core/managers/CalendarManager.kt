@@ -37,7 +37,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.LocalDate
@@ -116,8 +115,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "sync events for all accounts") {
-            accountRepository.currentAccountIdsFlow.replayCache.lastOrNull()?.forEach { accountId ->
-                val credentials = accountRepository.getCredentials(accountId)
+            accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
             }
         }
@@ -130,8 +128,7 @@ public class CalendarManager internal constructor(
         end: Instant,
     ): Unit = withContext(Dispatchers.Default) {
         runSdkCall(operation = "download events from $start to $end") {
-            nonEmptyAccountIdsFlow.first().forEach { accountId ->
-                val credentials = accountRepository.getCredentials(accountId)
+            accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.downloadEventsByRange(
                     accountId = accountId,
                     credentials = credentials,
@@ -180,7 +177,7 @@ public class CalendarManager internal constructor(
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventRepository.observeEvent(eventId).reportFlowFailures("observe event $eventId")
     }
-
+    
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
         val accountId = calendarRepository.getCalendar(calendarId).accountId
         return accountRepository.getCredentials(accountId)

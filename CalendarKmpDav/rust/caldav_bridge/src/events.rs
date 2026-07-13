@@ -7,6 +7,7 @@ use crate::client::{client, ensure_success, rt};
 use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{
     AttendeeEntry,
+    ColorChange,
     DavAccount,
     EventChangeRef,
     EventEdit,
@@ -148,6 +149,7 @@ fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "SUMMARY", edit.summary.as_deref());
     set_or_clear(event, "LOCATION", edit.location.as_deref());
     set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
+    apply_color_change(event, &edit.color_change);
 
     event.remove_property("DTSTART");
     event.remove_property("DTEND");
@@ -291,6 +293,22 @@ fn set_or_clear(event: &mut icalendar::Event, key: &str, value: Option<&str>) {
     event.remove_property(key);
     if let Some(value) = value {
         event.add_property(key, value);
+    }
+}
+
+/// Apply a [`ColorChange`] onto the VEVENT (see [`ColorChange`] for the semantics of each variant).
+fn apply_color_change(event: &mut icalendar::Event, change: &ColorChange) {
+    match change {
+        ColorChange::Unchanged => {}
+        ColorChange::Set { hex } => {
+            event.remove_property("COLOR");
+            event.remove_property("X-APPLE-CALENDAR-COLOR");
+            event.add_property("X-APPLE-CALENDAR-COLOR", hex);
+        }
+        ColorChange::Cleared => {
+            event.remove_property("COLOR");
+            event.remove_property("X-APPLE-CALENDAR-COLOR");
+        }
     }
 }
 

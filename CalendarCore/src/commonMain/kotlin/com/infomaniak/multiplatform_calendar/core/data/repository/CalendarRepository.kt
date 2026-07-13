@@ -32,9 +32,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -73,13 +75,19 @@ internal class CalendarRepository(
     ) {
         syncCalendarMetadata(accountId, credentials)
         calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
-            val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
-            val entities = remoteEvents.mapNotNull { event ->
-                runCatching { event.toEntity(calendarEntity.id) }
-                    .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
-                    .getOrNull()
+            runCatching {
+                val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
+                val entities = remoteEvents.mapNotNull { event ->
+                    runCatching { event.toEntity(calendarEntity.id) }
+                        .cancellable()
+                        .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                        .getOrNull()
+                }
+                eventDao.upsert(entities)
+            }.cancellable().onFailure {
+                if (it is RustNetworkException) throw it
+                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
             }
-            eventDao.upsert(entities)
         }
     }
 
@@ -89,32 +97,37 @@ internal class CalendarRepository(
     ) {
         syncCalendarMetadata(accountId, credentials)
         calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 2) { calendarEntity ->
-            val syncResult = caldavClient.syncCollection(
-                credentials = credentials,
-                calendarUrl = calendarEntity.id.url,
-                syncToken = calendarEntity.syncToken,
-            )
-
-            val changedEventUrls = syncResult.items.filterNot { it.isDeleted }.map { it.eventUrl }
-            if (changedEventUrls.isNotEmpty()) {
-                // TODO[Optimize]: fetch batched events instead of all events at once
-                val changedEvents = caldavClient.getEventsByUrls(
+            runCatching {
+                val syncResult = caldavClient.syncCollection(
                     credentials = credentials,
                     calendarUrl = calendarEntity.id.url,
-                    eventUrls = changedEventUrls,
+                    syncToken = calendarEntity.syncToken,
                 )
-                upsertEventsByChangeType(calendarEntity.id, changedEvents)
-            }
 
-            val deletedEventIds = syncResult.items
-                .filter { it.isDeleted }
-                .map { item -> EventId(item.eventUrl) }
-            if (deletedEventIds.isNotEmpty()) {
-                eventDao.deleteEvents(calendarId = calendarEntity.id, eventIds = deletedEventIds)
-            }
+                val changedEventUrls = syncResult.items.filterNot { it.isDeleted }.map { it.eventUrl }
+                if (changedEventUrls.isNotEmpty()) {
+                    // TODO[Optimize]: fetch batched events instead of all events at once
+                    val changedEvents = caldavClient.getEventsByUrls(
+                        credentials = credentials,
+                        calendarUrl = calendarEntity.id.url,
+                        eventUrls = changedEventUrls,
+                    )
+                    upsertEventsByChangeType(calendarEntity.id, changedEvents)
+                }
 
-            if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
-                calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
+                val deletedEventIds = syncResult.items
+                    .filter { it.isDeleted }
+                    .map { item -> EventId(item.eventUrl) }
+                if (deletedEventIds.isNotEmpty()) {
+                    eventDao.deleteEvents(calendarId = calendarEntity.id, eventIds = deletedEventIds)
+                }
+
+                if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
+                    calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
+                }
+            }.cancellable().onFailure {
+                if (it is RustNetworkException) throw it
+                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
             }
         }
     }
@@ -130,13 +143,18 @@ internal class CalendarRepository(
         val endValue = end.toICalUtcDateTime()
 
         calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
-            val rangeEvents = caldavClient.getEventsInRange(
-                credentials = credentials,
-                calendarUrl = calendarEntity.id.url,
-                start = startValue,
-                end = endValue,
-            )
-            upsertEventsByChangeType(calendarEntity.id, rangeEvents)
+            runCatching {
+                val rangeEvents = caldavClient.getEventsInRange(
+                    credentials = credentials,
+                    calendarUrl = calendarEntity.id.url,
+                    start = startValue,
+                    end = endValue,
+                )
+                upsertEventsByChangeType(calendarEntity.id, rangeEvents)
+            }.cancellable().onFailure {
+                if (it is RustNetworkException) throw it
+                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+            }
         }
     }
 

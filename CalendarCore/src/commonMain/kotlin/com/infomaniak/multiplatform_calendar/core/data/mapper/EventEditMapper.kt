@@ -52,24 +52,12 @@ internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit {
 }
 
 internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: String): EventEntity {
-    val startZone = data.timing.startStorageZone()
-    val endZone = data.timing.endStorageZone()
     return copy(
         calendarId = data.calendarId,
         summary = data.title,
         location = data.location,
         description = data.description,
-        dtStart = data.timing.start,
-        dtEnd = data.timing.end,
-        // DTEND and DURATION are mutually exclusive (RFC 5545 §3.8.2.5); the edited timing carries an explicit end,
-        // so any pre-existing DURATION must be dropped to keep the entity invariant intact.
-        duration = null,
-        dtEndEffective = data.timing.end,
-        startTimeZone = data.timing.startTimeZone?.id,
-        endTimeZone = data.timing.endTimeZone?.id,
-        dtStartInstantMs = startZone?.let { data.timing.start.toInstant(it).toEpochMilliseconds() },
-        dtEndInstantMs = endZone?.let { data.timing.end.toInstant(it).toEpochMilliseconds() },
-        isAllDay = data.timing.isAllDay,
+        timing = data.timing.toEntity(),
         etag = etag,
         rawIcs = rawIcs,
         isSynced = true,
@@ -80,45 +68,17 @@ internal fun EventEditData.toNewEntity(
     ref: RemoteDavEventRef,
     rawIcs: String,
 ): EventEntity {
-    val startZone = timing.startStorageZone()
-    val endZone = timing.endStorageZone()
     return EventEntity(
         id = EventId(ref.url),
         calendarId = calendarId,
         summary = title,
         location = location,
         description = description,
-        dtStart = timing.start,
-        dtEnd = timing.end,
-        dtEndEffective = timing.end,
-        startTimeZone = timing.startTimeZone?.id,
-        endTimeZone = timing.endTimeZone?.id,
-        dtStartInstantMs = startZone?.let { timing.start.toInstant(it).toEpochMilliseconds() },
-        dtEndInstantMs = endZone?.let { timing.end.toInstant(it).toEpochMilliseconds() },
-        isAllDay = timing.isAllDay,
+        timing = timing.toEntity(),
         etag = ref.etag,
         rawIcs = rawIcs,
         isSynced = true,
     )
-}
-
-/**
- * Time-zone in which to resolve [EventTiming.start] for storage (epoch-ms columns), or `null` for
- * floating events (RFC 5545 FORM #1) which have no absolute instant by definition. See
- * [EventEntity.dtStartInstantMs] for the DAO's wall-clock fallback branch on `null`.
- *
- * - All-day → `TimeZone.UTC` so the recorded epoch ms is device-independent.
- * - Zoned   → [EventTiming.startTimeZone].
- * - Floating (no `TZID`, no `Z`) → `null`.
- */
-private fun EventTiming.startStorageZone(): TimeZone? = storageZoneFor(startTimeZone)
-
-/** See [startStorageZone]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-private fun EventTiming.endStorageZone(): TimeZone? = storageZoneFor(endTimeZone)
-
-private fun EventTiming.storageZoneFor(zone: TimeZone?): TimeZone? = when {
-    isAllDay -> TimeZone.UTC
-    else -> zone
 }
 
 /**

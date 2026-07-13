@@ -22,6 +22,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -38,13 +39,13 @@ internal interface EventDao {
     /**
      * Events (with their parent calendar) from all *visible* calendars of [accountId] that overlap
      * the [`[startInstantMs, endInstantMs[`] range. An event overlaps when it starts before [endInstantMs]
-     * and its resolved end ([EventEntity.dtEndInstantMs], which already accounts for `DTEND`/`DURATION`)
+     * and its resolved end ([EventTimingEntity.dtEndInstantMs], which already accounts for `DTEND`/`DURATION`)
      * is at/after [startInstantMs].
      *
      * Two branches, unioned:
      * - **Anchored events** (zoned / UTC / all-day): comparison on absolute UTC epoch milliseconds.
      *   Correct across mixed time-zones since bounds are absolute.
-     * - **Floating events** (RFC 5545 FORM #1, [EventEntity.dtStartInstantMs] `IS NULL`): comparison
+     * - **Floating events** (RFC 5545 FORM #1, [EventTimingEntity.dtStartInstantMs] `IS NULL`): comparison
      *   on wall-clock strings, using [startLocalDateTime]/[endLocalDateTime] which are the range bounds re-interpreted
      *   in the recipient's *current* zone. This branch re-anchors automatically on device zone
      *   change (travel, DST) — a floating event has no fixed absolute instant by definition.

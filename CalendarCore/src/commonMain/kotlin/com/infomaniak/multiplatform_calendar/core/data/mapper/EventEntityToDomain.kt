@@ -23,7 +23,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventImpl
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
@@ -39,7 +38,7 @@ internal fun EventEntity.toDomain(calendar: Calendar): Event {
         status = status,
         classification = classification,
         categories = categories?.filter { it.isNotBlank() }.orEmpty(),
-        timing = toTiming(),
+        timing = timing.toDomain(),
         lastModified = lastModified?.toInstant(TimeZone.UTC),
         attendees = attendees,
         organizer = attendees.firstOrNull { it.isOrganizer },
@@ -47,13 +46,3 @@ internal fun EventEntity.toDomain(calendar: Calendar): Event {
         canEdit = calendar.accessLevel.canWrite,
     )
 }
-
-private fun EventEntity.toTiming(): EventTiming = EventTiming(
-    start = dtStart,
-    // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
-    end = dtEndEffective,
-    startTimeZone = startTimeZone?.let(TimeZone::of),
-    endTimeZone = endTimeZone?.let(TimeZone::of),
-    isAllDay = isAllDay,
-    recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
-)

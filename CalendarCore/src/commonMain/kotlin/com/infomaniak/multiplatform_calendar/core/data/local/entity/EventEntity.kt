@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -26,7 +27,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classificat
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import kotlinx.datetime.LocalDateTime
-import kotlin.time.Duration
 
 @Entity(
     tableName = "events",
@@ -46,43 +46,10 @@ internal data class EventEntity(
     val summary: String,
     val description: String? = null,
     val location: String? = null,
-    val dtStart: LocalDateTime,
-    val dtEnd: LocalDateTime? = null,
-    val duration: Duration? = null,
-    // Resolved end (single source of truth, see `resolveEffectiveEnd`): used as the domain timing's end
-    // and as the wall-clock pendant of [dtEndInstantMs]. SQL can't derive it from ISO-text storage.
-    val dtEndEffective: LocalDateTime,
-    /**
-     * IANA TZID anchoring `DTSTART` (e.g. "Europe/Paris"), or `null` for `VALUE=DATE` all-day
-     * events and floating (no `TZID`, no `Z`) `DATE-TIME` events. UTC events store `"UTC"`.
-     */
-    val startTimeZone: String? = null,
-    /**
-     * IANA TZID anchoring `DTEND`. Same semantics as [startTimeZone].
-     *
-     * Kept independent from [startTimeZone] because RFC 5545 §3.8.2.2 allows `DTEND` to reference
-     * a different `TZID` than `DTSTART` (e.g. a flight "9:00 America/New_York → 16:00 Europe/Paris").
-     * For all-day events both zones are `null`.
-     */
-    val endTimeZone: String? = null,
-    /**
-     * Absolute (UTC) start in epoch milliseconds, resolved from [dtStart] + [startTimeZone] at insertion time.
-     * Indexed alongside [dtEndInstantMs] and used by [com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.observeVisibleInRange]
-     * so range-overlap queries stay correct across mixed time-zones (the wall-clock columns are display-only).
-     *
-     * `null` for **floating** DATE-TIME events (RFC 5545 FORM #1: no `TZID`, no `Z`): a floating event
-     * has no absolute instant by definition — its wall-clock is meant to be interpreted in the recipient's
-     * *current* local zone at display time. Anchoring at insertion would go stale on device zone change
-     * (travel, DST), so we don't. Range queries fall back to a wall-clock branch for these rows.
-     * For `VALUE=DATE` (all-day) the start of the day is taken in UTC so the value is device-independent.
-     */
-    val dtStartInstantMs: Long?,
-    /** Absolute (UTC) end in epoch milliseconds, resolved from [dtEndEffective] + [endTimeZone]. See [dtStartInstantMs] (same `null` rule per end). */
-    val dtEndInstantMs: Long?,
+    @Embedded val timing: EventTimingEntity,
     val created: LocalDateTime? = null,
     val lastModified: LocalDateTime? = null,
     val dtStamp: LocalDateTime? = null,
-    val isAllDay: Boolean = false,
     val rrule: String? = null,
     val status: EventStatus? = null,
     val transp: String? = null,

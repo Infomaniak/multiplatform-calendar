@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -112,12 +113,14 @@ class AccountDaoTest : RobolectricTestsBase() {
         id = eventId,
         calendarId = calendarId,
         summary = "Summary ${eventId.url}",
-        dtStart = dtStart,
-        dtEndEffective = dtEndEffective,
-        startTimeZone = startZone?.id,
-        endTimeZone = endZone?.id,
-        dtStartInstantMs = startZone?.let { dtStart.toInstant(it).toEpochMilliseconds() },
-        dtEndInstantMs = endZone?.let { dtEndEffective.toInstant(it).toEpochMilliseconds() },
+        timing = EventTimingEntity(
+            dtStart = dtStart,
+            dtEndEffective = dtEndEffective,
+            startTimeZone = startZone?.id,
+            endTimeZone = endZone?.id,
+            dtStartInstantMs = startZone?.let { dtStart.toInstant(it).toEpochMilliseconds() },
+            dtEndInstantMs = endZone?.let { dtEndEffective.toInstant(it).toEpochMilliseconds() },
+        ),
         etag = "etag-${eventId.url}",
         rawIcs = "BEGIN:VEVENT\\nUID:${eventId.url}\\nEND:VEVENT",
     )

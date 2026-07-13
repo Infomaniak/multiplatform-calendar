@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -130,12 +131,14 @@ class EventRepositoryTest : RobolectricTestsBase() {
             id = EventId("event://floating"),
             calendarId = calendarId,
             summary = "Floating 10-11",
-            dtStart = dtStart,
-            dtEndEffective = dtEnd,
-            startTimeZone = null,
-            endTimeZone = null,
-            dtStartInstantMs = null,
-            dtEndInstantMs = null,
+            timing = EventTimingEntity(
+                dtStart = dtStart,
+                dtEndEffective = dtEnd,
+                startTimeZone = null,
+                endTimeZone = null,
+                dtStartInstantMs = null,
+                dtEndInstantMs = null,
+            ),
             etag = "1",
             rawIcs = "",
         )

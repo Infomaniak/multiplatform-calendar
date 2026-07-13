@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.di
 
-import com.infomaniak.multiplatform_calendar.core.data.CrashReportInterface
+import com.infomaniak.multiplatform_calendar.core.data.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
@@ -41,7 +41,7 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
     internal fun interface Factory {
         fun create(
             @Provides databaseConfig: DatabaseConfig,
-            @Provides crashReportInterface: CrashReportInterface,
+            @Provides crashReport: CrashReport,
         ): CalendarSDK
     }
 }
@@ -58,7 +58,7 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
  */
 public object CalendarSDKProvider {
 
-    public fun sdk(databasePath: String, crashReport: CrashReportInterface): CalendarCoreGraph {
+    public fun sdk(databasePath: String, crashReport: CrashReport): CalendarCoreGraph {
         return createGraphFactory<CalendarSDK.Factory>().create(DatabaseConfig(path = databasePath), crashReport)
     }
 }

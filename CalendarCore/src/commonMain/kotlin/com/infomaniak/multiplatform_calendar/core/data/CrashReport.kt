@@ -36,7 +36,7 @@ public enum class BreadcrumbType(public val value: String) {
     HTTP("http"),
 }
 
-public interface CrashReportInterface {
+public interface CrashReport {
     /**
      * Adds a breadcrumb to the crash reporting system to provide contextual information
      * leading up to a potential crash.

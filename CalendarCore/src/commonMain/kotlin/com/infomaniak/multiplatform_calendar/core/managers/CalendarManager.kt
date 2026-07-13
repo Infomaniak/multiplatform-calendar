@@ -177,8 +177,7 @@ public class CalendarManager internal constructor(
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventRepository.observeEvent(eventId).reportFlowFailures("observe event $eventId")
     }
-
-
+    
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
         val accountId = calendarRepository.getCalendar(calendarId).accountId
         return accountRepository.getCredentials(accountId)

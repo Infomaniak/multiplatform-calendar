@@ -36,6 +36,7 @@ import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -84,6 +85,7 @@ internal class CalendarRepository(
                 }
                 eventDao.upsert(entities)
             }.cancellable().onFailure {
+                if (it is RustNetworkException) throw it
                 it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
             }
         }
@@ -124,6 +126,7 @@ internal class CalendarRepository(
                     calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
                 }
             }.cancellable().onFailure {
+                if (it is RustNetworkException) throw it
                 it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
             }
         }
@@ -149,6 +152,7 @@ internal class CalendarRepository(
                 )
                 upsertEventsByChangeType(calendarEntity.id, rangeEvents)
             }.cancellable().onFailure {
+                if (it is RustNetworkException) throw it
                 it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
             }
         }

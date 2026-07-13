@@ -71,6 +71,8 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> 
                 priority: prop(ev, "PRIORITY"),
                 sequence: prop(ev, "SEQUENCE"),
                 categories: prop(ev, "CATEGORIES"),
+                color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
+                color_ical_name: prop(ev, "COLOR"),
                 attendees: parse_attendees(ev),
                 ics_data,
             })

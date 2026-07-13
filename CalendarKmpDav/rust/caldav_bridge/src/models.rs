@@ -63,6 +63,10 @@ pub struct EventEntry {
     pub priority: Option<String>,
     pub sequence: Option<String>,
     pub categories: Option<String>,
+    /// Raw `X-APPLE-CALENDAR-COLOR` value (typically `#RRGGBB` or `#RRGGBBAA`).
+    pub color_hex: Option<String>,
+    /// Raw RFC 7986 §5.9 `COLOR` value (a case-insensitive CSS3 color name).
+    pub color_ical_name: Option<String>,
     pub attendees: Vec<AttendeeEntry>,
 }
 

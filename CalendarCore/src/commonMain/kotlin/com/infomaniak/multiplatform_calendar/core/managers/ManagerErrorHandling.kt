@@ -33,7 +33,7 @@ internal suspend inline fun <T> runSdkCall(
     }.cancellable()
         .getOrElse { throwable ->
             throwable.logFailuresToSentry(message = errorMessage)
-            throw CalendarSdkException(errorMessage, throwable)
+            throw CalendarSdkException(errorMessage, cause = throwable)
         }
 }
 

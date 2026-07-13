@@ -37,34 +37,39 @@ internal suspend fun <T> Flow<T>.collectRestartingUntilComplete(
     action: suspend (T) -> Unit,
 ) = coroutineScope {
     val updates = Channel<T>(Channel.CONFLATED)
+    // Launch a coroutine to collect the flow and send updates to the channel
     val collectorJob = launch {
         collect { value ->
             updates.trySend(value)
         }
     }
+
     var actionJob = launch { action(initialValue) }
 
     try {
         var isCompleted = false
         while (!isCompleted) {
+            // Wait for either the action to complete or a new value to be emitted
             select {
+                // Wait for the action to complete
                 actionJob.onJoin {
                     isCompleted = true
                 }
 
+                // Wait for a new value to be emitted
                 updates.onReceiveCatching { result ->
                     val newValue = result.getOrNull() ?: return@onReceiveCatching
                     if (!shouldRestart(newValue)) return@onReceiveCatching
-
+                    // Cancel the current action and start a new one with the new value
                     actionJob.cancelAndJoin()
                     actionJob = launch { action(newValue) }
                 }
             }
         }
     } finally {
+        // Cancel the collector and action jobs when the flow collection is complete or cancelled
         collectorJob.cancelAndJoin()
         updates.close()
         actionJob.cancel()
     }
 }
-

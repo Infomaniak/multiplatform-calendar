@@ -41,6 +41,3 @@ internal fun <T> Flow<T>.reportFlowFailures(operation: String): Flow<T> = catch 
     // Flow errors are reported but intentionally not propagated to the SDK consumer.
     throwable.logFailuresToSentry(message = "Flow failed to $operation")
 }
-
-
-

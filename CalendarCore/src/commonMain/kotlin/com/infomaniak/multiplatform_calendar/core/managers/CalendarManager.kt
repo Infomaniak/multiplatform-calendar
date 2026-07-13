@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
+import com.infomaniak.multiplatform_calendar.core.data.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
@@ -51,8 +52,9 @@ import kotlin.time.Instant
 public class CalendarManager internal constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
+    crashReport: CrashReport,
     private val eventRepository: EventRepository,
-) {
+) : SdkCaller(crashReport) {
 
     private val nonEmptyAccountIdsFlow by lazy {
         accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
@@ -178,7 +180,7 @@ public class CalendarManager internal constructor(
     public fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventRepository.observeEvent(eventId).reportFlowFailures("observe event $eventId")
     }
-    
+
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
         val accountId = calendarRepository.getCalendar(calendarId).accountId
         return accountRepository.getCredentials(accountId)

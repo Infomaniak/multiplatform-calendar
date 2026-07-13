@@ -18,11 +18,11 @@
 package com.infomaniak.multiplatform_calendar.core.data
 
 public enum class CrashReportLevel {
-    DEBUG,
-    INFO,
-    WARNING,
-    ERROR,
-    FATAL
+    Debug,
+    Info,
+    Warning,
+    Error,
+    Fatal
 }
 
 /**

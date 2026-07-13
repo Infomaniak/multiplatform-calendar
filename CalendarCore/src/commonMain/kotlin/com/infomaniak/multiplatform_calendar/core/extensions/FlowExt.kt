@@ -17,8 +17,11 @@
  */
 package com.infomaniak.multiplatform_calendar.core.extensions
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -37,13 +40,7 @@ internal suspend fun <T> Flow<T>.collectRestartingUntilComplete(
     action: suspend (T) -> Unit,
 ) = coroutineScope {
     val updates = Channel<T>(Channel.CONFLATED)
-    // Launch a coroutine to collect the flow and send updates to the channel
-    val collectorJob = launch {
-        collect { value ->
-            updates.trySend(value)
-        }
-    }
-
+    val collectorJob = launchCollectingIntoChannel(this@coroutineScope, updates)
     var actionJob = launch { action(initialValue) }
 
     try {
@@ -71,5 +68,14 @@ internal suspend fun <T> Flow<T>.collectRestartingUntilComplete(
         collectorJob.cancelAndJoin()
         updates.close()
         actionJob.cancel()
+    }
+}
+
+private fun <T> Flow<T>.launchCollectingIntoChannel(
+    scope: CoroutineScope,
+    updates: SendChannel<T>,
+): Job = scope.launch {
+    collect { value ->
+        updates.trySend(value)
     }
 }

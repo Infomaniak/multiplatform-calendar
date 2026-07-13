@@ -18,6 +18,7 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.core.data.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -53,6 +54,7 @@ import kotlin.time.Instant
 internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,
     private val calendarDao: CalendarDao,
+    private val crashReport: CrashReport,
     private val eventDao: EventDao,
 ) {
 
@@ -81,13 +83,13 @@ internal class CalendarRepository(
                 val entities = remoteEvents.mapNotNull { event ->
                     runCatching { event.toEntity(calendarEntity.id) }
                         .cancellable()
-                        .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                        .onFailure { crashReport.capture(message = "Skip event ${event.url}", error = it) }
                         .getOrNull()
                 }
                 eventDao.upsert(entities)
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
-                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", error = it)
             }
         }
     }
@@ -195,7 +197,7 @@ internal class CalendarRepository(
 
         val entities = remoteEvents.mapNotNull { event ->
             runCatching { event.toEntity(calendarId) }
-                .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                .onFailure { crashReport.capture(message = "Skip event ${event.url}", error = it) }
                 .getOrNull()
         }
         if (entities.isNotEmpty()) eventDao.upsert(entities)

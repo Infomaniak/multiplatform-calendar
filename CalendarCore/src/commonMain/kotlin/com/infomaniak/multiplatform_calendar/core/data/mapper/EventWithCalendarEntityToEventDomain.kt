@@ -21,20 +21,24 @@ import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithC
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 
 internal fun List<EventWithCalendarEntity>.toDomainEvents(): List<Event> {
     val calendarsDomains = mutableMapOf<CalendarId, Calendar>()
-    return map { it.toDomainEvent(calendarsDomains) }
+    val eventColorsCache = mutableMapOf<EventSourceColor, EventColors>()
+    return map { it.toDomainEvent(calendarsDomains, eventColorsCache) }
 }
 
 private fun EventWithCalendarEntity.toDomainEvent(
     calendarsDomains: MutableMap<CalendarId, Calendar>,
+    eventColorsCache: MutableMap<EventSourceColor, EventColors>,
 ): Event {
     val calendar = with(calendar) {
         calendarsDomains.getOrPut(id) { toDomain() }
     }
 
-    return event.toDomain(calendar)
+    return event.toDomain(calendar, eventColorsCache)
 }
 
 internal fun EventWithCalendarEntity?.toDomainEvent(): Event? = this?.let { event.toDomain(calendar.toDomain()) }

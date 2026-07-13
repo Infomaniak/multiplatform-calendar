@@ -59,6 +59,10 @@ internal data class EventEntity(
     val categories: List<String>? = null,
     val attendees: List<AttendeeEntity> = emptyList(),
     val etag: String,
+    /** Packed ARGB, or `null` when the event inherits its calendar's color. */
+    val colorArgb: Int? = null,
+    /** Original RFC 7986 `COLOR:<name>` kept verbatim so untouched-color edits round-trip byte-exact. */
+    val colorIcalName: String? = null,
     // The raw ICS text of the event, as returned by the CalDAV server. This is used for syncing and for editing events.
     val rawIcs: String,
     val isSynced: Boolean = false,

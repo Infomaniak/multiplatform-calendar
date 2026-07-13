@@ -263,6 +263,8 @@ class RemoteDavEventToTimingEntityTest {
         priority = null,
         sequence = null,
         categories = categories,
+        colorHex = null,
+        colorIcalName = null,
         attendees = emptyList(),
     )
 

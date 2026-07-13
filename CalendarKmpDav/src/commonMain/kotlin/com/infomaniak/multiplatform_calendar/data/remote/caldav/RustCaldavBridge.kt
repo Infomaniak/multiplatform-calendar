@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException.Companion.toCaldavBridgeException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -34,6 +35,7 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
+import uniffi.caldav_bridge.ColorChange
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.VTimeZoneSpec
@@ -226,8 +228,15 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     location = location,
     description = description,
     timezones = timeZones.map { it.toRust() },
+    colorChange = colorChange.toRust(),
     stamp = stamp,
 )
+
+private fun RemoteColorChange.toRust(): ColorChange = when (this) {
+    RemoteColorChange.Unchanged -> ColorChange.Unchanged
+    is RemoteColorChange.Set -> ColorChange.Set(hex)
+    RemoteColorChange.Cleared -> ColorChange.Cleared
+}
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)
 
@@ -255,6 +264,8 @@ private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
         priority = this.priority,
         sequence = this.sequence,
         categories = this.categories,
+        colorHex = this.colorHex,
+        colorIcalName = this.colorIcalName,
         attendees = this.attendees.map { attendee ->
             RemoteDavAttendee(
                 email = attendee.email,

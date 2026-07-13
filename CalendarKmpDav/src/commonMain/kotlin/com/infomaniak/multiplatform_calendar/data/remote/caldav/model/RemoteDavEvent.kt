@@ -62,6 +62,10 @@ data class RemoteDavEvent(
     val sequence: String?,
     /** Comma-separated categories. */
     val categories: String?,
+    /** Raw `X-APPLE-CALENDAR-COLOR` value (Apple extension, typically `#RRGGBB` or `#RRGGBBAA`). */
+    val colorHex: String?,
+    /** Raw `COLOR` value (RFC 7986 §5.9, a case-insensitive CSS3 color name). */
+    val colorIcalName: String?,
     /** ORGANIZER + ATTENDEE participants parsed from the VEVENT. */
     val attendees: List<RemoteDavAttendee>,
 )

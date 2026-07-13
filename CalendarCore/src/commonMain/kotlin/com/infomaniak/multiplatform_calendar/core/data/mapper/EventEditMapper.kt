@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDat
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
@@ -47,6 +48,7 @@ internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit {
         location = location?.ifBlank { null },
         description = description?.ifBlank { null },
         timeZones = timing.vTimeZones(),
+        colorChange = RemoteColorChange.Unchanged,
         stamp = stamp,
     )
 }

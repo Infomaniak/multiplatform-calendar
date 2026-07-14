@@ -19,6 +19,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.CrashReport
+import com.infomaniak.multiplatform_calendar.core.data.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -200,7 +201,25 @@ internal class CalendarRepository(
                 .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
         }
-        if (entities.isNotEmpty()) eventDao.upsert(entities)
+        if (entities.isNotEmpty()) {
+            runCatching {
+                eventDao.upsert(entities) // TODO[Optimize]: upsert in batches
+            }.onFailure {
+                // An error here is not critical, we can continue syncing other calendars
+                // This exception occurs only when the database is corrupted, which is very rare,
+                // or when the user has been logged out and the database was cleared during synchronization.
+                crashReport.addBreadcrumb(
+                    message = "Failed to upsert events for calendar $calendarId",
+                    category = "database",
+                    level = CrashReportLevel.Error,
+                    data = mapOf(
+                        "exception" to it.stackTraceToString(),
+                        "calendarId" to calendarId.url,
+                        "eventCount" to entities.size.toString(),
+                    ),
+                )
+            }
+        }
     }
 
     private suspend fun getRemoteEvents(

@@ -40,6 +40,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkExcep
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -103,25 +104,10 @@ internal class CalendarRepository(
                     calendarUrl = calendarEntity.id.url,
                     syncToken = calendarEntity.syncToken,
                 )
-
-                val changedEventUrls = syncResult.items.filterNot { it.isDeleted }.map { it.eventUrl }
-                if (changedEventUrls.isNotEmpty()) {
-                    // TODO[Optimize]: fetch batched events instead of all events at once
-                    val changedEvents = caldavClient.getEventsByUrls(
-                        credentials = credentials,
-                        calendarUrl = calendarEntity.id.url,
-                        eventUrls = changedEventUrls,
-                    )
-                    upsertEventsByChangeType(calendarEntity.id, changedEvents)
+                syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
+                    updateChangedEvents(credentials, calendarEntity.id, changed)
+                    updateDeletedEvents(calendarEntity.id, deleted)
                 }
-
-                val deletedEventIds = syncResult.items
-                    .filter { it.isDeleted }
-                    .map { item -> EventId(item.eventUrl) }
-                if (deletedEventIds.isNotEmpty()) {
-                    eventDao.deleteEvents(calendarId = calendarEntity.id, eventIds = deletedEventIds)
-                }
-
                 if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
                     calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
                 }
@@ -175,6 +161,32 @@ internal class CalendarRepository(
         val remoteCalendars = getCalendars(credentials)
         calendarDao.syncCalendars(accountId) { existingCalendarsById ->
             remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
+        }
+    }
+
+    private suspend fun updateChangedEvents(
+        credentials: DavAccount,
+        calendarId: CalendarId,
+        changed: List<RemoteEventChangeRef>,
+    ) {
+        if (changed.isNotEmpty()) {
+            // TODO[Optimize]: fetch batched events instead of all events at once
+            val changedEvents = caldavClient.getEventsByUrls(
+                credentials = credentials,
+                calendarUrl = calendarId.url,
+                eventUrls = changed.map { it.eventUrl },
+            )
+            upsertEventsByChangeType(calendarId, changedEvents)
+        }
+    }
+
+    private suspend fun updateDeletedEvents(
+        calendarId: CalendarId,
+        deleted: List<RemoteEventChangeRef>,
+    ) {
+        if (deleted.isNotEmpty()) {
+            val deletedEventIds = deleted.map { item -> EventId(item.eventUrl) }
+            eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds)
         }
     }
 

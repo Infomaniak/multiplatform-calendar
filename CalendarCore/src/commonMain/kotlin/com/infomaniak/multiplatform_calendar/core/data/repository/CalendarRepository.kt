@@ -189,7 +189,7 @@ internal class CalendarRepository(
     ) {
         if (deleted.isNotEmpty()) {
             val deletedEventIds = deleted.map { item -> EventId(item.eventUrl) }
-            eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds)
+            eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds) // TODO[Optimize]: delete in batches
         }
     }
 

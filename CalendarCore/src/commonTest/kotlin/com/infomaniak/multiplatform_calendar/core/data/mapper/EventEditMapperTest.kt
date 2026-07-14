@@ -45,7 +45,7 @@ class EventEditMapperTest {
                 endTimeZone = null,
                 isAllDay = true,
             ),
-        ).toRemoteEdit(stamp = STAMP)
+        ).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertEquals("20260615", edit.dtStart)
         assertEquals("20260616", edit.dtEnd)
@@ -65,7 +65,7 @@ class EventEditMapperTest {
                 endTimeZone = TimeZone.UTC,
                 isAllDay = false,
             ),
-        ).toRemoteEdit(stamp = STAMP)
+        ).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertEquals("20260615T100000Z", edit.dtStart)
         assertEquals("20260615T110000Z", edit.dtEnd)
@@ -85,7 +85,7 @@ class EventEditMapperTest {
                 endTimeZone = paris,
                 isAllDay = false,
             ),
-        ).toRemoteEdit(stamp = STAMP)
+        ).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertEquals("20260615T140000", edit.dtStart)
         assertEquals("20260615T150000", edit.dtEnd)
@@ -108,7 +108,7 @@ class EventEditMapperTest {
                 endTimeZone = null,
                 isAllDay = false,
             ),
-        ).toRemoteEdit(stamp = STAMP)
+        ).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertEquals("20260615T100000", edit.dtStart)
         assertEquals("20260615T110000", edit.dtEnd)
@@ -129,7 +129,7 @@ class EventEditMapperTest {
                 endTimeZone = paris,
                 isAllDay = false,
             ),
-        ).toRemoteEdit(stamp = STAMP)
+        ).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertEquals("America/New_York", edit.dtStartTzid)
         assertEquals("Europe/Paris", edit.dtEndTzid)
@@ -154,7 +154,7 @@ class EventEditMapperTest {
                 endTimeZone = paris,
                 isAllDay = false,
             ),
-        ).toRemoteEdit(stamp = STAMP)
+        ).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertEquals("+0100", edit.timeZones.single().offset)
     }

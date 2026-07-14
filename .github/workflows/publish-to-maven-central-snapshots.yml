@@ -17,6 +17,10 @@ on:
         description: 'Snapshot version to publish (e.g. 0.1.0)'
         required: true
         type: string
+      commit-sha:
+        description: 'Commit SHA the snapshot is built from (defaults to the triggering ref if omitted)'
+        required: false
+        type: string
     secrets:
       SONATYPE_USERNAME:
         required: true
@@ -68,13 +72,20 @@ jobs:
       - name: Publish the snapshots
         run: ./gradlew publishAggregationToCentralSnapshots -Pcore.version=${{ env.SNAPSHOT_VERSION }}
 
+      - name: Build commit tree link
+        id: commit-link
+        uses: Infomaniak/.github/actions/commit-tree-link@v2
+        with:
+          sha: ${{ inputs.commit-sha || github.sha }}
+
       - name: Notify KChat
         env:
           KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
         run: |
+          COMMIT_LINK="${{ steps.commit-link.outputs.markdown-link }}"
           curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"text\": \":android: *Android Calendar snapshot ${{ env.SNAPSHOT_VERSION }}* is available on Maven Central Snapshots!\n:package: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:${{ env.SNAPSHOT_VERSION }}\\\")\`\n:link: https://central.sonatype.com/service/rest/repository/browse/maven-snapshots/com/infomaniak/multiplatform_calendar/\"}"
+            -d "{\"text\": \":android: *Android Calendar snapshot ${{ env.SNAPSHOT_VERSION }}* is available on Maven Central Snapshots!\n:package: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:${{ env.SNAPSHOT_VERSION }}\\\")\`\n:link: https://central.sonatype.com/service/rest/repository/browse/maven-snapshots/com/infomaniak/multiplatform_calendar/\n:pencil: Commit: $COMMIT_LINK\"}"
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
   ossrhUsername: ${{ secrets.SONATYPE_USERNAME }}

@@ -83,13 +83,13 @@ internal class CalendarRepository(
                 val entities = remoteEvents.mapNotNull { event ->
                     runCatching { event.toEntity(calendarEntity.id) }
                         .cancellable()
-                        .onFailure { crashReport.capture(message = "Skip event ${event.url}", error = it) }
+                        .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                         .getOrNull()
                 }
                 eventDao.upsert(entities)
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
-                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", error = it)
+                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
             }
         }
     }

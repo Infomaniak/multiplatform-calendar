@@ -17,9 +17,15 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
@@ -159,6 +165,115 @@ class EventEditMapperTest {
         assertEquals("+0100", edit.timeZones.single().offset)
     }
 
+    // ---- Per-event color (RFC 7986 `COLOR` + Apple `X-APPLE-CALENDAR-COLOR`) --------------------
+
+    @Test
+    fun createWithoutColor_emitsUnchanged() {
+        val edit = editData(eventColor = null).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteColorChange.Unchanged, edit.colorChange)
+    }
+
+    @Test
+    fun createWithColor_emitsSetWithAppleHex() {
+        val edit = editData(eventColor = 0xFF1E88E5.toInt()).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteColorChange.Set(hex = "#1E88E5FF"), edit.colorChange)
+    }
+
+    @Test
+    fun editWithSameColor_emitsUnchanged_toPreserveWireRepresentation() {
+        val previous = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
+
+        val edit = editData(eventColor = 0xFF1E88E5.toInt()).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteColorChange.Unchanged, edit.colorChange)
+    }
+
+    @Test
+    fun editClearingColor_emitsCleared() {
+        val previous = eventEntity(colorArgb = 0xFF1E88E5.toInt())
+
+        val edit = editData(eventColor = null).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteColorChange.Cleared, edit.colorChange)
+    }
+
+    @Test
+    fun editChangingColor_emitsSetWithNewAppleHex() {
+        val previous = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
+
+        val edit = editData(eventColor = 0xFFE53935.toInt()).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteColorChange.Set(hex = "#E53935FF"), edit.colorChange)
+    }
+
+    @Test
+    fun applyEdit_preservesIcalName_whenArgbUnchanged() {
+        val entity = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
+
+        val updated = entity.applyEdit(
+            data = editData(eventColor = 0xFF1E88E5.toInt()),
+            etag = "etag-2",
+            rawIcs = entity.rawIcs,
+        )
+
+        assertEquals(0xFF1E88E5.toInt(), updated.colorArgb)
+        assertEquals("royalblue", updated.colorIcalName)
+    }
+
+    @Test
+    fun applyEdit_dropsIcalName_whenArgbChanged() {
+        val entity = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
+
+        val updated = entity.applyEdit(
+            data = editData(eventColor = 0xFFE53935.toInt()),
+            etag = "etag-2",
+            rawIcs = entity.rawIcs,
+        )
+
+        assertEquals(0xFFE53935.toInt(), updated.colorArgb)
+        assertNull(updated.colorIcalName)
+    }
+
+    @Test
+    fun applyEdit_dropsIcalName_whenColorCleared() {
+        val entity = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
+
+        val updated = entity.applyEdit(
+            data = editData(eventColor = null),
+            etag = "etag-2",
+            rawIcs = entity.rawIcs,
+        )
+
+        assertNull(updated.colorArgb)
+        assertNull(updated.colorIcalName)
+    }
+
+    @Test
+    fun toNewEntity_storesColorArgb_andDefaultsIcalNameToNull() {
+        val entity = editData(eventColor = 0xFF1E88E5.toInt()).toNewEntity(
+            ref = RemoteDavEventRef(url = "https://cal/tests/new.ics", etag = "etag-1"),
+            rawIcs = "BEGIN:VEVENT\nEND:VEVENT",
+        )
+
+        assertEquals(0xFF1E88E5.toInt(), entity.colorArgb)
+        assertNull(entity.colorIcalName)
+    }
+
+    @Test
+    fun toNewEntity_preservesIcalName_whenExplicitlyProvided() {
+        // Cross-calendar move path forwards the previous ical name to keep the wire byte-exact.
+        val entity = editData(eventColor = 0xFF1E88E5.toInt()).toNewEntity(
+            ref = RemoteDavEventRef(url = "https://cal/tests/moved.ics", etag = "etag-1"),
+            rawIcs = "BEGIN:VEVENT\nEND:VEVENT",
+            colorIcalName = "royalblue",
+        )
+
+        assertEquals(0xFF1E88E5.toInt(), entity.colorArgb)
+        assertEquals("royalblue", entity.colorIcalName)
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
 
     private fun editData(timing: EventTiming) = EventEditData(
@@ -167,6 +282,37 @@ class EventEditMapperTest {
         location = null,
         description = null,
         calendarId = calendarId,
+    )
+
+    private fun editData(eventColor: Int?) = EventEditData(
+        title = "Test",
+        timing = EventTiming(
+            start = LocalDateTime(2026, 6, 15, 10, 0),
+            end = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = TimeZone.UTC,
+            endTimeZone = TimeZone.UTC,
+            isAllDay = false,
+        ),
+        location = null,
+        description = null,
+        calendarId = calendarId,
+        eventColor = eventColor?.let(::EventSourceColor),
+    )
+
+    private fun eventEntity(colorArgb: Int?, colorIcalName: String? = null) = EventEntity(
+        id = EventId("https://cal/tests/1.ics"),
+        calendarId = calendarId,
+        summary = "Test",
+        timing = EventTimingEntity(
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+            dtStartInstantMs = null,
+            dtEndInstantMs = null,
+        ),
+        etag = "etag-1",
+        rawIcs = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
+        colorArgb = colorArgb,
+        colorIcalName = colorIcalName,
     )
 
     private companion object {

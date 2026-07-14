@@ -76,7 +76,7 @@ jobs:
         id: commit-link
         uses: Infomaniak/.github/actions/export-commit-info@v2
         with:
-          sha: ${{ inputs.commit-sha || github.sha }}
+          sha: ${{ inputs['commit-sha'] || github.sha }}
 
       - name: Notify KChat
         env:

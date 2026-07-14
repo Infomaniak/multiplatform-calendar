@@ -51,12 +51,19 @@ jobs:
     needs: [ prepare, publish-android ]
     runs-on: ubuntu-latest
     steps:
+      - name: Export commit info
+        id: commit-link
+        uses: Infomaniak/.github/actions/export-commit-info@v2
+        with:
+          sha: ${{ github.event.pull_request.merge_commit_sha }}
+
       - name: Notify KChat
         env:
           KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           RELEASE_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/tag/$VERSION"
+          COMMIT_LINK="${{ steps.commit-link.outputs.markdown-link }}"
           curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"text\": \":rocket: *Calendar lib $VERSION* is now available!\n:apple: SPM: \`.package(url: \\\"https://github.com/Infomaniak/multiplatform-calendar\\\", from: \\\"$VERSION\\\")\`\n:android: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:$VERSION\\\")\`\n:link: $RELEASE_URL\"}"
+            -d "{\"text\": \":rocket: *Calendar lib $VERSION* is now available!\n:apple: SPM: \`.package(url: \\\"https://github.com/Infomaniak/multiplatform-calendar\\\", from: \\\"$VERSION\\\")\`\n:android: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:$VERSION\\\")\`\n:link: $RELEASE_URL\n:pencil: Commit: $COMMIT_LINK\"}"

@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntit
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
@@ -73,6 +74,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val repository = CalendarRepository(
             caldavClient = remote,
             calendarDao = database.calendarDao(),
+            crashReport = CrashReportProvider.noOp,
             eventDao = database.eventDao(),
         )
 
@@ -95,6 +97,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val repository = CalendarRepository(
             caldavClient = remote,
             calendarDao = database.calendarDao(),
+            crashReport = CrashReportProvider.noOp,
             eventDao = database.eventDao(),
         )
 
@@ -127,6 +130,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val repository = CalendarRepository(
             caldavClient = remote,
             calendarDao = database.calendarDao(),
+            crashReport = CrashReportProvider.noOp,
             eventDao = database.eventDao(),
         )
 
@@ -158,6 +162,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val repository = CalendarRepository(
             caldavClient = remote,
             calendarDao = database.calendarDao(),
+            crashReport = CrashReportProvider.noOp,
             eventDao = database.eventDao(),
         )
 

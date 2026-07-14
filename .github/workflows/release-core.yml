@@ -18,8 +18,8 @@ on:
           - patch
 
 jobs:
-  validate:
-    name: Validate version
+  resolve-version:
+    name: Resolve version
     uses: Infomaniak/.github/.github/workflows/resolve-next-library-version.yml@v2
     with:
       version: ${{ inputs.version }}
@@ -27,13 +27,13 @@ jobs:
 
   build-xcframework:
     name: Build iOS XCFramework release
-    needs: validate
+    needs: resolve-version
     runs-on: [ self-hosted, Android ]
     permissions:
       contents: write
       pull-requests: write
     env:
-      VERSION: ${{ needs.validate.outputs.version }}
+      VERSION: ${{ needs['resolve-version'].outputs.version }}
     steps:
       - name: Checkout the code
         uses: actions/checkout@v6.0.3
@@ -150,10 +150,10 @@ jobs:
 
   publish-snapshot-android:
     name: Publish Android snapshot to Maven Central
-    needs: validate
+    needs: resolve-version
     uses: ./.github/workflows/publish-to-maven-central-snapshots.yml
     with:
-      version: ${{ needs.validate.outputs.version }}-SNAPSHOT
+      version: ${{ needs['resolve-version'].outputs.version }}-SNAPSHOT
       commit-sha: ${{ github.sha }}
     secrets:
       SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
@@ -165,7 +165,7 @@ jobs:
 
   open-release-pr:
     name: Open release PR
-    needs: [ validate, build-xcframework, publish-snapshot-android ]
+    needs: [ resolve-version, build-xcframework, publish-snapshot-android ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -173,7 +173,7 @@ jobs:
     steps:
       - name: Open release PR
         run: |
-          VERSION="${{ needs.validate.outputs.version }}"
+          VERSION="${{ needs['resolve-version'].outputs.version }}"
           gh pr create \
             --title "chore: Release $VERSION" \
             --body "Update \`Package.swift\` with the new XCFramework URL and checksum for version \`$VERSION\`. Merging this PR will automatically publish the GitHub Release and the Android library on Maven Central." \

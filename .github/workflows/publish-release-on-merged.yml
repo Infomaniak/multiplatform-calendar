@@ -51,9 +51,9 @@ jobs:
     needs: [ prepare, publish-android ]
     runs-on: ubuntu-latest
     steps:
-      - name: Build commit tree link
+      - name: Export commit info
         id: commit-link
-        uses: Infomaniak/.github/actions/commit-tree-link@v2
+        uses: Infomaniak/.github/actions/export-commit-info@v2
         with:
           sha: ${{ github.event.pull_request.merge_commit_sha }}
 

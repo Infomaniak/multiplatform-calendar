@@ -72,9 +72,9 @@ jobs:
       - name: Publish the snapshots
         run: ./gradlew publishAggregationToCentralSnapshots -Pcore.version=${{ env.SNAPSHOT_VERSION }}
 
-      - name: Build commit tree link
+      - name: Export commit info
         id: commit-link
-        uses: Infomaniak/.github/actions/commit-tree-link@v2
+        uses: Infomaniak/.github/actions/export-commit-info@v2
         with:
           sha: ${{ inputs.commit-sha || github.sha }}
 

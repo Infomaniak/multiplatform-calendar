@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 
 /** Editable event fields, shared by the edition and (upcoming) creation flows. */
 public data class EventEditData(
@@ -28,4 +29,5 @@ public data class EventEditData(
     val calendarId: CalendarId,
     /** `null` to inherit the calendar's color. */
     val eventColor: EventSourceColor? = null,
+    val alarms: List<EventAlarm> = emptyList(),
 )

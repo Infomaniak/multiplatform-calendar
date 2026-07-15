@@ -14,6 +14,7 @@ use crate::models::{
     EventChangeRef,
     EventEdit,
     EventEntry,
+    EventResourceRef,
     EventSyncDelta,
     MutateResult,
     VTimeZoneSpec,
@@ -372,6 +373,33 @@ pub fn calendar_query_timerange(
             .filter_map(|obj| {
                 let etag = obj.etag.unwrap_or_default();
                 obj.calendar_data.and_then(|data| parse_ics(obj.href, etag, data))
+            })
+            .collect())
+    })
+}
+
+/// Fetch only hrefs and etags for events overlapping a UTC iCalendar time range.
+#[uniffi::export]
+pub fn calendar_query_timerange_refs(
+    account: DavAccount,
+    calendar_url: &str,
+    start: &str,
+    end: &str,
+) -> Result<Vec<EventResourceRef>, CaldavError> {
+    let rt = rt()?;
+    let cli = client(&account)?;
+
+    rt.block_on(async {
+        let objects = cli
+            .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), false)
+            .await
+            .map_err(|e| bridge_error("CalendarQueryTimeRangeRefs", e))?;
+
+        Ok(objects
+            .into_iter()
+            .map(|obj| EventResourceRef {
+                href: obj.href,
+                etag: obj.etag.unwrap_or_default(),
             })
             .collect())
     })

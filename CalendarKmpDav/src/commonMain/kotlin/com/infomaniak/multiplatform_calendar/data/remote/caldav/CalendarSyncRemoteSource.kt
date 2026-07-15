@@ -55,6 +55,15 @@ interface CalendarSyncRemoteSource {
         end: String,
     ): List<RemoteDavEvent>
 
+    /** Fetch only hrefs and etags for VEVENT resources overlapping [start, end]. */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
+    suspend fun getEventRefsInRange(
+        credentials: DavAccount,
+        calendarUrl: String,
+        start: String,
+        end: String,
+    ): List<RemoteDavEventRef>
+
     /** Sync a calendar incrementally. [syncToken] can be null for a first full sync pass. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun syncCollection(
@@ -89,4 +98,3 @@ interface CalendarSyncRemoteSource {
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String)
 }
-

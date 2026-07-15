@@ -49,6 +49,7 @@ import uniffi.caldav_bridge.DavAccount as RustDavAccount
 import uniffi.caldav_bridge.buildEventIcs as rustBuildEventIcs
 import uniffi.caldav_bridge.calendarMultiget as rustCalendarMultiget
 import uniffi.caldav_bridge.calendarQueryTimerange as rustCalendarQueryTimerange
+import uniffi.caldav_bridge.calendarQueryTimerangeRefs as rustCalendarQueryTimerangeRefs
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
 import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
@@ -125,6 +126,21 @@ internal class RustCaldavBridge(
             return@withContext entries.map(EventEntry::toRemoteEvent)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("getEventsInRange")
+        }
+    }
+
+    override suspend fun getEventRefsInRange(
+        credentials: DavAccount,
+        calendarUrl: String,
+        start: String,
+        end: String,
+    ): List<RemoteDavEventRef> = withContext(dispatcher) {
+        try {
+            rustCalendarQueryTimerangeRefs(credentials.toRust(), calendarUrl, start, end).map { ref ->
+                RemoteDavEventRef(url = ref.href, etag = ref.etag)
+            }
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("getEventRefsInRange")
         }
     }
 
@@ -309,4 +325,3 @@ private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
         },
     )
 }
-

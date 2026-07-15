@@ -32,3 +32,5 @@ mod props;
 
 mod calendars;
 mod events;
+
+mod test_fixtures;

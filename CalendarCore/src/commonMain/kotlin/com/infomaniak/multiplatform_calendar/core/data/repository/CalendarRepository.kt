@@ -22,8 +22,8 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
-import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
@@ -169,6 +169,26 @@ internal class CalendarRepository(
         }
     }
 
+    suspend fun updateCalendar(credentials: DavAccount, calendarId: CalendarId, edit: CalendarEditData) {
+        calendarDao.findById(calendarId)?.let { calendarEntity ->
+            if (edit.hasRemoteChanges) {
+                caldavClient.updateCalendar(
+                    credentials = credentials,
+                    calendarUrl = calendarId.url,
+                    edit = edit.toRemoteEdit(),
+                )
+            }
+            calendarDao.update(calendar = calendarEntity.applyEdit(edit))
+        }
+    }
+
+    private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
+        val remoteCalendars = getCalendars(credentials)
+        calendarDao.syncCalendars(accountId) { existingCalendarsById ->
+            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
+        }
+    }
+
     private suspend fun syncExistingRange(
         credentials: DavAccount,
         calendarId: CalendarId,
@@ -206,26 +226,6 @@ internal class CalendarRepository(
             )
         }
         upsertEventsByChangeType(calendarId, changedEvents)
-    }
-
-    suspend fun updateCalendar(credentials: DavAccount, calendarId: CalendarId, edit: CalendarEditData) {
-        calendarDao.findById(calendarId)?.let { calendarEntity ->
-            if (edit.hasRemoteChanges) {
-                caldavClient.updateCalendar(
-                    credentials = credentials,
-                    calendarUrl = calendarId.url,
-                    edit = edit.toRemoteEdit(),
-                )
-            }
-            calendarDao.update(calendar = calendarEntity.applyEdit(edit))
-        }
-    }
-
-    private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
-        val remoteCalendars = getCalendars(credentials)
-        calendarDao.syncCalendars(accountId) { existingCalendarsById ->
-            remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
-        }
     }
 
     private suspend fun updateChangedEvents(

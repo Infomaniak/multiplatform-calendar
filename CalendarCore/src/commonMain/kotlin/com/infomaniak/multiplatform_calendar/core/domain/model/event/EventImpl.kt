@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -40,4 +41,5 @@ internal data class EventImpl(
     override val organizer: Attendee? = null,
     override val colors: EventColors,
     override val canEdit: Boolean,
+    override val alarms: List<EventAlarm> = emptyList(),
 ) : Event

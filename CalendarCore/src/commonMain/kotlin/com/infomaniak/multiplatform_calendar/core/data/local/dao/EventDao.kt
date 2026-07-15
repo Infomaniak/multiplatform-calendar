@@ -83,6 +83,29 @@ internal interface EventDao {
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>
 
+    @Query(
+        """
+        SELECT * FROM events
+        WHERE calendarId = :calendarId
+          AND (
+            (dtStartInstantMs IS NOT NULL
+              AND dtStartInstantMs < :endInstantMs
+              AND dtEndInstantMs >= :startInstantMs)
+            OR
+            (dtStartInstantMs IS NULL
+              AND dtStart < :endLocalDateTime
+              AND dtEndEffective >= :startLocalDateTime)
+          )
+        """,
+    )
+    suspend fun getEventsInRange(
+        calendarId: CalendarId,
+        startInstantMs: Long,
+        endInstantMs: Long,
+        startLocalDateTime: LocalDateTime,
+        endLocalDateTime: LocalDateTime,
+    ): List<EventEntity>
+
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     suspend fun getEvent(eventId: EventId): EventEntity?
 
@@ -97,4 +120,3 @@ internal interface EventDao {
     @Query("DELETE FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
 }
-

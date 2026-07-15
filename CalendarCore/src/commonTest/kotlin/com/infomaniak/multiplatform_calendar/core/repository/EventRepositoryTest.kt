@@ -155,6 +155,9 @@ private object NoOpCaldavClient : CalendarSyncRemoteSource {
     override suspend fun getEventsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
         emptyList<RemoteDavEvent>()
 
+    override suspend fun getEventRefsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
+        emptyList<RemoteDavEventRef>()
+
     override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
         RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
 

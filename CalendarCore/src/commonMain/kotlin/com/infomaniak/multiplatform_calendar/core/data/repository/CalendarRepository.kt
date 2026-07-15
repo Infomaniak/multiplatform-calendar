@@ -49,6 +49,8 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -131,21 +133,78 @@ internal class CalendarRepository(
         syncCalendarMetadata(accountId, credentials)
         val startValue = start.toICalUtcDateTime()
         val endValue = end.toICalUtcDateTime()
+        val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
+        val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
 
         calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
             runCatching {
-                val rangeEvents = caldavClient.getEventsInRange(
-                    credentials = credentials,
-                    calendarUrl = calendarEntity.id.url,
-                    start = startValue,
-                    end = endValue,
+                val localEvents = eventDao.getEventsInRange(
+                    calendarId = calendarEntity.id,
+                    startInstantMs = start.toEpochMilliseconds(),
+                    endInstantMs = end.toEpochMilliseconds(),
+                    startLocalDateTime = startLocalDateTime,
+                    endLocalDateTime = endLocalDateTime,
                 )
-                upsertEventsByChangeType(calendarEntity.id, rangeEvents)
+                if (localEvents.isEmpty()) {
+                    val rangeEvents = caldavClient.getEventsInRange(
+                        credentials = credentials,
+                        calendarUrl = calendarEntity.id.url,
+                        start = startValue,
+                        end = endValue,
+                    )
+                    upsertEventsByChangeType(calendarEntity.id, rangeEvents)
+                } else {
+                    syncExistingRange(
+                        credentials = credentials,
+                        calendarId = calendarEntity.id,
+                        start = startValue,
+                        end = endValue,
+                        localEvents = localEvents,
+                    )
+                }
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
                 it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
             }
         }
+    }
+
+    private suspend fun syncExistingRange(
+        credentials: DavAccount,
+        calendarId: CalendarId,
+        start: String,
+        end: String,
+        localEvents: List<EventEntity>,
+    ) {
+        val remoteRefs = caldavClient.getEventRefsInRange(
+            credentials = credentials,
+            calendarUrl = calendarId.url,
+            start = start,
+            end = end,
+        )
+        val remoteRefsByUrl = remoteRefs.associateBy { it.url }
+        val localEventsByUrl = localEvents.associateBy { it.id.url }
+
+        val deletedEventIds = localEvents
+            .filterNot { remoteRefsByUrl.containsKey(it.id.url) }
+            .map { it.id }
+        val changedUrls = remoteRefs.filter { remoteRef ->
+            localEventsByUrl[remoteRef.url]?.etag != remoteRef.etag
+        }.map { it.url }
+
+        val changedEvents = if (changedUrls.isEmpty()) {
+            emptyList()
+        } else {
+            caldavClient.getEventsByUrls(
+                credentials = credentials,
+                calendarUrl = calendarId.url,
+                eventUrls = changedUrls,
+            )
+        }
+        if (deletedEventIds.isNotEmpty()) {
+            eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds)
+        }
+        upsertEventsByChangeType(calendarId, changedEvents)
     }
 
     suspend fun updateCalendar(credentials: DavAccount, calendarId: CalendarId, edit: CalendarEditData) {

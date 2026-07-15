@@ -98,6 +98,24 @@ Kotlin/Swift  ←──UniFFI bindings──→  Rust lib.rs  →  fast-dav-rs (
 Rust compilation and binding generation are integrated into the Gradle build via the `dev.gobley.cargo` and `dev.gobley.uniffi`
 plugins. No separate build step is required — just run `./gradlew assembleDebug`.
 
+### Async & cancellation
+
+All network exports are `async fn` on the Rust side, exported with
+`#[uniffi::export(async_runtime = "tokio")]`. UniFFI generates Kotlin `suspend fun`
+bindings that carry `@Throws(CaldavException, CancellationException)`, so cancelling
+the calling coroutine drops the Rust future, which drops the underlying reqwest
+request.
+
+- **Reads** (`discoverCalendars`, `getEvents`, `getEventsInRange`, `syncCollection`,
+  `getEventsByUrls`) are fully cancellable and safe to cancel at any time.
+- **Writes** (`updateCalendar`, `createEvent`, `updateEvent`, `deleteEvent`) are best-effort cancellable:
+  cancelling after the request has been dispatched to the server leaves the outcome
+  **undefined** (the server may or may not have applied the change). Callers must
+  re-sync to reconcile.
+- **Pure-CPU exports** (`patchEventIcs`, `buildEventIcs`) stay synchronous and are
+  wrapped in `withContext(Dispatchers.Default)` inside `RustCaldavBridge` so they
+  never block the caller's thread.
+
 ### Extra CalDAV properties
 
 `fast-dav-rs` only surfaces a fixed subset of collection properties. When we need others — the `current-user-privilege-set`

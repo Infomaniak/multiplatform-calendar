@@ -22,8 +22,8 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
@@ -138,7 +138,7 @@ internal class CalendarRepository(
 
         calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
             runCatching {
-                val localEvents = eventDao.getEventsInRange(
+                val localEvents = eventDao.getEventRefsInRange(
                     calendarId = calendarEntity.id,
                     startInstantMs = start.toEpochMilliseconds(),
                     endInstantMs = end.toEpochMilliseconds(),
@@ -174,7 +174,7 @@ internal class CalendarRepository(
         calendarId: CalendarId,
         start: String,
         end: String,
-        localEvents: List<EventEntity>,
+        localEvents: List<LocalEventRef>,
     ) {
         val remoteRefs = caldavClient.getEventRefsInRange(
             credentials = credentials,
@@ -182,15 +182,13 @@ internal class CalendarRepository(
             start = start,
             end = end,
         )
-        val remoteRefsByUrl = remoteRefs.associateBy { it.url }
-        val localEventsByUrl = localEvents.associateBy { it.id.url }
-
-        val deletedEventIds = localEvents
-            .filterNot { remoteRefsByUrl.containsKey(it.id.url) }
-            .map { it.id }
-        val changedUrls = remoteRefs.filter { remoteRef ->
-            localEventsByUrl[remoteRef.url]?.etag != remoteRef.etag
-        }.map { it.url }
+        val unmatchedLocalEvents = localEvents.associateByTo(HashMap(localEvents.size)) { it.id.url }
+        val changedUrls = buildList {
+            remoteRefs.forEach { remoteRef ->
+                val localEvent = unmatchedLocalEvents.remove(remoteRef.url)
+                if (localEvent?.etag != remoteRef.etag) add(remoteRef.url)
+            }
+        }
 
         val changedEvents = if (changedUrls.isEmpty()) {
             emptyList()
@@ -201,8 +199,11 @@ internal class CalendarRepository(
                 eventUrls = changedUrls,
             )
         }
-        if (deletedEventIds.isNotEmpty()) {
-            eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds)
+        if (unmatchedLocalEvents.isNotEmpty()) {
+            eventDao.deleteEvents(
+                calendarId = calendarId,
+                eventIds = unmatchedLocalEvents.values.map(LocalEventRef::id),
+            )
         }
         upsertEventsByChangeType(calendarId, changedEvents)
     }

@@ -23,6 +23,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -85,7 +86,7 @@ internal interface EventDao {
 
     @Query(
         """
-        SELECT * FROM events
+        SELECT id, etag FROM events
         WHERE calendarId = :calendarId
           AND (
             (dtStartInstantMs IS NOT NULL
@@ -98,13 +99,13 @@ internal interface EventDao {
           )
         """,
     )
-    suspend fun getEventsInRange(
+    suspend fun getEventRefsInRange(
         calendarId: CalendarId,
         startInstantMs: Long,
         endInstantMs: Long,
         startLocalDateTime: LocalDateTime,
         endLocalDateTime: LocalDateTime,
-    ): List<EventEntity>
+    ): List<LocalEventRef>
 
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     suspend fun getEvent(eventId: EventId): EventEntity?

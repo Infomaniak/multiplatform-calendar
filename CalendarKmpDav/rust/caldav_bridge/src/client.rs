@@ -1,19 +1,13 @@
-//! Internal helpers to build the Tokio runtime and the CalDAV client.
+//! Internal helpers to build the CalDAV client.
 //!
 //! These are crate-private building blocks shared by the calendar and event
 //! operation modules.
 
 use fast_dav_rs::CalDavClient;
 use http::Response;
-use tokio::runtime::Runtime;
 
 use crate::error::{bridge_error, CaldavError};
 use crate::models::DavAccount;
-
-/// Create a multi-thread Tokio runtime used to drive the async CalDAV calls.
-pub(crate) fn rt() -> Result<Runtime, CaldavError> {
-    Runtime::new().map_err(|e| bridge_error("Tokio", e))
-}
 
 /// Build a [`CalDavClient`] authenticated with [`account`].
 pub(crate) fn client(account: &DavAccount) -> Result<CalDavClient, CaldavError> {

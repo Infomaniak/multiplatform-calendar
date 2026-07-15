@@ -210,15 +210,11 @@ internal class CalendarRepository(
             }
         }
 
-        val changedEvents = if (changedUrls.isEmpty()) {
-            emptyList()
-        } else {
-            caldavClient.getEventsByUrls(
-                credentials = credentials,
-                calendarUrl = calendarId.url,
-                eventUrls = changedUrls,
-            )
+        val changedEvents = when {
+            changedUrls.isEmpty() -> emptyList()
+            else -> caldavClient.getEventsByUrls(credentials, calendarId.url, changedUrls)
         }
+
         if (unmatchedLocalEvents.isNotEmpty()) {
             eventDao.deleteEvents(
                 calendarId = calendarId,

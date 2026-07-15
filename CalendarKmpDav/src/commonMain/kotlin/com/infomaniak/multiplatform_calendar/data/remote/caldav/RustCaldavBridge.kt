@@ -68,7 +68,7 @@ internal class RustCaldavBridge(
 
     override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> {
         try {
-            val entries = discover(credentials.toRust())
+            val entries = discover(account = credentials.toRust())
             return entries.map { entry ->
                 RemoteDavCalendar(
                     url = entry.url,
@@ -92,9 +92,9 @@ internal class RustCaldavBridge(
         if (!edit.hasChanges) return
         try {
             rustUpdateCalendar(
-                credentials.toRust(),
-                calendarUrl,
-                CalendarEdit(displayName = edit.displayName, color = edit.color),
+                account = credentials.toRust(),
+                calendarUrl = calendarUrl,
+                edit = CalendarEdit(displayName = edit.displayName, color = edit.color),
             )
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("updateCalendar")
@@ -106,7 +106,7 @@ internal class RustCaldavBridge(
         calendarUrl: String,
     ): List<RemoteDavEvent> {
         try {
-            val entries = fetchEvents(credentials.toRust(), calendarUrl)
+            val entries = fetchEvents(account = credentials.toRust(), calendarUrl)
             return entries.map(EventEntry::toRemoteEvent)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("getEvents")
@@ -120,7 +120,7 @@ internal class RustCaldavBridge(
         end: String,
     ): List<RemoteDavEvent> {
         try {
-            val entries = rustCalendarQueryTimerange(credentials.toRust(), calendarUrl, start, end)
+            val entries = rustCalendarQueryTimerange(account = credentials.toRust(), calendarUrl, start, end)
             return entries.map(EventEntry::toRemoteEvent)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("getEventsInRange")
@@ -148,7 +148,7 @@ internal class RustCaldavBridge(
         syncToken: String?,
     ): RemoteEventSyncDelta {
         try {
-            val result = rustSyncCollection(credentials.toRust(), calendarUrl, syncToken)
+            val result = rustSyncCollection(account = credentials.toRust(), calendarUrl, syncToken)
             return RemoteEventSyncDelta(
                 syncToken = result.syncToken,
                 items = result.items.map { item ->
@@ -170,7 +170,7 @@ internal class RustCaldavBridge(
     ): List<RemoteDavEvent> {
         if (eventUrls.isEmpty()) return emptyList()
         try {
-            val entries = rustCalendarMultiget(credentials.toRust(), calendarUrl, eventUrls)
+            val entries = rustCalendarMultiget(account = credentials.toRust(), calendarUrl, hrefs = eventUrls)
             return entries.map(EventEntry::toRemoteEvent)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("getEventsByUrls")
@@ -183,7 +183,7 @@ internal class RustCaldavBridge(
         icsData: String,
     ): RemoteDavEventRef {
         try {
-            val result = rustCreateEvent(credentials.toRust(), calendarUrl, icsData)
+            val result = rustCreateEvent(account = credentials.toRust(), calendarUrl, icsData)
             return RemoteDavEventRef(url = result.href, etag = result.etag)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("createEvent")
@@ -197,7 +197,7 @@ internal class RustCaldavBridge(
         icsData: String,
     ): RemoteDavEventRef {
         try {
-            val result = rustUpdateEvent(credentials.toRust(), eventUrl, etag, icsData)
+            val result = rustUpdateEvent(account = credentials.toRust(), eventUrl, etag, icsData)
             return RemoteDavEventRef(url = result.href, etag = result.etag)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("updateEvent")
@@ -206,7 +206,7 @@ internal class RustCaldavBridge(
 
     override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) {
         try {
-            rustDeleteEvent(credentials.toRust(), eventUrl, etag)
+            rustDeleteEvent(account = credentials.toRust(), eventUrl, etag)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("deleteEvent")
         }
@@ -214,7 +214,7 @@ internal class RustCaldavBridge(
 
     override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): RemoteDavEvent = withContext(cpuDispatcher) {
         try {
-            rustPatchEventIcs(icsData, edit.toRust()).toRemoteEvent()
+            rustPatchEventIcs(icsData = icsData, edit = edit.toRust()).toRemoteEvent()
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("patchEventIcs")
         }
@@ -222,7 +222,7 @@ internal class RustCaldavBridge(
 
     override suspend fun buildEventIcs(edit: RemoteEventEdit): RemoteDavEvent = withContext(cpuDispatcher) {
         try {
-            rustBuildEventIcs(edit.toRust()).toRemoteEvent()
+            rustBuildEventIcs(edit = edit.toRust()).toRemoteEvent()
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("buildEventIcs")
         }

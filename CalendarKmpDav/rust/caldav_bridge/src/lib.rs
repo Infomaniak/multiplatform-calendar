@@ -10,8 +10,10 @@
 
 uniffi::setup_scaffolding!();
 
+mod alarms;
 mod client;
 mod error;
+mod ical_components;
 mod models;
 mod props;
 

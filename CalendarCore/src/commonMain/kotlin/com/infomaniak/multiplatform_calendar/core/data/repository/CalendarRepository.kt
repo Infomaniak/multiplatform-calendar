@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLeve
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
@@ -206,20 +207,27 @@ internal class CalendarRepository(
                 eventDao.upsert(entities) // TODO[Optimize]: upsert in batches
             }.onFailure {
                 // An error here is not critical, we can continue syncing other calendars
-                // This exception occurs only when the database is corrupted, which is very rare,
-                // or when the user has been logged out and the database was cleared during synchronization.
-                crashReport.addBreadcrumb(
-                    message = "Failed to upsert events for calendar $calendarId",
-                    category = "database",
-                    level = CrashReportLevel.Error,
-                    data = mapOf(
-                        "exception" to it.stackTraceToString(),
-                        "calendarId" to calendarId.url,
-                        "eventCount" to entities.size.toString(),
-                    ),
-                )
+                // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.
+                reportEventUpsertFailure(calendarId, it, entities)
             }
         }
+    }
+
+    private fun reportEventUpsertFailure(
+        calendarId: CalendarId,
+        throwable: Throwable,
+        entities: List<EventEntity>,
+    ) {
+        crashReport.addBreadcrumb(
+            message = "Failed to upsert events for calendar $calendarId",
+            category = "database",
+            level = CrashReportLevel.Error,
+            data = mapOf(
+                "exception" to throwable.stackTraceToString(),
+                "calendarId" to calendarId.url,
+                "eventCount" to entities.size.toString(),
+            ),
+        )
     }
 
     private suspend fun getRemoteEvents(

@@ -15,11 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.managers
+package com.infomaniak.multiplatform_calendar.core.extensions
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.extensions.collectRestartingUntilComplete
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 
 /**

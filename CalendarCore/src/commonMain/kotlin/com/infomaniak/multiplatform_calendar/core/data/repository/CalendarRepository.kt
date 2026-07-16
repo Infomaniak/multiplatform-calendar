@@ -18,9 +18,12 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
@@ -53,6 +56,7 @@ import kotlin.time.Instant
 internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,
     private val calendarDao: CalendarDao,
+    private val crashReport: CrashReport,
     private val eventDao: EventDao,
 ) {
 
@@ -81,13 +85,13 @@ internal class CalendarRepository(
                 val entities = remoteEvents.mapNotNull { event ->
                     runCatching { event.toEntity(calendarEntity.id) }
                         .cancellable()
-                        .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                        .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                         .getOrNull()
                 }
                 eventDao.upsert(entities)
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
-                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
             }
         }
     }
@@ -186,7 +190,7 @@ internal class CalendarRepository(
     ) {
         if (deleted.isNotEmpty()) {
             val deletedEventIds = deleted.map { item -> EventId(item.eventUrl) }
-            eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds)
+            eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds) // TODO[Optimize]: delete in batches
         }
     }
 
@@ -195,10 +199,35 @@ internal class CalendarRepository(
 
         val entities = remoteEvents.mapNotNull { event ->
             runCatching { event.toEntity(calendarId) }
-                .onFailure { it.logFailuresToSentry(message = "Skip event ${event.url}") }
+                .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
         }
-        if (entities.isNotEmpty()) eventDao.upsert(entities)
+        if (entities.isNotEmpty()) {
+            runCatching {
+                eventDao.upsert(entities) // TODO[Optimize]: upsert in batches
+            }.onFailure {
+                // An error here is not critical, we can continue syncing other calendars
+                // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.
+                reportEventUpsertFailure(calendarId, it, entities)
+            }
+        }
+    }
+
+    private fun reportEventUpsertFailure(
+        calendarId: CalendarId,
+        throwable: Throwable,
+        entities: List<EventEntity>,
+    ) {
+        crashReport.addBreadcrumb(
+            message = "Failed to upsert events for calendar $calendarId",
+            category = "database",
+            level = CrashReportLevel.Error,
+            data = mapOf(
+                "exception" to throwable.stackTraceToString(),
+                "calendarId" to calendarId.url,
+                "eventCount" to entities.size.toString(),
+            ),
+        )
     }
 
     private suspend fun getRemoteEvents(

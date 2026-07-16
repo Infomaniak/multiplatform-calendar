@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject

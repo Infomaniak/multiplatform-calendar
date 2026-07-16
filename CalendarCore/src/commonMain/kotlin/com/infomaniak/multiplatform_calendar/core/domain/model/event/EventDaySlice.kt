@@ -102,9 +102,11 @@ public data class EventDaySlice(
  * The visible day span is derived from the range in [timeZone]; a [rangeEnd] landing exactly on
  * midnight is exclusive (it does not reveal the following day).
  *
- * This is a CPU-bound `suspend` function: it checks for cancellation before each event so a caller
- * using `mapLatest` (see `EventRepository.observeVisibleDaySlices`) can abandon an in-flight grouping
- * as soon as a fresher event list arrives.
+ * Slices are dispatched into per-day buckets (an array indexed by day offset) during expansion and
+ * each bucket is sorted independently, avoiding a flat list + global sort + group-by.
+ *
+ * CPU-bound `suspend` function: cancellation is checked before each event so a caller using
+ * `mapLatest` (see `EventRepository.observeVisibleDaySlices`) can abandon a stale grouping.
  */
 internal suspend fun List<Event>.groupDaySlicesByDay(
     rangeStart: Instant,
@@ -114,15 +116,29 @@ internal suspend fun List<Event>.groupDaySlicesByDay(
     val fromDay = rangeStart.toLocalDateTime(timeZone).date
     val toDay = rangeEnd.toLocalDateTime(timeZone).lastInclusiveDay(notBefore = fromDay)
     val visibleDays = fromDay..toDay
+    val dayCount = visibleDays.count()
 
-    return buildList {
-        for (event in this@groupDaySlicesByDay) {
-            currentCoroutineContext().ensureActive()
-            event.expandDaySlicesInto(this, visibleDays, timeZone)
+    val buckets = arrayOfNulls<MutableList<EventDaySlice>>(dayCount)
+    val eventBuffer = mutableListOf<EventDaySlice>() // reused across events
+
+    for (event in this@groupDaySlicesByDay) {
+        currentCoroutineContext().ensureActive()
+        eventBuffer.clear()
+        event.expandDaySlicesInto(eventBuffer, visibleDays, timeZone)
+        for (slice in eventBuffer) {
+            val offset = fromDay.daysUntil(slice.date)
+            val bucket = buckets[offset] ?: mutableListOf<EventDaySlice>().also { buckets[offset] = it }
+            bucket.add(slice)
         }
     }
-        .sortedWith(daySliceComparator)
-        .groupBy(EventDaySlice::date)
+
+    return buildMap(capacity = dayCount) {
+        for (offset in 0 until dayCount) {
+            val bucket = buckets[offset] ?: continue
+            bucket.sortWith(perDayDaySliceComparator)
+            put(fromDay.plus(offset, DateTimeUnit.DAY), bucket)
+        }
+    }
 }
 
 /**
@@ -168,9 +184,11 @@ internal suspend fun Event.expandDaySlicesInto(
     }
 }
 
-/** All-day slices first, then timed slices by start time; [EventId.url] breaks ties for stability. */
-private val daySliceComparator = compareBy<EventDaySlice>(
-    { it.date },
+/**
+ * Sorts slices within a single day: all-day first, then timed by start time; [EventId.url] breaks
+ * ties for stability. No `date` key — buckets are already mono-date.
+ */
+private val perDayDaySliceComparator = compareBy<EventDaySlice>(
     { !it.isAllDay },
     { it.displayStart },
     { it.event.id.url },

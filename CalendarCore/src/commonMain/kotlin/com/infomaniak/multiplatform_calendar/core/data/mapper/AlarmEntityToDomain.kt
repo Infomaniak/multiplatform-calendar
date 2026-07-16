@@ -43,6 +43,6 @@ internal fun AlarmEntity.toDomain(): EventAlarm? {
         description = description,
         summary = summary,
         attendees = attendees,
-        attach = attach,
+        attachments = attachments,
     )
 }

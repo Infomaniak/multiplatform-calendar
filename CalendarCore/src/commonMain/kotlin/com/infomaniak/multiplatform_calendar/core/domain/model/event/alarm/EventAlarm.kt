@@ -23,5 +23,5 @@ public data class EventAlarm(
     val description: String? = null,
     val summary: String? = null,
     val attendees: List<String> = emptyList(),
-    val attach: String? = null,
+    val attachments: String? = null,
 )

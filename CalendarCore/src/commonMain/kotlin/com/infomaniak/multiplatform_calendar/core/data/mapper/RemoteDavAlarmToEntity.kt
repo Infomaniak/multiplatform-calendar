@@ -40,6 +40,6 @@ internal fun RemoteDavAlarm.toEntity(): AlarmEntity {
         description = description,
         summary = summary,
         attendees = attendees,
-        attach = attach,
+        attachments = attach,
     )
 }

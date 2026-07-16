@@ -37,3 +37,14 @@ internal fun parseHexColor(hex: String?): Int? {
 
     return (alpha shl 24) or (red shl 16) or (green shl 8) or blue
 }
+
+/** Serialize a packed ARGB as an Apple `#RRGGBBAA` upper-case hex string (RGB first, alpha last). */
+internal fun Int.toCaldavHex(): String {
+    val a = (this ushr 24) and 0xFF
+    val r = (this ushr 16) and 0xFF
+    val g = (this ushr 8) and 0xFF
+    val b = this and 0xFF
+    return "#" + r.toHex2() + g.toHex2() + b.toHex2() + a.toHex2()
+}
+
+private fun Int.toHex2(): String = toString(16).padStart(2, '0').uppercase()

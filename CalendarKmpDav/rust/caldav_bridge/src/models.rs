@@ -63,6 +63,10 @@ pub struct EventEntry {
     pub priority: Option<String>,
     pub sequence: Option<String>,
     pub categories: Option<String>,
+    /// Raw `X-APPLE-CALENDAR-COLOR` value (typically `#RRGGBB` or `#RRGGBBAA`).
+    pub color_hex: Option<String>,
+    /// Raw RFC 7986 §5.9 `COLOR` value (a case-insensitive CSS3 color name).
+    pub color_ical_name: Option<String>,
     pub attendees: Vec<AttendeeEntry>,
 }
 
@@ -128,6 +132,16 @@ pub struct VTimeZoneSpec {
     pub offset: String,
 }
 
+/// Requested change to a VEVENT's color (RFC 7986 `COLOR` and/or Apple's `X-APPLE-CALENDAR-COLOR`).
+#[derive(uniffi::Enum)]
+pub enum ColorChange {
+    /// Leave both properties as-is (no color emitted on create).
+    Unchanged,
+    /// Write `X-APPLE-CALENDAR-COLOR:<hex>` and drop any existing `COLOR:<name>`.
+    Set { hex: String },
+    Cleared,
+}
+
 /// Edited event fields applied onto an existing VEVENT by `patch_event_ics`.
 ///
 /// Date/date-time values are raw RFC 5545 strings:
@@ -150,6 +164,7 @@ pub struct EventEdit {
     pub location: Option<String>,
     pub description: Option<String>,
     pub timezones: Vec<VTimeZoneSpec>,
+    pub color_change: ColorChange,
     pub stamp: String,
 }
 

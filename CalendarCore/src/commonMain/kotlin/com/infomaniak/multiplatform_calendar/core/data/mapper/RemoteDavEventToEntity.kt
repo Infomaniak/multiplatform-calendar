@@ -19,6 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
@@ -47,8 +49,15 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         categories = parseICalCategories(categories),
         attendees = attendees.map { it.toEntity() },
         etag = etag,
+        colorArgb = resolveColorArgb(),
+        colorIcalName = colorIcalName,
         rawIcs = icsData,
     )
+}
+
+/** Resolve the wire's color into a single ARGB: Apple hex wins over the RFC 7986 CSS3 name. */
+private fun RemoteDavEvent.resolveColorArgb(): Int? {
+    return parseHexColor(colorHex) ?: parseCss3ColorName(colorIcalName)
 }
 
 

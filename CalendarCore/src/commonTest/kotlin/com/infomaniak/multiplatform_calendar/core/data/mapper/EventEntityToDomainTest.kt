@@ -23,11 +23,15 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 class EventEntityToDomainTest {
 
@@ -69,6 +73,51 @@ class EventEntityToDomainTest {
         assertEquals(emptyList(), event.categories)
     }
 
+    // ---- Colors ---------------------------------------------------------------------------------
+
+    @Test
+    fun eventWithoutColorArgb_inheritsCalendarColors() {
+        val event = eventEntity(colorArgb = null).toDomain(calendar)
+
+        assertNull(event.colors.eventSourceColor)
+        assertEquals(calendar.colors.datavizContainer, event.colors.datavizContainer)
+        assertEquals(calendar.colors.onDatavizContainer, event.colors.onDatavizContainer)
+        assertEquals(calendar.colors.datavizContainerVariant, event.colors.datavizContainerVariant)
+        assertEquals(calendar.colors.onDatavizContainerVariant, event.colors.onDatavizContainerVariant)
+    }
+
+    @Test
+    fun eventWithColorArgb_exposesItAsEventSourceColor() {
+        val eventColor = 0xFFE53935.toInt()
+
+        val event = eventEntity(colorArgb = eventColor).toDomain(calendar)
+
+        assertEquals(EventSourceColor(eventColor), event.colors.eventSourceColor)
+        assertNotNull(event.colors.datavizContainer)
+    }
+
+    @Test
+    fun eventsSharingColorArgb_reuseSameCachedEventColors() {
+        val shared = 0xFF1E88E5.toInt()
+        val cache = mutableMapOf<EventSourceColor, EventColors>()
+
+        val a = eventEntity(id = "a", colorArgb = shared).toDomain(calendar, cache)
+        val b = eventEntity(id = "b", colorArgb = shared).toDomain(calendar, cache)
+
+        assertSame(a.colors, b.colors)
+        assertEquals(1, cache.size)
+    }
+
+    @Test
+    fun eventsWithDistinctColorArgb_populateSeparateCacheEntries() {
+        val cache = mutableMapOf<EventSourceColor, EventColors>()
+
+        eventEntity(id = "a", colorArgb = 0xFF1E88E5.toInt()).toDomain(calendar, cache)
+        eventEntity(id = "b", colorArgb = 0xFFE53935.toInt()).toDomain(calendar, cache)
+
+        assertEquals(2, cache.size)
+    }
+
     private val calendarId = CalendarId("calendar://tests")
     private val accountId = AccountId(1L)
     private val calendar = Calendar(
@@ -80,11 +129,13 @@ class EventEntityToDomainTest {
     )
 
     private fun eventEntity(
+        id: String = "https://cal/tests/1.ics",
         description: String? = null,
         location: String? = null,
         categories: List<String>? = null,
+        colorArgb: Int? = null,
     ) = EventEntity(
-        id = EventId("https://cal/tests/1.ics"),
+        id = EventId(id),
         calendarId = calendarId,
         summary = "Test",
         description = description,
@@ -96,6 +147,7 @@ class EventEntityToDomainTest {
             dtEndInstantMs = null,
         ),
         categories = categories,
+        colorArgb = colorArgb,
         etag = "etag-1",
         rawIcs = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
     )

@@ -200,6 +200,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         priority = null,
         sequence = null,
         categories = null,
+        colorHex = null,
+        colorIcalName = null,
         attendees = emptyList(),
     )
 

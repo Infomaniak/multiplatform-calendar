@@ -15,17 +15,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+/**
+ * Requested change to a VEVENT's color (RFC 7986 `COLOR` and/or Apple's `X-APPLE-CALENDAR-COLOR`).
+ * Mirrors the Rust `ColorChange` enum at the FFI boundary.
+ */
+sealed interface RemoteColorChange {
+    /** Leave both properties as they are (no color emitted on create). */
+    data object Unchanged : RemoteColorChange
 
-/** Editable event fields, shared by the edition and (upcoming) creation flows. */
-public data class EventEditData(
-    val title: String,
-    val timing: EventTiming,
-    val location: String?,
-    val description: String?,
-    val calendarId: CalendarId,
-    /** `null` to inherit the calendar's color. */
-    val eventColor: EventSourceColor? = null,
-)
+    /** Write `X-APPLE-CALENDAR-COLOR:[hex]` and drop any pre-existing `COLOR:<name>`. */
+    data class Set(val hex: String) : RemoteColorChange
+
+    data object Cleared : RemoteColorChange
+}

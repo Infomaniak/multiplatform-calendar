@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
@@ -109,7 +110,7 @@ internal class EventRepository(
 
     suspend fun createEvent(credentials: DavAccount, data: EventEditData) {
         val now = Clock.System.now().toICalUtcDateTime()
-        val ics = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now))
+        val ics = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, ics)
         eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = ics)))
     }
@@ -117,12 +118,12 @@ internal class EventRepository(
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
         eventDao.getEvent(eventId)?.let { entity ->
             val now = Clock.System.now().toICalUtcDateTime()
-            val newIcs = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now))
+            val newIcs = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now, previous = entity))
             if (data.calendarId == entity.calendarId) {
                 val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, newIcs)
                 eventDao.upsert(listOf(entity.applyEdit(data, etag = ref.etag, rawIcs = newIcs)))
             } else {
-                updateCrossCalendarEvent(credentials, eventId, data, newIcs)
+                updateCrossCalendarEvent(credentials, eventId, entity, data, newIcs)
             }
         }
     }
@@ -137,11 +138,14 @@ internal class EventRepository(
     private suspend fun updateCrossCalendarEvent(
         credentials: DavAccount,
         eventId: EventId,
+        previous: EventEntity,
         data: EventEditData,
         newIcs: String,
     ) {
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, newIcs)
         deleteEvent(credentials, eventId)
-        eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs)))
+        // Preserve the CSS3 name across the move when the ARGB is unchanged (see [applyEdit]).
+        val preservedIcalName = previous.colorIcalName.takeIf { previous.colorArgb == data.eventColor?.argb }
+        eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs, colorIcalName = preservedIcalName)))
     }
 }

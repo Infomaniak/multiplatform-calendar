@@ -18,12 +18,14 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalDate
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
@@ -34,7 +36,7 @@ import kotlinx.datetime.format
 import kotlinx.datetime.offsetIn
 import kotlinx.datetime.toInstant
 
-internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit {
+internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
     return RemoteEventEdit(
@@ -47,17 +49,28 @@ internal fun EventEditData.toRemoteEdit(stamp: String): RemoteEventEdit {
         location = location?.ifBlank { null },
         description = description?.ifBlank { null },
         timeZones = timing.vTimeZones(),
+        colorChange = resolveColorChange(previous?.colorArgb),
         stamp = stamp,
     )
 }
 
+private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteColorChange = when {
+    eventColor?.argb == previousColorArgb -> RemoteColorChange.Unchanged
+    eventColor == null -> RemoteColorChange.Cleared
+    else -> RemoteColorChange.Set(hex = eventColor.argb.toCaldavHex())
+}
+
 internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: String): EventEntity {
+    val newColorArgb = data.eventColor?.argb
     return copy(
         calendarId = data.calendarId,
         summary = data.title,
         location = data.location,
         description = data.description,
         timing = data.timing.toEntity(),
+        colorArgb = newColorArgb,
+        // Preserve the CSS3 name only when the ARGB is untouched; any change drops it.
+        colorIcalName = colorIcalName.takeIf { colorArgb == newColorArgb },
         etag = etag,
         rawIcs = rawIcs,
         isSynced = true,
@@ -67,6 +80,7 @@ internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: St
 internal fun EventEditData.toNewEntity(
     ref: RemoteDavEventRef,
     rawIcs: String,
+    colorIcalName: String? = null,
 ): EventEntity {
     return EventEntity(
         id = EventId(ref.url),
@@ -75,6 +89,8 @@ internal fun EventEditData.toNewEntity(
         location = location,
         description = description,
         timing = timing.toEntity(),
+        colorArgb = eventColor?.argb,
+        colorIcalName = colorIcalName,
         etag = ref.etag,
         rawIcs = rawIcs,
         isSynced = true,

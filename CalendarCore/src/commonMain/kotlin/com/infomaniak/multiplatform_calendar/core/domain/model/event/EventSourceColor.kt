@@ -17,15 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import kotlin.jvm.JvmInline
 
-/** Editable event fields, shared by the edition and (upcoming) creation flows. */
-public data class EventEditData(
-    val title: String,
-    val timing: EventTiming,
-    val location: String?,
-    val description: String?,
-    val calendarId: CalendarId,
-    /** `null` to inherit the calendar's color. */
-    val eventColor: EventSourceColor? = null,
-)
+@JvmInline
+public value class EventSourceColor(public val argb: Int)

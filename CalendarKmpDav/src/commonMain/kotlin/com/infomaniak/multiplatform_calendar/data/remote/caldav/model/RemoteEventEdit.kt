@@ -37,5 +37,6 @@ data class RemoteEventEdit(
     val location: String?,
     val description: String?,
     val timeZones: List<RemoteVTimeZone>,
+    val colorChange: RemoteColorChange,
     val stamp: String,
 )

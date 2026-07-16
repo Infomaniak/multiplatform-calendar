@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.di
 
-import com.infomaniak.multiplatform_calendar.core.data.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph

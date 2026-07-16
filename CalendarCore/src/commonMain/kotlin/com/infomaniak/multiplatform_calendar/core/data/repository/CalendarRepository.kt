@@ -18,8 +18,8 @@
 
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.core.data.CrashReport
-import com.infomaniak.multiplatform_calendar.core.data.CrashReportLevel
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity

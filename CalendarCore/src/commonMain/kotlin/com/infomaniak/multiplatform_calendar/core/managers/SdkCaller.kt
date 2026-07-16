@@ -17,8 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
-import com.infomaniak.multiplatform_calendar.core.data.CrashReport
-import com.infomaniak.multiplatform_calendar.core.data.CrashReportLevel
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException

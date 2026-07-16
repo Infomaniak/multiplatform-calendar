@@ -15,26 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data
-
-public enum class CrashReportLevel {
-    Debug,
-    Info,
-    Warning,
-    Error,
-    Fatal
-}
-
-/**
- * Breadcrumb types for Sentry. Controls how the icon/color is displayed in the UI on Sentry's webpage.
- *
- * @param value The value used in the JSON payload.
- * @see <a href="https://develop.sentry.dev/sdk/data-model/event-payloads/breadcrumbs/#breadcrumb-types">Sentry Documentation</a>
- */
-public enum class BreadcrumbType(public val value: String) {
-    Default("default"),
-    HTTP("http"),
-}
+package com.infomaniak.multiplatform_calendar.core.crashreporting
 
 public interface CrashReport {
     /**

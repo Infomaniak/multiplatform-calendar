@@ -22,29 +22,31 @@ import com.infomaniak.multiplatform_calendar.core.data.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 
 /**
- * An abstract class that provides a standardized way to handle SDK calls and report failures.
+ * Provides consistent error handling for SDK operations.
  *
- * This class is intended to be extended by other classes that need to make SDK calls and handle exceptions in a consistent manner.
- * It provides methods to run suspend blocks with exception handling and to report flow failures without propagating them to the SDK consumer.
+ * Suspend operations wrap failures in [CalendarSdkException], while flow failures
+ * are reported and suppressed unless they are already [CalendarSdkException].
  *
  * @property crashReport An instance of [CrashReport] used for logging and reporting errors.
  */
-public abstract class SdkCaller internal constructor(private val crashReport: CrashReport) {
-    // private abstract val crashReport: CrashReport
+@SingleIn(AppScope::class)
+internal class SdkCaller(private val crashReport: CrashReport) {
 
     /**
-     * Runs a suspend block and handles any exceptions that may occur during its execution.
+     * Executes [block] and converts failures to [CalendarSdkException].
      *
-     * @param operation A string describing the operation being performed, used for logging and error reporting.
-     * @param block The suspend block to be executed.
-     * @return The result of the block if it completes successfully.
-     * @throws CalendarSdkException If an exception occurs during the execution of the block, a [CalendarSdkException] is thrown with a descriptive message and the original exception as its cause.
+     * Cancellation and existing [CalendarSdkException] instances are propagated unchanged.
+     *
+     * @param operation Description used in error reports.
+     * @throws CalendarSdkException If the operation fails.
      */
-    internal suspend inline fun <T> runSdkCall(
+    internal suspend inline fun <T> run(
         operation: String,
         crossinline block: suspend () -> T,
     ): T {
@@ -58,13 +60,15 @@ public abstract class SdkCaller internal constructor(private val crashReport: Cr
     }
 
     /**
-     * Extension function for [Flow] that catches any exceptions that occur during the flow's execution,
-     * logs them appropriately, and prevents them from being propagated to the SDK consumer.
+     * Returns a flow that reports and suppresses upstream failures.
      *
-     * @param operation A string describing the operation being performed, used for logging and error reporting.
-     * @return A new [Flow] that will catch and log any exceptions that occur during its execution.
+     * Existing [CalendarSdkException] instances are propagated unchanged.
+     *
+     * @param operation Description used in error reports.
      */
-    internal fun <T> Flow<T>.reportFlowFailures(operation: String): Flow<T> = catch { throwable ->
+    internal inline fun <T> flow(operation: String, block: () -> Flow<T>) = block().reportFlowFailures(operation)
+
+    private fun <T> Flow<T>.reportFlowFailures(operation: String): Flow<T> = catch { throwable ->
         // Flow errors are reported but intentionally not propagated to the SDK consumer.
         throwable.logToSentryIfNeeded(errorMessage = "Flow failed to $operation")
     }

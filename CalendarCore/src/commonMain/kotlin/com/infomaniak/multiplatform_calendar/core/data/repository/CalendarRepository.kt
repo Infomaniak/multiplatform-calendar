@@ -113,7 +113,7 @@ internal class CalendarRepository(
                 )
                 syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
                     updateChangedEvents(credentials, calendarEntity.id, changed)
-                    updateDeletedEvents(calendarEntity.id, deleted)
+                    updateDeletedEvents(calendarEntity.id, deleted.map { EventId(it.eventUrl) })
                 }
                 if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
                     calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
@@ -216,12 +216,7 @@ internal class CalendarRepository(
             else -> caldavClient.getEventsByUrls(credentials, calendarId.url, changedUrls)
         }
 
-        if (unmatchedLocalEvents.isNotEmpty()) {
-            eventDao.deleteEvents(
-                calendarId = calendarId,
-                eventIds = unmatchedLocalEvents.values.map(LocalEventRef::id),
-            )
-        }
+        updateDeletedEvents(calendarId, unmatchedLocalEvents.values.map(LocalEventRef::id))
         upsertEventsByChangeType(calendarId, changedEvents)
     }
 
@@ -243,10 +238,9 @@ internal class CalendarRepository(
 
     private suspend fun updateDeletedEvents(
         calendarId: CalendarId,
-        deleted: List<RemoteEventChangeRef>,
+        deletedEventIds: List<EventId>,
     ) {
-        if (deleted.isNotEmpty()) {
-            val deletedEventIds = deleted.map { item -> EventId(item.eventUrl) }
+        if (deletedEventIds.isNotEmpty()) {
             eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds) // TODO[Optimize]: delete in batches
         }
     }

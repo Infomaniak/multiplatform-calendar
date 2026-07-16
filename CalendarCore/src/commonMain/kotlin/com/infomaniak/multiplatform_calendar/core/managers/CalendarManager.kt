@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
-import com.infomaniak.multiplatform_calendar.core.data.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
@@ -52,9 +51,9 @@ import kotlin.time.Instant
 public class CalendarManager internal constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
-    crashReport: CrashReport,
     private val eventRepository: EventRepository,
-) : SdkCaller(crashReport) {
+    private val sdkCaller: SdkCaller,
+) {
 
     private val nonEmptyAccountIdsFlow by lazy {
         accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
@@ -62,9 +61,11 @@ public class CalendarManager internal constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<Calendar>> {
-        return nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
-            calendarRepository.observeCalendars(accountIds)
-        }.reportFlowFailures("observe calendars")
+        return sdkCaller.flow(operation = "observe calendars") {
+            nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
+                calendarRepository.observeCalendars(accountIds)
+            }
+        }
     }
 
     /**
@@ -80,9 +81,11 @@ public class CalendarManager internal constructor(
         end: Instant,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<List<Event>> {
-        return nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
-            eventRepository.observeVisibleEvents(accountIds, start, end, timeZone)
-        }.reportFlowFailures("observe events from $start to $end for zone $timeZone")
+        return sdkCaller.flow(operation = "observe events from $start to $end for zone $timeZone") {
+            nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
+                eventRepository.observeVisibleEvents(accountIds, start, end, timeZone)
+            }
+        }
     }
 
     /**
@@ -98,9 +101,11 @@ public class CalendarManager internal constructor(
         end: Instant,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
-        return accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-            eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone)
-        }.reportFlowFailures("observe day slices from $start to $end for zone $timeZone")
+        return sdkCaller.flow(operation = "observe day slices from $start to $end for zone $timeZone") {
+            accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
+                eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone)
+            }
+        }
     }
 
     @Deprecated(
@@ -109,7 +114,7 @@ public class CalendarManager internal constructor(
     )
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "sync calendars for account $accountId") {
+        sdkCaller.run(operation = "sync calendars for account $accountId") {
             val credentials = accountRepository.getCredentials(accountId)
             calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
         }
@@ -117,7 +122,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "sync events for all accounts") {
+        sdkCaller.run(operation = "sync events for all accounts") {
             accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
             }
@@ -130,7 +135,7 @@ public class CalendarManager internal constructor(
         start: Instant,
         end: Instant,
     ): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "download events from $start to $end") {
+        sdkCaller.run(operation = "download events from $start to $end") {
             accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.downloadEventsByRange(
                     accountId = accountId,
@@ -144,7 +149,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateCalendar(calendarId: CalendarId, edit: CalendarEditData): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "update calendar $calendarId") {
+        sdkCaller.run(operation = "update calendar $calendarId") {
             if (edit.hasAnyChanges) {
                 val credentials = getCredentialsForCalendar(calendarId)
                 calendarRepository.updateCalendar(credentials, calendarId, edit)
@@ -154,7 +159,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "create event in calendar ${data.calendarId}") {
+        sdkCaller.run(operation = "create event in calendar ${data.calendarId}") {
             val credentials = getCredentialsForCalendar(data.calendarId)
             eventRepository.createEvent(credentials, data)
         }
@@ -162,7 +167,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "update event $eventId") {
+        sdkCaller.run(operation = "update event $eventId") {
             val credentials = getCredentialsForCalendar(data.calendarId)
             eventRepository.updateEvent(credentials, eventId, data)
         }
@@ -170,7 +175,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
-        runSdkCall(operation = "delete event $eventId") {
+        sdkCaller.run(operation = "delete event $eventId") {
             val accountId = eventRepository.getAccountIdByEventId(eventId)
             val credentials = accountRepository.getCredentials(accountId)
             eventRepository.deleteEvent(credentials, eventId)
@@ -178,7 +183,9 @@ public class CalendarManager internal constructor(
     }
 
     public fun observeEvent(eventId: EventId): Flow<Event?> {
-        return eventRepository.observeEvent(eventId).reportFlowFailures("observe event $eventId")
+        return sdkCaller.flow(operation = "observe event $eventId") {
+            eventRepository.observeEvent(eventId)
+        }
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

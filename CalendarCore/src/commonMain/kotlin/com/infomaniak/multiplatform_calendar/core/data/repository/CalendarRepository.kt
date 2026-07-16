@@ -44,6 +44,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkExcep
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -112,7 +113,7 @@ internal class CalendarRepository(
                     syncToken = calendarEntity.syncToken,
                 )
                 syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
-                    updateChangedEvents(credentials, calendarEntity.id, changed)
+                    updateChangedEvents(credentials, calendarEntity.id, changed.map { it.eventUrl })
                     updateDeletedEvents(calendarEntity.id, deleted.map { EventId(it.eventUrl) })
                 }
                 if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
@@ -203,34 +204,23 @@ internal class CalendarRepository(
             start = start,
             end = end,
         )
-        val unmatchedLocalEvents = localEvents.associateByTo(HashMap(localEvents.size)) { it.id.url }
-        val changedUrls = buildList {
-            remoteRefs.forEach { remoteRef ->
-                val localEvent = unmatchedLocalEvents.remove(remoteRef.url)
-                if (localEvent?.etag != remoteRef.etag) add(remoteRef.url)
-            }
-        }
+        val diff = findChangedAndDeletedEvents(localEvents, remoteRefs)
 
-        val changedEvents = when {
-            changedUrls.isEmpty() -> emptyList()
-            else -> caldavClient.getEventsByUrls(credentials, calendarId.url, changedUrls)
-        }
-
-        updateDeletedEvents(calendarId, unmatchedLocalEvents.values.map(LocalEventRef::id))
-        upsertEventsByChangeType(calendarId, changedEvents)
+        updateDeletedEvents(calendarId, diff.deletedEvents)
+        updateChangedEvents(credentials, calendarId, diff.upsertUrls)
     }
 
     private suspend fun updateChangedEvents(
         credentials: DavAccount,
         calendarId: CalendarId,
-        changed: List<RemoteEventChangeRef>,
+        changedUrls: List<String>,
     ) {
-        if (changed.isNotEmpty()) {
+        if (changedUrls.isNotEmpty()) {
             // TODO[Optimize]: fetch batched events instead of all events at once
             val changedEvents = caldavClient.getEventsByUrls(
                 credentials = credentials,
                 calendarUrl = calendarId.url,
-                eventUrls = changed.map { it.eventUrl },
+                eventUrls = changedUrls,
             )
             upsertEventsByChangeType(calendarId, changedEvents)
         }
@@ -243,6 +233,20 @@ internal class CalendarRepository(
         if (deletedEventIds.isNotEmpty()) {
             eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds) // TODO[Optimize]: delete in batches
         }
+    }
+
+    private fun findChangedAndDeletedEvents(
+        localEvents: List<LocalEventRef>,
+        remoteRefs: List<RemoteDavEventRef>,
+    ): EventSyncDiff {
+        val eventsToDelete = localEvents.associateByTo(HashMap(localEvents.size)) { it.id.url }
+        val changedUrls = buildList {
+            remoteRefs.forEach { remoteRef ->
+                val localEvent = eventsToDelete.remove(remoteRef.url)
+                if (localEvent?.etag != remoteRef.etag) add(remoteRef.url)
+            }
+        }
+        return EventSyncDiff(changedUrls, eventsToDelete.values.map(LocalEventRef::id))
     }
 
     private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {
@@ -291,4 +295,9 @@ internal class CalendarRepository(
         val url = remote.url.lowercase()
         url.contains("/inbox") || url.contains("/outbox")
     }
+
+    private data class EventSyncDiff(
+        val upsertUrls: List<String>,
+        val deletedEvents: List<EventId>,
+    )
 }

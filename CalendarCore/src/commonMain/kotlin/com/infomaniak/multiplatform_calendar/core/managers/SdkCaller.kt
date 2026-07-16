@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.Calend
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.catch
  *
  * @property crashReport An instance of [CrashReport] used for logging and reporting errors.
  */
+@Inject
 @SingleIn(AppScope::class)
 internal class SdkCaller(private val crashReport: CrashReport) {
 

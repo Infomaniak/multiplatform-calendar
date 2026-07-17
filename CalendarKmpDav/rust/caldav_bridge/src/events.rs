@@ -16,7 +16,6 @@ use crate::models::{
     EventEntry,
     EventResourceRef,
     EventSyncDelta,
-    MutateResult,
     VTimeZoneSpec,
 };
 
@@ -468,7 +467,7 @@ pub fn calendar_multiget(
 
 /// Create a new event. Returns the server-assigned URL + etag.
 #[uniffi::export]
-pub fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> Result<MutateResult, CaldavError> {
+pub fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> Result<EventResourceRef, CaldavError> {
     let rt = rt()?;
     let cli = client(&account)?;
     let body = bytes::Bytes::from(ics_data.as_bytes().to_vec());
@@ -484,13 +483,13 @@ pub fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> 
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default()
             .to_string();
-        Ok(MutateResult { url: path, etag })
+        Ok(EventResourceRef { href: path, etag })
     })
 }
 
 /// Update an existing event (identified by its URL + etag for conflict detection).
 #[uniffi::export]
-pub fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: &str) -> Result<MutateResult, CaldavError> {
+pub fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: &str) -> Result<EventResourceRef, CaldavError> {
     let rt = rt()?;
     let cli = client(&account)?;
     let body = bytes::Bytes::from(ics_data.as_bytes().to_vec());
@@ -504,7 +503,7 @@ pub fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: 
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default()
             .to_string();
-        Ok(MutateResult { url: event_url.to_string(), etag: new_etag })
+        Ok(EventResourceRef { href: event_url.to_string(), etag: new_etag })
     })
 }
 

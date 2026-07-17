@@ -119,13 +119,6 @@ pub struct AttendeeEntry {
     pub response_needed: bool,
 }
 
-/// Reference to a created/updated event on the server (URL + etag).
-#[derive(uniffi::Record)]
-pub struct MutateResult {
-    pub url: String,
-    pub etag: String,
-}
-
 /// Edited calendar properties applied onto a CalDAV collection by `update_calendar` (PROPPATCH).
 ///
 /// Each `Some` is set on the server; each `None` is left untouched. Colors are CalDAV hex strings

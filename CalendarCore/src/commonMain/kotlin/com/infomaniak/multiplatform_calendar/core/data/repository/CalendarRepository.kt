@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
@@ -43,12 +44,15 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkExcep
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -109,8 +113,8 @@ internal class CalendarRepository(
                     syncToken = calendarEntity.syncToken,
                 )
                 syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
-                    updateChangedEvents(credentials, calendarEntity.id, changed)
-                    updateDeletedEvents(calendarEntity.id, deleted)
+                    updateChangedEvents(credentials, calendarEntity.id, changed.map { it.eventUrl })
+                    updateDeletedEvents(calendarEntity.id, deleted.map { EventId(it.eventUrl) })
                 }
                 if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
                     calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
@@ -131,16 +135,35 @@ internal class CalendarRepository(
         syncCalendarMetadata(accountId, credentials)
         val startValue = start.toICalUtcDateTime()
         val endValue = end.toICalUtcDateTime()
+        val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
+        val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
 
         calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
             runCatching {
-                val rangeEvents = caldavClient.getEventsInRange(
-                    credentials = credentials,
-                    calendarUrl = calendarEntity.id.url,
-                    start = startValue,
-                    end = endValue,
+                val localEvents = eventDao.getEventRefsInRange(
+                    calendarId = calendarEntity.id,
+                    startInstantMs = start.toEpochMilliseconds(),
+                    endInstantMs = end.toEpochMilliseconds(),
+                    startLocalDateTime = startLocalDateTime,
+                    endLocalDateTime = endLocalDateTime,
                 )
-                upsertEventsByChangeType(calendarEntity.id, rangeEvents)
+                if (localEvents.isEmpty()) {
+                    val rangeEvents = caldavClient.getEventsInRange(
+                        credentials = credentials,
+                        calendarUrl = calendarEntity.id.url,
+                        start = startValue,
+                        end = endValue,
+                    )
+                    upsertEventsByChangeType(calendarEntity.id, rangeEvents)
+                } else {
+                    syncExistingRange(
+                        credentials = credentials,
+                        calendarId = calendarEntity.id,
+                        start = startValue,
+                        end = endValue,
+                        localEvents = localEvents,
+                    )
+                }
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
                 it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
@@ -168,17 +191,36 @@ internal class CalendarRepository(
         }
     }
 
+    private suspend fun syncExistingRange(
+        credentials: DavAccount,
+        calendarId: CalendarId,
+        start: String,
+        end: String,
+        localEvents: List<LocalEventRef>,
+    ) {
+        val remoteRefs = caldavClient.getEventRefsInRange(
+            credentials = credentials,
+            calendarUrl = calendarId.url,
+            start = start,
+            end = end,
+        )
+        val diff = findChangedAndDeletedEvents(localEvents, remoteRefs)
+
+        updateDeletedEvents(calendarId, diff.deletedEvents)
+        updateChangedEvents(credentials, calendarId, diff.upsertUrls)
+    }
+
     private suspend fun updateChangedEvents(
         credentials: DavAccount,
         calendarId: CalendarId,
-        changed: List<RemoteEventChangeRef>,
+        changedUrls: List<String>,
     ) {
-        if (changed.isNotEmpty()) {
+        if (changedUrls.isNotEmpty()) {
             // TODO[Optimize]: fetch batched events instead of all events at once
             val changedEvents = caldavClient.getEventsByUrls(
                 credentials = credentials,
                 calendarUrl = calendarId.url,
-                eventUrls = changed.map { it.eventUrl },
+                eventUrls = changedUrls,
             )
             upsertEventsByChangeType(calendarId, changedEvents)
         }
@@ -186,12 +228,25 @@ internal class CalendarRepository(
 
     private suspend fun updateDeletedEvents(
         calendarId: CalendarId,
-        deleted: List<RemoteEventChangeRef>,
+        deletedEventIds: List<EventId>,
     ) {
-        if (deleted.isNotEmpty()) {
-            val deletedEventIds = deleted.map { item -> EventId(item.eventUrl) }
+        if (deletedEventIds.isNotEmpty()) {
             eventDao.deleteEvents(calendarId = calendarId, eventIds = deletedEventIds) // TODO[Optimize]: delete in batches
         }
+    }
+
+    private fun findChangedAndDeletedEvents(
+        localEvents: List<LocalEventRef>,
+        remoteRefs: List<RemoteDavEventRef>,
+    ): EventSyncDiff {
+        val eventsToDelete = localEvents.associateByTo(HashMap(localEvents.size)) { it.id.url }
+        val changedUrls = buildList {
+            remoteRefs.forEach { remoteRef ->
+                val localEvent = eventsToDelete.remove(remoteRef.url)
+                if (localEvent?.etag != remoteRef.etag) add(remoteRef.url)
+            }
+        }
+        return EventSyncDiff(changedUrls, eventsToDelete.values.map(LocalEventRef::id))
     }
 
     private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {
@@ -240,4 +295,9 @@ internal class CalendarRepository(
         val url = remote.url.lowercase()
         url.contains("/inbox") || url.contains("/outbox")
     }
+
+    private data class EventSyncDiff(
+        val upsertUrls: List<String>,
+        val deletedEvents: List<EventId>,
+    )
 }

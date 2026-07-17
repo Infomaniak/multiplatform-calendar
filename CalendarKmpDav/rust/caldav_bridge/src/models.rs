@@ -83,6 +83,13 @@ pub struct AlarmEntry {
     pub attach: Vec<String>,
 }
 
+/// Lightweight reference returned by a calendar-query without calendar-data.
+#[derive(uniffi::Record)]
+pub struct EventResourceRef {
+    pub href: String,
+    pub etag: String,
+}
+
 /// A single item returned by `sync-collection`.
 #[derive(uniffi::Record)]
 pub struct EventChangeRef {

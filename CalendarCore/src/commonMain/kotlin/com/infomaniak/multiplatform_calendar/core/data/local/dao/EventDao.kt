@@ -23,6 +23,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -83,6 +84,29 @@ internal interface EventDao {
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>
 
+    @Query(
+        """
+        SELECT id, etag FROM events
+        WHERE calendarId = :calendarId
+          AND (
+            (dtStartInstantMs IS NOT NULL
+              AND dtStartInstantMs < :endInstantMs
+              AND dtEndInstantMs >= :startInstantMs)
+            OR
+            (dtStartInstantMs IS NULL
+              AND dtStart < :endLocalDateTime
+              AND dtEndEffective >= :startLocalDateTime)
+          )
+        """,
+    )
+    suspend fun getEventRefsInRange(
+        calendarId: CalendarId,
+        startInstantMs: Long,
+        endInstantMs: Long,
+        startLocalDateTime: LocalDateTime,
+        endLocalDateTime: LocalDateTime,
+    ): List<LocalEventRef>
+
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     suspend fun getEvent(eventId: EventId): EventEntity?
 
@@ -97,4 +121,3 @@ internal interface EventDao {
     @Query("DELETE FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
 }
-

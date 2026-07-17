@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.repository
 import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
@@ -27,7 +28,13 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -46,11 +53,14 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class EventRepositoryTest : RobolectricTestsBase() {
 
     private lateinit var database: CalendarDatabase
     private lateinit var repository: EventRepository
+    private lateinit var fakeCaldav: FakeCaldavClient
 
     @BeforeTest
     fun setUp() {
@@ -59,9 +69,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
             driver = DatabaseProviderFactory.driver(),
             inMemory = true,
         )
+        fakeCaldav = FakeCaldavClient()
         repository = EventRepository(
             accountDao = database.accountDao(),
-            caldavClient = NoOpCaldavClient,
+            caldavClient = fakeCaldav,
             eventDao = database.eventDao(),
         )
     }
@@ -109,6 +120,104 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(0, parisResult.size, "Paris bounds (12:00-12:30 wall) should not overlap 10:00-11:00")
     }
 
+    /**
+     * Regression: a cross-calendar move must keep every server-only field (attendees, categories,
+     * rrule, status, sequence, …) that the editor never touched. Before this fix the local row was
+     * rebuilt from EventEditData alone, so those fields were dropped until the next server sync.
+     */
+    @Test
+    fun updateEvent_crossCalendarMove_preservesServerOnlyFields_andRebindsRow() = runTest {
+        val account = AccountId(1)
+        val source = CalendarId("calendar://source")
+        val target = CalendarId("calendar://target")
+        seedCalendar(account, source)
+        seedCalendar(account, target)
+
+        val oldId = EventId("https://cal/source/event.ics")
+        val previous = richEvent(id = oldId, calendarId = source, etag = "etag-old")
+        eventDao().upsert(listOf(previous))
+
+        fakeCaldav.patchedIcs = "BEGIN:VEVENT\nUID:1\nSUMMARY:Renamed\nEND:VEVENT"
+        fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            eventId = oldId,
+            data = EventEditData(
+                title = "Renamed",
+                timing = EventTiming(
+                    start = LocalDateTime(2026, 6, 15, 10, 0),
+                    end = LocalDateTime(2026, 6, 15, 11, 0),
+                    startTimeZone = TimeZone.UTC,
+                    endTimeZone = TimeZone.UTC,
+                    isAllDay = false,
+                ),
+                location = null,
+                description = null,
+                calendarId = target,
+                eventColor = null,
+                alarms = emptyList(),
+            ),
+        )
+
+        // Remote choreography: create on the target, then delete the source.
+        assertEquals(listOf("calendar://target" to fakeCaldav.patchedIcs), fakeCaldav.creates)
+        assertEquals(listOf(oldId.url to "etag-old"), fakeCaldav.deletes)
+
+        // Old local row is gone; new row lives at the new href in the target calendar.
+        assertNull(database.eventDao().getEvent(oldId))
+        val moved = database.eventDao().getEvent(EventId("https://cal/target/event.ics"))!!
+        assertEquals(target, moved.calendarId)
+        assertEquals("etag-new", moved.etag)
+        assertEquals(fakeCaldav.patchedIcs, moved.rawIcs)
+        assertEquals("Renamed", moved.summary)
+        assertTrue(moved.isSynced)
+
+        // Server-only fields carried over from the previous row.
+        assertEquals(previous.created, moved.created)
+        assertEquals(previous.lastModified, moved.lastModified)
+        assertEquals(previous.dtStamp, moved.dtStamp)
+        assertEquals(previous.rrule, moved.rrule)
+        assertEquals(previous.status, moved.status)
+        assertEquals(previous.transp, moved.transp)
+        assertEquals(previous.classification, moved.classification)
+        assertEquals(previous.priority, moved.priority)
+        assertEquals(previous.sequence, moved.sequence)
+        assertEquals(previous.categories, moved.categories)
+        assertEquals(previous.attendees, moved.attendees)
+    }
+
+    private fun richEvent(id: EventId, calendarId: CalendarId, etag: String): EventEntity = EventEntity(
+        id = id,
+        calendarId = calendarId,
+        summary = "Original",
+        timing = EventTimingEntity(
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+            dtStartInstantMs = LocalDateTime(2026, 6, 15, 10, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = LocalDateTime(2026, 6, 15, 11, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
+        ),
+        created = LocalDateTime(2026, 1, 1, 8, 0),
+        lastModified = LocalDateTime(2026, 1, 2, 9, 0),
+        dtStamp = LocalDateTime(2026, 1, 2, 9, 0),
+        rrule = "FREQ=WEEKLY;BYDAY=MO",
+        status = EventStatus.CONFIRMED,
+        transp = "OPAQUE",
+        classification = Classification.Private,
+        priority = 5,
+        sequence = 3,
+        categories = listOf("work", "urgent"),
+        attendees = listOf(
+            AttendeeEntity(
+                email = "guest@example.com",
+                status = ParticipationStatus.Accepted,
+                role = AttendeeRole.Requested,
+            ),
+        ),
+        etag = etag,
+        rawIcs = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
+    )
+
     private suspend fun seedCalendar(accountId: AccountId, calendarId: CalendarId) {
         database.accountDao().insert(AccountEntity(id = accountId))
         database.calendarDao().upsert(
@@ -147,8 +256,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
     private fun eventDao() = database.eventDao()
 }
 
-/** Stub — [EventRepositoryTest] only exercises the read path, no remote call is made. */
-private object NoOpCaldavClient : CalendarSyncRemoteSource {
+/**
+ * Configurable fake: records create/delete calls and returns caller-set responses. Read-path
+ * tests leave it as a no-op; the cross-calendar move test asserts against [creates] and [deletes].
+ */
+private class FakeCaldavClient : CalendarSyncRemoteSource {
+    var patchedIcs: String = ""
+    var createdRef: RemoteDavEventRef = RemoteDavEventRef(url = "", etag = "")
+    val creates = mutableListOf<Pair<String, String>>()
+    val deletes = mutableListOf<Pair<String, String>>()
+
     override suspend fun discoverCalendars(credentials: DavAccount) = emptyList<RemoteDavCalendar>()
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
     override suspend fun getEvents(credentials: DavAccount, calendarUrl: String) = emptyList<RemoteDavEvent>()
@@ -164,13 +281,17 @@ private object NoOpCaldavClient : CalendarSyncRemoteSource {
     override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
         emptyList<RemoteDavEvent>()
 
-    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = icsData
-    override suspend fun buildEventIcs(edit: RemoteEventEdit) = ""
-    override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String) =
-        RemoteDavEventRef(url = "", etag = "")
+    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = patchedIcs
+    override suspend fun buildEventIcs(edit: RemoteEventEdit) = patchedIcs
+    override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
+        creates += calendarUrl to icsData
+        return createdRef
+    }
 
     override suspend fun updateEvent(credentials: DavAccount, eventUrl: String, etag: String, icsData: String) =
-        RemoteDavEventRef(url = "", etag = "")
+        RemoteDavEventRef(url = eventUrl, etag = etag)
 
-    override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) = Unit
+    override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) {
+        deletes += eventUrl to etag
+    }
 }

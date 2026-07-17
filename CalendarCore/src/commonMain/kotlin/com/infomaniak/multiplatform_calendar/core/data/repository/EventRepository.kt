@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
+import com.infomaniak.multiplatform_calendar.core.data.mapper.movedTo
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toNewEntity
@@ -144,8 +145,6 @@ internal class EventRepository(
     ) {
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, newIcs)
         deleteEvent(credentials, eventId)
-        // Preserve the CSS3 name across the move when the ARGB is unchanged (see [applyEdit]).
-        val preservedIcalName = previous.colorIcalName.takeIf { previous.colorArgb == data.eventColor?.argb }
-        eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs, colorIcalName = preservedIcalName)))
+        eventDao.upsert(listOf(previous.movedTo(ref = ref, data = data, rawIcs = newIcs)))
     }
 }

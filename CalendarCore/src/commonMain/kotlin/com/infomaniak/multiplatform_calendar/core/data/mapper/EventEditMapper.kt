@@ -83,7 +83,6 @@ internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: St
 internal fun EventEditData.toNewEntity(
     ref: RemoteDavEventRef,
     rawIcs: String,
-    colorIcalName: String? = null,
 ): EventEntity {
     return EventEntity(
         id = EventId(ref.url),
@@ -93,12 +92,21 @@ internal fun EventEditData.toNewEntity(
         description = description,
         timing = timing.toEntity(),
         colorArgb = eventColor?.argb,
-        colorIcalName = colorIcalName,
+        colorIcalName = null,
         alarms = alarms.map(EventAlarm::toEntity),
         etag = ref.etag,
         rawIcs = rawIcs,
         isSynced = true,
     )
+}
+
+/**
+ * Build the local row for a cross-calendar move. A move is a normal edit that lands at a new href,
+ * so this reuses [applyEdit] to carry over every server-only field (attendees, categories, rrule,
+ * status, sequence, …) from [this] previous row, overriding only the id with the new [ref].
+ */
+internal fun EventEntity.movedTo(ref: RemoteDavEventRef, data: EventEditData, rawIcs: String): EventEntity {
+    return applyEdit(data, etag = ref.etag, rawIcs = rawIcs).copy(id = EventId(ref.url))
 }
 
 /**

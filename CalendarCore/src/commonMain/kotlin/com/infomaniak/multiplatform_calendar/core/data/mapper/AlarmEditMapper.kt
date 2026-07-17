@@ -24,14 +24,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Alarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
-import kotlin.time.ExperimentalTime
 
 /**
  * Returns `null` when the projected alarms match [previous], leaving source VALARM blocks untouched
  * so `X-*` / exotic params survive partial edits; otherwise the full replacement list.
  */
-@OptIn(ExperimentalTime::class)
-internal fun alarmEdits(
+internal fun resolveAlarmEdits(
     alarms: List<EventAlarm>,
     previous: List<AlarmEntity>,
 ): List<RemoteAlarmEdit>? {
@@ -39,20 +37,15 @@ internal fun alarmEdits(
     return if (projected == previous) null else alarms.map(EventAlarm::toRemoteEdit)
 }
 
-@OptIn(ExperimentalTime::class)
 internal fun EventAlarm.toEntity(): AlarmEntity {
-    val (relativeMs, absoluteMs, relatedTo) = when (val alarmTrigger = trigger) {
-        is AlarmTrigger.Relative -> Triple(
-            alarmTrigger.offset.inWholeMilliseconds,
-            null,
-            alarmTrigger.relatedTo,
-        )
-        is AlarmTrigger.Absolute -> Triple(null, alarmTrigger.instant.toEpochMilliseconds(), TriggerRelation.Start)
+    val (relative, absolute, relatedTo) = when (val alarmTrigger = trigger) {
+        is AlarmTrigger.Relative -> Triple(alarmTrigger.offset, null, alarmTrigger.relatedTo)
+        is AlarmTrigger.Absolute -> Triple(null, alarmTrigger.instant, TriggerRelation.Start)
     }
     return AlarmEntity(
         action = action.toIcalString(),
-        triggerRelativeMillis = relativeMs,
-        triggerAbsoluteEpochMillis = absoluteMs,
+        triggerRelative = relative,
+        triggerAbsolute = absolute,
         triggerRelatedTo = relatedTo,
         description = description,
         summary = summary,
@@ -61,7 +54,6 @@ internal fun EventAlarm.toEntity(): AlarmEntity {
     )
 }
 
-@OptIn(ExperimentalTime::class)
 private fun EventAlarm.toRemoteEdit(): RemoteAlarmEdit {
     val (duration, absolute, related) = when (val alarmTrigger = trigger) {
         is AlarmTrigger.Relative -> Triple(

@@ -21,12 +21,12 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -36,16 +36,15 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 class EventEditMapperAlarmTest {
 
     private val calendarId = CalendarId("calendar://alarms")
 
-
     @Test
     fun sameAlarmsAsPrevious_emitsUnchanged() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelativeMillis = -15L * 60_000L)))
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
         val same = eventAlarm(offset = -15.minutes)
 
         val edit = editData(alarms = listOf(same)).toRemoteEdit(stamp = STAMP, previous = previous)
@@ -55,7 +54,7 @@ class EventEditMapperAlarmTest {
 
     @Test
     fun differentAlarmCount_emitsSet() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelativeMillis = -15L * 60_000L)))
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
 
         val edit = editData(alarms = emptyList()).toRemoteEdit(stamp = STAMP, previous = previous)
 
@@ -64,7 +63,7 @@ class EventEditMapperAlarmTest {
 
     @Test
     fun modifiedTrigger_emitsSetWithRebuiltList() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelativeMillis = -15L * 60_000L)))
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
 
         val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes)))
             .toRemoteEdit(stamp = STAMP, previous = previous)
@@ -76,9 +75,11 @@ class EventEditMapperAlarmTest {
 
     @Test
     fun modifiedDescriptionOnly_emitsSet() {
-        val previous = eventEntity(alarms = listOf(
-            alarmEntity(triggerRelativeMillis = -15L * 60_000L, description = "Old")
-        ))
+        val previous = eventEntity(
+            alarms = listOf(
+                alarmEntity(triggerRelative = (-15).minutes, description = "Old"),
+            ),
+        )
 
         val edit = editData(alarms = listOf(eventAlarm(offset = -15.minutes, description = "New")))
             .toRemoteEdit(stamp = STAMP, previous = previous)
@@ -102,12 +103,11 @@ class EventEditMapperAlarmTest {
         assertNotNull(edit.alarms)
     }
 
-    @OptIn(ExperimentalTime::class)
     @Test
     fun absoluteTrigger_isFormattedAsUtcDateTime() {
         val absolute = EventAlarm(
             action = AlarmAction.Display,
-            trigger = AlarmTrigger.Absolute(kotlin.time.Instant.fromEpochMilliseconds(1_781_514_000_000L)),
+            trigger = AlarmTrigger.Absolute(Instant.fromEpochMilliseconds(1_781_514_000_000L)),
             description = "R",
         )
 
@@ -117,12 +117,13 @@ class EventEditMapperAlarmTest {
         assertEquals("20260615T090000Z", emitted.triggerAbsolute)
     }
 
-
     @Test
     fun applyEdit_replacesAlarmsWithNewList() {
-        val previous = eventEntity(alarms = listOf(
-            alarmEntity(triggerRelativeMillis = -15L * 60_000L, description = "Old")
-        ))
+        val previous = eventEntity(
+            alarms = listOf(
+                alarmEntity(triggerRelative = (-15).minutes, description = "Old"),
+            ),
+        )
 
         val updated = previous.applyEdit(
             data = editData(alarms = listOf(eventAlarm(offset = -5.minutes, description = "New"))),
@@ -131,26 +132,24 @@ class EventEditMapperAlarmTest {
         )
 
         val slot = updated.alarms.single()
-        assertEquals(-5L * 60_000L, slot.triggerRelativeMillis)
+        assertEquals((-5).minutes, slot.triggerRelative)
         assertEquals("New", slot.description)
     }
 
-
-    @OptIn(kotlin.time.ExperimentalTime::class)
-    private fun eventAlarm(offset: kotlin.time.Duration, description: String? = "Reminder") = EventAlarm(
+    private fun eventAlarm(offset: Duration, description: String? = "Reminder") = EventAlarm(
         action = AlarmAction.Display,
         trigger = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start),
         description = description,
     )
 
     private fun alarmEntity(
-        triggerRelativeMillis: Long? = null,
-        triggerAbsoluteEpochMillis: Long? = null,
+        triggerRelative: Duration? = null,
+        triggerAbsolute: Instant? = null,
         description: String? = "Reminder",
     ) = AlarmEntity(
         action = "DISPLAY",
-        triggerRelativeMillis = triggerRelativeMillis,
-        triggerAbsoluteEpochMillis = triggerAbsoluteEpochMillis,
+        triggerRelative = triggerRelative,
+        triggerAbsolute = triggerAbsolute,
         triggerRelatedTo = TriggerRelation.Start,
         description = description,
     )

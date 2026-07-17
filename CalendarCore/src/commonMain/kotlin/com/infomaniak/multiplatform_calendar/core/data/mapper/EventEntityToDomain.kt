@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
@@ -50,5 +51,6 @@ internal fun EventEntity.toDomain(
             ?.let { EventColors.from(EventSourceColor(it), eventColorsCache) }
             ?: EventColors.from(calendar.colors),
         canEdit = calendar.accessLevel.canWrite,
+        alarms = alarms.mapNotNull(AlarmEntity::toDomain),
     )
 }

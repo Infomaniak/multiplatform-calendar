@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 import kotlin.time.ExperimentalTime
@@ -46,4 +47,5 @@ public interface Event {
     public val organizer: Attendee?
     public val colors: EventColors
     public val canEdit: Boolean
+    public val alarms: List<EventAlarm>
 }

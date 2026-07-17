@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.local
 
 import androidx.room.TypeConverter
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import kotlinx.datetime.LocalDateTime
@@ -43,6 +44,12 @@ internal class CalendarTypeConverters {
 
     @TypeConverter
     fun toAttendees(value: String): List<AttendeeEntity> = Json.decodeFromString(value)
+
+    @TypeConverter
+    fun fromAlarms(value: List<AlarmEntity>): String = Json.encodeToString(value)
+
+    @TypeConverter
+    fun toAlarms(value: String): List<AlarmEntity> = Json.decodeFromString(value)
 
     @TypeConverter
     fun fromClassification(value: Classification?): String? = value?.toIcalString()

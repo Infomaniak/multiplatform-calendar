@@ -68,5 +68,6 @@ data class RemoteDavEvent(
     val colorIcalName: String?,
     /** ORGANIZER + ATTENDEE participants parsed from the VEVENT. */
     val attendees: List<RemoteDavAttendee>,
+    val alarms: List<RemoteDavAlarm> = emptyList(),
 )
 

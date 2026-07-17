@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeExce
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -274,6 +275,18 @@ private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
                 role = attendee.role,
                 isOrganizer = attendee.isOrganizer,
                 responseNeeded = attendee.responseNeeded,
+            )
+        },
+        alarms = this.alarms.map { alarm ->
+            RemoteDavAlarm(
+                action = alarm.action,
+                triggerDuration = alarm.triggerDuration,
+                triggerAbsolute = alarm.triggerAbsolute,
+                triggerRelatedTo = alarm.triggerRelatedTo,
+                description = alarm.description,
+                summary = alarm.summary,
+                attendees = alarm.attendees,
+                attach = alarm.attach,
             )
         },
     )

@@ -68,6 +68,19 @@ pub struct EventEntry {
     /// Raw RFC 7986 §5.9 `COLOR` value (a case-insensitive CSS3 color name).
     pub color_ical_name: Option<String>,
     pub attendees: Vec<AttendeeEntry>,
+    pub alarms: Vec<AlarmEntry>,
+}
+
+#[derive(uniffi::Record)]
+pub struct AlarmEntry {
+    pub action: String,
+    pub trigger_duration: Option<String>,
+    pub trigger_absolute: Option<String>,
+    pub trigger_related_to: String,
+    pub description: Option<String>,
+    pub summary: Option<String>,
+    pub attendees: Vec<String>,
+    pub attach: Vec<String>,
 }
 
 /// A single item returned by `sync-collection`.

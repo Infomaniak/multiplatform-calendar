@@ -58,6 +58,7 @@ internal data class EventEntity(
     val sequence: Int? = null,
     val categories: List<String>? = null,
     val attendees: List<AttendeeEntity> = emptyList(),
+    val alarms: List<AlarmEntity> = emptyList(),
     val etag: String,
     /** Packed ARGB, or `null` when the event inherits its calendar's color. */
     val colorArgb: Int? = null,

@@ -3,6 +3,7 @@
 use icalendar::{Calendar, CalendarComponent, Component, Property};
 use std::collections::HashSet;
 
+use crate::alarms::parse_alarms;
 use crate::client::{client, ensure_success, rt};
 use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{
@@ -75,6 +76,7 @@ fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> 
                 color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
                 color_ical_name: prop(ev, "COLOR"),
                 attendees: parse_attendees(ev),
+                alarms: parse_alarms(ev),
                 ics_data,
             })
         }

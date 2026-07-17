@@ -19,17 +19,16 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
 internal fun RemoteDavAlarm.toEntity(): AlarmEntity {
-    val relativeMillis = triggerDuration
-        ?.let { runCatching { Duration.parseIsoString(it).inWholeMilliseconds }.getOrNull() }
+    val relativeMillis = parseICalDuration(triggerDuration)?.inWholeMilliseconds
     val absoluteMillis = triggerAbsolute
         ?.let { parseICalDateTime(it)?.toInstant(TimeZone.UTC)?.toEpochMilliseconds() }
     return AlarmEntity(

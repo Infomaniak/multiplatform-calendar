@@ -67,12 +67,15 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun rawIcs_preservationHappensAtWholeListLevel_notPerAlarm() {
-        val block = "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nX-CUSTOM:keep-me\r\nEND:VALARM\r\n"
-        val remote = alarm(triggerDuration = "-PT15M", rawIcs = block)
-        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
+    fun rawIcs_ofTheWholeEvent_isPreservedOnTheEntity() {
+        val valarmBlock = "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nX-CUSTOM:keep-me\r\nEND:VALARM\r\n"
+        val ics = "BEGIN:VEVENT\r\nUID:1\r\n$valarmBlock" + "END:VEVENT\r\n"
+        val remote = remoteEvent(alarms = listOf(alarm(triggerDuration = "-PT15M")), icsData = ics)
 
-        assertEquals(-15L * 60_000L, entity.triggerRelativeMillis)
+        val entity = remote.toEntity(calendarId)
+
+        assertEquals(ics, entity.rawIcs)
+        assertTrue(entity.rawIcs.contains(valarmBlock))
     }
 
     @Test
@@ -101,8 +104,7 @@ class RemoteDavEventToEntityAlarmTest {
         description: String? = "Reminder",
         summary: String? = null,
         attendees: List<String> = emptyList(),
-        attach: String? = null,
-        @Suppress("UNUSED_PARAMETER") rawIcs: String = "",
+        attach: List<String> = emptyList(),
     ) = RemoteDavAlarm(
         action = action,
         triggerDuration = triggerDuration,
@@ -114,10 +116,13 @@ class RemoteDavEventToEntityAlarmTest {
         attach = attach,
     )
 
-    private fun remoteEvent(alarms: List<RemoteDavAlarm>) = RemoteDavEvent(
+    private fun remoteEvent(
+        alarms: List<RemoteDavAlarm>,
+        icsData: String = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
+    ) = RemoteDavEvent(
         url = "https://cal/tests/alarm.ics",
         etag = "etag-1",
-        icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
+        icsData = icsData,
         uid = "uid-1",
         summary = "Test",
         description = null,

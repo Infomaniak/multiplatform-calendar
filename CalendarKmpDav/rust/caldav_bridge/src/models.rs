@@ -80,7 +80,7 @@ pub struct AlarmEntry {
     pub description: Option<String>,
     pub summary: Option<String>,
     pub attendees: Vec<String>,
-    pub attach: Option<String>,
+    pub attach: Vec<String>,
 }
 
 /// A single item returned by `sync-collection`.

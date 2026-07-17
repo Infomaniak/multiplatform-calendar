@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalDate
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalLocalDateTime
@@ -81,6 +82,7 @@ internal fun EventEditData.toNewEntity(
     ref: RemoteDavEventRef,
     rawIcs: String,
     colorIcalName: String? = null,
+    alarms: List<AlarmEntity> = emptyList(),
 ): EventEntity {
     return EventEntity(
         id = EventId(ref.url),
@@ -93,6 +95,7 @@ internal fun EventEditData.toNewEntity(
         colorIcalName = colorIcalName,
         etag = ref.etag,
         rawIcs = rawIcs,
+        alarms = alarms,
         isSynced = true,
     )
 }

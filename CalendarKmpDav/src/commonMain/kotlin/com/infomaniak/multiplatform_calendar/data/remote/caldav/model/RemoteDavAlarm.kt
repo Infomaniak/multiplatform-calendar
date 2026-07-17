@@ -25,5 +25,5 @@ data class RemoteDavAlarm(
     val description: String?,
     val summary: String?,
     val attendees: List<String>,
-    val attach: String?,
+    val attach: List<String>,
 )

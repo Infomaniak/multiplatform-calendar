@@ -39,6 +39,11 @@ fn parse_valarm<C: Component>(c: &C) -> Option<AlarmEntry> {
         .get(ATTENDEE)
         .map(|list| list.iter().map(|p| p.value().to_string()).collect())
         .unwrap_or_default();
+    // RFC 5545 allows several ATTACH properties on an EMAIL VALARM, so collect them all.
+    let attach = c.multi_properties()
+        .get(ATTACH)
+        .map(|list| list.iter().map(|p| p.value().to_string()).collect())
+        .unwrap_or_default();
     Some(AlarmEntry {
         action: c.properties().get(ACTION)
             .map(|p| p.value().to_ascii_uppercase())
@@ -49,6 +54,6 @@ fn parse_valarm<C: Component>(c: &C) -> Option<AlarmEntry> {
         description: c.properties().get(DESCRIPTION).map(|p| p.value().to_string()),
         summary: c.properties().get(SUMMARY).map(|p| p.value().to_string()),
         attendees,
-        attach: c.properties().get(ATTACH).map(|p| p.value().to_string()),
+        attach,
     })
 }

@@ -146,6 +146,9 @@ internal class EventRepository(
         deleteEvent(credentials, eventId)
         // Preserve the CSS3 name across the move when the ARGB is unchanged (see [applyEdit]).
         val preservedIcalName = previous.colorIcalName.takeIf { previous.colorArgb == data.eventColor?.argb }
-        eventDao.upsert(listOf(data.toNewEntity(ref = ref, rawIcs = newIcs, colorIcalName = preservedIcalName)))
+        // newIcs keeps the original VALARM blocks, so the rebuilt row must carry the synced alarms too.
+        eventDao.upsert(
+            listOf(data.toNewEntity(ref = ref, rawIcs = newIcs, colorIcalName = preservedIcalName, alarms = previous.alarms)),
+        )
     }
 }

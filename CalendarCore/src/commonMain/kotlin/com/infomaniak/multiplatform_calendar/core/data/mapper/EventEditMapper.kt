@@ -18,11 +18,11 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalDate
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
@@ -51,6 +51,7 @@ internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): 
         description = description?.ifBlank { null },
         timeZones = timing.vTimeZones(),
         colorChange = resolveColorChange(previous?.colorArgb),
+        alarms = resolveAlarmEdits(alarms, previous?.alarms.orEmpty()),
         stamp = stamp,
     )
 }
@@ -72,6 +73,7 @@ internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: St
         colorArgb = newColorArgb,
         // Preserve the CSS3 name only when the ARGB is untouched; any change drops it.
         colorIcalName = colorIcalName.takeIf { colorArgb == newColorArgb },
+        alarms = data.alarms.map(EventAlarm::toEntity),
         etag = etag,
         rawIcs = rawIcs,
         isSynced = true,
@@ -82,7 +84,6 @@ internal fun EventEditData.toNewEntity(
     ref: RemoteDavEventRef,
     rawIcs: String,
     colorIcalName: String? = null,
-    alarms: List<AlarmEntity> = emptyList(),
 ): EventEntity {
     return EventEntity(
         id = EventId(ref.url),
@@ -93,9 +94,9 @@ internal fun EventEditData.toNewEntity(
         timing = timing.toEntity(),
         colorArgb = eventColor?.argb,
         colorIcalName = colorIcalName,
+        alarms = alarms.map(EventAlarm::toEntity),
         etag = ref.etag,
         rawIcs = rawIcs,
-        alarms = alarms,
         isSynced = true,
     )
 }

@@ -155,6 +155,14 @@ pub enum ColorChange {
     Cleared,
 }
 
+/// Requested change to a VEVENT's VALARM sub-components.
+/// `Unchanged` leaves source VALARM blocks untouched so `X-*` / exotic params survive partial edits.
+#[derive(uniffi::Enum)]
+pub enum AlarmsChange {
+    Unchanged,
+    Set { alarms: Vec<AlarmEdit> },
+}
+
 /// Edited event fields applied onto an existing VEVENT by `patch_event_ics`.
 ///
 /// Date/date-time values are raw RFC 5545 strings:
@@ -178,6 +186,20 @@ pub struct EventEdit {
     pub description: Option<String>,
     pub timezones: Vec<VTimeZoneSpec>,
     pub color_change: ColorChange,
+    pub alarms_change: AlarmsChange,
     pub stamp: String,
+}
+
+/// Fresh VALARM fields emitted for [`AlarmsChange::Set`]; hand-emitted due to `icalendar::Alarm` limitations.
+#[derive(uniffi::Record)]
+pub struct AlarmEdit {
+    pub action: String,
+    pub trigger_duration: Option<String>,
+    pub trigger_absolute: Option<String>,
+    pub trigger_related_to: String,
+    pub description: Option<String>,
+    pub summary: Option<String>,
+    pub attendees: Vec<String>,
+    pub attach: Vec<String>,
 }
 

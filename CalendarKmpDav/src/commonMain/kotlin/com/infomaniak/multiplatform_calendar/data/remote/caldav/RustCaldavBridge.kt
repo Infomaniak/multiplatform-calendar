@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException.Companion.toCaldavBridgeException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
@@ -37,6 +38,8 @@ import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
+import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
+import uniffi.caldav_bridge.AlarmsChange as RustAlarmsChange
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.VTimeZoneSpec
@@ -230,7 +233,22 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     description = description,
     timezones = timeZones.map { it.toRust() },
     colorChange = colorChange.toRust(),
+    alarmsChange = alarms.toRustAlarmsChange(),
     stamp = stamp,
+)
+
+private fun List<RemoteAlarmEdit>?.toRustAlarmsChange(): RustAlarmsChange =
+    if (this == null) RustAlarmsChange.Unchanged else RustAlarmsChange.Set(map { it.toRust() })
+
+private fun RemoteAlarmEdit.toRust() = RustAlarmEdit(
+    action = action,
+    triggerDuration = triggerDuration,
+    triggerAbsolute = triggerAbsolute,
+    triggerRelatedTo = triggerRelatedTo,
+    description = description,
+    summary = summary,
+    attendees = attendees,
+    attach = attach,
 )
 
 private fun RemoteColorChange.toRust(): ColorChange = when (this) {

@@ -26,6 +26,9 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
  * - otherwise                        → UTC ("20260616T100000Z") (FORM #2).
  *
  * [stamp] is the UTC DTSTAMP/LAST-MODIFIED value.
+ *
+ * [alarms] `null` leaves source VALARM blocks untouched (so `X-*` / exotic params survive partial
+ * edits); a non-null list (even empty) replaces them wholesale.
  */
 data class RemoteEventEdit(
     val summary: String?,
@@ -38,5 +41,6 @@ data class RemoteEventEdit(
     val description: String?,
     val timeZones: List<RemoteVTimeZone>,
     val colorChange: RemoteColorChange,
+    val alarms: List<RemoteAlarmEdit>?,
     val stamp: String,
 )

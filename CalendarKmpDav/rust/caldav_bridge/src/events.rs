@@ -3,10 +3,11 @@
 use icalendar::{Calendar, CalendarComponent, Component, Property};
 use std::collections::HashSet;
 
-use crate::alarms::parse_alarms;
+use crate::alarms::{parse_alarms, splice_alarms_into_first_vevent, strip_valarms_in_first_vevent};
 use crate::client::{client, ensure_success, rt};
 use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{
+    AlarmsChange,
     AttendeeEntry,
     ColorChange,
     DavAccount,
@@ -40,7 +41,7 @@ fn prop_with_tzid(event: &icalendar::Event, name: &str) -> (Option<String>, Opti
 }
 
 /// Parse raw iCS data into an [`EventEntry`], extracting the first `VEVENT`.
-fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> {
+pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> {
     let parsed: Calendar = ics_data.parse().unwrap_or_default();
 
     let vevent = parsed.components.iter().find_map(|c| {
@@ -123,13 +124,19 @@ fn strip_mailto(value: &str) -> String {
     }
 }
 
+
 /// Apply [`EventEdit`] onto an existing VEVENT, preserving every property we don't touch.
 ///
 /// Replaces the edited content fields, then refreshes the revision metadata. Returns the
 /// re-serialized iCalendar object.
 #[uniffi::export]
 pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, CaldavError> {
-    let mut calendar: Calendar = ics_data.parse().map_err(|e| bridge_error("Patch", e))?;
+    // Unchanged leaves source VALARMs untouched so `X-*` / exotic params survive partial edits.
+    let (source, new_alarms) = match &edit.alarms_change {
+        AlarmsChange::Unchanged => (ics_data.to_string(), None),
+        AlarmsChange::Set { alarms } => (strip_valarms_in_first_vevent(ics_data), Some(alarms.as_slice())),
+    };
+    let mut calendar: Calendar = source.parse().map_err(|e| bridge_error("Patch", e))?;
 
     let event = calendar
         .components
@@ -143,7 +150,11 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, Caldav
     apply_edited_fields(event, &edit);
     bump_revision(event, &edit.stamp);
 
-    Ok(inject_missing_vtimezones(calendar.to_string(), &edit.timezones))
+    let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
+    Ok(match new_alarms {
+        Some(alarms) => splice_alarms_into_first_vevent(&serialised, alarms),
+        None => serialised,
+    })
 }
 
 /// Replace the user-edited content fields (keeps DTEND/DURATION mutually exclusive).
@@ -189,7 +200,11 @@ pub fn build_event_ics(edit: EventEdit) -> Result<String, CaldavError> {
 
     let mut calendar = Calendar::new();
     calendar.push(event);
-    Ok(inject_missing_vtimezones(calendar.to_string(), &edit.timezones))
+    let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
+    Ok(match &edit.alarms_change {
+        AlarmsChange::Unchanged => serialised,
+        AlarmsChange::Set { alarms } => splice_alarms_into_first_vevent(&serialised, alarms),
+    })
 }
 
 /// Insert a `VTIMEZONE` component for every spec whose `TZID` isn't already declared in `ics`.
@@ -476,5 +491,4 @@ pub fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<
         ensure_success("Delete", &resp)
     })
 }
-
 

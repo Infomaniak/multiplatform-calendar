@@ -282,6 +282,8 @@ class EventEditMapperTest {
         location = null,
         description = null,
         calendarId = calendarId,
+        eventColor = null,
+        alarms = emptyList(),
     )
 
     private fun editData(eventColor: Int?) = EventEditData(
@@ -297,6 +299,7 @@ class EventEditMapperTest {
         description = null,
         calendarId = calendarId,
         eventColor = eventColor?.let(::EventSourceColor),
+        alarms = emptyList(),
     )
 
     private fun eventEntity(colorArgb: Int?, colorIcalName: String? = null) = EventEntity(

@@ -167,6 +167,7 @@ class EventEditMapperAlarmTest {
         location = null,
         description = null,
         calendarId = calendarId,
+        eventColor = null,
         alarms = alarms,
     )
 

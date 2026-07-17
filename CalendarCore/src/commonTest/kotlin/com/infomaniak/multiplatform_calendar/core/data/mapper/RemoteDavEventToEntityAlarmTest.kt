@@ -25,6 +25,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class RemoteDavEventToEntityAlarmTest {
 
@@ -42,8 +45,8 @@ class RemoteDavEventToEntityAlarmTest {
         val remote = alarm(triggerDuration = "-PT15M", triggerRelatedTo = "START")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
 
-        assertEquals(-15L * 60_000L, entity.triggerRelativeMillis)
-        assertNull(entity.triggerAbsoluteEpochMillis)
+        assertEquals((-15).minutes, entity.triggerRelative)
+        assertNull(entity.triggerAbsolute)
         assertEquals(TriggerRelation.Start, entity.triggerRelatedTo)
     }
 
@@ -52,7 +55,7 @@ class RemoteDavEventToEntityAlarmTest {
         val remote = alarm(triggerDuration = "PT0S", triggerRelatedTo = "END")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
 
-        assertEquals(0L, entity.triggerRelativeMillis)
+        assertEquals(0.seconds, entity.triggerRelative)
         assertEquals(TriggerRelation.End, entity.triggerRelatedTo)
     }
 
@@ -61,8 +64,8 @@ class RemoteDavEventToEntityAlarmTest {
         val remote = alarm(triggerDuration = null, triggerAbsolute = "20260615T090000Z", triggerRelatedTo = "")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
 
-        assertNull(entity.triggerRelativeMillis)
-        assertEquals(1_781_514_000_000L, entity.triggerAbsoluteEpochMillis)
+        assertNull(entity.triggerRelative)
+        assertEquals(Instant.fromEpochMilliseconds(1_781_514_000_000L), entity.triggerAbsolute)
         assertEquals(TriggerRelation.Start, entity.triggerRelatedTo)
     }
 

@@ -19,12 +19,14 @@ package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Instant
 
 @Serializable
 internal data class AlarmEntity(
     val action: String,
-    val triggerRelativeMillis: Long? = null,
-    val triggerAbsoluteEpochMillis: Long? = null,
+    val triggerRelative: Duration? = null,
+    val triggerAbsolute: Instant? = null,
     val triggerRelatedTo: TriggerRelation = TriggerRelation.Start,
     val description: String? = null,
     val summary: String? = null,

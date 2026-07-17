@@ -21,20 +21,11 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
 internal fun AlarmEntity.toDomain(): EventAlarm? {
     val trigger = when {
-        triggerRelativeMillis != null -> AlarmTrigger.Relative(
-            offset = triggerRelativeMillis.milliseconds,
-            relatedTo = triggerRelatedTo,
-        )
-        triggerAbsoluteEpochMillis != null -> AlarmTrigger.Absolute(
-            instant = Instant.fromEpochMilliseconds(triggerAbsoluteEpochMillis),
-        )
+        triggerRelative != null -> AlarmTrigger.Relative(offset = triggerRelative, relatedTo = triggerRelatedTo)
+        triggerAbsolute != null -> AlarmTrigger.Absolute(instant = triggerAbsolute)
         else -> return null
     }
     return EventAlarm(

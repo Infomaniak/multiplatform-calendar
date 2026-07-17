@@ -25,8 +25,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 class AlarmEntityToDomainTest {
@@ -35,9 +35,8 @@ class AlarmEntityToDomainTest {
     fun relativeTrigger_withEnd_producesRelativeAlarmWithEndAnchor() {
         val domain = AlarmEntity(
             action = "DISPLAY",
-            triggerRelativeMillis = -10L * 60_000L,
+            triggerRelative = (-10).minutes,
             triggerRelatedTo = TriggerRelation.End,
-            
         ).toDomain()!!
 
         val trigger = assertIs<AlarmTrigger.Relative>(domain.trigger)
@@ -45,27 +44,25 @@ class AlarmEntityToDomainTest {
         assertEquals(TriggerRelation.End, trigger.relatedTo)
     }
 
-    @OptIn(ExperimentalTime::class)
     @Test
     fun absoluteTrigger_producesAbsoluteAlarm() {
+        val instant = Instant.fromEpochMilliseconds(1_781_514_000_000L)
         val domain = AlarmEntity(
             action = "DISPLAY",
-            triggerAbsoluteEpochMillis = 1_781_514_000_000L,
+            triggerAbsolute = instant,
             triggerRelatedTo = TriggerRelation.Start,
-            
         ).toDomain()!!
 
         val trigger = assertIs<AlarmTrigger.Absolute>(domain.trigger)
-        assertEquals(Instant.fromEpochMilliseconds(1_781_514_000_000L), trigger.instant)
+        assertEquals(instant, trigger.instant)
     }
 
     @Test
     fun unknownAction_isSurfacedAsUnknownWithOriginalValue() {
         val domain = AlarmEntity(
             action = "PROCEDURE",
-            triggerRelativeMillis = 0L,
+            triggerRelative = 0L.milliseconds,
             triggerRelatedTo = TriggerRelation.Start,
-            
         ).toDomain()!!
 
         assertEquals(AlarmAction.Unknown("PROCEDURE"), domain.action)
@@ -75,10 +72,9 @@ class AlarmEntityToDomainTest {
     fun bothTriggersNull_dropsAlarm() {
         val domain = AlarmEntity(
             action = "DISPLAY",
-            triggerRelativeMillis = null,
-            triggerAbsoluteEpochMillis = null,
+            triggerRelative = null,
+            triggerAbsolute = null,
             triggerRelatedTo = TriggerRelation.Start,
-            
         ).toDomain()
 
         assertNull(domain)

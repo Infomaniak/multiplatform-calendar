@@ -24,17 +24,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Trigg
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import kotlin.time.ExperimentalTime
 
-@OptIn(ExperimentalTime::class)
 internal fun RemoteDavAlarm.toEntity(): AlarmEntity {
-    val relativeMillis = parseICalDuration(triggerDuration)?.inWholeMilliseconds
-    val absoluteMillis = triggerAbsolute
-        ?.let { parseICalDateTime(it)?.toInstant(TimeZone.UTC)?.toEpochMilliseconds() }
     return AlarmEntity(
         action = action.uppercase(),
-        triggerRelativeMillis = relativeMillis,
-        triggerAbsoluteEpochMillis = absoluteMillis.takeIf { relativeMillis == null },
+        triggerRelative = parseICalDuration(triggerDuration),
+        triggerAbsolute = triggerAbsolute?.let { parseICalDateTime(it)?.toInstant(TimeZone.UTC) },
         triggerRelatedTo = if (triggerRelatedTo.equals("END", ignoreCase = true)) TriggerRelation.End else TriggerRelation.Start,
         description = description,
         summary = summary,

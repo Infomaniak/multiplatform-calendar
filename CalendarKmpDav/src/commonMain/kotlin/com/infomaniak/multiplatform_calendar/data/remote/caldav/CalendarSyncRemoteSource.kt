@@ -80,11 +80,19 @@ interface CalendarSyncRemoteSource {
         eventUrls: List<String>,
     ): List<RemoteDavEvent>
 
-    /** Apply [edit] onto an existing iCS, returning the re-serialized iCalendar object (no network). */
-    suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String
+    /**
+     * Apply [edit] onto an existing iCS, returning the patched event reparsed from its final
+     * serialization (bumped SEQUENCE, refreshed DTSTAMP/LAST-MODIFIED, …). Its [RemoteDavEvent.icsData]
+     * holds the ICS to send to the server; `url`/`etag` are empty until the server assigns them.
+     * No network.
+     */
+    suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): RemoteDavEvent
 
-    /** Build a fresh iCS (one VEVENT, new UID) from [edit] (no network). */
-    suspend fun buildEventIcs(edit: RemoteEventEdit): String
+    /**
+     * Build a fresh iCS (one VEVENT, new UID) from [edit], returning it reparsed (see [patchEventIcs]).
+     * No network.
+     */
+    suspend fun buildEventIcs(edit: RemoteEventEdit): RemoteDavEvent
 
     /** Create a new event. Returns the server-assigned URL + etag. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

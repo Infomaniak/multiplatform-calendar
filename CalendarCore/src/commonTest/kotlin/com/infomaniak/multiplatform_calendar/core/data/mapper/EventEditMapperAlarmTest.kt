@@ -117,25 +117,6 @@ class EventEditMapperAlarmTest {
         assertEquals("20260615T090000Z", emitted.triggerAbsolute)
     }
 
-    @Test
-    fun applyEdit_replacesAlarmsWithNewList() {
-        val previous = eventEntity(
-            alarms = listOf(
-                alarmEntity(triggerRelative = (-15).minutes, description = "Old"),
-            ),
-        )
-
-        val updated = previous.applyEdit(
-            data = editData(alarms = listOf(eventAlarm(offset = -5.minutes, description = "New"))),
-            etag = "etag-new",
-            rawIcs = "unused",
-        )
-
-        val slot = updated.alarms.single()
-        assertEquals((-5).minutes, slot.triggerRelative)
-        assertEquals("New", slot.description)
-    }
-
     private fun eventAlarm(offset: Duration, description: String? = "Reminder") = EventAlarm(
         action = AlarmAction.Display,
         trigger = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start),

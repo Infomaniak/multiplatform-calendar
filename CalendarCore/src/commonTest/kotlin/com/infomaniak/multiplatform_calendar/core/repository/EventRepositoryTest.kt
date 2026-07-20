@@ -39,6 +39,7 @@ import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
@@ -121,9 +122,9 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     /**
-     * Regression: a cross-calendar move must keep every server-only field (attendees, categories,
-     * rrule, status, sequence, …) that the editor never touched. Before this fix the local row was
-     * rebuilt from EventEditData alone, so those fields were dropped until the next server sync.
+     * Regression: a cross-calendar move persists the patched event **reparsed from its final ICS**,
+     * so every server-only field (attendees, categories, rrule, status, sequence, refreshed
+     * revision metadata, …) lands in the new local row, rebound to the new href/calendar/etag.
      */
     @Test
     fun updateEvent_crossCalendarMove_preservesServerOnlyFields_andRebindsRow() = runTest {
@@ -134,34 +135,43 @@ class EventRepositoryTest : RobolectricTestsBase() {
         seedCalendar(account, target)
 
         val oldId = EventId("https://cal/source/event.ics")
-        val previous = richEvent(id = oldId, calendarId = source, etag = "etag-old")
-        eventDao().upsert(listOf(previous))
+        eventDao().upsert(listOf(richEvent(id = oldId, calendarId = source, etag = "etag-old")))
 
-        fakeCaldav.patchedIcs = "BEGIN:VEVENT\nUID:1\nSUMMARY:Renamed\nEND:VEVENT"
+        // The bridge reparses the patched ICS; the fake returns that parsed event directly.
+        fakeCaldav.patchedEvent = remoteDavEvent(
+            icsData = "BEGIN:VEVENT\nUID:1\nSUMMARY:Renamed\nEND:VEVENT",
+            summary = "Renamed",
+            created = "20260101T080000Z",
+            lastModified = "20260615T090000Z",
+            dtstamp = "20260615T090000Z",
+            rrule = "FREQ=WEEKLY;BYDAY=MO",
+            status = "CONFIRMED",
+            transp = "OPAQUE",
+            classification = "PRIVATE",
+            priority = "5",
+            sequence = "4",
+            categories = "work,urgent",
+            attendees = listOf(
+                RemoteDavAttendee(
+                    email = "guest@example.com",
+                    displayName = null,
+                    status = "ACCEPTED",
+                    role = "REQ-PARTICIPANT",
+                    isOrganizer = false,
+                    responseNeeded = false,
+                ),
+            ),
+        )
         fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
 
         repository.updateEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
             eventId = oldId,
-            data = EventEditData(
-                title = "Renamed",
-                timing = EventTiming(
-                    start = LocalDateTime(2026, 6, 15, 10, 0),
-                    end = LocalDateTime(2026, 6, 15, 11, 0),
-                    startTimeZone = TimeZone.UTC,
-                    endTimeZone = TimeZone.UTC,
-                    isAllDay = false,
-                ),
-                location = null,
-                description = null,
-                calendarId = target,
-                eventColor = null,
-                alarms = emptyList(),
-            ),
+            data = editData(title = "Renamed", calendarId = target),
         )
 
-        // Remote choreography: create on the target, then delete the source.
-        assertEquals(listOf("calendar://target" to fakeCaldav.patchedIcs), fakeCaldav.creates)
+        // Remote choreography: create on the target (with the patched ICS), then delete the source.
+        assertEquals(listOf("calendar://target" to fakeCaldav.patchedEvent.icsData), fakeCaldav.creates)
         assertEquals(listOf(oldId.url to "etag-old"), fakeCaldav.deletes)
 
         // Old local row is gone; new row lives at the new href in the target calendar.
@@ -169,22 +179,119 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val moved = database.eventDao().getEvent(EventId("https://cal/target/event.ics"))!!
         assertEquals(target, moved.calendarId)
         assertEquals("etag-new", moved.etag)
-        assertEquals(fakeCaldav.patchedIcs, moved.rawIcs)
+        assertEquals(fakeCaldav.patchedEvent.icsData, moved.rawIcs)
         assertEquals("Renamed", moved.summary)
         assertTrue(moved.isSynced)
 
-        // Server-only fields carried over from the previous row.
-        assertEquals(previous.created, moved.created)
-        assertEquals(previous.lastModified, moved.lastModified)
-        assertEquals(previous.dtStamp, moved.dtStamp)
-        assertEquals(previous.rrule, moved.rrule)
-        assertEquals(previous.status, moved.status)
-        assertEquals(previous.transp, moved.transp)
-        assertEquals(previous.classification, moved.classification)
-        assertEquals(previous.priority, moved.priority)
-        assertEquals(previous.sequence, moved.sequence)
-        assertEquals(previous.categories, moved.categories)
-        assertEquals(previous.attendees, moved.attendees)
+        // Every parsed field from the patched event is persisted.
+        assertEquals("FREQ=WEEKLY;BYDAY=MO", moved.rrule)
+        assertEquals(EventStatus.CONFIRMED, moved.status)
+        assertEquals("OPAQUE", moved.transp)
+        assertEquals(Classification.Private, moved.classification)
+        assertEquals(5, moved.priority)
+        assertEquals(listOf("work", "urgent"), moved.categories)
+        assertEquals("guest@example.com", moved.attendees.single().email)
+
+        // Revision metadata comes straight from the reparsed ICS (bumped by Rust's bump_revision).
+        assertEquals(4, moved.sequence)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), moved.dtStamp)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), moved.lastModified)
+        assertEquals(LocalDateTime(2026, 1, 1, 8, 0), moved.created)
+    }
+
+    /**
+     * The CSS3 `COLOR` name survives a move because the local row is rebuilt from the patched ICS:
+     * whatever color the ICS carries (here an unchanged `COLOR:royalblue`) round-trips into the row.
+     */
+    @Test
+    fun updateEvent_crossCalendarMove_persistsIcalColorNameFromPatchedIcs() = runTest {
+        val account = AccountId(1)
+        val source = CalendarId("calendar://source")
+        val target = CalendarId("calendar://target")
+        seedCalendar(account, source)
+        seedCalendar(account, target)
+
+        val oldId = EventId("https://cal/source/event.ics")
+        eventDao().upsert(listOf(richEvent(id = oldId, calendarId = source, etag = "etag-old")))
+
+        fakeCaldav.patchedEvent = remoteDavEvent(
+            icsData = "BEGIN:VEVENT\nUID:1\nCOLOR:royalblue\nEND:VEVENT",
+            colorIcalName = "royalblue",
+        )
+        fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            eventId = oldId,
+            data = editData(title = "Original", calendarId = target),
+        )
+
+        val moved = database.eventDao().getEvent(EventId("https://cal/target/event.ics"))!!
+        assertEquals("royalblue", moved.colorIcalName)
+    }
+
+    /**
+     * A same-calendar update persists the patched event reparsed from its ICS, so the refreshed
+     * revision metadata (SEQUENCE bumped, DTSTAMP/LAST-MODIFIED rewritten by Rust) lands verbatim.
+     */
+    @Test
+    fun updateEvent_sameCalendar_persistsRefreshedRevisionFromPatchedIcs() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val eventId = EventId("https://cal/main/event.ics")
+        eventDao().upsert(listOf(richEvent(id = eventId, calendarId = calendarId, etag = "etag-old")))
+
+        fakeCaldav.patchedEvent = remoteDavEvent(
+            icsData = "BEGIN:VEVENT\nUID:1\nSUMMARY:Renamed\nEND:VEVENT",
+            summary = "Renamed",
+            sequence = "4",
+            dtstamp = "20260615T090000Z",
+            lastModified = "20260615T090000Z",
+        )
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            eventId = eventId,
+            data = editData(title = "Renamed", calendarId = calendarId),
+        )
+
+        val updated = database.eventDao().getEvent(eventId)!!
+        assertEquals("Renamed", updated.summary)
+        assertEquals(fakeCaldav.patchedEvent.icsData, updated.rawIcs)
+        assertEquals(4, updated.sequence)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.dtStamp)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.lastModified)
+    }
+
+    /** createEvent persists the built event reparsed from its ICS, bound to the server ref. */
+    @Test
+    fun createEvent_persistsBuiltEventBoundToServerRef() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        fakeCaldav.patchedEvent = remoteDavEvent(
+            icsData = "BEGIN:VEVENT\nUID:new\nSUMMARY:Fresh\nEND:VEVENT",
+            summary = "Fresh",
+            sequence = "0",
+            dtstamp = "20260615T090000Z",
+        )
+        fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/main/new.ics", etag = "etag-1")
+
+        repository.createEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            data = editData(title = "Fresh", calendarId = calendarId),
+        )
+
+        assertEquals(listOf("calendar://main" to fakeCaldav.patchedEvent.icsData), fakeCaldav.creates)
+        val created = database.eventDao().getEvent(EventId("https://cal/main/new.ics"))!!
+        assertEquals(calendarId, created.calendarId)
+        assertEquals("etag-1", created.etag)
+        assertEquals("Fresh", created.summary)
+        assertEquals(0, created.sequence)
+        assertTrue(created.isSynced)
     }
 
     private fun richEvent(id: EventId, calendarId: CalendarId, etag: String): EventEntity = EventEntity(
@@ -253,15 +360,74 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
     }
 
+    private fun editData(title: String, calendarId: CalendarId) = EventEditData(
+        title = title,
+        timing = EventTiming(
+            start = LocalDateTime(2026, 6, 15, 10, 0),
+            end = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = TimeZone.UTC,
+            endTimeZone = TimeZone.UTC,
+            isAllDay = false,
+        ),
+        location = null,
+        description = null,
+        calendarId = calendarId,
+        eventColor = null,
+        alarms = emptyList(),
+    )
+
     private fun eventDao() = database.eventDao()
 }
 
-/**
- * Configurable fake: records create/delete calls and returns caller-set responses. Read-path
- * tests leave it as a no-op; the cross-calendar move test asserts against [creates] and [deletes].
- */
+private fun remoteDavEvent(
+    icsData: String,
+    summary: String? = "Event",
+    dtstart: String? = "20260615T100000Z",
+    dtend: String? = "20260615T110000Z",
+    created: String? = null,
+    lastModified: String? = null,
+    dtstamp: String? = null,
+    rrule: String? = null,
+    status: String? = null,
+    transp: String? = null,
+    classification: String? = null,
+    priority: String? = null,
+    sequence: String? = null,
+    categories: String? = null,
+    colorHex: String? = null,
+    colorIcalName: String? = null,
+    attendees: List<RemoteDavAttendee> = emptyList(),
+) = RemoteDavEvent(
+    url = "",
+    etag = "",
+    icsData = icsData,
+    uid = "uid",
+    summary = summary,
+    description = null,
+    location = null,
+    dtstart = dtstart,
+    dtStartTzid = null,
+    dtend = dtend,
+    dtEndTzid = null,
+    duration = null,
+    created = created,
+    lastModified = lastModified,
+    dtstamp = dtstamp,
+    rrule = rrule,
+    status = status,
+    transp = transp,
+    classification = classification,
+    priority = priority,
+    sequence = sequence,
+    categories = categories,
+    colorHex = colorHex,
+    colorIcalName = colorIcalName,
+    attendees = attendees,
+)
+
+/** Fake remote source: records create/delete calls and returns [patchedEvent] for patch/build. */
 private class FakeCaldavClient : CalendarSyncRemoteSource {
-    var patchedIcs: String = ""
+    var patchedEvent: RemoteDavEvent = remoteDavEvent(icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT")
     var createdRef: RemoteDavEventRef = RemoteDavEventRef(url = "", etag = "")
     val creates = mutableListOf<Pair<String, String>>()
     val deletes = mutableListOf<Pair<String, String>>()
@@ -281,8 +447,8 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
     override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
         emptyList<RemoteDavEvent>()
 
-    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = patchedIcs
-    override suspend fun buildEventIcs(edit: RemoteEventEdit) = patchedIcs
+    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = patchedEvent
+    override suspend fun buildEventIcs(edit: RemoteEventEdit) = patchedEvent
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
         creates += calendarUrl to icsData
         return createdRef

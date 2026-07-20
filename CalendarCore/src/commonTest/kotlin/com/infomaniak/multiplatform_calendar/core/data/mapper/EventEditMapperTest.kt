@@ -17,20 +17,14 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
@@ -211,112 +205,6 @@ class EventEditMapperTest {
         val edit = editData(eventColor = 0xFFE53935.toInt()).toRemoteEdit(previous = previous, stamp = STAMP)
 
         assertEquals(RemoteColorChange.Set(hex = "#E53935FF"), edit.colorChange)
-    }
-
-    @Test
-    fun applyEdit_preservesIcalName_whenArgbUnchanged() {
-        val entity = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
-
-        val updated = entity.applyEdit(
-            data = editData(eventColor = 0xFF1E88E5.toInt()),
-            etag = "etag-2",
-            rawIcs = entity.rawIcs,
-        )
-
-        assertEquals(0xFF1E88E5.toInt(), updated.colorArgb)
-        assertEquals("royalblue", updated.colorIcalName)
-    }
-
-    @Test
-    fun applyEdit_dropsIcalName_whenArgbChanged() {
-        val entity = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
-
-        val updated = entity.applyEdit(
-            data = editData(eventColor = 0xFFE53935.toInt()),
-            etag = "etag-2",
-            rawIcs = entity.rawIcs,
-        )
-
-        assertEquals(0xFFE53935.toInt(), updated.colorArgb)
-        assertNull(updated.colorIcalName)
-    }
-
-    @Test
-    fun applyEdit_dropsIcalName_whenColorCleared() {
-        val entity = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
-
-        val updated = entity.applyEdit(
-            data = editData(eventColor = null),
-            etag = "etag-2",
-            rawIcs = entity.rawIcs,
-        )
-
-        assertNull(updated.colorArgb)
-        assertNull(updated.colorIcalName)
-    }
-
-    @Test
-    fun toNewEntity_storesColorArgb_andDefaultsIcalNameToNull() {
-        val entity = editData(eventColor = 0xFF1E88E5.toInt()).toNewEntity(
-            ref = RemoteDavEventRef(url = "https://cal/tests/new.ics", etag = "etag-1"),
-            rawIcs = "BEGIN:VEVENT\nEND:VEVENT",
-        )
-
-        assertEquals(0xFF1E88E5.toInt(), entity.colorArgb)
-        assertNull(entity.colorIcalName)
-    }
-
-    @Test
-    fun movedTo_preservesServerOnlyFields_andRebindsToNewRef() {
-        // A cross-calendar move must keep every field the editor never touches (rrule, attendees,
-        // categories, status, …) — regression guard for the row rebuilt on move.
-        val previous = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue").copy(
-            created = LocalDateTime(2026, 1, 1, 8, 0),
-            lastModified = LocalDateTime(2026, 1, 2, 9, 0),
-            dtStamp = LocalDateTime(2026, 1, 2, 9, 0),
-            rrule = "FREQ=WEEKLY;BYDAY=MO",
-            status = EventStatus.CONFIRMED,
-            transp = "OPAQUE",
-            classification = Classification.Private,
-            priority = 5,
-            sequence = 3,
-            categories = listOf("work", "urgent"),
-            attendees = listOf(
-                AttendeeEntity(
-                    email = "guest@example.com",
-                    status = ParticipationStatus.Accepted,
-                    role = AttendeeRole.Requested,
-                ),
-            ),
-        )
-        val targetCalendar = CalendarId("calendar://other")
-
-        val moved = previous.movedTo(
-            ref = RemoteDavEventRef(url = "https://cal/other/moved.ics", etag = "etag-moved"),
-            data = editData(eventColor = 0xFF1E88E5.toInt()).copy(calendarId = targetCalendar),
-            rawIcs = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
-        )
-
-        // Rebound to the new href / calendar / etag.
-        assertEquals(EventId("https://cal/other/moved.ics"), moved.id)
-        assertEquals(targetCalendar, moved.calendarId)
-        assertEquals("etag-moved", moved.etag)
-        assertTrue(moved.isSynced)
-
-        // Server-only fields carried over verbatim.
-        assertEquals(previous.created, moved.created)
-        assertEquals(previous.lastModified, moved.lastModified)
-        assertEquals(previous.dtStamp, moved.dtStamp)
-        assertEquals("FREQ=WEEKLY;BYDAY=MO", moved.rrule)
-        assertEquals(EventStatus.CONFIRMED, moved.status)
-        assertEquals("OPAQUE", moved.transp)
-        assertEquals(Classification.Private, moved.classification)
-        assertEquals(5, moved.priority)
-        assertEquals(3, moved.sequence)
-        assertEquals(listOf("work", "urgent"), moved.categories)
-        assertEquals(previous.attendees, moved.attendees)
-        // Unchanged ARGB keeps the CSS3 name byte-exact (delegated to applyEdit).
-        assertEquals("royalblue", moved.colorIcalName)
     }
 
     // ---- Helpers --------------------------------------------------------------------------------

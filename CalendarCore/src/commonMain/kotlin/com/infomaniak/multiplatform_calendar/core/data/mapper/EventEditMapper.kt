@@ -22,12 +22,9 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalDate
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
 import kotlinx.datetime.LocalDateTime
@@ -60,53 +57,6 @@ private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteCol
     eventColor?.argb == previousColorArgb -> RemoteColorChange.Unchanged
     eventColor == null -> RemoteColorChange.Cleared
     else -> RemoteColorChange.Set(hex = eventColor.argb.toCaldavHex())
-}
-
-internal fun EventEntity.applyEdit(data: EventEditData, etag: String, rawIcs: String): EventEntity {
-    val newColorArgb = data.eventColor?.argb
-    return copy(
-        calendarId = data.calendarId,
-        summary = data.title,
-        location = data.location,
-        description = data.description,
-        timing = data.timing.toEntity(),
-        colorArgb = newColorArgb,
-        // Preserve the CSS3 name only when the ARGB is untouched; any change drops it.
-        colorIcalName = colorIcalName.takeIf { colorArgb == newColorArgb },
-        alarms = data.alarms.map(EventAlarm::toEntity),
-        etag = etag,
-        rawIcs = rawIcs,
-        isSynced = true,
-    )
-}
-
-internal fun EventEditData.toNewEntity(
-    ref: RemoteDavEventRef,
-    rawIcs: String,
-): EventEntity {
-    return EventEntity(
-        id = EventId(ref.url),
-        calendarId = calendarId,
-        summary = title,
-        location = location,
-        description = description,
-        timing = timing.toEntity(),
-        colorArgb = eventColor?.argb,
-        colorIcalName = null,
-        alarms = alarms.map(EventAlarm::toEntity),
-        etag = ref.etag,
-        rawIcs = rawIcs,
-        isSynced = true,
-    )
-}
-
-/**
- * Build the local row for a cross-calendar move. A move is a normal edit that lands at a new href,
- * so this reuses [applyEdit] to carry over every server-only field (attendees, categories, rrule,
- * status, sequence, …) from [this] previous row, overriding only the id with the new [ref].
- */
-internal fun EventEntity.movedTo(ref: RemoteDavEventRef, data: EventEditData, rawIcs: String): EventEntity {
-    return applyEdit(data, etag = ref.etag, rawIcs = rawIcs).copy(id = EventId(ref.url))
 }
 
 /**

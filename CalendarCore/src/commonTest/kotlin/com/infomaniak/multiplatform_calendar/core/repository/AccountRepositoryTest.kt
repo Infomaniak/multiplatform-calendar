@@ -25,7 +25,6 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
-import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import io.ktor.client.HttpClient
@@ -51,7 +50,6 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertIs
 
 class AccountRepositoryTest : RobolectricTestsBase() {
 
@@ -157,16 +155,16 @@ class AccountRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun retrieveDavCredential_wrapsNonCancellationExceptions() = runTest {
+    fun retrieveDavCredential_rethrowsNonCancellationExceptions() = runTest {
         val repository = createRepositoryWithLocalAuthCalls { _, _ ->
             throw IllegalStateException("boom")
         }
 
-        val exception = assertFailsWith<CalendarSdkException> {
+        val exception = assertFailsWith<IllegalStateException> {
             repository.retrieveDavCredential(authToken = "token-3")
         }
 
-        assertIs<IllegalStateException>(exception.cause)
+        assertEquals("boom", exception.message)
     }
 
     @Test
@@ -250,4 +248,3 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         )
     }
 }
-

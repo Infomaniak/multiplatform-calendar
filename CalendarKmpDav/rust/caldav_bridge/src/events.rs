@@ -127,10 +127,13 @@ fn strip_mailto(value: &str) -> String {
 
 /// Apply [`EventEdit`] onto an existing VEVENT, preserving every property we don't touch.
 ///
-/// Replaces the edited content fields, then refreshes the revision metadata. Returns the
-/// re-serialized iCalendar object.
+/// Replaces the edited content fields, then refreshes the revision metadata. Returns the patched
+/// event **reparsed** from its final serialization, so callers persist exactly what was written to
+/// the ICS (bumped `SEQUENCE`, refreshed `DTSTAMP`/`LAST-MODIFIED`, …) without re-deriving anything.
+/// The returned [`EventEntry`] carries the serialized ICS in [`EventEntry::ics_data`]; its `url` and
+/// `etag` are left empty for the caller to fill from the server response.
 #[uniffi::export]
-pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, CaldavError> {
+pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<EventEntry, CaldavError> {
     // Unchanged leaves source VALARMs untouched so `X-*` / exotic params survive partial edits.
     let (source, new_alarms) = match &edit.alarms_change {
         AlarmsChange::Unchanged => (ics_data.to_string(), None),
@@ -151,10 +154,11 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<String, Caldav
     bump_revision(event, &edit.stamp);
 
     let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
-    Ok(match new_alarms {
+    let final_ics = match new_alarms {
         Some(alarms) => splice_alarms_into_first_vevent(&serialised, alarms),
         None => serialised,
-    })
+    };
+    reparse_edited(final_ics, "Patch")
 }
 
 /// Replace the user-edited content fields (keeps DTEND/DURATION mutually exclusive).
@@ -191,8 +195,11 @@ fn date_time_property(key: &str, value: &str, tzid: Option<&str>) -> Property {
 }
 
 /// Build a fresh iCalendar object (one VEVENT) from [`EventEdit`], with a new UID and SEQUENCE 0.
+///
+/// Returns the freshly built event **reparsed** from its final serialization (see
+/// [`patch_event_ics`] for the rationale). `url`/`etag` are left empty for the caller to fill.
 #[uniffi::export]
-pub fn build_event_ics(edit: EventEdit) -> Result<String, CaldavError> {
+pub fn build_event_ics(edit: EventEdit) -> Result<EventEntry, CaldavError> {
     let mut event = icalendar::Event::new();
     event.add_property("UID", uuid::Uuid::new_v4().to_string());
     apply_edited_fields(&mut event, &edit);
@@ -201,10 +208,18 @@ pub fn build_event_ics(edit: EventEdit) -> Result<String, CaldavError> {
     let mut calendar = Calendar::new();
     calendar.push(event);
     let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
-    Ok(match &edit.alarms_change {
+    let final_ics = match &edit.alarms_change {
         AlarmsChange::Unchanged => serialised,
         AlarmsChange::Set { alarms } => splice_alarms_into_first_vevent(&serialised, alarms),
-    })
+    };
+    reparse_edited(final_ics, "Build")
+}
+
+/// Reparse a freshly built/patched ICS back into an [`EventEntry`] so callers persist exactly what
+/// was serialized. `url`/`etag` are empty placeholders filled from the server response afterwards.
+fn reparse_edited(final_ics: String, context: &str) -> Result<EventEntry, CaldavError> {
+    parse_ics(String::new(), String::new(), final_ics)
+        .ok_or_else(|| bridge_error(context, "reparse produced no VEVENT"))
 }
 
 /// Insert a `VTIMEZONE` component for every spec whose `TZID` isn't already declared in `ics`.

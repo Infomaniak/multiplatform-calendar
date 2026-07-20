@@ -215,17 +215,17 @@ internal class RustCaldavBridge(
             }
         }
 
-    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String = withContext(dispatcher) {
+    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): RemoteDavEvent = withContext(dispatcher) {
         try {
-            rustPatchEventIcs(icsData, edit.toRust())
+            rustPatchEventIcs(icsData, edit.toRust()).toRemoteEvent()
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("patchEventIcs")
         }
     }
 
-    override suspend fun buildEventIcs(edit: RemoteEventEdit): String = withContext(dispatcher) {
+    override suspend fun buildEventIcs(edit: RemoteEventEdit): RemoteDavEvent = withContext(dispatcher) {
         try {
-            rustBuildEventIcs(edit.toRust())
+            rustBuildEventIcs(edit.toRust()).toRemoteEvent()
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("buildEventIcs")
         }

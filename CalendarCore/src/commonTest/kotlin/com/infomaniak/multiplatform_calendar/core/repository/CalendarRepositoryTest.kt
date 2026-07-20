@@ -301,8 +301,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             eventsByUrls[chainedKey(calendarUrl, eventUrls)].orEmpty().also { lastMultigetUrls = eventUrls }
 
         override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
-        override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): String = icsData
-        override suspend fun buildEventIcs(edit: RemoteEventEdit): String = ""
+        override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = error("not used")
+        override suspend fun buildEventIcs(edit: RemoteEventEdit) = error("not used")
         override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String) =
             error("not used")
 

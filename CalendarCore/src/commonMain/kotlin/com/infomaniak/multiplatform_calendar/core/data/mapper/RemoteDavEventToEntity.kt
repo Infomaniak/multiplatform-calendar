@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classificat
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 
 @Throws(CaldavParsingException::class)
 internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
@@ -59,6 +60,17 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
 /** Resolve the wire's color into a single ARGB: Apple hex wins over the RFC 7986 CSS3 name. */
 private fun RemoteDavEvent.resolveColorArgb(): Int? {
     return parseHexColor(colorHex) ?: parseCss3ColorName(colorIcalName)
+}
+
+/**
+ * Persist a freshly built/patched event (from [CalendarSyncRemoteSource.buildEventIcs] /
+ * [CalendarSyncRemoteSource.patchEventIcs]) as a local row, binding it to the server-assigned
+ * [ref] (href + etag) and marking it synced. All parsed fields come straight from the ICS, so the
+ * row mirrors exactly what was written to the server.
+ */
+@Throws(CaldavParsingException::class)
+internal fun RemoteDavEvent.toSyncedEntity(ref: RemoteDavEventRef, calendarId: CalendarId): EventEntity {
+    return copy(url = ref.url, etag = ref.etag).toEntity(calendarId).copy(isSynced = true)
 }
 
 

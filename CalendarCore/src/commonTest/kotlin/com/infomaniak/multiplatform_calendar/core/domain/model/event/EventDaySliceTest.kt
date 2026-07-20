@@ -26,6 +26,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -300,6 +301,41 @@ class EventDaySliceTest {
         assertEquals(listOf(LocalDate(2026, 1, 5)), byDay.keys.toList())
     }
 
+    @Test
+    fun groupDaySlicesByDay_preservesAscendingDayOrder_withInterleavedMultiDayEvents() = runTest {
+        // Regression pin: interleave events that produce slices on overlapping days to guarantee the
+        // returned map still emits days in ascending order and each day is properly sorted internally
+        // (continuation-of-multi-day at 00:00 before same-day timed slices). Locks the ordering
+        // contract independently of the internal expansion / sort strategy.
+        val events = listOf(
+            timed(LocalDateTime(2026, 1, 7, 9, 0), LocalDateTime(2026, 1, 7, 10, 0), paris, id = "event://c"),
+            timed(LocalDateTime(2026, 1, 5, 14, 0), LocalDateTime(2026, 1, 7, 10, 0), paris, id = "event://a"),
+            timed(LocalDateTime(2026, 1, 6, 9, 0), LocalDateTime(2026, 1, 6, 10, 0), paris, id = "event://b"),
+        )
+
+        val result = events.groupDaySlicesByDay(
+            rangeStart = parisInstant(2026, 1, 5, 0, 0),
+            rangeEnd = parisInstant(2026, 1, 8, 0, 0),
+            timeZone = paris,
+        )
+
+        // Ascending day iteration order.
+        assertEquals(
+            listOf(LocalDate(2026, 1, 5), LocalDate(2026, 1, 6), LocalDate(2026, 1, 7)),
+            result.keys.toList(),
+        )
+        // Day 6: continuation of `a` (00:00) comes before timed `b` (09:00).
+        assertEquals(
+            listOf("event://a", "event://b"),
+            result.getValue(LocalDate(2026, 1, 6)).map { it.event.id.url },
+        )
+        // Day 7: continuation of `a` (00:00, ends 10:00) comes before timed `c` (09:00).
+        assertEquals(
+            listOf("event://a", "event://c"),
+            result.getValue(LocalDate(2026, 1, 7)).map { it.event.id.url },
+        )
+    }
+
     // ---- Cancellation --------------------------------------------------------------------------
 
     @Test
@@ -358,9 +394,14 @@ class EventDaySliceTest {
 
     // ---- Builders ------------------------------------------------------------------------------
 
-    // Test-only convenience: production code appends into a shared buffer via expandDaySlicesInto.
-    private suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> =
-        buildList { expandDaySlicesInto(target = this, visibleDays = visibleDays, timeZone = timeZone) }
+    // Test-only convenience: production code writes straight into per-day buckets via
+    // expandDaySlicesInto; here we flatten them back into a single day-ordered list.
+    private suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> {
+        val dayCount = visibleDays.start.daysUntil(visibleDays.endInclusive) + 1
+        val buckets = arrayOfNulls<MutableList<EventDaySlice>>(dayCount)
+        expandDaySlicesInto(buckets, visibleDays, timeZone)
+        return buckets.filterNotNull().flatten()
+    }
 
     private fun parisInstant(year: Int, month: Int, day: Int, hour: Int, minute: Int): Instant =
         LocalDateTime(year, month, day, hour, minute).toInstant(paris)

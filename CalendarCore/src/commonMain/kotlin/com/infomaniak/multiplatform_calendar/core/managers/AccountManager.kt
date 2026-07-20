@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -33,21 +34,28 @@ import kotlin.coroutines.cancellation.CancellationException
 @Inject
 public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
+    private val sdkCaller: SdkCaller,
 ) {
 
-    @Throws(CancellationException::class)
+    @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, credentials: DavCredentials): Unit = withContext(Dispatchers.Default) {
-        accountRepository.storeCredentials(accountId, credentials.toRemote())
+        sdkCaller.run(operation = "initAccount $accountId") {
+            accountRepository.storeCredentials(accountId, credentials.toRemote())
+        }
     }
 
-    @Throws(CancellationException::class)
+    @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun removeAccount(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        accountRepository.removeCredentials(accountId)
+        sdkCaller.run(operation = "removeAccount $accountId") {
+            accountRepository.removeCredentials(accountId)
+        }
     }
 
     @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun retrieveDavCredential(authToken: String, login: String? = null): DavCredentials {
-        return accountRepository.retrieveDavCredential(authToken, login)
+        return sdkCaller.run(operation = "retrieveDavCredential") {
+            accountRepository.retrieveDavCredential(authToken, login)
+        }
     }
 }
 

@@ -75,17 +75,10 @@ internal class AccountRepository(
 
     @Throws(CalendarSdkException::class, CancellationException::class)
     suspend fun retrieveDavCredential(authToken: String, login: String? = null): DavCredentials {
-        return runCatching {
-            val login = login ?: authDataSource.retrieveUserProfile(authToken).login
-            val password = authDataSource.exchangeTokenToPassword(authToken)
-            DavCredentials(
-                username = login,
-                password = password.password,
-            )
-        }.getOrElse {
-            if (it is CancellationException) throw it
-            else throw CalendarSdkException(it.message, it)
-        }
+        return DavCredentials(
+            username = login ?: authDataSource.retrieveUserProfile(authToken).login,
+            password = authDataSource.exchangeTokenToPassword(authToken).password,
+        )
     }
 
     private fun getCurrentAccountIds(): Set<AccountId> {

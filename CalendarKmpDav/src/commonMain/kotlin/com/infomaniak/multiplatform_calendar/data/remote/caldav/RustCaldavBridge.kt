@@ -38,13 +38,13 @@ import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
-import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
-import uniffi.caldav_bridge.AlarmsChange as RustAlarmsChange
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
+import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
+import uniffi.caldav_bridge.AlarmsChange as RustAlarmsChange
 import uniffi.caldav_bridge.DavAccount as RustDavAccount
 import uniffi.caldav_bridge.buildEventIcs as rustBuildEventIcs
 import uniffi.caldav_bridge.calendarMultiget as rustCalendarMultiget
@@ -186,7 +186,7 @@ internal class RustCaldavBridge(
     ): RemoteDavEventRef = withContext(dispatcher) {
         try {
             val result = rustCreateEvent(credentials.toRust(), calendarUrl, icsData)
-            return@withContext RemoteDavEventRef(url = result.url, etag = result.etag)
+            return@withContext RemoteDavEventRef(url = result.href, etag = result.etag)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("createEvent")
         }
@@ -200,7 +200,7 @@ internal class RustCaldavBridge(
     ): RemoteDavEventRef = withContext(dispatcher) {
         try {
             val result = rustUpdateEvent(credentials.toRust(), eventUrl, etag, icsData)
-            return@withContext RemoteDavEventRef(url = result.url, etag = result.etag)
+            return@withContext RemoteDavEventRef(url = result.href, etag = result.etag)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("updateEvent")
         }

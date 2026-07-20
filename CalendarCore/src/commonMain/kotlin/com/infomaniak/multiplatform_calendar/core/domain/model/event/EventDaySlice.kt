@@ -27,6 +27,7 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
@@ -65,6 +66,26 @@ public data class EventDaySlice(
      */
     val fillsWholeDay: Boolean
         get() = displayStart.time == MIDNIGHT && displayEnd == LocalDateTime(date.plus(1, DateTimeUnit.DAY), MIDNIGHT)
+
+    /**
+     * Convert the slice's [displayStart] into an absolute [Instant] in the [timeZone] provided
+     * or current system time zone if not provided.
+     *
+     * This is a convenience for display purposes; it does not reflect the event's original time zone
+     * (which may be different, or null for floating events).
+     */
+    public fun displayStartInstant(timeZone: TimeZone? = null): Instant =
+        displayStart.toInstant(timeZone ?: TimeZone.currentSystemDefault())
+
+    /**
+     * Convert the slice's [displayEnd] into an absolute [Instant] in the [timeZone] provided
+     * or current system time zone if not provided.
+     *
+     * This is a convenience for display purposes; it does not reflect the event's original time zone
+     * (which may be different, or null for floating events).
+     */
+    public fun displayEndInstant(timeZone: TimeZone? = null): Instant =
+        displayEnd.toInstant(timeZone ?: TimeZone.currentSystemDefault())
 
     internal companion object {
         val MIDNIGHT = LocalTime(0, 0)

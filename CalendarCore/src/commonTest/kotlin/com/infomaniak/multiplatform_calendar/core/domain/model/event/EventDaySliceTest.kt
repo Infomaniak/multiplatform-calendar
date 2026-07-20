@@ -26,6 +26,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -393,9 +394,14 @@ class EventDaySliceTest {
 
     // ---- Builders ------------------------------------------------------------------------------
 
-    // Test-only convenience: production code appends into a shared buffer via expandDaySlicesInto.
-    private suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> =
-        buildList { expandDaySlicesInto(target = this, visibleDays = visibleDays, timeZone = timeZone) }
+    // Test-only convenience: production code writes straight into per-day buckets via
+    // expandDaySlicesInto; here we flatten them back into a single day-ordered list.
+    private suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> {
+        val dayCount = visibleDays.start.daysUntil(visibleDays.endInclusive) + 1
+        val buckets = arrayOfNulls<MutableList<EventDaySlice>>(dayCount)
+        expandDaySlicesInto(buckets, visibleDays, timeZone)
+        return buckets.filterNotNull().flatten()
+    }
 
     private fun parisInstant(year: Int, month: Int, day: Int, hour: Int, minute: Int): Instant =
         LocalDateTime(year, month, day, hour, minute).toInstant(paris)

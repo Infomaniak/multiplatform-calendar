@@ -27,6 +27,12 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -50,6 +56,69 @@ class CalendarDaoTest : RobolectricTestsBase() {
     @AfterTest
     fun tearDown() {
         if (::database.isInitialized) database.close()
+    }
+
+    @Test
+    fun getByAccountId_returnsOnlyRequestedAccountCalendarsSortedByDisplayName() = runTest {
+        val accountId = AccountId(1)
+        val otherAccountId = AccountId(2)
+        accountDao.insert(AccountEntity(id = accountId))
+        accountDao.insert(AccountEntity(id = otherAccountId))
+        val zulu = calendar(id = "calendar://zulu", accountId = accountId, displayName = "Zulu")
+        val alpha = calendar(id = "calendar://alpha", accountId = accountId, displayName = "Alpha")
+        val mike = calendar(id = "calendar://mike", accountId = accountId, displayName = "Mike")
+        val other = calendar(id = "calendar://other", accountId = otherAccountId, displayName = "Aardvark")
+        calendarDao.upsert(listOf(zulu, other, alpha, mike))
+
+        assertEquals(listOf(alpha, mike, zulu), calendarDao.getByAccountId(accountId))
+    }
+
+    @Test
+    fun getByAccountId_returnsEmptyListWhenAccountHasNoCalendar() = runTest {
+        assertEquals(emptyList(), calendarDao.getByAccountId(AccountId(1)))
+    }
+
+    @Test
+    fun observeByAccountIds_returnsRequestedAccountsCalendarsSortedByDisplayName() = runTest {
+        val firstAccountId = AccountId(1)
+        val secondAccountId = AccountId(2)
+        val otherAccountId = AccountId(3)
+        listOf(firstAccountId, secondAccountId, otherAccountId).forEach { accountDao.insert(AccountEntity(id = it)) }
+        val zulu = calendar(id = "calendar://zulu", accountId = firstAccountId, displayName = "Zulu")
+        val alpha = calendar(id = "calendar://alpha", accountId = secondAccountId, displayName = "Alpha")
+        val mike = calendar(id = "calendar://mike", accountId = firstAccountId, displayName = "Mike")
+        val other = calendar(id = "calendar://other", accountId = otherAccountId, displayName = "Aardvark")
+        calendarDao.upsert(listOf(zulu, other, alpha, mike))
+
+        val calendars = calendarDao.observeByAccountIds(setOf(firstAccountId, secondAccountId)).first()
+
+        assertEquals(listOf(alpha, mike, zulu), calendars)
+    }
+
+    @Test
+    fun observeByAccountIds_returnsEmptyListForEmptyAccountIds() = runTest {
+        assertEquals(emptyList(), calendarDao.observeByAccountIds(emptySet()).first())
+    }
+
+    @Test
+    fun observeByAccountIds_emitsUpdatedCalendarsSortedByDisplayName() = runTest {
+        val accountId = AccountId(1)
+        accountDao.insert(AccountEntity(id = accountId))
+        val zulu = calendar(id = "calendar://zulu", accountId = accountId, displayName = "Zulu")
+        val alpha = calendar(id = "calendar://alpha", accountId = accountId, displayName = "Alpha")
+        calendarDao.insert(zulu)
+
+        val firstEmissionReceived = CompletableDeferred<Unit>()
+        val emissions = async {
+            calendarDao.observeByAccountIds(setOf(accountId))
+                .onEach { firstEmissionReceived.complete(Unit) }
+                .take(2)
+                .toList()
+        }
+        firstEmissionReceived.await()
+        calendarDao.insert(alpha)
+
+        assertEquals(listOf(listOf(zulu), listOf(alpha, zulu)), emissions.await())
     }
 
     @Test
@@ -110,10 +179,15 @@ class CalendarDaoTest : RobolectricTestsBase() {
         assertEquals(emptyList(), calendarDao.getByAccountId(accountId))
     }
 
-    private fun calendar(id: String, accountId: AccountId, isVisible: Boolean) = CalendarEntity(
+    private fun calendar(
+        id: String,
+        accountId: AccountId,
+        isVisible: Boolean = true,
+        displayName: String = "Calendar $id",
+    ) = CalendarEntity(
         id = CalendarId(id),
         accountId = accountId,
-        displayName = "Calendar $id",
+        displayName = displayName,
         color = null,
         isVisible = isVisible,
     )

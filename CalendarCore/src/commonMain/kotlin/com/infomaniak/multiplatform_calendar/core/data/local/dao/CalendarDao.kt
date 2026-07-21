@@ -31,13 +31,13 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 internal interface CalendarDao {
 
-    @Query("SELECT * FROM calendars WHERE accountId = :accountId")
+    @Query("SELECT * FROM calendars WHERE accountId = :accountId ORDER BY displayName ASC")
     fun observeByAccountId(accountId: AccountId): Flow<List<CalendarEntity>>
 
-    @Query("SELECT * FROM calendars WHERE accountId IN(:accountIds)")
+    @Query("SELECT * FROM calendars WHERE accountId IN(:accountIds) ORDER BY displayName ASC")
     fun observeByAccountIds(accountIds: Set<AccountId>): Flow<List<CalendarEntity>>
 
-    @Query("SELECT * FROM calendars WHERE accountId = :accountId")
+    @Query("SELECT * FROM calendars WHERE accountId = :accountId ORDER BY displayName ASC")
     suspend fun getByAccountId(accountId: AccountId): List<CalendarEntity>
 
     @Query("SELECT * FROM calendars WHERE id = :id LIMIT 1")

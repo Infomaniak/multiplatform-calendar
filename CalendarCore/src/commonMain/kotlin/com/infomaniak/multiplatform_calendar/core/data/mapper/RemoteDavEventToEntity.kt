@@ -53,7 +53,6 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         etag = etag,
         colorArgb = resolveColorArgb(),
         colorIcalName = colorIcalName,
-        rawIcs = icsData,
     )
 }
 

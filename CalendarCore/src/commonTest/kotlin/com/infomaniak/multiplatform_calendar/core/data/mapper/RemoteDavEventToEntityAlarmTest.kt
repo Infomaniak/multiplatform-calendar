@@ -70,18 +70,6 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun rawIcs_ofTheWholeEvent_isPreservedOnTheEntity() {
-        val valarmBlock = "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nX-CUSTOM:keep-me\r\nEND:VALARM\r\n"
-        val ics = "BEGIN:VEVENT\r\nUID:1\r\n$valarmBlock" + "END:VEVENT\r\n"
-        val remote = remoteEvent(alarms = listOf(alarm(triggerDuration = "-PT15M")), icsData = ics)
-
-        val entity = remote.toEntity(calendarId)
-
-        assertEquals(ics, entity.rawIcs)
-        assertTrue(entity.rawIcs.contains(valarmBlock))
-    }
-
-    @Test
     fun action_isUppercased_evenForUnknownValues() {
         val remote = alarm(action = "procedure", triggerDuration = "-PT5M")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()

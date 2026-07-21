@@ -246,7 +246,6 @@ class EventEditMapperTest {
             dtEndInstantMs = null,
         ),
         etag = "etag-1",
-        rawIcs = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
         colorArgb = colorArgb,
         colorIcalName = colorIcalName,
     )

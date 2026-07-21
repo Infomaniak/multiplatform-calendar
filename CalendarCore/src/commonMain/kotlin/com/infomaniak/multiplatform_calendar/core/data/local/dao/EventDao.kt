@@ -22,6 +22,7 @@ import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
@@ -32,10 +33,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDateTime
 
 @Dao
-internal interface EventDao {
+internal abstract class EventDao {
 
     @Query("SELECT * FROM events WHERE calendarId = :calendarId ORDER BY dtStart ASC")
-    fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
+    abstract fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
 
     /**
      * Events (with their parent calendar) from all *visible* calendars of [accountId] that overlap
@@ -70,7 +71,7 @@ internal interface EventDao {
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
     )
-    fun observeVisibleInRange(
+    abstract fun observeVisibleInRange(
         accountIds: Set<AccountId>,
         startInstantMs: Long,
         endInstantMs: Long,
@@ -78,11 +79,20 @@ internal interface EventDao {
         endLocalDateTime: LocalDateTime,
     ): Flow<List<EventWithCalendarEntity>>
 
+    @Transaction
+    open suspend fun upsertEventsWithRawIcs(events: List<EventEntity>, rawIcs: List<EventRawIcsEntity>) {
+        upsertEvents(events)
+        upsertRawIcs(rawIcs)
+    }
+
     @Upsert
-    suspend fun upsert(eventDao: List<EventEntity>)
+    protected abstract suspend fun upsertEvents(events: List<EventEntity>)
+
+    @Upsert
+    protected abstract suspend fun upsertRawIcs(rawIcs: List<EventRawIcsEntity>)
 
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
-    suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>
+    abstract suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>
 
     @Query(
         """
@@ -99,7 +109,7 @@ internal interface EventDao {
           )
         """,
     )
-    suspend fun getEventRefsInRange(
+    abstract suspend fun getEventRefsInRange(
         calendarId: CalendarId,
         startInstantMs: Long,
         endInstantMs: Long,
@@ -108,16 +118,18 @@ internal interface EventDao {
     ): List<LocalEventRef>
 
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
-    suspend fun getEvent(eventId: EventId): EventEntity?
+    abstract suspend fun getEvent(eventId: EventId): EventEntity?
 
+    @Query("SELECT rawIcs FROM event_raw_ics WHERE eventId = :eventId LIMIT 1")
+    abstract suspend fun getRawIcs(eventId: EventId): String?
 
     @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
-    fun observeEventWithCalendar(eventId: EventId): Flow<EventWithCalendarEntity?>
+    abstract fun observeEventWithCalendar(eventId: EventId): Flow<EventWithCalendarEntity?>
 
     @Query("DELETE FROM events WHERE id = :eventId")
-    suspend fun deleteEvent(eventId: EventId)
+    abstract suspend fun deleteEvent(eventId: EventId)
 
     @Query("DELETE FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
-    suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
+    abstract suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
 }

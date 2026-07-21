@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import androidx.room3.ColumnTypeConverters
@@ -49,8 +50,8 @@ internal fun DatabaseProvider.getCalendarDatabase(
 }
 
 @Database(
-    entities = [AccountEntity::class, CalendarEntity::class, EventEntity::class],
-    version = 8,
+    entities = [AccountEntity::class, CalendarEntity::class, EventEntity::class, EventRawIcsEntity::class],
+    version = 9,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)

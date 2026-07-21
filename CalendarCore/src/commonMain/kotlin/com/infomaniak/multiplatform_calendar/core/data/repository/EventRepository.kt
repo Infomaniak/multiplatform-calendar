@@ -19,6 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.partitionEntities
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
@@ -111,19 +113,26 @@ internal class EventRepository(
         val now = Clock.System.now().toICalUtcDateTime()
         val built = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
-        eventDao.upsert(listOf(built.toSyncedEntity(ref = ref, calendarId = data.calendarId)))
+        val (eventEntities, rawIcsEntities) = listOf(
+            EventWithRawIcs(built.toSyncedEntity(ref = ref, calendarId = data.calendarId), built.icsData),
+        ).partitionEntities()
+        eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
     }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
         eventDao.getEvent(eventId)?.let { entity ->
+            val previousIcs = eventDao.getRawIcs(eventId) ?: return@let
             val now = Clock.System.now().toICalUtcDateTime()
             // patchEventIcs returns the patched event reparsed from its final ICS, so the persisted
             // row mirrors exactly what is written to the server (bumped SEQUENCE, refreshed
             // DTSTAMP/LAST-MODIFIED, preserved server-only fields) with no Kotlin-side re-derivation.
-            val patched = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now, previous = entity))
+            val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
             if (data.calendarId == entity.calendarId) {
                 val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
-                eventDao.upsert(listOf(patched.toSyncedEntity(ref = ref, calendarId = entity.calendarId)))
+                val (eventEntities, rawIcsEntities) = listOf(
+                    EventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = entity.calendarId), patched.icsData),
+                ).partitionEntities()
+                eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
             } else {
                 updateCrossCalendarEvent(credentials, eventId, data, patched)
             }
@@ -145,6 +154,9 @@ internal class EventRepository(
     ) {
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, patched.icsData)
         deleteEvent(credentials, eventId)
-        eventDao.upsert(listOf(patched.toSyncedEntity(ref = ref, calendarId = data.calendarId)))
+        val (eventEntities, rawIcsEntities) = listOf(
+            EventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = data.calendarId), patched.icsData),
+        ).partitionEntities()
+        eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
     }
 }

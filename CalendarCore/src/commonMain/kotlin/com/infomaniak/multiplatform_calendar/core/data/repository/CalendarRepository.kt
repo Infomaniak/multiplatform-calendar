@@ -24,6 +24,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.partitionEntities
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
@@ -87,12 +89,13 @@ internal class CalendarRepository(
             runCatching {
                 val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
                 val entities = remoteEvents.mapNotNull { event ->
-                    runCatching { event.toEntity(calendarEntity.id) }
+                    runCatching { EventWithRawIcs(event.toEntity(calendarEntity.id), event.icsData) }
                         .cancellable()
                         .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                         .getOrNull()
                 }
-                eventDao.upsert(entities)
+                val (eventEntities, rawIcsEntities) = entities.partitionEntities()
+                eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
                 crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
@@ -253,13 +256,15 @@ internal class CalendarRepository(
         if (remoteEvents.isEmpty()) return
 
         val entities = remoteEvents.mapNotNull { event ->
-            runCatching { event.toEntity(calendarId) }
+            runCatching { EventWithRawIcs(event.toEntity(calendarId), event.icsData) }
                 .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
         }
         if (entities.isNotEmpty()) {
             runCatching {
-                eventDao.upsert(entities) // TODO[Optimize]: upsert in batches
+                val (eventEntities, rawIcsEntities) = entities.partitionEntities()
+                // TODO[Optimize]: upsert in batches
+                eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
             }.onFailure {
                 // An error here is not critical, we can continue syncing other calendars
                 // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.
@@ -271,7 +276,7 @@ internal class CalendarRepository(
     private fun reportEventUpsertFailure(
         calendarId: CalendarId,
         throwable: Throwable,
-        entities: List<EventEntity>,
+        entities: List<EventWithRawIcs>,
     ) {
         crashReport.addBreadcrumb(
             message = "Failed to upsert events for calendar $calendarId",

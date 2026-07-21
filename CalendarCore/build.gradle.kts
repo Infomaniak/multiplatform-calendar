@@ -114,7 +114,7 @@ configurations.consumable("uniFfiConfigurationConsumable") {
     attributes.attribute(kindAttribute, "UNIFFI")
 }
 
-room {
+room3 {
     schemaDirectory("$projectDir/schemas")
 }
 

@@ -17,15 +17,15 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local.relation
 
-import androidx.room.Embedded
-import androidx.room.Relation
+import androidx.room3.Embedded
+import androidx.room3.Relation
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 
 /** An event together with its parent calendar, fetched atomically via Room relation queries. */
 internal data class EventWithCalendarEntity(
     @Embedded val event: EventEntity,
-    @Relation(parentColumn = "calendarId", entityColumn = "id")
+    @Relation(parentColumns = ["calendarId"], entityColumns = ["id"])
     val calendar: CalendarEntity,
 )
 

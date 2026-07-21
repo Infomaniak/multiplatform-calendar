@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local
 
-import androidx.room.TypeConverter
+import androidx.room3.ColumnTypeConverter
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
@@ -27,39 +27,39 @@ import kotlin.time.Duration
 
 internal class CalendarTypeConverters {
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromLocalDateTime(value: LocalDateTime?): String? = value?.toString()
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toLocalDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromDuration(value: Duration?): String? = value?.toIsoString()
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toDuration(value: String?): Duration? = value?.let { Duration.parseIsoString(it) }
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromAttendees(value: List<AttendeeEntity>): String = Json.encodeToString(value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toAttendees(value: String): List<AttendeeEntity> = Json.decodeFromString(value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromAlarms(value: List<AlarmEntity>): String = Json.encodeToString(value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toAlarms(value: String): List<AlarmEntity> = Json.decodeFromString(value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromClassification(value: Classification?): String? = value?.toIcalString()
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toClassification(value: String?): Classification? = Classification.fromIcalString(value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromStringList(value: List<String>?): String? = value?.let { Json.encodeToString(it) }
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toStringList(value: String?): List<String>? = value?.let { Json.decodeFromString(it) }
 }

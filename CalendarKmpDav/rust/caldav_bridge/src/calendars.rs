@@ -1,52 +1,49 @@
 //! Calendar discovery operations.
 
-use crate::client::{client, ensure_success, rt};
+use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount};
 use crate::props::{access_level, collection_props, normalize_href};
 use roxmltree::Document;
 
 /// Discover all calendars for the given credentials.
-#[uniffi::export]
-pub fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavError> {
-    let rt = rt()?;
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavError> {
     let cli = client(&account)?;
 
-    rt.block_on(async {
-        let principal = cli.discover_current_user_principal().await
-            .map_err(|error| network_or_bridge_error("Principal", error.as_ref()))?
-            .ok_or_else(|| bridge_error("Principal", "no current-user-principal"))?;
+    let principal = cli.discover_current_user_principal().await
+        .map_err(|error| network_or_bridge_error("Principal", error.as_ref()))?
+        .ok_or_else(|| bridge_error("Principal", "no current-user-principal"))?;
 
-        let homes = cli.discover_calendar_home_set(&principal).await
-            .map_err(|error| network_or_bridge_error("HomeSet", error.as_ref()))?;
+    let homes = cli.discover_calendar_home_set(&principal).await
+        .map_err(|error| network_or_bridge_error("HomeSet", error.as_ref()))?;
 
-        let mut calendars = Vec::new();
-        for home in &homes {
-            let props = collection_props(&cli, home).await;
-            for cal in cli.list_calendars(home).await.map_err(|error| network_or_bridge_error("ListCalendars", error.as_ref()))? {
-                let entry_props = props.get(normalize_href(&cal.href).as_str());
-                let access_level = entry_props
-                    .map(access_level)
-                    .unwrap_or(CalendarAccessLevel::ReadWrite);
-                // Prefer the color from our PROPFIND, fall back to the listing's.
-                let color = entry_props
-                    .and_then(|p| p.color.clone())
-                    .or_else(|| cal.color.clone());
-                calendars.push(CalendarEntry {
-                    url: cal.href.clone(),
-                    display_name: cal.displayname.unwrap_or_else(|| {
-                        cal.href.trim_end_matches('/').rsplit('/').next()
-                            .unwrap_or(&cal.href).to_string()
-                    }),
-                    color,
-                    description: cal.description.clone(),
-                    ctag: cal.sync_token.clone(),
-                    access_level,
-                });
-            }
+    let mut calendars = Vec::new();
+    for home in &homes {
+        let props = collection_props(&cli, home).await;
+        for cal in cli.list_calendars(home).await.map_err(|error| network_or_bridge_error("ListCalendars", error.as_ref()))? {
+            let entry_props = props.get(normalize_href(&cal.href).as_str());
+            let access_level = entry_props
+                .map(access_level)
+                .unwrap_or(CalendarAccessLevel::ReadWrite);
+            // Prefer the color from our PROPFIND, fall back to the listing's.
+            let color = entry_props
+                .and_then(|p| p.color.clone())
+                .or_else(|| cal.color.clone());
+            calendars.push(CalendarEntry {
+                url: cal.href.clone(),
+                display_name: cal.displayname.unwrap_or_else(|| {
+                    cal.href.trim_end_matches('/').rsplit('/').next()
+                        .unwrap_or(&cal.href).to_string()
+                }),
+                color,
+                description: cal.description.clone(),
+                ctag: cal.sync_token.clone(),
+                access_level,
+            });
         }
-        Ok(calendars)
-    })
+    }
+    Ok(calendars)
 }
 
 /// Update editable properties on a calendar collection (PROPPATCH).
@@ -54,8 +51,8 @@ pub fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavError> 
 /// Only the fields present in [`CalendarEdit`] are sent; absent (`None`) fields are left
 /// untouched on the server. Fails when the server responds with a non-success multistatus or any
 /// of the requested properties is rejected.
-#[uniffi::export]
-pub fn update_calendar(
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn update_calendar(
     account: DavAccount,
     calendar_url: &str,
     edit: CalendarEdit,
@@ -64,15 +61,12 @@ pub fn update_calendar(
         return Ok(());
     }
 
-    let rt = rt()?;
     let cli = client(&account)?;
     let body = build_proppatch_body(&edit);
 
-    rt.block_on(async {
-        let resp = cli.proppatch(calendar_url, &body).await.map_err(|error| network_or_bridge_error("Proppatch", error.as_ref()))?;
-        ensure_success("PROPPATCH", &resp)?;
-        check_propstat_success(resp.body().as_ref())
-    })
+    let resp = cli.proppatch(calendar_url, &body).await.map_err(|error| network_or_bridge_error("Proppatch", error.as_ref()))?;
+    ensure_success("PROPPATCH", &resp)?;
+    check_propstat_success(resp.body().as_ref())
 }
 
 /// Build a PROPPATCH request body containing only the props present in [`edit`].

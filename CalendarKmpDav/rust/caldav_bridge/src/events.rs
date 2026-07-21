@@ -4,7 +4,7 @@ use icalendar::{Calendar, CalendarComponent, Component, Property};
 use std::collections::HashSet;
 
 use crate::alarms::{parse_alarms, splice_alarms_into_first_vevent, strip_valarms_in_first_vevent};
-use crate::client::{client, ensure_success, rt};
+use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{
     AlarmsChange,
@@ -345,113 +345,101 @@ fn apply_color_change(event: &mut icalendar::Event, change: &ColorChange) {
 }
 
 /// Fetch all events (iCalendar resources) inside a calendar.
-#[uniffi::export]
-pub fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<EventEntry>, CaldavError> {
-    let rt = rt()?;
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<EventEntry>, CaldavError> {
     let cli = client(&account)?;
 
-    rt.block_on(async {
-        let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
-            .await.map_err(|error| network_or_bridge_error("Query", error.as_ref()))?;
+    let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
+        .await.map_err(|error| network_or_bridge_error("Query", error.as_ref()))?;
 
-        Ok(objects
-            .into_iter()
-            .filter_map(|obj| {
-                let etag = obj.etag.unwrap_or_default();
-                obj.calendar_data
-                    .and_then(|data| parse_ics(obj.href, etag, data))
-            })
-            .collect())
-    })
+    Ok(objects
+        .into_iter()
+        .filter_map(|obj| {
+            let etag = obj.etag.unwrap_or_default();
+            obj.calendar_data
+                .and_then(|data| parse_ics(obj.href, etag, data))
+        })
+        .collect())
 }
 
 /// Fetch events overlapping a specific UTC iCalendar time range.
-#[uniffi::export]
-pub fn calendar_query_timerange(
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn calendar_query_timerange(
     account: DavAccount,
     calendar_url: &str,
     start: &str,
     end: &str,
 ) -> Result<Vec<EventEntry>, CaldavError> {
-    let rt = rt()?;
     let cli = client(&account)?;
 
-    rt.block_on(async {
-        let objects = cli
-            .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), true)
-            .await
-            .map_err(|e| bridge_error("CalendarQueryTimeRange", e))?;
+    let objects = cli
+        .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), true)
+        .await
+        .map_err(|e| bridge_error("CalendarQueryTimeRange", e))?;
 
-        Ok(objects
-            .into_iter()
-            .filter_map(|obj| {
-                let etag = obj.etag.unwrap_or_default();
-                obj.calendar_data.and_then(|data| parse_ics(obj.href, etag, data))
-            })
-            .collect())
-    })
+    Ok(objects
+        .into_iter()
+        .filter_map(|obj| {
+            let etag = obj.etag.unwrap_or_default();
+            obj.calendar_data.and_then(|data| parse_ics(obj.href, etag, data))
+        })
+        .collect())
 }
 
 /// Fetch only hrefs and etags for events overlapping a UTC iCalendar time range.
-#[uniffi::export]
-pub fn calendar_query_timerange_refs(
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn calendar_query_timerange_refs(
     account: DavAccount,
     calendar_url: &str,
     start: &str,
     end: &str,
 ) -> Result<Vec<EventResourceRef>, CaldavError> {
-    let rt = rt()?;
     let cli = client(&account)?;
 
-    rt.block_on(async {
-        let objects = cli
-            .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), false)
-            .await
-            .map_err(|e| bridge_error("CalendarQueryTimeRangeRefs", e))?;
+    let objects = cli
+        .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), false)
+        .await
+        .map_err(|e| bridge_error("CalendarQueryTimeRangeRefs", e))?;
 
-        Ok(objects
-            .into_iter()
-            .map(|obj| EventResourceRef {
-                href: obj.href,
-                etag: obj.etag.unwrap_or_default(),
-            })
-            .collect())
-    })
+    Ok(objects
+        .into_iter()
+        .map(|obj| EventResourceRef {
+            href: obj.href,
+            etag: obj.etag.unwrap_or_default(),
+        })
+        .collect())
 }
 
 /// Incrementally synchronize a calendar collection using WebDAV `sync-collection`.
-#[uniffi::export]
-pub fn sync_collection(
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn sync_collection(
     account: DavAccount,
     calendar_url: &str,
     sync_token: Option<String>,
 ) -> Result<EventSyncDelta, CaldavError> {
-    let rt = rt()?;
     let cli = client(&account)?;
 
-    rt.block_on(async {
-        let result = cli
-            .sync_collection(calendar_url, sync_token.as_deref(), None, false)
-            .await
-            .map_err(|e| bridge_error("SyncCollection", e))?;
+    let result = cli
+        .sync_collection(calendar_url, sync_token.as_deref(), None, false)
+        .await
+        .map_err(|e| bridge_error("SyncCollection", e))?;
 
-        Ok(EventSyncDelta {
-            sync_token: result.sync_token,
-            items: result
-                .items
-                .into_iter()
-                .map(|item| EventChangeRef {
-                    href: item.href,
-                    is_deleted: item.is_deleted,
-                })
-                .collect(),
-        })
+    Ok(EventSyncDelta {
+        sync_token: result.sync_token,
+        items: result
+            .items
+            .into_iter()
+            .map(|item| EventChangeRef {
+                href: item.href,
+                is_deleted: item.is_deleted,
+            })
+            .collect(),
     })
 }
 
 /// Fetch a set of events by href using CalDAV `calendar-multiget`.
-#[uniffi::export]
-pub fn calendar_multiget(
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn calendar_multiget(
     account: DavAccount,
     calendar_url: &str,
     hrefs: Vec<String>,
@@ -460,77 +448,65 @@ pub fn calendar_multiget(
         return Ok(Vec::new());
     }
 
-    let rt = rt()?;
     let cli = client(&account)?;
 
-    rt.block_on(async {
-        let objects = cli
-            .calendar_multiget(calendar_url, hrefs.iter().map(String::as_str), true)
-            .await
-            .map_err(|e| bridge_error("CalendarMultiGet", e))?;
+    let objects = cli
+        .calendar_multiget(calendar_url, hrefs.iter().map(String::as_str), true)
+        .await
+        .map_err(|e| bridge_error("CalendarMultiGet", e))?;
 
-        Ok(objects
-            .into_iter()
-            .filter_map(|obj| {
-                let etag = obj.etag.unwrap_or_default();
-                obj.calendar_data
-                    .and_then(|data| parse_ics(obj.href, etag, data))
-            })
-            .collect())
-    })
+    Ok(objects
+        .into_iter()
+        .filter_map(|obj| {
+            let etag = obj.etag.unwrap_or_default();
+            obj.calendar_data
+                .and_then(|data| parse_ics(obj.href, etag, data))
+        })
+        .collect())
 }
 
 /// Create a new event. Returns the server-assigned URL + etag.
-#[uniffi::export]
-pub fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> Result<EventResourceRef, CaldavError> {
-    let rt = rt()?;
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn create_event(account: DavAccount, calendar_url: &str, ics_data: &str) -> Result<EventResourceRef, CaldavError> {
     let cli = client(&account)?;
     let body = bytes::Bytes::from(ics_data.as_bytes().to_vec());
 
-    rt.block_on(async {
-        let uid = uuid::Uuid::new_v4();
-        let path = format!("{}/{uid}.ics", calendar_url.trim_end_matches('/'));
-        let resp = cli.put_if_none_match(&path, body)
-            .await.map_err(|error| network_or_bridge_error("Create", error.as_ref()))?;
-        ensure_success("Create", &resp)?;
-        let etag = resp.headers()
-            .get("etag")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default()
-            .to_string();
-        Ok(EventResourceRef { href: path, etag })
-    })
+    let uid = uuid::Uuid::new_v4();
+    let path = format!("{}/{uid}.ics", calendar_url.trim_end_matches('/'));
+    let resp = cli.put_if_none_match(&path, body)
+        .await.map_err(|error| network_or_bridge_error("Create", error.as_ref()))?;
+    ensure_success("Create", &resp)?;
+    let etag = resp.headers()
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    Ok(EventResourceRef { href: path, etag })
 }
 
 /// Update an existing event (identified by its URL + etag for conflict detection).
-#[uniffi::export]
-pub fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: &str) -> Result<EventResourceRef, CaldavError> {
-    let rt = rt()?;
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_data: &str) -> Result<EventResourceRef, CaldavError> {
     let cli = client(&account)?;
     let body = bytes::Bytes::from(ics_data.as_bytes().to_vec());
 
-    rt.block_on(async {
-        let resp = cli.put_if_match(event_url, body, etag)
-            .await.map_err(|error| network_or_bridge_error("Update", error.as_ref()))?;
-        ensure_success("Update", &resp)?;
-        let new_etag = resp.headers()
-            .get("etag")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default()
-            .to_string();
-        Ok(EventResourceRef { href: event_url.to_string(), etag: new_etag })
-    })
+    let resp = cli.put_if_match(event_url, body, etag)
+        .await.map_err(|error| network_or_bridge_error("Update", error.as_ref()))?;
+    ensure_success("Update", &resp)?;
+    let new_etag = resp.headers()
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    Ok(EventResourceRef { href: event_url.to_string(), etag: new_etag })
 }
 
 /// Delete an event (identified by its URL + etag).
-#[uniffi::export]
-pub fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<(), CaldavError> {
-    let rt = rt()?;
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<(), CaldavError> {
     let cli = client(&account)?;
 
-    rt.block_on(async {
-        let resp = cli.delete_if_match(event_url, etag).await.map_err(|error| network_or_bridge_error("Delete", error.as_ref()))?;
-        ensure_success("Delete", &resp)
-    })
+    let resp = cli.delete_if_match(event_url, etag).await.map_err(|error| network_or_bridge_error("Delete", error.as_ref()))?;
+    ensure_success("Delete", &resp)
 }
 

@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.MapColumn
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -36,6 +37,9 @@ internal interface CalendarDao {
 
     @Query("SELECT * FROM calendars WHERE accountId IN(:accountIds) ORDER BY displayName ASC")
     fun observeByAccountIds(accountIds: Set<AccountId>): Flow<List<CalendarEntity>>
+
+    @Query("SELECT * FROM calendars WHERE accountId IN(:accountIds) ORDER BY accountId ASC, displayName ASC")
+    fun observeGroupedByAccountId(accountIds: Set<AccountId>): Flow<Map<@MapColumn(columnName = "accountId") AccountId, List<CalendarEntity>>>
 
     @Query("SELECT * FROM calendars WHERE accountId = :accountId ORDER BY displayName ASC")
     suspend fun getByAccountId(accountId: AccountId): List<CalendarEntity>

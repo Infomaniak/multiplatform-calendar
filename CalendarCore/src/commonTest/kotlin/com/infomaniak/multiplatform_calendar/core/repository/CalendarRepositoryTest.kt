@@ -24,6 +24,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
+import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -43,6 +45,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class CalendarRepositoryTest : RobolectricTestsBase() {
@@ -106,6 +110,37 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         repository.syncCalendars(accountId, fakeCredentials())
 
         assertEquals(emptyList(), database.eventDao().observeEvents(calendarId).first())
+    }
+
+    @Test
+    fun syncCalendars_dropsInvalidRecurrence_keepsEvent_andLogsReason() = runTest {
+        val accountId = AccountId(3)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/rrule/"
+        val calendarId = CalendarId(calendarUrl)
+        // Valid event whose RRULE is missing FREQ: the recurrence is dropped, but the event must still be persisted.
+        val event = remoteEvent(url = "${calendarUrl}bad-rrule.ics", uid = "u", rrule = "COUNT=5")
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            events = mapOf(calendarUrl to listOf(event)),
+        )
+        val crashReport = RecordingCrashReport()
+        val repository = CalendarRepository(
+            caldavClient = remote,
+            calendarDao = database.calendarDao(),
+            crashReport = crashReport,
+            eventDao = database.eventDao(),
+        )
+
+        repository.syncCalendars(accountId, fakeCredentials())
+
+        val stored = database.eventDao().observeEvents(calendarId).first().single()
+        assertEquals(event.url, stored.id.url)
+        assertNull(stored.rrule, "The invalid recurrence must be dropped, not the whole event")
+
+        val captured = crashReport.captures.single()
+        assertTrue(captured.message.contains("Dropped RRULE"), "Expected a dropped-RRULE report but was '${captured.message}'")
+        assertEquals(RecurrenceRuleFailureReason.MissingFrequency.name, captured.data?.get("reason"))
     }
 
     @Test
@@ -251,6 +286,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         uid: String,
         dtstart: String? = "20260615T140000Z",
         etag: String = "etag",
+        rrule: String? = null,
         icsData: String = "BEGIN:VEVENT\nUID:$uid\nEND:VEVENT",
     ) = RemoteDavEvent(
         url = url,
@@ -268,7 +304,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         created = null,
         lastModified = null,
         dtstamp = null,
-        rrule = null,
+        rrule = rrule,
         status = null,
         transp = null,
         classification = null,

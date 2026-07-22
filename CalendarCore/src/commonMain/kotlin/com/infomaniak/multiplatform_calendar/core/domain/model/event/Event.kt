@@ -44,7 +44,7 @@ public interface Event {
     public val timing: EventTiming
     public val lastModified: Instant?
     public val attendees: List<Attendee>
-    public val organizer: Attendee?
+    public val organizer: Organizer?
     public val colors: EventColors
     public val canEdit: Boolean
     public val alarms: List<EventAlarm>

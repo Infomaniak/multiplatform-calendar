@@ -16,6 +16,7 @@ use crate::models::{
     EventEntry,
     EventResourceRef,
     EventSyncDelta,
+    OrganizerEntry,
     VTimeZoneSpec,
 };
 
@@ -77,6 +78,7 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
                 color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
                 color_ical_name: prop(ev, "COLOR"),
                 attendees: parse_attendees(ev),
+                organizer: parse_organizer(ev),
                 alarms: parse_alarms(ev),
                 ics_data,
             })
@@ -88,28 +90,34 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
     }
 }
 
-/// Collect ORGANIZER + every ATTENDEE of a VEVENT into a flat participant list.
+/// Collect every ATTENDEE of a VEVENT into a participant list. The ORGANIZER is parsed
+/// separately (see [`parse_organizer`]) and is intentionally not included here.
 fn parse_attendees(ev: &icalendar::Event) -> Vec<AttendeeEntry> {
     use icalendar::Component;
     let mut attendees = Vec::new();
-    if let Some(org) = ev.properties().get("ORGANIZER") {
-        attendees.push(attendee_from_prop(org, true));
-    }
     if let Some(list) = ev.multi_properties().get("ATTENDEE") {
-        attendees.extend(list.iter().map(|p| attendee_from_prop(p, false)));
+        attendees.extend(list.iter().map(attendee_from_prop));
     }
     attendees
 }
 
-/// Build an [`AttendeeEntry`] from an ATTENDEE/ORGANIZER [`Property`], extracting CN/PARTSTAT/ROLE/RSVP.
-fn attendee_from_prop(p: &Property, is_organizer: bool) -> AttendeeEntry {
+/// Parse the single ORGANIZER property (RFC 5545 §3.8.4.3) of a VEVENT, if present.
+fn parse_organizer(ev: &icalendar::Event) -> Option<OrganizerEntry> {
+    use icalendar::Component;
+    ev.properties().get("ORGANIZER").map(|p| OrganizerEntry {
+        email: strip_mailto(p.value()),
+        display_name: p.get_param_as("CN", |s| Some(s.to_string())),
+    })
+}
+
+/// Build an [`AttendeeEntry`] from an ATTENDEE [`Property`], extracting CN/PARTSTAT/ROLE/RSVP.
+fn attendee_from_prop(p: &Property) -> AttendeeEntry {
     let param = |key: &str| p.get_param_as(key, |s| Some(s.to_string()));
     AttendeeEntry {
         email: strip_mailto(p.value()),
         display_name: param("CN"),
         status: param("PARTSTAT"),
         role: param("ROLE"),
-        is_organizer,
         response_needed: param("RSVP").is_some_and(|v| v.eq_ignore_ascii_case("TRUE")),
     }
 }

@@ -68,6 +68,7 @@ pub struct EventEntry {
     /// Raw RFC 7986 §5.9 `COLOR` value (a case-insensitive CSS3 color name).
     pub color_ical_name: Option<String>,
     pub attendees: Vec<AttendeeEntry>,
+    pub organizer: Option<OrganizerEntry>,
     pub alarms: Vec<AlarmEntry>,
 }
 
@@ -104,7 +105,7 @@ pub struct EventSyncDelta {
     pub items: Vec<EventChangeRef>,
 }
 
-/// A single ATTENDEE/ORGANIZER participant parsed from a VEVENT. Raw iCal parameter values
+/// A single ATTENDEE participant parsed from a VEVENT. Raw iCal parameter values
 /// (PARTSTAT/ROLE) are kept verbatim and mapped to domain enums Kotlin-side.
 #[derive(uniffi::Record)]
 pub struct AttendeeEntry {
@@ -114,9 +115,17 @@ pub struct AttendeeEntry {
     pub status: Option<String>,
     /// Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT").
     pub role: Option<String>,
-    pub is_organizer: bool,
     /// `RSVP=TRUE`: a response is expected from this attendee.
     pub response_needed: bool,
+}
+
+/// The single ORGANIZER of a VEVENT (RFC 5545 §3.8.4.3), distinct from the ATTENDEE list.
+/// Carries only the properties meaningful for an organizer; it is not a participant and thus
+/// has no PARTSTAT/ROLE/RSVP.
+#[derive(uniffi::Record)]
+pub struct OrganizerEntry {
+    pub email: String,
+    pub display_name: Option<String>,
 }
 
 /// Edited calendar properties applied onto a CalDAV collection by `update_calendar` (PROPPATCH).

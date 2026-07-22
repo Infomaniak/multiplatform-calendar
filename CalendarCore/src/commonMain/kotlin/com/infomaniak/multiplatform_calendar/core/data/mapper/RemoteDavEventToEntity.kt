@@ -49,6 +49,7 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         sequence = sequence?.toIntOrNull(),
         categories = parseICalCategories(categories),
         attendees = attendees.map { it.toEntity() },
+        organizer = organizer?.toEntity(),
         alarms = alarms.map { it.toEntity() },
         etag = etag,
         colorArgb = resolveColorArgb(),

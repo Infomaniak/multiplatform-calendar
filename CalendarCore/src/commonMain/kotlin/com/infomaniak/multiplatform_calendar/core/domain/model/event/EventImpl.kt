@@ -38,7 +38,7 @@ internal data class EventImpl(
     override val timing: EventTiming,
     override val lastModified: Instant? = null,
     override val attendees: List<Attendee> = emptyList(),
-    override val organizer: Attendee? = null,
+    override val organizer: Organizer? = null,
     override val colors: EventColors,
     override val canEdit: Boolean,
     override val alarms: List<EventAlarm> = emptyList(),

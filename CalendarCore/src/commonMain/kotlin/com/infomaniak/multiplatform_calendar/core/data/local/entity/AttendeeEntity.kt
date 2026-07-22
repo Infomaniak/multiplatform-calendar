@@ -28,6 +28,5 @@ internal data class AttendeeEntity(
     val displayName: String? = null,
     val status: ParticipationStatus,
     val role: AttendeeRole,
-    val isOrganizer: Boolean = false,
     val responseNeeded: Boolean = false,
 )

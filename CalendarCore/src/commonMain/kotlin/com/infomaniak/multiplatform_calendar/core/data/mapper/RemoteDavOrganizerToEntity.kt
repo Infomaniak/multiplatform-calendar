@@ -17,14 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Attendee
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
 
-internal fun AttendeeEntity.toDomain(isOrganizer: Boolean = false): Attendee = Attendee(
+internal fun RemoteDavOrganizer.toEntity(): OrganizerEntity = OrganizerEntity(
     email = email,
     displayName = displayName,
-    status = status,
-    role = role,
-    isOrganizer = isOrganizer,
-    responseNeeded = responseNeeded,
 )

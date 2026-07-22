@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-/** A single participant (ORGANIZER or ATTENDEE) parsed from a VEVENT. Raw iCal values. */
+/** A single participant (ATTENDEE) parsed from a VEVENT. Raw iCal values. */
 data class RemoteDavAttendee(
     val email: String,
     val displayName: String?,
@@ -25,7 +25,6 @@ data class RemoteDavAttendee(
     val status: String?,
     /** Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT"). */
     val role: String?,
-    val isOrganizer: Boolean,
     /** `RSVP=TRUE`: a response is expected. */
     val responseNeeded: Boolean,
 )

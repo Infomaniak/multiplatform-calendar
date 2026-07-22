@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarReposi
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -146,6 +147,31 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun syncCalendars_persistsCompleteRawIcs_includingCustomAndAlarmContent() = runTest {
+        val accountId = AccountId(6)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/raw-ics/"
+        val eventUrl = "${calendarUrl}rich.ics"
+        val icsData = "BEGIN:VEVENT\r\n" +
+            "UID:uid-raw\r\n" +
+            "SUMMARY:S\r\n" +
+            "DTSTART:20260615T140000Z\r\n" +
+            "X-CUSTOM-PROP:keep-me\r\n" +
+            "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nX-VENDOR:v\r\nEND:VALARM\r\n" +
+            "END:VEVENT\r\n"
+        val event = remoteEvent(url = eventUrl, uid = "uid-raw", icsData = icsData)
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            events = mapOf(calendarUrl to listOf(event)),
+        )
+        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao())
+
+        repository.syncCalendars(accountId, fakeCredentials())
+
+        assertEquals(icsData, database.eventDao().getRawIcs(EventId(eventUrl)))
+    }
+
+    @Test
     fun downloadEventsByRange_usesUtcBounds_andUpsertsFetchedEvents() = runTest {
         val accountId = AccountId(4)
         database.accountDao().insert(AccountEntity(accountId))
@@ -225,10 +251,11 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         uid: String,
         dtstart: String? = "20260615T140000Z",
         etag: String = "etag",
+        icsData: String = "BEGIN:VEVENT\nUID:$uid\nEND:VEVENT",
     ) = RemoteDavEvent(
         url = url,
         etag = etag,
-        icsData = "BEGIN:VEVENT\nUID:$uid\nEND:VEVENT",
+        icsData = icsData,
         uid = uid,
         summary = "S",
         description = null,

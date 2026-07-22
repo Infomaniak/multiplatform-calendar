@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import com.infomaniak.multiplatform_calendar.core.utils.seedEvents
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -68,7 +69,7 @@ class AccountDaoTest : RobolectricTestsBase() {
         val calendarId = CalendarId("calendar://owner")
         val eventId = EventId("event://owner")
         seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
-        eventDao.upsert(
+        eventDao.seedEvents(
             listOf(
                 createEvent(
                     eventId = eventId,
@@ -122,7 +123,6 @@ class AccountDaoTest : RobolectricTestsBase() {
             dtEndInstantMs = endZone?.let { dtEndEffective.toInstant(it).toEpochMilliseconds() },
         ),
         etag = "etag-${eventId.url}",
-        rawIcs = "BEGIN:VEVENT\\nUID:${eventId.url}\\nEND:VEVENT",
     )
 }
 

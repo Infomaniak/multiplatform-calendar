@@ -111,22 +111,21 @@ internal class EventRepository(
         val now = Clock.System.now().toICalUtcDateTime()
         val built = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
-        eventDao.upsert(listOf(built.toSyncedEntity(ref = ref, calendarId = data.calendarId)))
+        eventDao.upsertEventWithRawIcs(built.toSyncedEntity(ref = ref, calendarId = data.calendarId), built.icsData)
     }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
-        eventDao.getEvent(eventId)?.let { entity ->
-            val now = Clock.System.now().toICalUtcDateTime()
-            // patchEventIcs returns the patched event reparsed from its final ICS, so the persisted
-            // row mirrors exactly what is written to the server (bumped SEQUENCE, refreshed
-            // DTSTAMP/LAST-MODIFIED, preserved server-only fields) with no Kotlin-side re-derivation.
-            val patched = caldavClient.patchEventIcs(entity.rawIcs, data.toRemoteEdit(stamp = now, previous = entity))
-            if (data.calendarId == entity.calendarId) {
-                val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
-                eventDao.upsert(listOf(patched.toSyncedEntity(ref = ref, calendarId = entity.calendarId)))
-            } else {
-                updateCrossCalendarEvent(credentials, eventId, data, patched)
-            }
+        val (entity, previousIcs) = eventDao.getEventWithRawIcs(eventId) ?: return
+        val now = Clock.System.now().toICalUtcDateTime()
+        // patchEventIcs returns the patched event reparsed from its final ICS, so the persisted
+        // row mirrors exactly what is written to the server (bumped SEQUENCE, refreshed
+        // DTSTAMP/LAST-MODIFIED, preserved server-only fields) with no Kotlin-side re-derivation.
+        val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
+        if (data.calendarId == entity.calendarId) {
+            val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
+            eventDao.upsertEventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = entity.calendarId), patched.icsData)
+        } else {
+            updateCrossCalendarEvent(credentials, eventId, data, patched)
         }
     }
 
@@ -145,6 +144,6 @@ internal class EventRepository(
     ) {
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, patched.icsData)
         deleteEvent(credentials, eventId)
-        eventDao.upsert(listOf(patched.toSyncedEntity(ref = ref, calendarId = data.calendarId)))
+        eventDao.upsertEventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = data.calendarId), patched.icsData)
     }
 }

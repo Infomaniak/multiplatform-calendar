@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -36,6 +37,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
@@ -96,7 +98,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         seedCalendar(account, calendarId)
 
         // Floating event: wall-clock 10:00 → 11:00, no zone (dtStartInstantMs = null).
-        eventDao().upsert(listOf(floatingEvent(calendarId)))
+        eventDao().upsert(listOf(EventWithRawIcs(floatingEvent(calendarId), "")))
 
         // Same absolute Instant range, but interpreted in different zones for the SQL wall-clock bounds:
         //  - UTC:                    10:00-10:30 wall → OVERLAPS the 10:00-11:00 floating event
@@ -135,7 +137,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         seedCalendar(account, target)
 
         val oldId = EventId("https://cal/source/event.ics")
-        eventDao().upsert(listOf(richEvent(id = oldId, calendarId = source, etag = "etag-old")))
+        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = oldId, calendarId = source, etag = "etag-old"), "BEGIN:VEVENT")))
 
         // The bridge reparses the patched ICS; the fake returns that parsed event directly.
         fakeCaldav.patchedEvent = remoteDavEvent(
@@ -179,7 +181,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val moved = database.eventDao().getEvent(EventId("https://cal/target/event.ics"))!!
         assertEquals(target, moved.calendarId)
         assertEquals("etag-new", moved.etag)
-        assertEquals(fakeCaldav.patchedEvent.icsData, moved.rawIcs)
+        assertEquals(fakeCaldav.patchedEvent.icsData, database.eventDao().getRawIcs(EventId("https://cal/target/event.ics")))
         assertEquals("Renamed", moved.summary)
         assertTrue(moved.isSynced)
 
@@ -212,7 +214,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         seedCalendar(account, target)
 
         val oldId = EventId("https://cal/source/event.ics")
-        eventDao().upsert(listOf(richEvent(id = oldId, calendarId = source, etag = "etag-old")))
+        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = oldId, calendarId = source, etag = "etag-old"), "BEGIN:VEVENT")))
 
         fakeCaldav.patchedEvent = remoteDavEvent(
             icsData = "BEGIN:VEVENT\nUID:1\nCOLOR:royalblue\nEND:VEVENT",
@@ -241,7 +243,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         seedCalendar(account, calendarId)
 
         val eventId = EventId("https://cal/main/event.ics")
-        eventDao().upsert(listOf(richEvent(id = eventId, calendarId = calendarId, etag = "etag-old")))
+        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = eventId, calendarId = calendarId, etag = "etag-old"), "BEGIN:VEVENT")))
 
         fakeCaldav.patchedEvent = remoteDavEvent(
             icsData = "BEGIN:VEVENT\nUID:1\nSUMMARY:Renamed\nEND:VEVENT",
@@ -259,7 +261,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         val updated = database.eventDao().getEvent(eventId)!!
         assertEquals("Renamed", updated.summary)
-        assertEquals(fakeCaldav.patchedEvent.icsData, updated.rawIcs)
+        assertEquals(fakeCaldav.patchedEvent.icsData, database.eventDao().getRawIcs(eventId))
         assertEquals(4, updated.sequence)
         assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.dtStamp)
         assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.lastModified)
@@ -322,7 +324,6 @@ class EventRepositoryTest : RobolectricTestsBase() {
             ),
         ),
         etag = etag,
-        rawIcs = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
     )
 
     private suspend fun seedCalendar(accountId: AccountId, calendarId: CalendarId) {
@@ -356,7 +357,6 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 dtEndInstantMs = null,
             ),
             etag = "1",
-            rawIcs = "",
         )
     }
 

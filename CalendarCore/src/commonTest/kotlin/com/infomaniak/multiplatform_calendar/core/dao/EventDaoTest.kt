@@ -26,11 +26,14 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntit
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import com.infomaniak.multiplatform_calendar.core.utils.seedEvents
+import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -76,7 +79,7 @@ class EventDaoTest : RobolectricTestsBase() {
         )
         seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
 
-        eventDao.upsert(listOf(event))
+        seedEvents(listOf(event))
 
         assertEquals(event, eventDao.getEvent(event.id))
     }
@@ -99,7 +102,7 @@ class EventDaoTest : RobolectricTestsBase() {
             dtStart = LocalDateTime(2026, 6, 29, 8, 0),
             dtEndEffective = LocalDateTime(2026, 6, 29, 9, 0),
         )
-        eventDao.upsert(listOf(lateEvent, earlyEvent))
+        seedEvents(listOf(lateEvent, earlyEvent))
 
         val observed = eventDao.observeEvents(calendarId).first()
 
@@ -142,7 +145,7 @@ class EventDaoTest : RobolectricTestsBase() {
             dtStart = LocalDateTime(2026, 6, 29, 15, 0),
             dtEndEffective = LocalDateTime(2026, 6, 29, 16, 0),
         )
-        eventDao.upsert(listOf(inRangeVisible, inRangeHidden, inRangeOtherAccount, outsideRange))
+        seedEvents(listOf(inRangeVisible, inRangeHidden, inRangeOtherAccount, outsideRange))
 
         val observed = eventDao.observeVisibleInRange(
             accountIds = setOf(account1),
@@ -184,7 +187,7 @@ class EventDaoTest : RobolectricTestsBase() {
             startZone = paris,
             endZone = paris,
         )
-        eventDao.upsert(listOf(inRange, outside))
+        seedEvents(listOf(inRange, outside))
 
         val queryStart = LocalDateTime(2026, 6, 29, 9, 0)
         val queryEnd = LocalDateTime(2026, 6, 29, 12, 0)
@@ -223,7 +226,7 @@ class EventDaoTest : RobolectricTestsBase() {
             startZone = null,
             endZone = null,
         )
-        eventDao.upsert(listOf(inRange, outside))
+        seedEvents(listOf(inRange, outside))
 
         // Absolute bounds are arbitrary here since the floating branch ignores them; only the
         // wall-clock ones matter for these rows.
@@ -264,7 +267,7 @@ class EventDaoTest : RobolectricTestsBase() {
             startZone = null,
             endZone = null,
         )
-        eventDao.upsert(listOf(zoned, floating))
+        seedEvents(listOf(zoned, floating))
 
         val queryStart = LocalDateTime(2026, 6, 29, 9, 0)
         val queryEnd = LocalDateTime(2026, 6, 29, 12, 0)
@@ -319,7 +322,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endZone = null,
         )
         // Insert scrambled to prove the ORDER BY (not insertion order) drives the result.
-        eventDao.upsert(listOf(floatingLate, anchoredLate, floatingEarly, anchoredEarly))
+        seedEvents(listOf(floatingLate, anchoredLate, floatingEarly, anchoredEarly))
 
         val queryStart = LocalDateTime(2026, 6, 29, 0, 0)
         val queryEnd = LocalDateTime(2026, 6, 30, 0, 0)
@@ -351,7 +354,7 @@ class EventDaoTest : RobolectricTestsBase() {
             dtStart = LocalDateTime(2026, 6, 29, 11, 0),
             dtEndEffective = LocalDateTime(2026, 6, 29, 12, 0),
         )
-        eventDao.upsert(listOf(event))
+        seedEvents(listOf(event))
 
         val observed = eventDao.observeEventWithCalendar(eventId).first()
 
@@ -366,7 +369,7 @@ class EventDaoTest : RobolectricTestsBase() {
         val calendarId = CalendarId("calendar://delete")
         val eventId = EventId("event://delete")
         seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
-        eventDao.upsert(
+        seedEvents(
             listOf(
                 createEvent(
                     eventId = eventId,
@@ -380,6 +383,51 @@ class EventDaoTest : RobolectricTestsBase() {
         eventDao.deleteEvent(eventId)
 
         assertNull(eventDao.getEvent(eventId))
+    }
+
+    @Test
+    fun deleteEvent_cascadeDeletesRawIcs() = runTest {
+        val accountId = AccountId(4)
+        val calendarId = CalendarId("calendar://cascade")
+        val eventId = EventId("event://cascade")
+        seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
+        val event = createEvent(
+            eventId = eventId,
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 10, 0),
+        )
+        eventDao.upsert(listOf(EventWithRawIcs(event, "BEGIN:VEVENT")))
+        assertEquals("BEGIN:VEVENT", eventDao.getRawIcs(eventId))
+
+        eventDao.deleteEvent(eventId)
+
+        assertNull(eventDao.getEvent(eventId))
+        assertNull(eventDao.getRawIcs(eventId))
+    }
+
+    @Test
+    fun upsert_updatesRawIcs_whenEventIsReupserted() = runTest {
+        val accountId = AccountId(5)
+        val calendarId = CalendarId("calendar://update-rawics")
+        val eventId = EventId("event://update-rawics")
+        seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
+        val event = createEvent(
+            eventId = eventId,
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 10, 0),
+        )
+        eventDao.upsert(listOf(EventWithRawIcs(event, "BEGIN:VEVENT\nV1")))
+        assertEquals("BEGIN:VEVENT\nV1", eventDao.getRawIcs(eventId))
+
+        eventDao.upsert(listOf(EventWithRawIcs(event, "BEGIN:VEVENT\nV2")))
+
+        assertEquals("BEGIN:VEVENT\nV2", eventDao.getRawIcs(eventId))
+    }
+
+    private suspend fun seedEvents(events: List<EventEntity>) {
+        eventDao.seedEvents(events)
     }
 
     private suspend fun seedCalendar(accountId: AccountId, calendarId: CalendarId, isVisible: Boolean) {
@@ -417,7 +465,6 @@ class EventDaoTest : RobolectricTestsBase() {
             dtEndInstantMs = endZone?.let { dtEndEffective.toEpochMs(it) },
         ),
         etag = "etag-${eventId.url}",
-        rawIcs = "BEGIN:VEVENT\\nUID:${eventId.url}\\nEND:VEVENT",
     )
 
     private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()

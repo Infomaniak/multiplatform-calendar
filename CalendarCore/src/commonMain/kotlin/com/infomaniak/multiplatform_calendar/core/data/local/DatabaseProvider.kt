@@ -17,11 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local
 
-import androidx.room.ConstructedBy
-import androidx.room.Database
-import androidx.room.RoomDatabase
-import androidx.room.RoomDatabaseConstructor
-import androidx.room.TypeConverters
+import androidx.room3.ConstructedBy
+import androidx.room3.Database
+import androidx.room3.RoomDatabase
+import androidx.room3.RoomDatabaseConstructor
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
@@ -32,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import androidx.room3.ColumnTypeConverters
 
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
@@ -53,7 +53,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
     version = 8,
     exportSchema = true,
 )
-@TypeConverters(CalendarTypeConverters::class)
+@ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
 internal abstract class CalendarDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao

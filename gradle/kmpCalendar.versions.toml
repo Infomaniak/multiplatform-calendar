@@ -11,7 +11,7 @@ ksp = "2.3.9"
 ktor = "3.5.0"
 materialKolor = "4.1.1"
 metro = "1.0.0" # See https://github.com/ZacSweers/metro/blob/main/docs/compatibility.md.
-room = "2.8.4"
+room3 = "3.0.0"
 skie = "0.10.12"
 serialization = "1.9.0"
 sqlite = "2.6.2"
@@ -21,8 +21,8 @@ atomicfu = "0.29.0"
 
 [libraries]
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
-androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room3" }
+androidx-room-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room3" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "datetime" }
@@ -43,7 +43,7 @@ robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectr
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }
-androidx-room = { id = "androidx.room", version.ref = "room" }
+androidx-room = { id = "androidx.room3", version.ref = "room3" }
 ensureNdkVersion = { id = "ensure-ndk-version" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

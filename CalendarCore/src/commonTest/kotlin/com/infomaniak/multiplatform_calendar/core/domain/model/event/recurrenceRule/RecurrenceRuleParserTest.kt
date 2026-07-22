@@ -18,6 +18,8 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
 
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -83,13 +85,38 @@ class RecurrenceRuleParserTest {
     }
 
     @Test
-    fun ignoresExtensionTokens() {
-        assertEquals(Frequency.Daily, parseSupported("FREQ=DAILY;X-CUSTOM=whatever").freq)
+    fun failsOnUnknownExtensionTokens() {
+        assertFailed("FREQ=DAILY;X-CUSTOM=whatever", RecurrenceRuleFailureReason.MalformedGrammar)
     }
 
     @Test
-    fun takesFirstRuleLine() {
-        assertEquals(Frequency.Daily, parseSupported("FREQ=DAILY\nFREQ=WEEKLY").freq)
+    fun failsOnMultipleRuleLines() {
+        assertFailed("FREQ=DAILY\nFREQ=WEEKLY", RecurrenceRuleFailureReason.MalformedGrammar)
+    }
+
+    @Test
+    fun failsOnDuplicateRuleParts() {
+        assertFailed("FREQ=DAILY;FREQ=WEEKLY", RecurrenceRuleFailureReason.MalformedGrammar)
+    }
+
+    @Test
+    fun failsOnEmptyRuleParts() {
+        assertFailed("FREQ=DAILY;;COUNT=2", RecurrenceRuleFailureReason.MalformedGrammar)
+    }
+
+    @Test
+    fun failsWhenByMonthDayWithWeeklyFrequency() {
+        assertFailed("FREQ=WEEKLY;BYMONTHDAY=1", RecurrenceRuleFailureReason.InvalidByMonthDayForFrequency)
+    }
+
+    @Test
+    fun failsWhenByYearDayWithDailyFrequency() {
+        assertFailed("FREQ=DAILY;BYYEARDAY=1", RecurrenceRuleFailureReason.InvalidByYearDayFrequency)
+    }
+
+    @Test
+    fun failsWhenBySetPosWithoutAnotherByRule() {
+        assertFailed("FREQ=MONTHLY;BYSETPOS=1", RecurrenceRuleFailureReason.BySetPosWithoutByRule)
     }
 
     @Test
@@ -139,7 +166,23 @@ class RecurrenceRuleParserTest {
     fun weekDayNumParsesTokenWithoutOrdinal() {
         assertEquals(WeekDayNum(ordinal = null, dayOfWeek = DayOfWeek.MONDAY), WeekDayNum.parse("MO"))
         assertEquals(WeekDayNum(ordinal = -1, dayOfWeek = DayOfWeek.FRIDAY), WeekDayNum.parse("-1FR"))
+        assertEquals(WeekDayNum(ordinal = 1, dayOfWeek = DayOfWeek.MONDAY), WeekDayNum.parse("+1MO"))
         assertNull(WeekDayNum.parse("XX"))
+        assertNull(WeekDayNum.parse("0MO"))
+        assertNull(WeekDayNum.parse("99MO"))
+    }
+
+    @Test
+    fun preservesUntilValueType() {
+        assertEquals(
+            RecurrenceUntil.DateOnly(LocalDate(2026, 1, 1)),
+            parseSupported("FREQ=DAILY;UNTIL=20260101").until,
+        )
+        assertEquals(
+            RecurrenceUntil.Floating(LocalDateTime(2026, 1, 1, 12, 0, 0)),
+            parseSupported("FREQ=DAILY;UNTIL=20260101T120000").until,
+        )
+        assertTrue(parseSupported("FREQ=DAILY;UNTIL=20260101T120000Z").until is RecurrenceUntil.DateTimeUtc)
     }
 
     @Test
@@ -150,11 +193,66 @@ class RecurrenceRuleParserTest {
             "FREQ=MONTHLY;BYDAY=-1FR;BYSETPOS=1",
             "FREQ=YEARLY;BYWEEKNO=1,53;BYMONTH=1",
             "FREQ=DAILY;UNTIL=20260101T120000Z",
+            "FREQ=DAILY;UNTIL=20260101",
+            "FREQ=DAILY;UNTIL=20260101T120000",
         )
         for (rule in rules) {
             val model = parseSupported(rule)
             val reSerialized = RecurrenceRuleSerializer.serialize(model)
             assertEquals(model, parseSupported(reSerialized), "Round-trip mismatch for '$rule' → '$reSerialized'")
         }
+    }
+
+    @Test
+    fun parsesCaseInsensitiveKeywordsAndValues() {
+        val rule = parseSupported("freq=weekly;byday=mo,we;wkst=su")
+        assertEquals(Frequency.Weekly, rule.freq)
+        assertEquals(
+            listOf(
+                WeekDayNum(ordinal = null, dayOfWeek = DayOfWeek.MONDAY),
+                WeekDayNum(ordinal = null, dayOfWeek = DayOfWeek.WEDNESDAY),
+            ),
+            rule.byDay,
+        )
+        assertEquals(DayOfWeek.SUNDAY, rule.weekStart)
+    }
+
+    @Test
+    fun failsOnOutOfRangeNumericValues() {
+        assertFailed("FREQ=DAILY;INTERVAL=0", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=DAILY;COUNT=0", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=DAILY;BYHOUR=24", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=DAILY;BYMINUTE=60", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=MONTHLY;BYMONTHDAY=32", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=YEARLY;BYWEEKNO=54", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=YEARLY;BYYEARDAY=367", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=MONTHLY;BYSETPOS=0", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=MONTHLY;BYDAY=MO;BYSETPOS=400", RecurrenceRuleFailureReason.MalformedGrammar)
+    }
+
+    @Test
+    fun parsesNegativeBySetPosWithAnotherByRule() {
+        val rule = parseSupported("FREQ=MONTHLY;BYDAY=MO;BYSETPOS=-1")
+        assertEquals(listOf(-1), rule.byOccurrencePosition)
+    }
+
+    @Test
+    fun preservesDuplicateListValues() {
+        assertEquals(listOf(1, 1, 2), parseSupported("FREQ=YEARLY;BYMONTH=1,1,2").byMonth)
+    }
+
+    @Test
+    fun failsOnInvalidUntilFormats() {
+        assertFailed("FREQ=DAILY;UNTIL=20260230", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=DAILY;UNTIL=20261301", RecurrenceRuleFailureReason.MalformedGrammar)
+        assertFailed("FREQ=DAILY;UNTIL=20260101T99", RecurrenceRuleFailureReason.MalformedGrammar)
+    }
+
+    @Test
+    fun serializesToCanonicalFormRegardlessOfInputOrderAndCasing() {
+        val canonical = "FREQ=WEEKLY;COUNT=5;BYDAY=MO,WE"
+        val reordered = "byday=mo,we;count=5;freq=weekly"
+        assertEquals(canonical, RecurrenceRuleSerializer.serialize(parseSupported(canonical)))
+        assertEquals(canonical, RecurrenceRuleSerializer.serialize(parseSupported(reordered)))
     }
 }

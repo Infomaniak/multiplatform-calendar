@@ -19,16 +19,13 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
 import kotlinx.datetime.DayOfWeek
 import kotlinx.serialization.Serializable
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
 @Serializable
 public data class RecurrenceRule(
     val freq: Frequency,
     val interval: Int = 1,
     val occurrenceCount: Int? = null,
-    val until: Instant? = null,
+    val until: RecurrenceUntil? = null,
     val byDay: List<WeekDayNum> = emptyList(),
     val byMonthDay: List<Int> = emptyList(),
     val byMonth: List<Int> = emptyList(),

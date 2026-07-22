@@ -23,8 +23,10 @@ internal enum class RecurrenceRuleFailureReason {
     MissingFrequency,
     CountAndUntilTogether,
     InvalidByDayOrdinalForFrequency,
+    InvalidByMonthDayForFrequency,
     InvalidByYearDayFrequency,
     InvalidByWeekNoFrequency,
+    BySetPosWithoutByRule,
     LeapSecondUnsupported,
     UnsupportedRscale,
 }

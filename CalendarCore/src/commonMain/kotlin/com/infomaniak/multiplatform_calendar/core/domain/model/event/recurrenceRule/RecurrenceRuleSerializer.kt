@@ -31,31 +31,29 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.INTERVAL
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.UNTIL
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.WKST
-import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
-import kotlin.time.ExperimentalTime
 
 /** Serializes a [RecurrenceRule] back to a canonical RFC 5545 RRULE value (no `RRULE:` prefix). */
 internal object RecurrenceRuleSerializer {
 
-    @OptIn(ExperimentalTime::class)
-    internal fun serialize(rule: RecurrenceRule): String = buildList {
-        add("${FREQ}=${rule.freq.toICalString()}")
-        when {
-            rule.until != null -> add("${UNTIL}=${rule.until.toICalUtcDateTime()}")
-            rule.occurrenceCount != null -> add("${COUNT}=${rule.occurrenceCount}")
-        }
-        if (rule.interval != 1) add("${INTERVAL}=${rule.interval}")
-        addByRule(BYSECOND, rule.bySecond)
-        addByRule(BYMINUTE, rule.byMinute)
-        addByRule(BYHOUR, rule.byHour)
-        if (rule.byDay.isNotEmpty()) add("${BYDAY}=${rule.byDay.joinToString(",") { it.toICalString() }}")
-        addByRule(BYMONTHDAY, rule.byMonthDay)
-        addByRule(BYYEARDAY, rule.byYearDay)
-        addByRule(BYWEEKNO, rule.byWeekNumber)
-        addByRule(BYMONTH, rule.byMonth)
-        addByRule(BYSETPOS, rule.byOccurrencePosition)
-        rule.weekStart?.let { add("${WKST}=${WeekDayNum(dayOfWeek = it).toICalString()}") }
-    }.joinToString(";")
+    internal fun serialize(rule: RecurrenceRule): String {
+        require(rule.occurrenceCount == null || rule.until == null) { "A RecurrenceRule cannot carry both COUNT and UNTIL" }
+        return buildList {
+            add("${FREQ}=${rule.freq.toICalString()}")
+            rule.until?.let { add("${UNTIL}=${it.toICalString()}") }
+            rule.occurrenceCount?.let { add("${COUNT}=$it") }
+            if (rule.interval != 1) add("${INTERVAL}=${rule.interval}")
+            addByRule(BYSECOND, rule.bySecond)
+            addByRule(BYMINUTE, rule.byMinute)
+            addByRule(BYHOUR, rule.byHour)
+            if (rule.byDay.isNotEmpty()) add("${BYDAY}=${rule.byDay.joinToString(",") { it.toICalString() }}")
+            addByRule(BYMONTHDAY, rule.byMonthDay)
+            addByRule(BYYEARDAY, rule.byYearDay)
+            addByRule(BYWEEKNO, rule.byWeekNumber)
+            addByRule(BYMONTH, rule.byMonth)
+            addByRule(BYSETPOS, rule.byOccurrencePosition)
+            rule.weekStart?.let { add("${WKST}=${WeekDayNum(dayOfWeek = it).toICalString()}") }
+        }.joinToString(";")
+    }
 
     private fun MutableList<String>.addByRule(field: RecurrenceRuleField, values: List<Int>) {
         if (values.isNotEmpty()) add("$field=${values.joinToString(",")}")

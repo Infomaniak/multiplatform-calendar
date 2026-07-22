@@ -43,14 +43,16 @@ public data class WeekDayNum(
     }
 
     internal companion object {
-        private val regex by lazy { Regex("^(-?\\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)$", RegexOption.IGNORE_CASE) }
+        private val regex by lazy { Regex("^([+-]?\\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)$", RegexOption.IGNORE_CASE) }
         internal fun parse(token: String): WeekDayNum? {
-            return regex.find(token)?.run {
-                val (ordinalString, dayCode) = destructured
-                dayCode.uppercase().toDayOfWeek()?.let { dow ->
-                    WeekDayNum(ordinal = ordinalString.toIntOrNull(), dayOfWeek = dow)
-                }
+            val match = regex.find(token) ?: return null
+            val (ordinalString, dayCode) = match.destructured
+            val dayOfWeek = dayCode.uppercase().toDayOfWeek() ?: return null
+            // RFC 5545 ordwk: 1..53 (optionally signed); 0 and out-of-range are invalid.
+            val ordinal = if (ordinalString.isEmpty()) null else {
+                (ordinalString.toIntOrNull() ?: return null).takeIf { it in -53..53 && it != 0 } ?: return null
             }
+            return WeekDayNum(ordinal = ordinal, dayOfWeek = dayOfWeek)
         }
     }
 }

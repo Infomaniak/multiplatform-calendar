@@ -26,13 +26,12 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntit
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
-import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import com.infomaniak.multiplatform_calendar.core.utils.seedEvents
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -70,7 +69,7 @@ class AccountDaoTest : RobolectricTestsBase() {
         val calendarId = CalendarId("calendar://owner")
         val eventId = EventId("event://owner")
         seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
-        seedEvents(
+        eventDao.seedEvents(
             listOf(
                 createEvent(
                     eventId = eventId,
@@ -87,10 +86,6 @@ class AccountDaoTest : RobolectricTestsBase() {
     @Test
     fun getAccountIdByEventId_returnsNullWhenEventIsMissing() = runTest {
         assertNull(accountDao.getAccountIdByEventId(EventId("event://missing")))
-    }
-
-    private suspend fun seedEvents(events: List<EventEntity>) {
-        eventDao.upsert(events.map { EventWithRawIcs(it, "") })
     }
 
     private suspend fun seedCalendar(accountId: AccountId, calendarId: CalendarId, isVisible: Boolean) {

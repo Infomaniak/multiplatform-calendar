@@ -18,10 +18,16 @@
 package com.infomaniak.multiplatform_calendar.core.utils
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.partitionEntities
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.toEventAndRawIcsEntities
 
 internal suspend fun EventDao.upsert(events: List<EventWithRawIcs>) {
-    val (eventEntities, rawIcsEntities) = events.partitionEntities()
+    val (eventEntities, rawIcsEntities) = events.toEventAndRawIcsEntities()
     upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
+}
+
+/** Seeds events with empty raw ICS for tests that only care about the event rows. */
+internal suspend fun EventDao.seedEvents(events: List<EventEntity>) {
+    upsert(events.map { EventWithRawIcs(it, "") })
 }

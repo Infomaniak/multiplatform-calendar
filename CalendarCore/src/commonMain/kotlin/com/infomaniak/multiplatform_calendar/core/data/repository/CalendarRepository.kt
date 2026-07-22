@@ -25,7 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.partitionEntities
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.toEventAndRawIcsEntities
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
@@ -94,7 +94,7 @@ internal class CalendarRepository(
                         .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                         .getOrNull()
                 }
-                val (eventEntities, rawIcsEntities) = entities.partitionEntities()
+                val (eventEntities, rawIcsEntities) = entities.toEventAndRawIcsEntities()
                 eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
@@ -262,7 +262,7 @@ internal class CalendarRepository(
         }
         if (entities.isNotEmpty()) {
             runCatching {
-                val (eventEntities, rawIcsEntities) = entities.partitionEntities()
+                val (eventEntities, rawIcsEntities) = entities.toEventAndRawIcsEntities()
                 // TODO[Optimize]: upsert in batches
                 eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
             }.onFailure {

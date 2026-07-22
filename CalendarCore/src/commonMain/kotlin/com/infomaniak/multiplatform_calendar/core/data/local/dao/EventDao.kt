@@ -24,6 +24,7 @@ import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -85,6 +86,13 @@ internal abstract class EventDao {
         upsertRawIcs(rawIcs)
     }
 
+    /** Single-event convenience for the edit paths, avoiding a list allocation + re-partition per event. */
+    @Transaction
+    open suspend fun upsertEventWithRawIcs(event: EventEntity, rawIcs: String) {
+        upsertEvents(listOf(event))
+        upsertRawIcs(listOf(EventRawIcsEntity(eventId = event.id, rawIcs = rawIcs)))
+    }
+
     @Upsert
     protected abstract suspend fun upsertEvents(events: List<EventEntity>)
 
@@ -122,6 +130,18 @@ internal abstract class EventDao {
 
     @Query("SELECT rawIcs FROM event_raw_ics WHERE eventId = :eventId LIMIT 1")
     abstract suspend fun getRawIcs(eventId: EventId): String?
+
+    /**
+     * Reads the event row and its raw ICS in a single transaction so callers get a consistent
+     * snapshot: a concurrent sync upsert can't commit a new event/raw-ICS pair between the two
+     * reads, which would otherwise let an edit patch fresh ICS with a stale entity/ETag.
+     */
+    @Transaction
+    open suspend fun getEventWithRawIcs(eventId: EventId): EventWithRawIcs? {
+        val event = getEvent(eventId) ?: return null
+        val rawIcs = getRawIcs(eventId) ?: return null
+        return EventWithRawIcs(event, rawIcs)
+    }
 
     @Transaction
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")

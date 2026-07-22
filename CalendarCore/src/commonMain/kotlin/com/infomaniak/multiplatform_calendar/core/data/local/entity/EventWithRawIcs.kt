@@ -27,6 +27,12 @@ internal data class EventWithRawIcs(
     val rawIcs: String,
 )
 
-internal fun List<EventWithRawIcs>.partitionEntities(): Pair<List<EventEntity>, List<EventRawIcsEntity>> {
-    return map { it.event to EventRawIcsEntity(eventId = it.event.id, rawIcs = it.rawIcs) }.unzip()
+internal fun List<EventWithRawIcs>.toEventAndRawIcsEntities(): Pair<List<EventEntity>, List<EventRawIcsEntity>> {
+    val events = ArrayList<EventEntity>(size)
+    val rawIcs = ArrayList<EventRawIcsEntity>(size)
+    for (item in this) {
+        events += item.event
+        rawIcs += EventRawIcsEntity(eventId = item.event.id, rawIcs = item.rawIcs)
+    }
+    return events to rawIcs
 }

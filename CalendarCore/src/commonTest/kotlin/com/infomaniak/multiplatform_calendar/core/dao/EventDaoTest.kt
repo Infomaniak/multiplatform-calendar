@@ -32,6 +32,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import com.infomaniak.multiplatform_calendar.core.utils.seedEvents
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -426,7 +427,7 @@ class EventDaoTest : RobolectricTestsBase() {
     }
 
     private suspend fun seedEvents(events: List<EventEntity>) {
-        eventDao.upsert(events.map { EventWithRawIcs(it, "") })
+        eventDao.seedEvents(events)
     }
 
     private suspend fun seedCalendar(accountId: AccountId, calendarId: CalendarId, isVisible: Boolean) {

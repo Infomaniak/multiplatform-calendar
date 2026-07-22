@@ -19,14 +19,15 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.TimeZone
 
-internal fun EventTimingEntity.toDomain(): EventTiming = EventTiming(
+internal fun EventTimingEntity.toDomain(recurrenceRule: RecurrenceRule? = null): EventTiming = EventTiming(
     start = dtStart,
     // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
     end = dtEndEffective,
     startTimeZone = startTimeZone?.let(TimeZone::of),
     endTimeZone = endTimeZone?.let(TimeZone::of),
     isAllDay = isAllDay,
-    recurrenceRule = null, // TODO: Parse rrule string to RecurrenceRule
+    recurrenceRule = recurrenceRule,
 )

@@ -18,18 +18,26 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
 
 import kotlinx.datetime.DayOfWeek
+import kotlinx.serialization.Serializable
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
+@Serializable
 public data class RecurrenceRule(
     val freq: Frequency,
     val interval: Int = 1,
-    val count: Int? = null,
+    val occurrenceCount: Int? = null,
     val until: Instant? = null,
     val byDay: List<WeekDayNum> = emptyList(),
     val byMonthDay: List<Int> = emptyList(),
     val byMonth: List<Int> = emptyList(),
-    val bySetPos: List<Int> = emptyList(),
+    // Selects occurrences by position within the set produced by the other BY* rules; negatives count from the end.
+    val byOccurrencePosition: List<Int> = emptyList(),
     val weekStart: DayOfWeek? = null,
+    val byHour: List<Int> = emptyList(),
+    val byMinute: List<Int> = emptyList(),
+    val bySecond: List<Int> = emptyList(),
+    val byYearDay: List<Int> = emptyList(),
+    val byWeekNumber: List<Int> = emptyList(),
 )

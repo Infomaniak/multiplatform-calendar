@@ -21,7 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId

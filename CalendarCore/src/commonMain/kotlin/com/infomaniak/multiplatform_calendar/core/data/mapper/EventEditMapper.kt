@@ -19,9 +19,9 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalDate
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalLocalDateTime
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange

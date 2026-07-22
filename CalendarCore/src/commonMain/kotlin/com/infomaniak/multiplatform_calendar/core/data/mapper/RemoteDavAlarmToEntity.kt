@@ -18,7 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm

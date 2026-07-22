@@ -1,5 +1,5 @@
 /*
- * Infomaniak Core - Android
+ * Infomaniak Calendar - Multiplatform
  * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
@@ -15,19 +15,28 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
 
-import kotlinx.serialization.Serializable
-
-/** RFC 5545 frequencies. */
-@Serializable
-public enum class Frequency {
-    Secondly, Minutely, Hourly, Daily, Weekly, Monthly, Yearly;
-
-    internal fun toICalString(): String = name.uppercase()
+/** RFC 5545 §3.3.10 RRULE part names, shared by the parser and serializer so the tokens live in one place. */
+internal enum class RecurrenceRuleField {
+    FREQ,
+    UNTIL,
+    COUNT,
+    INTERVAL,
+    BYSECOND,
+    BYMINUTE,
+    BYHOUR,
+    BYDAY,
+    BYMONTHDAY,
+    BYYEARDAY,
+    BYWEEKNO,
+    BYMONTH,
+    BYSETPOS,
+    WKST, // WeekStart: the weekday the week begins on (affects INTERVAL grouping and BYWEEKNO).
+    RSCALE, // RFC 7529 non-Gregorian calendar scale; unsupported here.
+    SKIP;
 
     internal companion object {
-        internal fun parse(token: String): Frequency? = entries.firstOrNull { it.name.equals(token, ignoreCase = true) }
+        internal fun fromToken(token: String): RecurrenceRuleField? = entries.firstOrNull { it.name == token }
     }
 }

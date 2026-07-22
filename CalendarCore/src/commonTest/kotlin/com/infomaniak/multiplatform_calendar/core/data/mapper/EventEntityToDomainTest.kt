@@ -17,21 +17,27 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class EventEntityToDomainTest {
 
@@ -118,6 +124,74 @@ class EventEntityToDomainTest {
         assertEquals(2, cache.size)
     }
 
+    // ---- Organizer / attendees ------------------------------------------------------------------
+
+    @Test
+    fun organizerEntity_isMappedToDomainOrganizer() {
+        val event = eventEntity(
+            organizer = OrganizerEntity(email = "boss@example.com", displayName = "Boss"),
+        ).toDomain(calendar)
+
+        val organizer = event.organizer
+        assertNotNull(organizer)
+        assertEquals("boss@example.com", organizer.email)
+        assertEquals("Boss", organizer.displayName)
+    }
+
+    @Test
+    fun absentOrganizer_isNull() {
+        val event = eventEntity(organizer = null).toDomain(calendar)
+
+        assertNull(event.organizer)
+    }
+
+    @Test
+    fun organizerThatIsNotAnAttendee_isExposedWithoutPollutingAttendees() {
+        val event = eventEntity(
+            organizer = OrganizerEntity(email = "boss@example.com", displayName = "Boss"),
+            attendees = emptyList(),
+        ).toDomain(calendar)
+
+        assertEquals("boss@example.com", event.organizer?.email)
+        assertEquals(emptyList(), event.attendees)
+    }
+
+    @Test
+    fun organizerThatIsAlsoAnAttendee_isNotDuplicatedIntoAttendees() {
+        val event = eventEntity(
+            organizer = OrganizerEntity(email = "boss@example.com", displayName = "Boss"),
+            attendees = listOf(
+                AttendeeEntity(
+                    email = "boss@example.com",
+                    displayName = "Boss",
+                    status = ParticipationStatus.Accepted,
+                    role = AttendeeRole.Chair,
+                ),
+            ),
+        ).toDomain(calendar)
+
+        assertEquals("boss@example.com", event.organizer?.email)
+        assertEquals(1, event.attendees.size)
+        assertEquals(ParticipationStatus.Accepted, event.attendees.single().status)
+        assertTrue(event.attendees.single().isOrganizer)
+    }
+
+    @Test
+    fun attendeeThatIsNotTheOrganizer_isNotFlaggedAsOrganizer() {
+        val event = eventEntity(
+            organizer = OrganizerEntity(email = "boss@example.com", displayName = "Boss"),
+            attendees = listOf(
+                AttendeeEntity(
+                    email = "guest@example.com",
+                    status = ParticipationStatus.NeedsAction,
+                    role = AttendeeRole.Requested,
+                ),
+            ),
+        ).toDomain(calendar)
+
+        assertFalse(event.attendees.single().isOrganizer)
+    }
+
     private val calendarId = CalendarId("calendar://tests")
     private val accountId = AccountId(1L)
     private val calendar = Calendar(
@@ -134,6 +208,8 @@ class EventEntityToDomainTest {
         location: String? = null,
         categories: List<String>? = null,
         colorArgb: Int? = null,
+        attendees: List<AttendeeEntity> = emptyList(),
+        organizer: OrganizerEntity? = null,
     ) = EventEntity(
         id = EventId(id),
         calendarId = calendarId,
@@ -147,6 +223,8 @@ class EventEntityToDomainTest {
             dtEndInstantMs = null,
         ),
         categories = categories,
+        attendees = attendees,
+        organizer = organizer,
         colorArgb = colorArgb,
         etag = "etag-1",
     )

@@ -27,7 +27,6 @@ internal fun RemoteDavAttendee.toEntity(): AttendeeEntity = AttendeeEntity(
     displayName = displayName,
     status = parseStatus(status),
     role = parseRole(role),
-    isOrganizer = isOrganizer,
     responseNeeded = responseNeeded,
 )
 
@@ -40,7 +39,7 @@ private fun parseStatus(raw: String?): ParticipationStatus = when (raw?.uppercas
 }
 
 // Maps raw iCal ROLE to the persisted role (defaults to Requested). CHAIR is the meeting
-// chair (RFC 5545), distinct from the organizer which is flagged via isOrganizer.
+// chair (RFC 5545), distinct from the organizer which is a separate ORGANIZER property.
 private fun parseRole(raw: String?): AttendeeRole = when (raw?.uppercase()) {
     "CHAIR" -> AttendeeRole.Chair
     "OPT-PARTICIPANT" -> AttendeeRole.Optional

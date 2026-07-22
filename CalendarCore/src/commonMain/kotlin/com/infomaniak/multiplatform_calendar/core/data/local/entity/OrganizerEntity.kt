@@ -15,16 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.mapper
+package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Attendee
+import kotlinx.serialization.Serializable
 
-internal fun AttendeeEntity.toDomain(isOrganizer: Boolean = false): Attendee = Attendee(
-    email = email,
-    displayName = displayName,
-    status = status,
-    role = role,
-    isOrganizer = isOrganizer,
-    responseNeeded = responseNeeded,
+/** Persistence model for an event's ORGANIZER; serialized as JSON inside [EventEntity.organizer]. */
+@Serializable
+internal data class OrganizerEntity(
+    val email: String,
+    val displayName: String? = null,
 )

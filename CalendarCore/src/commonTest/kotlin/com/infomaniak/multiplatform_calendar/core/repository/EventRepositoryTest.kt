@@ -159,7 +159,6 @@ class EventRepositoryTest : RobolectricTestsBase() {
                     displayName = null,
                     status = "ACCEPTED",
                     role = "REQ-PARTICIPANT",
-                    isOrganizer = false,
                     responseNeeded = false,
                 ),
             ),

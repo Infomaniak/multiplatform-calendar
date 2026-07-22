@@ -66,8 +66,10 @@ data class RemoteDavEvent(
     val colorHex: String?,
     /** Raw `COLOR` value (RFC 7986 §5.9, a case-insensitive CSS3 color name). */
     val colorIcalName: String?,
-    /** ORGANIZER + ATTENDEE participants parsed from the VEVENT. */
+    /** ATTENDEE participants parsed from the VEVENT. */
     val attendees: List<RemoteDavAttendee>,
+    /** ORGANIZER of the VEVENT (RFC 5545 §3.8.4.3), independent from [attendees]. */
+    val organizer: RemoteDavOrganizer? = null,
     val alarms: List<RemoteDavAlarm> = emptyList(),
 )
 

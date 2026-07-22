@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026 Infomaniak Network SA
+ * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,16 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.mapper
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Attendee
-
-internal fun AttendeeEntity.toDomain(isOrganizer: Boolean = false): Attendee = Attendee(
-    email = email,
-    displayName = displayName,
-    status = status,
-    role = role,
-    isOrganizer = isOrganizer,
-    responseNeeded = responseNeeded,
+/** The single ORGANIZER of a VEVENT (RFC 5545 §3.8.4.3), distinct from the ATTENDEE list. */
+data class RemoteDavOrganizer(
+    val email: String,
+    val displayName: String?,
 )

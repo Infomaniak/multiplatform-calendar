@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavA
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
@@ -304,8 +305,13 @@ private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
                 displayName = attendee.displayName,
                 status = attendee.status,
                 role = attendee.role,
-                isOrganizer = attendee.isOrganizer,
                 responseNeeded = attendee.responseNeeded,
+            )
+        },
+        organizer = this.organizer?.let { organizer ->
+            RemoteDavOrganizer(
+                email = organizer.email,
+                displayName = organizer.displayName,
             )
         },
         alarms = this.alarms.map { alarm ->

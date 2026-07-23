@@ -35,6 +35,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
@@ -106,11 +107,18 @@ internal object RecurrenceCandidateSet {
 
     private fun datesInPeriod(dtStart: LocalDateTime, rule: RecurrenceRule, step: Int): List<LocalDate> {
         val weekStart = rule.weekStart ?: MONDAY
-        val (rangeStart, rangeEnd) = periodRange(dtStart.date, rule.freq, step, weekStart)
 
         val hasDayLevelExpansion =
             rule.byDay.isNotEmpty() || rule.byMonthDay.isNotEmpty() || rule.byYearDay.isNotEmpty() || rule.byWeekNumber.isNotEmpty()
         val monthFilter = resolveMonths(rule, dtStart, hasDayLevelExpansion)
+
+        // BYWEEKNO selects whole ISO week-years, whose boundaries differ from the calendar year.
+        val (rangeStart, rangeEnd) = if (rule.freq == Yearly && rule.byWeekNumber.isNotEmpty()) {
+            val weekYear = dtStart.year + step
+            firstWeekStart(weekYear, weekStart) to firstWeekStart(weekYear + 1, weekStart).minus(1, DateTimeUnit.DAY)
+        } else {
+            periodRange(dtStart.date, rule.freq, step, weekStart)
+        }
 
         var dates = datesBetween(rangeStart, rangeEnd)
         if (monthFilter != null) dates = dates.filter { it.monthValue in monthFilter }
@@ -123,6 +131,8 @@ internal object RecurrenceCandidateSet {
             }
         } else {
             dates
+                .filter { rule.byWeekNumber.isEmpty() || matchesWeekNumber(it, rule.byWeekNumber, weekStart) }
+                .filter { rule.byYearDay.isEmpty() || matchesYearDay(it, rule.byYearDay) }
                 .filter { rule.byMonthDay.isEmpty() || matchesMonthDay(it, rule.byMonthDay) }
                 .filter { rule.byDay.isEmpty() || matchesByDay(date = it, rule) }
         }
@@ -136,6 +146,39 @@ internal object RecurrenceCandidateSet {
         rule.freq == Yearly && !hasDayLevelExpansion -> setOf(dtStart.monthValue)
         else -> null
     }
+
+    private fun matchesYearDay(date: LocalDate, byYearDay: List<Int>): Boolean {
+        val yearLength = daysInYear(date.year)
+        return byYearDay.any { day -> if (day > 0) date.dayOfYear == day else date.dayOfYear == yearLength + 1 + day }
+    }
+
+    private fun matchesWeekNumber(date: LocalDate, byWeekNumber: List<Int>, weekStart: DayOfWeek): Boolean {
+        val weekNumber = weekNumber(date, weekStart)
+        val totalWeeks = weeksInWeekYear(owningWeekYear(date, weekStart), weekStart)
+        return byWeekNumber.any { week -> week == weekNumber || (week < 0 && totalWeeks + 1 + week == weekNumber) }
+    }
+
+    private fun weekNumber(date: LocalDate, weekStart: DayOfWeek): Int {
+        val weekOrigin = startOfWeek(date, weekStart)
+        return firstWeekStart(owningWeekYear(date, weekStart), weekStart).daysUntil(weekOrigin) / 7 + 1
+    }
+
+    /** The year that owns `date`'s week: the one containing the majority of it, i.e. the year of its 4th day. */
+    private fun owningWeekYear(date: LocalDate, weekStart: DayOfWeek): Int =
+        startOfWeek(date, weekStart).plus(3, DateTimeUnit.DAY).year
+
+    /** The start date of the first week belonging to `weekYear` (the week whose 4th day lands in that year). */
+    private fun firstWeekStart(weekYear: Int, weekStart: DayOfWeek): LocalDate {
+        val firstWeekOfJanuary = startOfWeek(LocalDate(weekYear, 1, 1), weekStart)
+        return if (firstWeekOfJanuary.plus(3, DateTimeUnit.DAY).year == weekYear) {
+            firstWeekOfJanuary
+        } else {
+            firstWeekOfJanuary.plus(7, DateTimeUnit.DAY)
+        }
+    }
+
+    private fun weeksInWeekYear(weekYear: Int, weekStart: DayOfWeek): Int =
+        firstWeekStart(weekYear, weekStart).daysUntil(firstWeekStart(weekYear + 1, weekStart)) / 7
 
     private fun matchesMonthDay(date: LocalDate, byMonthDay: List<Int>): Boolean {
         val monthLength = daysInMonth(date.year, date.monthValue)
@@ -196,4 +239,6 @@ internal object RecurrenceCandidateSet {
     private val LocalDateTime.monthValue: Int get() = month.ordinal + 1
 
     private fun daysInMonth(year: Int, month: Int): Int = YearMonth(year, month).numberOfDays
+
+    private fun daysInYear(year: Int): Int = LocalDate(year, 12, 31).dayOfYear
 }

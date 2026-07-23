@@ -648,4 +648,37 @@ class RecurrenceExpanderTest {
     }
 
     // endregion
+
+    // region BYYEARDAY / BYWEEKNO
+
+    @Test
+    fun yearlyByYearDayNegativeSelectsLastDayOfYear() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byYearDay = listOf(-1), occurrenceCount = 2),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2026-06-01T00:00"),
+        )
+        // DTSTART is always emitted first (§7.8), then the conforming last-day-of-year instances.
+        assertEquals(listOf(ldt("2024-01-01T08:00"), ldt("2024-12-31T08:00")), occ.map { it.start })
+    }
+
+    @Test
+    fun yearlyByWeekNumberWithByDaySelectsMondayOfWeekOne() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(1), byDay = days(DayOfWeek.MONDAY), occurrenceCount = 3),
+            windowStart = instant("2023-01-01T00:00"),
+            windowEnd = instant("2027-06-01T00:00"),
+        )
+        // ISO week 1 Mondays: 2024-01-01, 2024-12-30 (week 1 of 2025), 2025-12-29 (week 1 of 2026).
+        assertEquals(
+            listOf(ldt("2024-01-01T08:00"), ldt("2024-12-30T08:00"), ldt("2025-12-29T08:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
 }

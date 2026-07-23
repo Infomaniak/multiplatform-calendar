@@ -35,6 +35,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
@@ -57,6 +58,15 @@ import kotlin.time.Duration.Companion.seconds
  * `BYWEEKNO`, `BYYEARDAY` and the sub-daily `BYHOUR`/`BYMINUTE`/`BYSECOND` are layered on later.
  */
 internal object RecurrenceCandidateSet {
+
+    private const val DAYS_PER_WEEK = 7
+
+    /**
+     * Offset (in days) from a week's start to its "pivot" day, the one deciding which ISO 8601 week-year
+     * the week belongs to. ISO 8601 rule: a week belongs to the year that owns the majority of its days
+     * (≥ 4 of 7); equivalently, the year of its 4th day (Thursday when `WKST=MO`), i.e. start + 3 days.
+     */
+    private const val ISO_WEEK_YEAR_PIVOT_OFFSET_DAYS = 3
 
     fun startsInPeriod(dtStart: LocalDateTime, zone: TimeZone, rule: RecurrenceRule, periodIndex: Int): List<LocalDateTime> {
         val step = rule.interval * periodIndex
@@ -111,14 +121,32 @@ internal object RecurrenceCandidateSet {
 
     private fun datesInPeriod(dtStart: LocalDateTime, rule: RecurrenceRule, step: Int): List<LocalDate> {
         val weekStart = rule.weekStart ?: MONDAY
-        val (rangeStart, rangeEnd) = periodRange(dtStart.date, rule.freq, step, weekStart)
 
         val hasDayLevelExpansion =
             rule.byDay.isNotEmpty() || rule.byMonthDay.isNotEmpty() || rule.byYearDay.isNotEmpty() || rule.byWeekNumber.isNotEmpty()
         val monthFilter = resolveMonths(rule, dtStart, hasDayLevelExpansion)
 
+        // BYWEEKNO selects whole ISO week-years, whose boundaries differ from the calendar year.
+        val (rangeStart, rangeEnd) = if (rule.freq == Yearly && rule.byWeekNumber.isNotEmpty()) {
+            val weekYear = dtStart.year + step
+            firstWeekStart(weekYear, weekStart) to firstWeekStart(weekYear + 1, weekStart).minus(1, DateTimeUnit.DAY)
+        } else {
+            periodRange(dtStart.date, rule.freq, step, weekStart)
+        }
+
         var dates = datesBetween(rangeStart, rangeEnd)
         if (monthFilter != null) dates = dates.filter { it.monthValue in monthFilter }
+
+        // Each day-level BY* part acts as a limit: a date passes when the part is absent or it matches.
+        fun satisfiesByWeekNumber(date: LocalDate) = rule.byWeekNumber.isEmpty() || matchesWeekNumber(date, rule.byWeekNumber, weekStart)
+        fun satisfiesByYearDay(date: LocalDate) = rule.byYearDay.isEmpty() || matchesYearDay(date, rule.byYearDay)
+        fun satisfiesByMonthDay(date: LocalDate) = rule.byMonthDay.isEmpty() || matchesMonthDay(date, rule.byMonthDay)
+        fun satisfiesByDay(date: LocalDate) = rule.byDay.isEmpty() || matchesByDay(date, rule)
+
+        // RFC 5545 §3.3.10: BYWEEKNO selects whole weeks; with no explicit day part it inherits DTSTART's weekday.
+        val weekNumberSelectsWholeWeek =
+            rule.byWeekNumber.isNotEmpty() && rule.byDay.isEmpty() && rule.byMonthDay.isEmpty() && rule.byYearDay.isEmpty()
+        fun satisfiesStartWeekday(date: LocalDate) = !weekNumberSelectsWholeWeek || date.dayOfWeek == dtStart.date.dayOfWeek
 
         dates = if (!hasDayLevelExpansion) {
             when (rule.freq) {
@@ -127,9 +155,9 @@ internal object RecurrenceCandidateSet {
                 else -> dates.filter { it.day == dtStart.day } // MONTHLY/YEARLY default day; short months skip
             }
         } else {
-            dates
-                .filter { rule.byMonthDay.isEmpty() || matchesMonthDay(it, rule.byMonthDay) }
-                .filter { rule.byDay.isEmpty() || matchesByDay(date = it, rule) }
+            dates.filter {
+                satisfiesByWeekNumber(it) && satisfiesByYearDay(it) && satisfiesByMonthDay(it) && satisfiesByDay(it) && satisfiesStartWeekday(it)
+            }
         }
 
         return dates.distinct().sorted()
@@ -141,6 +169,45 @@ internal object RecurrenceCandidateSet {
         rule.freq == Yearly && !hasDayLevelExpansion -> setOf(dtStart.monthValue)
         else -> null
     }
+
+    private fun matchesYearDay(date: LocalDate, byYearDay: List<Int>): Boolean {
+        val yearLength = daysInYear(date.year)
+        return byYearDay.any { day -> if (day > 0) date.dayOfYear == day else date.dayOfYear == yearLength + 1 + day }
+    }
+
+    private fun matchesWeekNumber(date: LocalDate, byWeekNumber: List<Int>, weekStart: DayOfWeek): Boolean {
+        val weekNumber = weekNumber(date, weekStart)
+        val totalWeeks = weeksInWeekYear(owningWeekYear(date, weekStart), weekStart)
+        return byWeekNumber.any { week -> week == weekNumber || (week < 0 && totalWeeks + 1 + week == weekNumber) }
+    }
+
+    private fun weekNumber(date: LocalDate, weekStart: DayOfWeek): Int {
+        val weekOrigin = startOfWeek(date, weekStart)
+        return firstWeekStart(owningWeekYear(date, weekStart), weekStart).daysUntil(weekOrigin) / DAYS_PER_WEEK + 1
+    }
+
+    /**
+     * The ISO 8601 week-year that owns `date`'s week: per the ISO rule a week belongs to the year holding
+     * the majority of its days (≥ 4 of 7), i.e. the year of its pivot (4th) day.
+     */
+    private fun owningWeekYear(date: LocalDate, weekStart: DayOfWeek): Int =
+        startOfWeek(date, weekStart).plus(ISO_WEEK_YEAR_PIVOT_OFFSET_DAYS, DateTimeUnit.DAY).year
+
+    /**
+     * The start date of the first week belonging to `weekYear` under ISO 8601: week 1 is the week whose
+     * pivot (4th) day lands in `weekYear`, reflecting that a week belongs to the year owning ≥ 4 of its days.
+     */
+    private fun firstWeekStart(weekYear: Int, weekStart: DayOfWeek): LocalDate {
+        val newYearsWeekStart = startOfWeek(LocalDate(weekYear, 1, 1), weekStart)
+        return if (newYearsWeekStart.plus(ISO_WEEK_YEAR_PIVOT_OFFSET_DAYS, DateTimeUnit.DAY).year == weekYear) {
+            newYearsWeekStart
+        } else {
+            newYearsWeekStart.plus(DAYS_PER_WEEK, DateTimeUnit.DAY)
+        }
+    }
+
+    private fun weeksInWeekYear(weekYear: Int, weekStart: DayOfWeek): Int =
+        firstWeekStart(weekYear, weekStart).daysUntil(firstWeekStart(weekYear + 1, weekStart)) / DAYS_PER_WEEK
 
     private fun matchesMonthDay(date: LocalDate, byMonthDay: List<Int>): Boolean {
         val monthLength = daysInMonth(date.year, date.monthValue)
@@ -176,8 +243,8 @@ internal object RecurrenceCandidateSet {
         when (freq) {
             Daily -> anchor.plus(step, DateTimeUnit.DAY).let { it to it }
             Weekly -> {
-                val weekOrigin = startOfWeek(anchor, weekStart).plus(step * 7, DateTimeUnit.DAY)
-                weekOrigin to weekOrigin.plus(6, DateTimeUnit.DAY)
+                val weekOrigin = startOfWeek(anchor, weekStart).plus(step * DAYS_PER_WEEK, DateTimeUnit.DAY)
+                weekOrigin to weekOrigin.plus(DAYS_PER_WEEK - 1, DateTimeUnit.DAY)
             }
             Monthly -> {
                 val total = anchor.year * 12 + anchor.month.ordinal + step
@@ -191,7 +258,7 @@ internal object RecurrenceCandidateSet {
         }
 
     private fun startOfWeek(date: LocalDate, weekStart: DayOfWeek): LocalDate {
-        val offset = (date.dayOfWeek.ordinal - weekStart.ordinal + 7) % 7
+        val offset = (date.dayOfWeek.ordinal - weekStart.ordinal + DAYS_PER_WEEK) % DAYS_PER_WEEK
         return date.minus(offset, DateTimeUnit.DAY)
     }
 
@@ -201,4 +268,6 @@ internal object RecurrenceCandidateSet {
     private val LocalDateTime.monthValue: Int get() = month.ordinal + 1
 
     private fun daysInMonth(year: Int, month: Int): Int = YearMonth(year, month).numberOfDays
+
+    private fun daysInYear(year: Int): Int = LocalDate(year, 12, 31).dayOfYear
 }

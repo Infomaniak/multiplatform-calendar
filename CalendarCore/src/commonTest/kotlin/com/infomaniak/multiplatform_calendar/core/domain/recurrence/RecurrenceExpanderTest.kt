@@ -668,4 +668,79 @@ class RecurrenceExpanderTest {
     }
 
     // endregion
+
+    // region BYYEARDAY / BYWEEKNO
+
+    @Test
+    fun yearlyByYearDayNegativeSelectsLastDayOfYear() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byYearDay = listOf(-1), occurrenceCount = 2),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2026-06-01T00:00"),
+        )
+        // DTSTART is always emitted first (§7.8), then the conforming last-day-of-year instances.
+        assertEquals(listOf(ldt("2024-01-01T08:00"), ldt("2024-12-31T08:00")), occ.map { it.start })
+    }
+
+    @Test
+    fun yearlyByWeekNumberWithByDaySelectsMondayOfWeekOne() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(1), byDay = days(DayOfWeek.MONDAY), occurrenceCount = 3),
+            windowStart = instant("2023-01-01T00:00"),
+            windowEnd = instant("2027-06-01T00:00"),
+        )
+        // ISO week 1 Mondays: 2024-01-01, 2024-12-30 (week 1 of 2025), 2025-12-29 (week 1 of 2026).
+        assertEquals(
+            listOf(ldt("2024-01-01T08:00"), ldt("2024-12-30T08:00"), ldt("2025-12-29T08:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun yearlyByWeekNumberNegativeSelectsMondayOfLastWeek() = runTest {
+        val master = timedMaster("2024-12-23T08:00", "2024-12-23T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(-1), byDay = days(DayOfWeek.MONDAY), occurrenceCount = 2),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2026-06-01T00:00"),
+        )
+        // Monday of the last ISO week: 2024-W52-1 = 2024-12-23, 2025-W52-1 = 2025-12-22.
+        assertEquals(listOf(ldt("2024-12-23T08:00"), ldt("2025-12-22T08:00")), occ.map { it.start })
+    }
+
+    @Test
+    fun yearlyByWeekNumberWithoutByDayInheritsStartWeekday() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(1), occurrenceCount = 3),
+            windowStart = instant("2023-01-01T00:00"),
+            windowEnd = instant("2027-06-01T00:00"),
+        )
+        // No BYDAY: RFC 5545 §3.3.10 keeps only DTSTART's weekday (Monday), not all 7 days of week 1.
+        assertEquals(
+            listOf(ldt("2024-01-01T08:00"), ldt("2024-12-30T08:00"), ldt("2025-12-29T08:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun yearlyByYearDaySixtyTracksLeapYearShift() = runTest {
+        val master = timedMaster("2024-02-29T08:00", "2024-02-29T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byYearDay = listOf(60), occurrenceCount = 2),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2026-06-01T00:00"),
+        )
+        // Day 60 is Feb 29 in the leap year 2024, then March 1 in the common year 2025.
+        assertEquals(listOf(ldt("2024-02-29T08:00"), ldt("2025-03-01T08:00")), occ.map { it.start })
+    }
+
+    // endregion
 }

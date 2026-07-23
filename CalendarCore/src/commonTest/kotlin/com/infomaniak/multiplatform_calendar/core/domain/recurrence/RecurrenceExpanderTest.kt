@@ -701,4 +701,50 @@ class RecurrenceExpanderTest {
     }
 
     // endregion
+
+    // region WKST alignment
+
+    @Test
+    fun weeklyIntervalTwoWithWeekStartMonday() = runTest {
+        val master = timedMaster("1997-08-05T09:00", "1997-08-05T10:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(
+                freq = Frequency.Weekly,
+                interval = 2,
+                byDay = days(DayOfWeek.TUESDAY, DayOfWeek.SUNDAY),
+                weekStart = DayOfWeek.MONDAY,
+                occurrenceCount = 4,
+            ),
+            windowStart = instant("1997-08-01T00:00"),
+            windowEnd = instant("1997-09-01T00:00"),
+        )
+        assertEquals(
+            listOf(ldt("1997-08-05T09:00"), ldt("1997-08-10T09:00"), ldt("1997-08-19T09:00"), ldt("1997-08-24T09:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun weeklyIntervalTwoWithWeekStartSundayShiftsBoundary() = runTest {
+        val master = timedMaster("1997-08-05T09:00", "1997-08-05T10:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(
+                freq = Frequency.Weekly,
+                interval = 2,
+                byDay = days(DayOfWeek.TUESDAY, DayOfWeek.SUNDAY),
+                weekStart = DayOfWeek.SUNDAY,
+                occurrenceCount = 4,
+            ),
+            windowStart = instant("1997-08-01T00:00"),
+            windowEnd = instant("1997-09-01T00:00"),
+        )
+        assertEquals(
+            listOf(ldt("1997-08-05T09:00"), ldt("1997-08-17T09:00"), ldt("1997-08-19T09:00"), ldt("1997-08-31T09:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
 }

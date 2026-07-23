@@ -19,6 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -178,6 +180,24 @@ class EventTimingMappersTest {
         ).toDomain()
 
         assertEquals(LocalDateTime(2026, 6, 15, 11, 0), domain.end)
+    }
+
+    @Test
+    fun toDomain_propagatesRecurrenceRule() {
+        val rule = RecurrenceRule(freq = Frequency.Daily)
+        val domain = EventTimingEntity(
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            dtEnd = LocalDateTime(2026, 6, 15, 11, 0),
+            duration = null,
+            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = null,
+            endTimeZone = null,
+            dtStartInstantMs = 0L,
+            dtEndInstantMs = 0L,
+            isAllDay = false,
+        ).toDomain(recurrenceRule = rule)
+
+        assertEquals(rule, domain.recurrenceRule)
     }
 
     // ---- Helpers --------------------------------------------------------------------------------

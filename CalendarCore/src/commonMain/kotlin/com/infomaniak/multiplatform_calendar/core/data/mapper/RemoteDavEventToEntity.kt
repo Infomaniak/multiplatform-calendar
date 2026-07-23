@@ -19,18 +19,31 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.DtStartForm.Date
+import com.infomaniak.multiplatform_calendar.core.data.mapper.DtStartForm.Floating
+import com.infomaniak.multiplatform_calendar.core.data.mapper.DtStartForm.Utc
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
-import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.UntilTypeMismatch
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Failed
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Supported
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParser
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
+import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
+import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 
 @Throws(CaldavParsingException::class)
-internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
+internal fun RemoteDavEvent.toEntity(calendarId: CalendarId, recurrenceRule: RecurrenceRule? = null): EventEntity {
     return EventEntity(
         id = EventId(url),
         calendarId = calendarId,
@@ -41,7 +54,7 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId): EventEntity {
         created = parseICalDateTime(created),
         lastModified = parseICalDateTime(lastModified),
         dtStamp = parseICalDateTime(dtstamp),
-        rrule = rrule,
+        rrule = recurrenceRule,
         status = EventStatus.fromIcalString(status),
         transp = transp,
         classification = Classification.fromIcalString(classification),
@@ -63,6 +76,44 @@ private fun RemoteDavEvent.resolveColorArgb(): Int? {
 }
 
 /**
+ * Parse the wire's `RRULE` into a typed [RecurrenceRule], `null` when there is none, or throw
+ * [RecurrenceDroppedException] when a present rule must be dropped (so the sync boundary can log it).
+ * Rejects a rule whose `UNTIL` value form disagrees with `DTSTART` (RFC 5545 §3.3.10).
+ */
+@Throws(RecurrenceDroppedException::class)
+internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
+    val raw = rrule ?: return null
+    return when (val result = RecurrenceRuleParser.parse(raw)) {
+        is Supported -> {
+            val until = result.rule.until
+            if (until != null && !until.matchesDtStartForm(dtStartForm())) {
+                throw RecurrenceDroppedException(UntilTypeMismatch.name)
+            }
+            result.rule
+        }
+        is Failed -> throw RecurrenceDroppedException(result.reason.name)
+    }
+}
+
+internal class RecurrenceDroppedException(val reason: String) : Exception(reason)
+
+private enum class DtStartForm { Date, Utc, Floating }
+
+/** Classify DTSTART's value form (RFC 5545 §3.3.4/§3.3.5): bare date, UTC/zoned, or floating date-time. */
+private fun RemoteDavEvent.dtStartForm(): DtStartForm = when {
+    isICalDateOnly(dtstart) -> Date
+    dtstart?.endsWith("Z") == true || dtStartTzid != null -> Utc
+    else -> Floating
+}
+
+/** RFC 5545 §3.3.10: UNTIL's value type must match DTSTART's form. */
+private fun RecurrenceUntil.matchesDtStartForm(form: DtStartForm): Boolean = when (this) {
+    is DateOnly -> form == Date
+    is DateTimeUtc -> form == Utc
+    is Floating -> form == Floating
+}
+
+/**
  * Persist a freshly built/patched event (from [CalendarSyncRemoteSource.buildEventIcs] /
  * [CalendarSyncRemoteSource.patchEventIcs]) as a local row, binding it to the server-assigned
  * [ref] (href + etag) and marking it synced. All parsed fields come straight from the ICS, so the
@@ -70,7 +121,9 @@ private fun RemoteDavEvent.resolveColorArgb(): Int? {
  */
 @Throws(CaldavParsingException::class)
 internal fun RemoteDavEvent.toSyncedEntity(ref: RemoteDavEventRef, calendarId: CalendarId): EventEntity {
-    return copy(url = ref.url, etag = ref.etag).toEntity(calendarId).copy(isSynced = true)
+    val synced = copy(url = ref.url, etag = ref.etag)
+    return synced.toEntity(calendarId, recurrenceRule = runCatching { synced.resolveRecurrence() }.getOrNull())
+        .copy(isSynced = true)
 }
 
 

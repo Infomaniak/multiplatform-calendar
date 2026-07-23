@@ -29,4 +29,5 @@ internal enum class RecurrenceRuleFailureReason {
     BySetPosWithoutByRule,
     LeapSecondUnsupported,
     UnsupportedRscale,
+    UntilTypeMismatch,
 }

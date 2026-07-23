@@ -32,6 +32,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
@@ -49,6 +52,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -185,7 +189,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertTrue(moved.isSynced)
 
         // Every parsed field from the patched event is persisted.
-        assertEquals("FREQ=WEEKLY;BYDAY=MO", moved.rrule)
+        assertEquals(
+            RecurrenceRule(freq = Frequency.Weekly, byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY))),
+            moved.rrule,
+        )
         assertEquals(EventStatus.CONFIRMED, moved.status)
         assertEquals("OPAQUE", moved.transp)
         assertEquals(Classification.Private, moved.classification)
@@ -308,7 +315,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         created = LocalDateTime(2026, 1, 1, 8, 0),
         lastModified = LocalDateTime(2026, 1, 2, 9, 0),
         dtStamp = LocalDateTime(2026, 1, 2, 9, 0),
-        rrule = "FREQ=WEEKLY;BYDAY=MO",
+        rrule = RecurrenceRule(freq = Frequency.Weekly, byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY))),
         status = EventStatus.CONFIRMED,
         transp = "OPAQUE",
         classification = Classification.Private,

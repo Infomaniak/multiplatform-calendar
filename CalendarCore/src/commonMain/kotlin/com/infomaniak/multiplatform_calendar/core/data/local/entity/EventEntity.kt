@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 
 @Entity(
@@ -50,7 +51,7 @@ internal data class EventEntity(
     val created: LocalDateTime? = null,
     val lastModified: LocalDateTime? = null,
     val dtStamp: LocalDateTime? = null,
-    val rrule: String? = null,
+    val rrule: RecurrenceRule? = null,
     val status: EventStatus? = null,
     val transp: String? = null,
     val classification: Classification? = null,

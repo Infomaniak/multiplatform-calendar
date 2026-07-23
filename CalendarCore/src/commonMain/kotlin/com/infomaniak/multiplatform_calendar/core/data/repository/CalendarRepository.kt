@@ -54,6 +54,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
@@ -92,8 +94,8 @@ internal class CalendarRepository(
             runCatching {
                 val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
                 val entities = remoteEvents.mapNotNull { event ->
+                    currentCoroutineContext().ensureActive()
                     val recurrence = runCatching { event.resolveRecurrence() }
-                        .cancellable()
                         .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
                         .getOrNull()
                     runCatching { EventWithRawIcs(event.toEntity(calendarEntity.id, recurrence), event.icsData) }
@@ -263,8 +265,8 @@ internal class CalendarRepository(
         if (remoteEvents.isEmpty()) return
 
         val entities = remoteEvents.mapNotNull { event ->
+            currentCoroutineContext().ensureActive()
             val recurrence = runCatching { event.resolveRecurrence() }
-                .cancellable()
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
                 .getOrNull()
             runCatching { EventWithRawIcs(event.toEntity(calendarId, recurrence), event.icsData) }

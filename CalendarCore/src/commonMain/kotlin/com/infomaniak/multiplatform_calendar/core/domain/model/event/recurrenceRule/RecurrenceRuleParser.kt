@@ -54,7 +54,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
 import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
-import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.time.ExperimentalTime
@@ -71,7 +70,6 @@ internal object RecurrenceRuleParser {
 
     internal fun parse(rawRule: String): RecurrenceRuleParseResult {
         return runCatching { parseOrThrow(rawRule) }
-            .cancellable()
             .fold(
                 onSuccess = { Supported(it) },
                 onFailure = { throwable ->

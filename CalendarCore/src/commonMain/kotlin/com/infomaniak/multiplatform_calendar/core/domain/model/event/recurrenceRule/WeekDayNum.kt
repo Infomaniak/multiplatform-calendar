@@ -1,5 +1,5 @@
 /*
- * Infomaniak Core - Android
+ * Infomaniak Calendar - Multiplatform
  * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,52 +19,61 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
 
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.DayOfWeek.FRIDAY
+import kotlinx.datetime.DayOfWeek.MONDAY
+import kotlinx.datetime.DayOfWeek.SATURDAY
+import kotlinx.datetime.DayOfWeek.SUNDAY
+import kotlinx.datetime.DayOfWeek.THURSDAY
+import kotlinx.datetime.DayOfWeek.TUESDAY
+import kotlinx.datetime.DayOfWeek.WEDNESDAY
+import kotlinx.serialization.Serializable
 
 /**
  * A day-of-week optionally qualified by an ordinal position
  * (e.g. `2MO` = second Monday, `-1FR` = last Friday).
  */
+@Serializable
 public data class WeekDayNum(
     val ordinal: Int? = null,
     val dayOfWeek: DayOfWeek,
 ) {
-    public fun toRfc5545(): String {
+    internal fun toICalString(): String {
         val dayCode = dayOfWeek.toCode()
         return if (ordinal != null) "$ordinal$dayCode" else dayCode
     }
 
-    public companion object {
-        private val regex by lazy { Regex("^(-?\\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)$", RegexOption.IGNORE_CASE) }
-        public fun parse(token: String): WeekDayNum? {
-            return regex.find(token)?.run {
-                val (ordinalString, dayCode) = destructured
-                dayCode.uppercase().toDayOfWeek()?.let { dow ->
-                    ordinalString.toIntOrNull()?.let { ordinal ->
-                        WeekDayNum(ordinal = ordinal, dayOfWeek = dow)
-                    }
-                }
+    internal companion object {
+        private val regex by lazy { Regex("^([+-]?\\d{1,2})?(MO|TU|WE|TH|FR|SA|SU)$", RegexOption.IGNORE_CASE) }
+        internal fun parse(token: String): WeekDayNum? {
+            val match = regex.find(token) ?: return null
+            val (ordinalString, dayCode) = match.destructured
+            val dayOfWeek = dayCode.uppercase().toDayOfWeek() ?: return null
+            // RFC 5545 ordwk: 1..53 (optionally signed); 0 and out-of-range are invalid.
+            val ordinal = if (ordinalString.isEmpty()) null else {
+                (ordinalString.toIntOrNull() ?: return null).takeIf { it in -53..53 && it != 0 } ?: return null
             }
+            return WeekDayNum(ordinal = ordinal, dayOfWeek = dayOfWeek)
         }
     }
 }
 
 private fun String.toDayOfWeek(): DayOfWeek? = when (this) {
-    "MO" -> DayOfWeek.MONDAY
-    "TU" -> DayOfWeek.TUESDAY
-    "WE" -> DayOfWeek.WEDNESDAY
-    "TH" -> DayOfWeek.THURSDAY
-    "FR" -> DayOfWeek.FRIDAY
-    "SA" -> DayOfWeek.SATURDAY
-    "SU" -> DayOfWeek.SUNDAY
+    "MO" -> MONDAY
+    "TU" -> TUESDAY
+    "WE" -> WEDNESDAY
+    "TH" -> THURSDAY
+    "FR" -> FRIDAY
+    "SA" -> SATURDAY
+    "SU" -> SUNDAY
     else -> null
 }
 
 private fun DayOfWeek.toCode(): String = when (this) {
-    DayOfWeek.MONDAY -> "MO"
-    DayOfWeek.TUESDAY -> "TU"
-    DayOfWeek.WEDNESDAY -> "WE"
-    DayOfWeek.THURSDAY -> "TH"
-    DayOfWeek.FRIDAY -> "FR"
-    DayOfWeek.SATURDAY -> "SA"
-    DayOfWeek.SUNDAY -> "SU"
+    MONDAY -> "MO"
+    TUESDAY -> "TU"
+    WEDNESDAY -> "WE"
+    THURSDAY -> "TH"
+    FRIDAY -> "FR"
+    SATURDAY -> "SA"
+    SUNDAY -> "SU"
 }

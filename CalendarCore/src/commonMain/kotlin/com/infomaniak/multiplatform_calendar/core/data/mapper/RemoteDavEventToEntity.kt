@@ -21,7 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingEx
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId

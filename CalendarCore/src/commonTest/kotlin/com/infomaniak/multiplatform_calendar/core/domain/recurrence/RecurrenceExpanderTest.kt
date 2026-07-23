@@ -608,4 +608,44 @@ class RecurrenceExpanderTest {
     }
 
     // endregion
+
+    // region sub-daily BYHOUR / BYMINUTE / BYSECOND
+
+    @Test
+    fun dailyByHourExpandsWithinDay() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T10:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, byHour = listOf(9, 14), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-02-01T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00"), ldt("2024-01-01T14:00"),
+                ldt("2024-01-02T09:00"), ldt("2024-01-02T14:00"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun dailyByHourAndByMinuteFormCartesianProduct() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T09:30")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, byHour = listOf(9, 10), byMinute = listOf(0, 30), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-02-01T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00"), ldt("2024-01-01T09:30"),
+                ldt("2024-01-01T10:00"), ldt("2024-01-01T10:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
 }

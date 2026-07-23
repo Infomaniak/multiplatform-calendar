@@ -32,6 +32,7 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.DayOfWeek.MONDAY
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.minus
@@ -61,8 +62,28 @@ internal object RecurrenceCandidateSet {
         val step = rule.interval * periodIndex
         return when (rule.freq) {
             Secondly, Minutely, Hourly -> subDailyStart(dtStart, zone, rule, step)
-            Daily, Weekly, Monthly, Yearly -> datesInPeriod(dtStart, rule, step).map { LocalDateTime(it, dtStart.time) }
+            Daily, Weekly, Monthly, Yearly -> {
+                val times = timesInDay(dtStart, rule)
+                datesInPeriod(dtStart, rule, step).flatMap { date -> times.map { LocalDateTime(date, it) } }.sorted()
+            }
         }
+    }
+
+    /** The times of day an instance may start at: the `BYHOUR`×`BYMINUTE`×`BYSECOND` product, each part defaulting to `DTSTART`. */
+    private fun timesInDay(dtStart: LocalDateTime, rule: RecurrenceRule): List<LocalTime> {
+        val hours = rule.byHour.ifEmpty { listOf(dtStart.hour) }
+        val minutes = rule.byMinute.ifEmpty { listOf(dtStart.minute) }
+        val seconds = rule.bySecond.ifEmpty { listOf(dtStart.second) }
+
+        val times = ArrayList<LocalTime>(hours.size * minutes.size * seconds.size)
+        for (hour in hours) {
+            for (minute in minutes) {
+                for (second in seconds) {
+                    times += LocalTime(hour, minute, second)
+                }
+            }
+        }
+        return times.sorted()
     }
 
     /** Sub-daily frequencies yield a single stepped instant, kept only if it passes the date-level limits. */

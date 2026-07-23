@@ -32,6 +32,7 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.DayOfWeek.MONDAY
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.minus
@@ -61,8 +62,33 @@ internal object RecurrenceCandidateSet {
         val step = rule.interval * periodIndex
         return when (rule.freq) {
             Secondly, Minutely, Hourly -> subDailyStart(dtStart, zone, rule, step)
-            Daily, Weekly, Monthly, Yearly -> datesInPeriod(dtStart, rule, step).map { LocalDateTime(it, dtStart.time) }
+            Daily, Weekly, Monthly, Yearly -> {
+                val dates = datesInPeriod(dtStart, rule, step)
+                val times = timesInDay(dtStart, rule)
+                combineDatesWithTimes(dates, times)
+            }
         }
+    }
+
+    /** Every (day, start-time) combination in the period: the cartesian product of its days and times-of-day. */
+    private fun combineDatesWithTimes(dates: List<LocalDate>, times: List<LocalTime>): List<LocalDateTime> =
+        dates.flatMap { date -> times.map { time -> LocalDateTime(date, time) } }.sorted()
+
+    /** The times of day an instance may start at: the `BYHOUR`×`BYMINUTE`×`BYSECOND` product, each part defaulting to `DTSTART`. */
+    private fun timesInDay(dtStart: LocalDateTime, rule: RecurrenceRule): List<LocalTime> {
+        val hours = rule.byHour.distinct().ifEmpty { listOf(dtStart.hour) }
+        val minutes = rule.byMinute.distinct().ifEmpty { listOf(dtStart.minute) }
+        val seconds = rule.bySecond.distinct().ifEmpty { listOf(dtStart.second) }
+
+        val times = ArrayList<LocalTime>(hours.size * minutes.size * seconds.size)
+        for (hour in hours) {
+            for (minute in minutes) {
+                for (second in seconds) {
+                    times += LocalTime(hour, minute, second)
+                }
+            }
+        }
+        return times.sorted()
     }
 
     /** Sub-daily frequencies yield a single stepped instant, kept only if it passes the date-level limits. */

@@ -70,7 +70,7 @@ internal object RecurrenceCandidateSet {
 
     fun startsInPeriod(dtStart: LocalDateTime, zone: TimeZone, rule: RecurrenceRule, periodIndex: Int): List<LocalDateTime> {
         val step = rule.interval * periodIndex
-        return when (rule.freq) {
+        val candidates = when (rule.freq) {
             Secondly, Minutely, Hourly -> subDailyStart(dtStart, zone, rule, step)
             Daily, Weekly, Monthly, Yearly -> {
                 val dates = datesInPeriod(dtStart, rule, step)
@@ -78,6 +78,17 @@ internal object RecurrenceCandidateSet {
                 combineDatesWithTimes(dates, times)
             }
         }
+        return applySetPositions(candidates, rule.byOccurrencePosition)
+    }
+
+    /** Keeps only the `BYSETPOS` slots of the period's candidate set: 1-based from the front, negative from the end. */
+    private fun applySetPositions(sortedStarts: List<LocalDateTime>, positions: List<Int>): List<LocalDateTime> {
+        if (positions.isEmpty()) return sortedStarts
+
+        return positions
+            .mapNotNull { position -> sortedStarts.getOrNull(if (position > 0) position - 1 else sortedStarts.size + position) }
+            .distinct()
+            .sorted()
     }
 
     /** Every (day, start-time) combination in the period: the cartesian product of its days and times-of-day. */

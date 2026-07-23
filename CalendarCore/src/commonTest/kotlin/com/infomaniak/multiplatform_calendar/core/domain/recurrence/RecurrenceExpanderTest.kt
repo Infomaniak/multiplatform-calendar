@@ -681,4 +681,24 @@ class RecurrenceExpanderTest {
     }
 
     // endregion
+
+    // region BYSETPOS
+
+    @Test
+    fun monthlyBySetPosSelectsLastWeekdayOfMonth() = runTest {
+        val master = timedMaster("2024-01-31T10:00", "2024-01-31T11:00")
+        val weekdays = days(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Monthly, byDay = weekdays, byOccurrencePosition = listOf(-1), occurrenceCount = 3),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-05-01T00:00"),
+        )
+        assertEquals(
+            listOf(ldt("2024-01-31T10:00"), ldt("2024-02-29T10:00"), ldt("2024-03-29T10:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
 }

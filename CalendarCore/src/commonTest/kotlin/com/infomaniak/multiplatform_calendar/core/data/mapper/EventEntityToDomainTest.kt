@@ -30,6 +30,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -202,6 +204,14 @@ class EventEntityToDomainTest {
         isVisible = true,
     )
 
+    @Test
+    fun recurrenceRule_isMappedIntoTiming() {
+        val rule = RecurrenceRule(freq = Frequency.Daily)
+        val event = eventEntity(rrule = rule).toDomain(calendar)
+
+        assertEquals(rule, event.timing.recurrenceRule)
+    }
+
     private fun eventEntity(
         id: String = "https://cal/tests/1.ics",
         description: String? = null,
@@ -210,6 +220,7 @@ class EventEntityToDomainTest {
         colorArgb: Int? = null,
         attendees: List<AttendeeEntity> = emptyList(),
         organizer: OrganizerEntity? = null,
+        rrule: RecurrenceRule? = null,
     ) = EventEntity(
         id = EventId(id),
         calendarId = calendarId,
@@ -227,5 +238,6 @@ class EventEntityToDomainTest {
         organizer = organizer,
         colorArgb = colorArgb,
         etag = "etag-1",
+        rrule = rrule,
     )
 }

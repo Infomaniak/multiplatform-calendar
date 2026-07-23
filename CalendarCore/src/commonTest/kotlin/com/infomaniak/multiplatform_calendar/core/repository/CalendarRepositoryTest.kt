@@ -39,7 +39,10 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -141,6 +144,33 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val captured = crashReport.captures.single()
         assertTrue(captured.message.contains("Dropped RRULE"), "Expected a dropped-RRULE report but was '${captured.message}'")
         assertEquals(RecurrenceRuleFailureReason.MissingFrequency.name, captured.data?.get("reason"))
+    }
+
+    @Test
+    fun syncCalendars_honorsCancellation_stopsBeforeProcessingEvents() = runTest {
+        val accountId = AccountId(7)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/cancel/"
+        val calendarId = CalendarId(calendarUrl)
+        // Each event has an invalid RRULE that would be dropped and logged if the loop ever processed it.
+        val events = (1..3).map { remoteEvent(url = "${calendarUrl}e$it.ics", uid = "u$it", rrule = "COUNT=5") }
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            events = mapOf(calendarUrl to events),
+        ).apply {
+            // Cancel the sync right after the events are fetched, before the per-event loop runs.
+            onGetEvents = { currentCoroutineContext()[Job]!!.cancel() }
+        }
+        val crashReport = RecordingCrashReport()
+        val repository = CalendarRepository(remote, database.calendarDao(), crashReport, database.eventDao())
+
+        val syncJob = launch { repository.syncCalendars(accountId, fakeCredentials()) }
+        syncJob.join()
+
+        assertTrue(syncJob.isCancelled, "The cancelled sync should stop instead of completing")
+        // ensureActive() throws on the first event, so nothing is processed, persisted, or logged.
+        assertEquals(emptyList(), database.eventDao().observeEvents(calendarId).first())
+        assertTrue(crashReport.captures.isEmpty(), "No per-event work should run once the sync is cancelled")
     }
 
     @Test
@@ -329,9 +359,13 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         var fullRangeRequestCount: Int = 0
         var refRangeRequestCount: Int = 0
         var lastMultigetUrls: List<String> = emptyList()
+        var onGetEvents: (suspend () -> Unit)? = null
 
         override suspend fun discoverCalendars(credentials: DavAccount) = calendars
-        override suspend fun getEvents(credentials: DavAccount, calendarUrl: String) = events[calendarUrl].orEmpty()
+        override suspend fun getEvents(credentials: DavAccount, calendarUrl: String): List<RemoteDavEvent> {
+            onGetEvents?.invoke()
+            return events[calendarUrl].orEmpty()
+        }
 
         override suspend fun getEventsInRange(
             credentials: DavAccount,

@@ -29,7 +29,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 import kotlin.time.Instant
 
 /**
@@ -84,12 +83,15 @@ internal object RecurrenceExpander {
 
             var countedInPeriod = false
             for (occurrenceStartLocal in candidates) {
-                val occurrenceStartInstant = occurrenceStartLocal.toInstant(masterTiming.startZone)
 
+                // The resolved instant is monotonic (a spring-forward gap resolves forward), so a series
+                // whose every wall-clock is a DST gap still terminates on COUNT/UNTIL/window instead of
+                // scanning to the empty-period cap. It becomes the real start once the gap check passes.
+                val occurrenceStartInstant = masterTiming.resolvedStartInstant(occurrenceStartLocal)
                 if (isExpansionComplete(rrule, count, occurrenceStartLocal, occurrenceStartInstant, inputEnd)) return Completed
 
-                // Skip candidates that are not real instances of the set, without counting them.
-                if (isNonInstance(occurrenceStartLocal, dtStart)) continue
+                // Skip candidates that are not real instances of the set (pre-DTSTART or DST gap), without counting them.
+                if (isNonInstance(masterTiming, occurrenceStartLocal, occurrenceStartInstant, dtStart)) continue
 
                 val occurrenceAdded = appendOccurrenceIfWithinWindow(
                     target = target,
@@ -160,13 +162,18 @@ internal object RecurrenceExpander {
     }
 
     /**
-     * Whether [occurrenceStartLocal] must be skipped **without counting** because it is not a real
-     * instance of the recurrence set. For now the only such case is a candidate before [dtStart]: a
-     * `BY*` period bucket can produce slots earlier than `DTSTART`, which are not part of the set
-     * (RFC 5545 §3.8.5.3).
+     * Whether [occurrenceStartLocal] (already resolved to [occurrenceStartInstant]) must be skipped
+     * **without counting** because it is not a real instance of the recurrence set. Two such cases:
+     * - a candidate before [dtStart]: a `BY*` period bucket can produce slots earlier than `DTSTART`,
+     *   which are not part of the set (RFC 5545 §3.8.5.3);
+     * - a nonexistent wall-clock (spring-forward DST gap), see [MasterTiming.existsAt] (RFC 5545 §3.3.10).
      */
-    private fun isNonInstance(occurrenceStartLocal: LocalDateTime, dtStart: LocalDateTime): Boolean =
-        occurrenceStartLocal < dtStart
+    private fun isNonInstance(
+        masterTiming: MasterTiming,
+        occurrenceStartLocal: LocalDateTime,
+        occurrenceStartInstant: Instant,
+        dtStart: LocalDateTime,
+    ): Boolean = occurrenceStartLocal < dtStart || !masterTiming.existsAt(occurrenceStartLocal, occurrenceStartInstant)
 
     /**
      * The sorted instance starts for [periodIndex], with `DTSTART` force-included in the first period

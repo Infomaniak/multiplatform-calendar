@@ -23,12 +23,17 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.DayOfWeek.FRIDAY
 import kotlinx.datetime.DayOfWeek.MONDAY
 import kotlinx.datetime.DayOfWeek.SATURDAY
 import kotlinx.datetime.DayOfWeek.SUNDAY
+import kotlinx.datetime.DayOfWeek.THURSDAY
+import kotlinx.datetime.DayOfWeek.TUESDAY
 import kotlinx.datetime.DayOfWeek.WEDNESDAY
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -37,12 +42,15 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlin.coroutines.cancellation.CancellationException
 
 class RecurrenceExpanderTest {
 
     private val paris = TimeZone.of("Europe/Paris")
+    private val newYork = TimeZone.of("America/New_York")
     private val utc = TimeZone.UTC
 
     private fun ldt(text: String) = LocalDateTime.parse(text)
@@ -404,6 +412,54 @@ class RecurrenceExpanderTest {
         )
         assertEquals(5, occ.size)
         assertEquals(ExpansionOutcome.TruncatedByOccurrenceCap, outcome)
+    }
+
+    @Test
+    fun degenerateRuleProducingNoDateStopsOnConsecutiveEmptyPeriodsInsteadOfLooping() = runTest {
+        // Feb 31 never exists: only the forced DTSTART is emitted, then the empty streak trips the cap.
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T10:00")
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byMonth = listOf(2), byMonthDay = listOf(31)),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2999-01-01T00:00"),
+            limits = ExpansionLimits(maxScannedPeriods = 50),
+        )
+        assertEquals(listOf(ldt("2024-01-01T09:00")), occ.map { it.start })
+        assertEquals(ExpansionOutcome.StoppedByConsecutiveEmptyPeriods, outcome)
+    }
+
+    @Test
+    fun expansionHonorsCooperativeCancellation() = runTest {
+        val master = timedMaster("2024-01-01T00:00:00", "2024-01-01T00:00:01")
+        val job = Job()
+        assertFailsWith<CancellationException> {
+            withContext(job) {
+                job.cancel() // cancel from within the active context so the loop's ensureActive() observes it
+                expand(
+                    master,
+                    RecurrenceRule(freq = Frequency.Secondly),
+                    windowStart = instant("2024-01-01T00:00:00"),
+                    windowEnd = instant("2999-01-01T00:00:00"),
+                    limits = ExpansionLimits(maxGeneratedOccurrences = Int.MAX_VALUE, maxScannedPeriods = Int.MAX_VALUE),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun expandsAHundredMastersOverALeapYearWindow() = runTest {
+        // Exercises the fast-forward path (masters start years before the window) at volume; 2024 has 366 days.
+        val windowStart = instant("2024-01-01T00:00")
+        val windowEnd = instant("2025-01-01T00:00")
+        var total = 0
+        repeat(100) {
+            val master = timedMaster("2020-01-01T09:00", "2020-01-01T10:00")
+            val out = mutableListOf<Occurrence>()
+            RecurrenceExpander.expandInto(out, master, RecurrenceRule(freq = Frequency.Daily), windowStart, windowEnd, utc)
+            total += out.size
+        }
+        assertEquals(100 * 366, total)
     }
 
     // endregion
@@ -800,6 +856,512 @@ class RecurrenceExpanderTest {
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-01T12:00"), ldt("2024-01-02T09:00")),
             occ.map { it.start },
         )
+    }
+
+    // endregion
+
+    // region DST gaps and dense far-starting series (PR 4c)
+
+    @Test
+    fun springForwardNonexistentInstanceIsSkippedAndNotEmitted() = runTest {
+        // 2025-03-30 is the Europe/Paris spring-forward day: 02:00 jumps to 03:00, so 02:30 does not exist.
+        val master = timedMaster("2025-03-28T02:30", "2025-03-28T03:00", zone = paris)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily),
+            windowStart = instant("2025-03-28T00:00", paris),
+            windowEnd = instant("2025-04-01T00:00", paris),
+        )
+        assertEquals(
+            listOf(ldt("2025-03-28T02:30"), ldt("2025-03-29T02:30"), ldt("2025-03-31T02:30")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun boundedSeriesWhoseEveryInstanceIsADstGapCompletesInsteadOfScanningToTheCap() = runTest {
+        // Every last Sunday of March at 02:30 in Europe/Paris is a spring-forward gap. Bounds must be
+        // evaluated before the gap is skipped, otherwise UNTIL is never reached and expansion runs to the cap.
+        val master = timedMaster("2020-03-29T02:30", "2020-03-29T03:30", zone = paris)
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(
+                freq = Frequency.Yearly,
+                byMonth = listOf(3),
+                byDay = listOf(WeekDayNum(-1, SUNDAY)),
+                until = RecurrenceUntil.Floating(ldt("2035-01-01T00:00")),
+            ),
+            windowStart = instant("2020-01-01T00:00", paris),
+            windowEnd = instant("2035-01-01T00:00", paris),
+            limits = ExpansionLimits(maxScannedPeriods = 50),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(emptyList<LocalDateTime>(), occ.map { it.start })
+    }
+
+    @Test
+    fun springForwardGapDoesNotConsumeCount() = runTest {
+        // COUNT tallies only existing instances: the skipped 03-30 must not count, so the 4th lands on 04-01.
+        val master = timedMaster("2025-03-28T02:30", "2025-03-28T03:00", zone = paris)
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 4),
+            windowStart = instant("2025-03-01T00:00", paris),
+            windowEnd = instant("2025-05-01T00:00", paris),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(
+            listOf(
+                ldt("2025-03-28T02:30"),
+                ldt("2025-03-29T02:30"),
+                ldt("2025-03-31T02:30"),
+                ldt("2025-04-01T02:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun fallBackAmbiguousInstanceIsKeptOnce() = runTest {
+        // 2025-10-26 is the Europe/Paris fall-back day: 02:30 occurs twice but still exists, so it is emitted.
+        val master = timedMaster("2025-10-25T02:30", "2025-10-25T03:00", zone = paris)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily),
+            windowStart = instant("2025-10-25T00:00", paris),
+            windowEnd = instant("2025-10-28T00:00", paris),
+        )
+        assertEquals(
+            listOf(ldt("2025-10-25T02:30"), ldt("2025-10-26T02:30"), ldt("2025-10-27T02:30")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun denseSeriesStartingLongBeforeTheWindowFastForwardsInsteadOfScanning() = runTest {
+        // A years-old FREQ=SECONDLY reaching a tiny window must not step through ~1.6e8 pre-window seconds.
+        val master = timedMaster("2020-01-01T00:00:00", "2020-01-01T00:00:01")
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Secondly),
+            windowStart = instant("2025-01-01T00:00:00"),
+            windowEnd = instant("2025-01-01T00:00:05"),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(
+            listOf(
+                ldt("2025-01-01T00:00:00"),
+                ldt("2025-01-01T00:00:01"),
+                ldt("2025-01-01T00:00:02"),
+                ldt("2025-01-01T00:00:03"),
+                ldt("2025-01-01T00:00:04"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun countedSeriesIsNotFastForwardedSoEveryInstanceStillCounts() = runTest {
+        // With COUNT the fast-forward is disabled: the 3 counted instances are the first ones from DTSTART.
+        val master = timedMaster("2020-01-01T00:00:00", "2020-01-01T00:00:10")
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Secondly, occurrenceCount = 3),
+            windowStart = instant("2020-01-01T00:00:00"),
+            windowEnd = instant("2020-01-02T00:00:00"),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(
+            listOf(
+                ldt("2020-01-01T00:00:00"),
+                ldt("2020-01-01T00:00:01"),
+                ldt("2020-01-01T00:00:02"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
+
+    // region RFC 5545 §3.8.5.3 canonical recurrence vectors
+
+    private fun ny(start: String) = timedMaster(start, start, zone = newYork)
+
+    private suspend fun starts(master: EventTiming, rule: RecurrenceRule): List<LocalDateTime> =
+        expand(master, rule, instant("1996-01-01T00:00", newYork), instant("2010-01-01T00:00", newYork)).first.map { it.start }
+
+    private fun weekDay(ordinal: Int, dayOfWeek: DayOfWeek) = WeekDayNum(ordinal = ordinal, dayOfWeek = dayOfWeek)
+
+    @Test
+    fun rfcDailyForTenOccurrences() = runTest {
+        val result = starts(ny("1997-09-02T09:00"), RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 10))
+        assertEquals(
+            listOf(
+                "1997-09-02T09:00", "1997-09-03T09:00", "1997-09-04T09:00", "1997-09-05T09:00", "1997-09-06T09:00",
+                "1997-09-07T09:00", "1997-09-08T09:00", "1997-09-09T09:00", "1997-09-10T09:00", "1997-09-11T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryOtherDayForFiveOccurrences() = runTest {
+        val result = starts(ny("1997-09-02T09:00"), RecurrenceRule(freq = Frequency.Daily, interval = 2, occurrenceCount = 5))
+        assertEquals(listOf("02", "04", "06", "08", "10").map { ldt("1997-09-${it}T09:00") }, result)
+    }
+
+    @Test
+    fun rfcEveryTenDaysFiveOccurrences() = runTest {
+        val result = starts(ny("1997-09-02T09:00"), RecurrenceRule(freq = Frequency.Daily, interval = 10, occurrenceCount = 5))
+        assertEquals(
+            listOf("1997-09-02T09:00", "1997-09-12T09:00", "1997-09-22T09:00", "1997-10-02T09:00", "1997-10-12T09:00").map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcWeeklyForTenOccurrences() = runTest {
+        val result = starts(ny("1997-09-02T09:00"), RecurrenceRule(freq = Frequency.Weekly, occurrenceCount = 10))
+        assertEquals(
+            listOf(
+                "1997-09-02T09:00", "1997-09-09T09:00", "1997-09-16T09:00", "1997-09-23T09:00", "1997-09-30T09:00",
+                "1997-10-07T09:00", "1997-10-14T09:00", "1997-10-21T09:00", "1997-10-28T09:00", "1997-11-04T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcWeeklyOnTuesdayAndThursdayForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-09-02T09:00"),
+            RecurrenceRule(freq = Frequency.Weekly, occurrenceCount = 10, weekStart = SUNDAY, byDay = days(TUESDAY, THURSDAY)),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-02T09:00", "1997-09-04T09:00", "1997-09-09T09:00", "1997-09-11T09:00", "1997-09-16T09:00",
+                "1997-09-18T09:00", "1997-09-23T09:00", "1997-09-25T09:00", "1997-09-30T09:00", "1997-10-02T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryOtherWeekOnMondayWednesdayFriday() = runTest {
+        val result = starts(
+            ny("1997-09-02T09:00"),
+            RecurrenceRule(
+                freq = Frequency.Weekly,
+                interval = 2,
+                occurrenceCount = 9,
+                weekStart = SUNDAY,
+                byDay = days(MONDAY, WEDNESDAY, FRIDAY),
+            ),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-02T09:00", "1997-09-03T09:00", "1997-09-05T09:00", "1997-09-15T09:00", "1997-09-17T09:00",
+                "1997-09-19T09:00", "1997-09-29T09:00", "1997-10-01T09:00", "1997-10-03T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcMonthlyOnFirstFridayForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-09-05T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, occurrenceCount = 10, byDay = listOf(weekDay(1, FRIDAY))),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-05T09:00", "1997-10-03T09:00", "1997-11-07T09:00", "1997-12-05T09:00", "1998-01-02T09:00",
+                "1998-02-06T09:00", "1998-03-06T09:00", "1998-04-03T09:00", "1998-05-01T09:00", "1998-06-05T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryOtherMonthOnFirstAndLastSunday() = runTest {
+        val result = starts(
+            ny("1997-09-07T09:00"),
+            RecurrenceRule(
+                freq = Frequency.Monthly,
+                interval = 2,
+                occurrenceCount = 10,
+                byDay = listOf(weekDay(1, SUNDAY), weekDay(-1, SUNDAY)),
+            ),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-07T09:00", "1997-09-28T09:00", "1997-11-02T09:00", "1997-11-30T09:00", "1998-01-04T09:00",
+                "1998-01-25T09:00", "1998-03-01T09:00", "1998-03-29T09:00", "1998-05-03T09:00", "1998-05-31T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcMonthlyOnSecondToLastMondayForSixOccurrences() = runTest {
+        val result = starts(
+            ny("1997-09-22T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, occurrenceCount = 6, byDay = listOf(weekDay(-2, MONDAY))),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-22T09:00", "1997-10-20T09:00", "1997-11-17T09:00", "1997-12-22T09:00", "1998-01-19T09:00",
+                "1998-02-16T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcMonthlyOnThirdToLastDay() = runTest {
+        val result = starts(
+            ny("1997-09-28T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, occurrenceCount = 4, byMonthDay = listOf(-3)),
+        )
+        assertEquals(
+            listOf("1997-09-28T09:00", "1997-10-29T09:00", "1997-11-28T09:00", "1997-12-29T09:00").map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcMonthlyOnSecondAndFifteenthForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-09-02T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, occurrenceCount = 10, byMonthDay = listOf(2, 15)),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-02T09:00", "1997-09-15T09:00", "1997-10-02T09:00", "1997-10-15T09:00", "1997-11-02T09:00",
+                "1997-11-15T09:00", "1997-12-02T09:00", "1997-12-15T09:00", "1998-01-02T09:00", "1998-01-15T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcMonthlyOnFirstAndLastDayForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-09-30T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, occurrenceCount = 10, byMonthDay = listOf(1, -1)),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-30T09:00", "1997-10-01T09:00", "1997-10-31T09:00", "1997-11-01T09:00", "1997-11-30T09:00",
+                "1997-12-01T09:00", "1997-12-31T09:00", "1998-01-01T09:00", "1998-01-31T09:00", "1998-02-01T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryEighteenMonthsOnDaysTenToFifteenForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-09-10T09:00"),
+            RecurrenceRule(
+                freq = Frequency.Monthly,
+                interval = 18,
+                occurrenceCount = 10,
+                byMonthDay = listOf(10, 11, 12, 13, 14, 15),
+            ),
+        )
+        assertEquals(
+            listOf(
+                "1997-09-10T09:00", "1997-09-11T09:00", "1997-09-12T09:00", "1997-09-13T09:00", "1997-09-14T09:00",
+                "1997-09-15T09:00", "1999-03-10T09:00", "1999-03-11T09:00", "1999-03-12T09:00", "1999-03-13T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryTuesdayEveryOtherMonth() = runTest {
+        val result = starts(
+            ny("1997-09-02T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, interval = 2, byDay = days(TUESDAY)),
+        ).take(5)
+        assertEquals(
+            listOf("1997-09-02T09:00", "1997-09-09T09:00", "1997-09-16T09:00", "1997-09-23T09:00", "1997-09-30T09:00").map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcYearlyInJuneAndJulyForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-06-10T09:00"),
+            RecurrenceRule(freq = Frequency.Yearly, occurrenceCount = 10, byMonth = listOf(6, 7)),
+        )
+        assertEquals(
+            listOf(
+                "1997-06-10T09:00", "1997-07-10T09:00", "1998-06-10T09:00", "1998-07-10T09:00", "1999-06-10T09:00",
+                "1999-07-10T09:00", "2000-06-10T09:00", "2000-07-10T09:00", "2001-06-10T09:00", "2001-07-10T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryOtherYearInJanuaryFebruaryMarchForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-03-10T09:00"),
+            RecurrenceRule(freq = Frequency.Yearly, interval = 2, occurrenceCount = 10, byMonth = listOf(1, 2, 3)),
+        )
+        assertEquals(
+            listOf(
+                "1997-03-10T09:00", "1999-01-10T09:00", "1999-02-10T09:00", "1999-03-10T09:00", "2001-01-10T09:00",
+                "2001-02-10T09:00", "2001-03-10T09:00", "2003-01-10T09:00", "2003-02-10T09:00", "2003-03-10T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryThirdYearOnFirstHundredthAndTwoHundredthDayForTenOccurrences() = runTest {
+        val result = starts(
+            ny("1997-01-01T09:00"),
+            RecurrenceRule(freq = Frequency.Yearly, interval = 3, occurrenceCount = 10, byYearDay = listOf(1, 100, 200)),
+        )
+        assertEquals(
+            listOf(
+                "1997-01-01T09:00", "1997-04-10T09:00", "1997-07-19T09:00", "2000-01-01T09:00", "2000-04-09T09:00",
+                "2000-07-18T09:00", "2003-01-01T09:00", "2003-04-10T09:00", "2003-07-19T09:00", "2006-01-01T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryTwentiethMondayOfTheYear() = runTest {
+        val result = starts(
+            ny("1997-05-19T09:00"),
+            RecurrenceRule(freq = Frequency.Yearly, byDay = listOf(weekDay(20, MONDAY))),
+        ).take(3)
+        assertEquals(listOf("1997-05-19T09:00", "1998-05-18T09:00", "1999-05-17T09:00").map(::ldt), result)
+    }
+
+    @Test
+    fun rfcMondayOfWeekNumberTwenty() = runTest {
+        val result = starts(
+            ny("1997-05-12T09:00"),
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(20), byDay = days(MONDAY)),
+        ).take(3)
+        assertEquals(listOf("1997-05-12T09:00", "1998-05-11T09:00", "1999-05-17T09:00").map(::ldt), result)
+    }
+
+    @Test
+    fun rfcEveryThursdayInMarch() = runTest {
+        val result = starts(
+            ny("1997-03-13T09:00"),
+            RecurrenceRule(freq = Frequency.Yearly, byMonth = listOf(3), byDay = days(THURSDAY)),
+        ).take(7)
+        assertEquals(
+            listOf(
+                "1997-03-13T09:00", "1997-03-20T09:00", "1997-03-27T09:00", "1998-03-05T09:00", "1998-03-12T09:00",
+                "1998-03-19T09:00", "1998-03-26T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryThursdayInJuneJulyAugust() = runTest {
+        val result = starts(
+            ny("1997-06-05T09:00"),
+            RecurrenceRule(freq = Frequency.Yearly, byDay = days(THURSDAY), byMonth = listOf(6, 7, 8)),
+        ).take(5)
+        assertEquals(
+            listOf("1997-06-05T09:00", "1997-06-12T09:00", "1997-06-19T09:00", "1997-06-26T09:00", "1997-07-03T09:00").map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryFridayTheThirteenth() = runTest {
+        // The RFC lists only matching dates; our §7.8 forces the non-matching DTSTART as instance #1, hence its lead.
+        val result = starts(
+            ny("1997-09-02T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, byDay = days(FRIDAY), byMonthDay = listOf(13)),
+        ).take(6)
+        assertEquals(
+            listOf(
+                "1997-09-02T09:00", "1998-02-13T09:00", "1998-03-13T09:00", "1998-11-13T09:00", "1999-08-13T09:00",
+                "2000-10-13T09:00",
+            ).map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcFirstSaturdayFollowingFirstSundayOfMonth() = runTest {
+        val result = starts(
+            ny("1997-09-13T09:00"),
+            RecurrenceRule(freq = Frequency.Monthly, byDay = days(SATURDAY), byMonthDay = listOf(7, 8, 9, 10, 11, 12, 13)),
+        ).take(4)
+        assertEquals(
+            listOf("1997-09-13T09:00", "1997-10-11T09:00", "1997-11-08T09:00", "1997-12-13T09:00").map(::ldt),
+            result,
+        )
+    }
+
+    @Test
+    fun rfcEveryFourYearsUsPresidentialElectionDay() = runTest {
+        val result = starts(
+            ny("1996-11-05T09:00"),
+            RecurrenceRule(
+                freq = Frequency.Yearly,
+                interval = 4,
+                byMonth = listOf(11),
+                byDay = days(TUESDAY),
+                byMonthDay = listOf(2, 3, 4, 5, 6, 7, 8),
+            ),
+        ).take(3)
+        assertEquals(listOf("1996-11-05T09:00", "2000-11-07T09:00", "2004-11-02T09:00").map(::ldt), result)
+    }
+
+    @Test
+    fun rfcThirdInstanceOfWeekdaySetEachMonthViaBySetPos() = runTest {
+        val result = starts(
+            ny("1997-09-04T09:00"),
+            RecurrenceRule(
+                freq = Frequency.Monthly,
+                occurrenceCount = 3,
+                byDay = days(TUESDAY, WEDNESDAY, THURSDAY),
+                byOccurrencePosition = listOf(3),
+            ),
+        )
+        assertEquals(listOf("1997-09-04T09:00", "1997-10-07T09:00", "1997-11-06T09:00").map(::ldt), result)
+    }
+
+    @Test
+    fun rfcSecondToLastWeekdayOfMonthViaBySetPos() = runTest {
+        val result = starts(
+            ny("1997-09-29T09:00"),
+            RecurrenceRule(
+                freq = Frequency.Monthly,
+                byDay = days(MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY),
+                byOccurrencePosition = listOf(-2),
+            ),
+        ).take(3)
+        assertEquals(listOf("1997-09-29T09:00", "1997-10-30T09:00", "1997-11-27T09:00").map(::ldt), result)
+    }
+
+    @Test
+    fun fallBackAmbiguousInstanceResolvesDeterministicallyToTheEarlierOffset() = runTest {
+        // 2025-10-26T02:30 Paris exists twice (CEST then CET); the round-trip pins it to the earlier CEST instant.
+        val master = timedMaster("2025-10-26T02:30", "2025-10-26T03:00", zone = paris)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 1),
+            windowStart = instant("2025-10-26T00:00", paris),
+            windowEnd = instant("2025-10-27T00:00", paris),
+        )
+        assertEquals(instant("2025-10-26T00:30", utc), occ.single().start.toInstant(paris))
     }
 
     // endregion

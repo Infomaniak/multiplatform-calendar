@@ -54,3 +54,16 @@ internal fun RecurrenceUntil.toICalString(): String = when (this) {
     is DateTimeUtc -> instant.toICalUtcDateTime()
     is Floating -> dateTime.toICalLocalDateTime()
 }
+
+/**
+ * Whether an occurrence starting at [localStart] (anchored at [instantStart]) falls strictly after
+ * this inclusive `UNTIL` bound. A `null` receiver (no bound) never excludes. Each value type is
+ * compared in its own domain so a floating or DATE `UNTIL` is not widened to an absolute instant.
+ */
+@OptIn(ExperimentalTime::class)
+internal fun RecurrenceUntil?.isExceededBy(localStart: LocalDateTime, instantStart: Instant): Boolean = when (this) {
+    null -> false
+    is DateOnly -> localStart.date > date
+    is Floating -> localStart > dateTime
+    is DateTimeUtc -> instantStart > instant
+}

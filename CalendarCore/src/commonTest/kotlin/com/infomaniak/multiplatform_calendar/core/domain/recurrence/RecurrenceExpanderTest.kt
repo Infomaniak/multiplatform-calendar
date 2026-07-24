@@ -24,7 +24,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.DayOfWeek.FRIDAY
 import kotlinx.datetime.DayOfWeek.MONDAY
@@ -40,8 +42,10 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlin.coroutines.cancellation.CancellationException
 
 class RecurrenceExpanderTest {
 
@@ -408,6 +412,54 @@ class RecurrenceExpanderTest {
         )
         assertEquals(5, occ.size)
         assertEquals(ExpansionOutcome.TruncatedByOccurrenceCap, outcome)
+    }
+
+    @Test
+    fun degenerateRuleProducingNoDateStopsOnConsecutiveEmptyPeriodsInsteadOfLooping() = runTest {
+        // Feb 31 never exists: only the forced DTSTART is emitted, then the empty streak trips the cap.
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T10:00")
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byMonth = listOf(2), byMonthDay = listOf(31)),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2999-01-01T00:00"),
+            limits = ExpansionLimits(maxScannedPeriods = 50),
+        )
+        assertEquals(listOf(ldt("2024-01-01T09:00")), occ.map { it.start })
+        assertEquals(ExpansionOutcome.StoppedByConsecutiveEmptyPeriods, outcome)
+    }
+
+    @Test
+    fun expansionHonorsCooperativeCancellation() = runTest {
+        val master = timedMaster("2024-01-01T00:00:00", "2024-01-01T00:00:01")
+        val job = Job()
+        assertFailsWith<CancellationException> {
+            withContext(job) {
+                job.cancel() // cancel from within the active context so the loop's ensureActive() observes it
+                expand(
+                    master,
+                    RecurrenceRule(freq = Frequency.Secondly),
+                    windowStart = instant("2024-01-01T00:00:00"),
+                    windowEnd = instant("2999-01-01T00:00:00"),
+                    limits = ExpansionLimits(maxGeneratedOccurrences = Int.MAX_VALUE, maxScannedPeriods = Int.MAX_VALUE),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun expandsAHundredMastersOverALeapYearWindow() = runTest {
+        // Exercises the fast-forward path (masters start years before the window) at volume; 2024 has 366 days.
+        val windowStart = instant("2024-01-01T00:00")
+        val windowEnd = instant("2025-01-01T00:00")
+        var total = 0
+        repeat(100) {
+            val master = timedMaster("2020-01-01T09:00", "2020-01-01T10:00")
+            val out = mutableListOf<Occurrence>()
+            RecurrenceExpander.expandInto(out, master, RecurrenceRule(freq = Frequency.Daily), windowStart, windowEnd, utc)
+            total += out.size
+        }
+        assertEquals(100 * 366, total)
     }
 
     // endregion
@@ -824,6 +876,27 @@ class RecurrenceExpanderTest {
             listOf(ldt("2025-03-28T02:30"), ldt("2025-03-29T02:30"), ldt("2025-03-31T02:30")),
             occ.map { it.start },
         )
+    }
+
+    @Test
+    fun boundedSeriesWhoseEveryInstanceIsADstGapCompletesInsteadOfScanningToTheCap() = runTest {
+        // Every last Sunday of March at 02:30 in Europe/Paris is a spring-forward gap. Bounds must be
+        // evaluated before the gap is skipped, otherwise UNTIL is never reached and expansion runs to the cap.
+        val master = timedMaster("2020-03-29T02:30", "2020-03-29T03:30", zone = paris)
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(
+                freq = Frequency.Yearly,
+                byMonth = listOf(3),
+                byDay = listOf(WeekDayNum(-1, SUNDAY)),
+                until = RecurrenceUntil.Floating(ldt("2035-01-01T00:00")),
+            ),
+            windowStart = instant("2020-01-01T00:00", paris),
+            windowEnd = instant("2035-01-01T00:00", paris),
+            limits = ExpansionLimits(maxScannedPeriods = 50),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(emptyList<LocalDateTime>(), occ.map { it.start })
     }
 
     @Test
@@ -1276,6 +1349,19 @@ class RecurrenceExpanderTest {
             ),
         ).take(3)
         assertEquals(listOf("1997-09-29T09:00", "1997-10-30T09:00", "1997-11-27T09:00").map(::ldt), result)
+    }
+
+    @Test
+    fun fallBackAmbiguousInstanceResolvesDeterministicallyToTheEarlierOffset() = runTest {
+        // 2025-10-26T02:30 Paris exists twice (CEST then CET); the round-trip pins it to the earlier CEST instant.
+        val master = timedMaster("2025-10-26T02:30", "2025-10-26T03:00", zone = paris)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 1),
+            windowStart = instant("2025-10-26T00:00", paris),
+            windowEnd = instant("2025-10-27T00:00", paris),
+        )
+        assertEquals(instant("2025-10-26T00:30", utc), occ.single().start.toInstant(paris))
     }
 
     // endregion

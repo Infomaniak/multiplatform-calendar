@@ -861,5 +861,49 @@ class RecurrenceExpanderTest {
         )
     }
 
+    @Test
+    fun denseSeriesStartingLongBeforeTheWindowFastForwardsInsteadOfScanning() = runTest {
+        // A years-old FREQ=SECONDLY reaching a tiny window must not step through ~1.6e8 pre-window seconds.
+        val master = timedMaster("2020-01-01T00:00:00", "2020-01-01T00:00:01")
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Secondly),
+            windowStart = instant("2025-01-01T00:00:00"),
+            windowEnd = instant("2025-01-01T00:00:05"),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(
+            listOf(
+                ldt("2025-01-01T00:00:00"),
+                ldt("2025-01-01T00:00:01"),
+                ldt("2025-01-01T00:00:02"),
+                ldt("2025-01-01T00:00:03"),
+                ldt("2025-01-01T00:00:04"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun countedSeriesIsNotFastForwardedSoEveryInstanceStillCounts() = runTest {
+        // With COUNT the fast-forward is disabled: the 3 counted instances are the first ones from DTSTART.
+        val master = timedMaster("2020-01-01T00:00:00", "2020-01-01T00:00:10")
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Secondly, occurrenceCount = 3),
+            windowStart = instant("2020-01-01T00:00:00"),
+            windowEnd = instant("2020-01-02T00:00:00"),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(
+            listOf(
+                ldt("2020-01-01T00:00:00"),
+                ldt("2020-01-01T00:00:01"),
+                ldt("2020-01-01T00:00:02"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
     // endregion
 }

@@ -26,6 +26,7 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 /**
@@ -40,6 +41,9 @@ internal class MasterTiming private constructor(
     private val nominalDuration: Duration,
     private val allDaySpanDays: Int,
 ) {
+    /** The wall-clock span of an instance, bounding how far before the window one may still overlap it. */
+    val instanceSpan: Duration get() = if (isAllDay) allDaySpanDays.days else nominalDuration
+
     /**
      * The instant [startLocal] resolves to for ordering and termination, even across a spring-forward DST
      * gap (which resolves forward). Never `null`, so COUNT/UNTIL/window bounds can be evaluated before a

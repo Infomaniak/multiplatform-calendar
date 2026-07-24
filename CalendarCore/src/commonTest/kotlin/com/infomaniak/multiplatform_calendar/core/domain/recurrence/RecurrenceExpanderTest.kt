@@ -747,4 +747,60 @@ class RecurrenceExpanderTest {
     }
 
     // endregion
+
+    // region sub-daily BY* expand/limit
+
+    @Test
+    fun hourlyByMinuteExpandsWithinEachHour() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T09:15")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Hourly, byMinute = listOf(0, 30), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-01-02T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00"), ldt("2024-01-01T09:30"),
+                ldt("2024-01-01T10:00"), ldt("2024-01-01T10:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun minutelyBySecondExpandsWithinEachMinute() = runTest {
+        val master = timedMaster("2024-01-01T09:00:00", "2024-01-01T09:01:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Minutely, bySecond = listOf(0, 30), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-01-02T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00:00"), ldt("2024-01-01T09:00:30"),
+                ldt("2024-01-01T09:01:00"), ldt("2024-01-01T09:01:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun hourlyByHourLimitsWhichHoursCount() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T09:15")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Hourly, byHour = listOf(9, 12), occurrenceCount = 3),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-01-03T00:00"),
+        )
+        // 09:00 (DTSTART), 12:00, then next day's 09:00.
+        assertEquals(
+            listOf(ldt("2024-01-01T09:00"), ldt("2024-01-01T12:00"), ldt("2024-01-02T09:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
 }

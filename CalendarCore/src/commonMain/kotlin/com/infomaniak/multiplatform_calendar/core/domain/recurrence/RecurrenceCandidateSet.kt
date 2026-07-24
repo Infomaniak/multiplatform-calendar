@@ -52,17 +52,18 @@ import kotlin.time.Duration.Companion.seconds
  * aligned week, a month, a year — or a single stepped instant for the sub-daily frequencies). Within
  * it every candidate date is enumerated then filtered: `BY*` parts covering a span ≥ the frequency
  * *limit* the set, those covering a span < the frequency *expand* it. Missing lower-order components
- * default from `DTSTART` (RFC's "the same as DTSTART" rule) only when no day-level `BY*` is present.
+ * Missing lower-order components default from `DTSTART` (RFC's "the same as DTSTART" rule) only when
+ * no day-level `BY*` is present.
  *
- * This slice covers `BYMONTH`, `BYMONTHDAY` and `BYDAY` (incl. signed ordinals like `-1FR`).
- * `BYWEEKNO`, `BYYEARDAY` and the sub-daily `BYHOUR`/`BYMINUTE`/`BYSECOND` are layered on later.
+ * Covers every `BY*` part: `BYMONTH`, `BYWEEKNO`, `BYYEARDAY`, `BYMONTHDAY`, `BYDAY` (incl. signed
+ * ordinals like `-1FR`), the sub-daily `BYHOUR`/`BYMINUTE`/`BYSECOND`, and `BYSETPOS` (applied last).
  */
 internal object RecurrenceCandidateSet {
 
     fun startsInPeriod(dtStart: LocalDateTime, zone: TimeZone, rule: RecurrenceRule, periodIndex: Int): List<LocalDateTime> {
         val step = rule.interval * periodIndex
         val candidates = when (rule.freq) {
-            Secondly, Minutely, Hourly -> subDailyStart(dtStart, zone, rule, step)
+            Secondly, Minutely, Hourly -> subDailyStarts(dtStart, zone, rule, step)
             Daily, Weekly, Monthly, Yearly -> {
                 val times = timesInDay(dtStart, rule)
                 datesInPeriod(dtStart, rule, step).flatMap { date -> times.map { LocalDateTime(date, it) } }.sorted()
@@ -98,20 +99,40 @@ internal object RecurrenceCandidateSet {
         return times.sorted()
     }
 
-    /** Sub-daily frequencies yield a single stepped instant, kept only if it passes the date-level limits. */
-    private fun subDailyStart(dtStart: LocalDateTime, zone: TimeZone, rule: RecurrenceRule, step: Int): List<LocalDateTime> {
+    /**
+     * Sub-daily frequencies step a single instant per period, then apply the RFC 5545 §3.3.10 expand/limit
+     * table: parts coarser than the frequency *limit* the stepped instant, finer ones *expand* it. `BYSECOND`
+     * expands for HOURLY/MINUTELY, `BYMINUTE` expands for HOURLY; everything else is a date/time limit.
+     */
+    private fun subDailyStarts(dtStart: LocalDateTime, zone: TimeZone, rule: RecurrenceRule, step: Int): List<LocalDateTime> {
         val steppedInstant = dtStart.toInstant(zone) + when (rule.freq) {
             Secondly -> step.seconds
             Minutely -> step.minutes
             else -> step.hours
         }
-        val stepped = steppedInstant.toLocalDateTime(zone)
-        return if (passesDateLimits(stepped.date, rule)) listOf(stepped) else emptyList()
+        val base = steppedInstant.toLocalDateTime(zone)
+
+        if (!passesDateLimits(base.date, rule)) return emptyList()
+        if (rule.byHour.isNotEmpty() && base.hour !in rule.byHour) return emptyList()
+        if (rule.freq != Hourly && rule.byMinute.isNotEmpty() && base.minute !in rule.byMinute) return emptyList()
+        if (rule.freq == Secondly && rule.bySecond.isNotEmpty() && base.second !in rule.bySecond) return emptyList()
+
+        val minutes = if (rule.freq == Hourly) rule.byMinute.ifEmpty { listOf(base.minute) } else listOf(base.minute)
+        val seconds = if (rule.freq != Secondly) rule.bySecond.ifEmpty { listOf(base.second) } else listOf(base.second)
+
+        val times = ArrayList<LocalDateTime>()
+        for (minute in minutes) {
+            for (second in seconds) {
+                times += LocalDateTime(base.date, LocalTime(base.hour, minute, second))
+            }
+        }
+        return times.sorted()
     }
 
     private fun passesDateLimits(date: LocalDate, rule: RecurrenceRule): Boolean {
         if (rule.byMonth.isNotEmpty() && date.monthValue !in rule.byMonth) return false
         if (rule.byMonthDay.isNotEmpty() && !matchesMonthDay(date, rule.byMonthDay)) return false
+        if (rule.byYearDay.isNotEmpty() && !matchesYearDay(date, rule.byYearDay)) return false
         if (rule.byDay.isNotEmpty() && date.dayOfWeek !in rule.byDay.map { it.dayOfWeek }.toSet()) return false
         return true
     }

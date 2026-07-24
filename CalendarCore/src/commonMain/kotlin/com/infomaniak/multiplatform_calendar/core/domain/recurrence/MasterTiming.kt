@@ -40,6 +40,21 @@ internal class MasterTiming private constructor(
     private val nominalDuration: Duration,
     private val allDaySpanDays: Int,
 ) {
+    /**
+     * The instant [startLocal] resolves to for ordering and termination, even across a spring-forward DST
+     * gap (which resolves forward). Never `null`, so COUNT/UNTIL/window bounds can be evaluated before a
+     * gap instance is discarded.
+     */
+    fun resolvedStartInstant(startLocal: LocalDateTime): Instant = startLocal.toInstant(startZone)
+
+    /**
+     * Whether [startLocal] (already resolved to [resolvedInstant]) is a real wall-clock in [startZone].
+     * A spring-forward DST gap (e.g. 02:30 in Europe/Paris) is not; callers skip it without counting it
+     * (RFC 5545 §3.3.10). All-day masters are date-identified, so they always exist.
+     */
+    fun existsAt(startLocal: LocalDateTime, resolvedInstant: Instant): Boolean =
+        isAllDay || resolvedInstant.toLocalDateTime(startZone) == startLocal
+
     /** The end wall-clock and instant of an occurrence starting at [startLocal] / [startInstant]. */
     fun occurrenceEnd(startLocal: LocalDateTime, startInstant: Instant): Pair<LocalDateTime, Instant> = if (isAllDay) {
         val endLocal = LocalDateTime(startLocal.date.plus(allDaySpanDays, DateTimeUnit.DAY), startLocal.time)

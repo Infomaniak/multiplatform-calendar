@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.DayOfWeek.FRIDAY
@@ -798,6 +799,64 @@ class RecurrenceExpanderTest {
         // 09:00 (DTSTART), 12:00, then next day's 09:00.
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-01T12:00"), ldt("2024-01-02T09:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
+
+    // region DST gaps and dense far-starting series (PR 4c)
+
+    @Test
+    fun springForwardNonexistentInstanceIsSkippedAndNotEmitted() = runTest {
+        // 2025-03-30 is the Europe/Paris spring-forward day: 02:00 jumps to 03:00, so 02:30 does not exist.
+        val master = timedMaster("2025-03-28T02:30", "2025-03-28T03:00", zone = paris)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily),
+            windowStart = instant("2025-03-28T00:00", paris),
+            windowEnd = instant("2025-04-01T00:00", paris),
+        )
+        assertEquals(
+            listOf(ldt("2025-03-28T02:30"), ldt("2025-03-29T02:30"), ldt("2025-03-31T02:30")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun springForwardGapDoesNotConsumeCount() = runTest {
+        // COUNT tallies only existing instances: the skipped 03-30 must not count, so the 4th lands on 04-01.
+        val master = timedMaster("2025-03-28T02:30", "2025-03-28T03:00", zone = paris)
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 4),
+            windowStart = instant("2025-03-01T00:00", paris),
+            windowEnd = instant("2025-05-01T00:00", paris),
+        )
+        assertEquals(Completed, outcome)
+        assertEquals(
+            listOf(
+                ldt("2025-03-28T02:30"),
+                ldt("2025-03-29T02:30"),
+                ldt("2025-03-31T02:30"),
+                ldt("2025-04-01T02:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun fallBackAmbiguousInstanceIsKeptOnce() = runTest {
+        // 2025-10-26 is the Europe/Paris fall-back day: 02:30 occurs twice but still exists, so it is emitted.
+        val master = timedMaster("2025-10-25T02:30", "2025-10-25T03:00", zone = paris)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily),
+            windowStart = instant("2025-10-25T00:00", paris),
+            windowEnd = instant("2025-10-28T00:00", paris),
+        )
+        assertEquals(
+            listOf(ldt("2025-10-25T02:30"), ldt("2025-10-26T02:30"), ldt("2025-10-27T02:30")),
             occ.map { it.start },
         )
     }

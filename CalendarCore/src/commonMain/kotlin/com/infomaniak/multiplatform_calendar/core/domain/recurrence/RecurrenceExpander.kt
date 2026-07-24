@@ -29,7 +29,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 import kotlin.time.Instant
 
 /**
@@ -85,15 +84,21 @@ internal object RecurrenceExpander {
             var countedInPeriod = false
             for (occurrenceStartLocal in candidates) {
                 if (occurrenceStartLocal < dtStart) continue // pre-DTSTART candidates are not part of the set
-                val occurrenceStartInstant = occurrenceStartLocal.toInstant(masterTiming.startZone)
 
+                // The resolved instant is monotonic (a spring-forward gap resolves forward), so a series
+                // whose every wall-clock is a DST gap still terminates on COUNT/UNTIL/window instead of
+                // scanning to the empty-period cap. It becomes the real start once the gap check passes.
+                val occurrenceStartInstant = masterTiming.resolvedStartInstant(occurrenceStartLocal)
                 if (rrule.occurrenceCount != null && count >= rrule.occurrenceCount) return Completed
                 if (rrule.until.isExceededBy(occurrenceStartLocal, occurrenceStartInstant)) return Completed
                 // Candidates are globally increasing: once past the window nothing else can overlap.
                 if (occurrenceStartInstant >= inputEnd) return Completed
 
+                // A spring-forward gap yields a nonexistent wall-clock: ignore it without counting (RFC 5545 §3.3.10).
+                if (!masterTiming.existsAt(occurrenceStartLocal, occurrenceStartInstant)) continue
+
                 val (occurrenceEndLocal, occurrenceEndInstant) = masterTiming.occurrenceEnd(occurrenceStartLocal, occurrenceStartInstant)
-                if (occurrenceStartInstant < inputEnd && occurrenceEndInstant > inputStart) {
+                if (occurrenceEndInstant > inputStart) {
                     target += Occurrence(
                         key = master.recurrenceKeyAt(occurrenceStartLocal, occurrenceStartInstant),
                         start = occurrenceStartLocal,

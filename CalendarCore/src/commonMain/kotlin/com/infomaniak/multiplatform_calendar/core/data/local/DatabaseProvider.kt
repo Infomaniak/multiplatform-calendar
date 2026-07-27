@@ -51,7 +51,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
 
 @Database(
     entities = [AccountEntity::class, CalendarEntity::class, EventEntity::class, EventRawIcsEntity::class],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)

@@ -88,6 +88,9 @@ internal object RecurrenceExpander {
 
                 if (isExpansionComplete(rrule, count, occurrenceStartLocal, occurrenceStartInstant, inputEnd)) return Completed
 
+                // Skip candidates that are not real instances of the set, without counting them.
+                if (isNonInstance(occurrenceStartLocal, dtStart)) continue
+
                 val occurrenceAdded = appendOccurrenceIfWithinWindow(
                     target = target,
                     master = master,
@@ -157,13 +160,21 @@ internal object RecurrenceExpander {
     }
 
     /**
-     * The sorted instance starts for [periodIndex] that are not before `DTSTART`, with `DTSTART`
-     * force-included in the first period so a non-conforming master is still emitted at position 1
+     * Whether [occurrenceStartLocal] must be skipped **without counting** because it is not a real
+     * instance of the recurrence set. For now the only such case is a candidate before [dtStart]: a
+     * `BY*` period bucket can produce slots earlier than `DTSTART`, which are not part of the set
      * (RFC 5545 §3.8.5.3).
+     */
+    private fun isNonInstance(occurrenceStartLocal: LocalDateTime, dtStart: LocalDateTime): Boolean =
+        occurrenceStartLocal < dtStart
+
+    /**
+     * The sorted instance starts for [periodIndex], with `DTSTART` force-included in the first period
+     * so a non-conforming master is still emitted at position 1 (RFC 5545 §3.8.5.3).
      *
      * A `BY*` rule expands the whole period bucket, so the bucket containing `DTSTART` (only reachable
-     * at `periodIndex == 0`) can yield candidates before `DTSTART`; those are dropped here. Every later
-     * period is entirely after `DTSTART`, so it is returned untouched.
+     * at `periodIndex == 0`) can yield candidates before `DTSTART`; those are not dropped here but
+     * skipped in the loop (see [isNonInstance]) so they are never counted.
      */
     private fun candidateStarts(
         dtStart: LocalDateTime,
@@ -172,8 +183,6 @@ internal object RecurrenceExpander {
         periodIndex: Int,
     ): List<LocalDateTime> {
         val starts = RecurrenceCandidateSet.startsInPeriod(dtStart, zone, rrule, periodIndex)
-        if (periodIndex != 0) return starts
-        val fromDtStart = starts.filter { it >= dtStart }
-        return if (dtStart in fromDtStart) fromDtStart else (fromDtStart + dtStart).sorted()
+        return if (periodIndex == 0 && dtStart !in starts) (starts + dtStart).sorted() else starts
     }
 }

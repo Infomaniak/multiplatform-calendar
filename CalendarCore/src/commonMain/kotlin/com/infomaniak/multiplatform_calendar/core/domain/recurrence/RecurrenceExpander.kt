@@ -74,7 +74,7 @@ internal object RecurrenceExpander {
 
         var count = 0
         var generated = 0
-        var emptyStreak = 0
+        var consecutiveEmptyPeriods = 0
         var periodIndex = 0
 
         while (true) {
@@ -108,8 +108,8 @@ internal object RecurrenceExpander {
                 countedInPeriod = true
             }
 
-            emptyStreak = if (countedInPeriod) 0 else emptyStreak + 1
-            if (emptyStreak > limits.maxScannedPeriods) return StoppedByConsecutiveEmptyPeriods
+            consecutiveEmptyPeriods = if (countedInPeriod) 0 else consecutiveEmptyPeriods + 1
+            if (consecutiveEmptyPeriods > limits.maxScannedPeriods) return StoppedByConsecutiveEmptyPeriods
             periodIndex++
         }
     }

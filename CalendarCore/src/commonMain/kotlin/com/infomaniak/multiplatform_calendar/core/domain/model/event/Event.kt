@@ -27,25 +27,24 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class, ExperimentalObjCRefinement::class)
-public interface Event {
+public data class Event(
     @HiddenFromObjC
-    public val id: EventId
-
+    val id: EventId,
     @HiddenFromObjC
-    public val calendarId: CalendarId
+    val calendarId: CalendarId,
     @HiddenFromObjC
-    public val accountId: AccountId
-    public val title: String
-    public val description: String?
-    public val location: String?
-    public val status: EventStatus?
-    public val classification: Classification?
-    public val categories: List<String>
-    public val timing: EventTiming
-    public val lastModified: Instant?
-    public val attendees: List<Attendee>
-    public val organizer: Organizer?
-    public val colors: EventColors
-    public val canEdit: Boolean
-    public val alarms: List<EventAlarm>
-}
+    val accountId: AccountId,
+    val title: String,
+    val description: String? = null,
+    val location: String? = null,
+    val status: EventStatus? = null,
+    val classification: Classification? = null,
+    val categories: List<String> = emptyList(),
+    val timing: EventTiming,
+    val lastModified: Instant? = null,
+    val attendees: List<Attendee> = emptyList(),
+    val organizer: Organizer? = null,
+    val colors: EventColors,
+    val canEdit: Boolean,
+    val alarms: List<EventAlarm> = emptyList(),
+)

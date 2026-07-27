@@ -88,9 +88,16 @@ internal object RecurrenceExpander {
 
                 if (isExpansionComplete(rrule, count, occurrenceStartLocal, occurrenceStartInstant, inputEnd)) return Completed
 
-                if (appendOccurrenceIfWithinWindow(target, master, masterTiming, occurrenceStartLocal, occurrenceStartInstant, inputStart, inputEnd)) {
-                    generated++
-                }
+                val occurrenceAdded = appendOccurrenceIfWithinWindow(
+                    target = target,
+                    master = master,
+                    masterTiming = masterTiming,
+                    occurrenceStartLocal = occurrenceStartLocal,
+                    occurrenceStartInstant = occurrenceStartInstant,
+                    inputStart = inputStart,
+                    inputEnd = inputEnd,
+                )
+                if (occurrenceAdded) generated++
                 if (generated >= limits.maxGeneratedOccurrences) return TruncatedByOccurrenceCap
 
                 count++

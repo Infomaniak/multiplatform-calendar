@@ -88,18 +88,10 @@ internal object RecurrenceExpander {
 
                 if (isExpansionComplete(rrule, count, occurrenceStartLocal, occurrenceStartInstant, inputEnd)) return Completed
 
-                val (occurrenceEndLocal, occurrenceEndInstant) = masterTiming.occurrenceEnd(occurrenceStartLocal, occurrenceStartInstant)
-                if (occurrenceStartInstant < inputEnd && occurrenceEndInstant > inputStart) {
-                    target += Occurrence(
-                        key = master.recurrenceKeyAt(occurrenceStartLocal, occurrenceStartInstant),
-                        start = occurrenceStartLocal,
-                        end = occurrenceEndLocal,
-                        startTimeZone = master.startTimeZone,
-                        endTimeZone = master.endTimeZone,
-                    )
+                if (appendOccurrenceIfWithinWindow(target, master, masterTiming, occurrenceStartLocal, occurrenceStartInstant, inputStart, inputEnd)) {
                     generated++
-                    if (generated >= limits.maxGeneratedOccurrences) return TruncatedByOccurrenceCap
                 }
+                if (generated >= limits.maxGeneratedOccurrences) return TruncatedByOccurrenceCap
 
                 count++
                 countedInPeriod = true
@@ -109,6 +101,33 @@ internal object RecurrenceExpander {
             if (consecutiveEmptyPeriods > limits.maxScannedPeriods) return StoppedByConsecutiveEmptyPeriods
             periodIndex++
         }
+    }
+
+    /**
+     * Append the occurrence starting at [occurrenceStartLocal] to [target] when it overlaps
+     * `[inputStart, inputEnd[` — a long instance straddling [inputStart] still counts. Returns whether
+     * an occurrence was appended.
+     */
+    private fun appendOccurrenceIfWithinWindow(
+        target: MutableList<Occurrence>,
+        master: EventTiming,
+        masterTiming: MasterTiming,
+        occurrenceStartLocal: LocalDateTime,
+        occurrenceStartInstant: Instant,
+        inputStart: Instant,
+        inputEnd: Instant,
+    ): Boolean {
+        val (occurrenceEndLocal, occurrenceEndInstant) = masterTiming.occurrenceEnd(occurrenceStartLocal, occurrenceStartInstant)
+        if (occurrenceStartInstant >= inputEnd || occurrenceEndInstant <= inputStart) return false
+
+        target += Occurrence(
+            key = master.recurrenceKeyAt(occurrenceStartLocal, occurrenceStartInstant),
+            start = occurrenceStartLocal,
+            end = occurrenceEndLocal,
+            startTimeZone = master.startTimeZone,
+            endTimeZone = master.endTimeZone,
+        )
+        return true
     }
 
     /**

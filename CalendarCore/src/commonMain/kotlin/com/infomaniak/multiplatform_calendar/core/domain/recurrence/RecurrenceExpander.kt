@@ -86,10 +86,7 @@ internal object RecurrenceExpander {
             for (occurrenceStartLocal in candidates) {
                 val occurrenceStartInstant = occurrenceStartLocal.toInstant(masterTiming.startZone)
 
-                if (rrule.occurrenceCount != null && count >= rrule.occurrenceCount) return Completed
-                if (rrule.until.isExceededBy(occurrenceStartLocal, occurrenceStartInstant)) return Completed
-                // Candidates are globally increasing: once past the window nothing else can overlap.
-                if (occurrenceStartInstant >= inputEnd) return Completed
+                if (isExpansionComplete(rrule, count, occurrenceStartLocal, occurrenceStartInstant, inputEnd)) return Completed
 
                 val (occurrenceEndLocal, occurrenceEndInstant) = masterTiming.occurrenceEnd(occurrenceStartLocal, occurrenceStartInstant)
                 if (occurrenceStartInstant < inputEnd && occurrenceEndInstant > inputStart) {
@@ -112,6 +109,24 @@ internal object RecurrenceExpander {
             if (consecutiveEmptyPeriods > limits.maxScannedPeriods) return StoppedByConsecutiveEmptyPeriods
             periodIndex++
         }
+    }
+
+    /**
+     * Whether the whole series is exhausted at [occurrenceStartLocal] — the caller stops the expansion
+     * with [Completed]. True once `COUNT` has been reached, `UNTIL` is passed, or the (globally
+     * increasing) candidate has moved past the window.
+     */
+    private fun isExpansionComplete(
+        rrule: RecurrenceRule,
+        count: Int,
+        occurrenceStartLocal: LocalDateTime,
+        occurrenceStartInstant: Instant,
+        inputEnd: Instant,
+    ): Boolean = when {
+        rrule.occurrenceCount != null && count >= rrule.occurrenceCount -> true
+        rrule.until.isExceededBy(occurrenceStartLocal, occurrenceStartInstant) -> true
+        occurrenceStartInstant >= inputEnd -> true
+        else -> false
     }
 
     /**

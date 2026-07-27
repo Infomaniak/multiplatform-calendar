@@ -122,11 +122,12 @@ internal object RecurrenceExpander {
         occurrenceStartLocal: LocalDateTime,
         occurrenceStartInstant: Instant,
         inputEnd: Instant,
-    ): Boolean = when {
-        rrule.occurrenceCount != null && count >= rrule.occurrenceCount -> true
-        rrule.until.isExceededBy(occurrenceStartLocal, occurrenceStartInstant) -> true
-        occurrenceStartInstant >= inputEnd -> true
-        else -> false
+    ): Boolean {
+        val countReached = rrule.occurrenceCount != null && count >= rrule.occurrenceCount
+        val untilPassed = rrule.until.isExceededBy(occurrenceStartLocal, occurrenceStartInstant)
+        // Candidates are globally increasing: once past the window nothing else can overlap.
+        val pastWindow = occurrenceStartInstant >= inputEnd
+        return countReached || untilPassed || pastWindow
     }
 
     /**

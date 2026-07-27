@@ -90,11 +90,13 @@ public class CalendarManager internal constructor(
     }
 
     /**
-     * Like [observeEvents], but multi-day events are split into one [EventDaySlice] per day and the
-     * result is grouped by day and sorted, ready for a planning grid (all-day first, then by start).
+     * Like [observeEvents], but recurring masters are expanded into their occurrences and every event
+     * is split into one [EventDaySlice] per day, grouped by day and sorted, ready for a planning grid
+     * (all-day first, then by start).
      *
      * [timeZone] is the zone the planning grid is displayed in (device zone by default); it is
-     * forwarded to the repository so floating-event visibility and the day split share the same zone.
+     * forwarded to the repository so floating-event visibility, recurrence expansion and the day split
+     * share the same zone.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeDaySlices(

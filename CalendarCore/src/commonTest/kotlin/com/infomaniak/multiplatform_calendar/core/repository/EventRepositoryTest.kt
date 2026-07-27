@@ -24,7 +24,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -33,6 +35,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRol
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -125,6 +128,100 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         assertEquals(1, utcResult.size, "UTC bounds (10:00-10:30 wall) should overlap 10:00-11:00")
         assertEquals(0, parisResult.size, "Paris bounds (12:00-12:30 wall) should not overlap 10:00-11:00")
+    }
+
+    /**
+     * Pipeline: a `DAILY` COUNT=5 master synced once must surface as 5 distinct occurrences over the
+     * 7-day window in `observeVisibleDaySlices` — one per day, each a slice under its own date, with a
+     * stable synthetic id `masterId#key`.
+     */
+    @Test
+    fun observeVisibleDaySlices_expandsDailyRecurringMasterIntoOccurrences() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
+        val dtEnd = LocalDateTime(2026, 6, 15, 11, 0)
+        val master = EventEntity(
+            id = EventId("event://daily"),
+            calendarId = calendarId,
+            summary = "Daily 10-11",
+            timing = EventTimingEntity(
+                dtStart = dtStart,
+                dtEndEffective = dtEnd,
+                startTimeZone = TimeZone.UTC.id,
+                endTimeZone = TimeZone.UTC.id,
+                dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            ),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            recurrenceBounds = RecurrenceBoundsEntity(
+                firstOccurrenceInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                recurrenceBoundKind = RecurrenceBoundKind.FiniteDeferred,
+            ),
+            etag = "1",
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val slicesByDay = repository.observeVisibleDaySlices(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val occurrenceIds = slicesByDay.values.flatten().map { it.event.id.url }
+        assertEquals(5, occurrenceIds.size, "DAILY COUNT=5 must yield 5 occurrences")
+        assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
+        assertTrue(occurrenceIds.all { it.startsWith("event://daily#") }, "ids must be masterId#key")
+        assertEquals(5, slicesByDay.keys.size, "each occurrence lands on its own day")
+    }
+
+    @Test
+    fun observeVisibleDaySlices_expandsAllDayRecurringMasterIntoPerDayOccurrences() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        // All-day series through the whole read stack: padded bounds (via the real mapper) → range match →
+        // all-day expansion anchored in UTC → per-day slicing. Distinct from the timed case above.
+        val dtStart = LocalDateTime(2026, 6, 15, 0, 0)
+        val dtEnd = LocalDateTime(2026, 6, 16, 0, 0)
+        val timing = EventTimingEntity(
+            dtStart = dtStart,
+            dtEnd = dtEnd,
+            dtEndEffective = dtEnd,
+            startTimeZone = null,
+            endTimeZone = null,
+            dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            isAllDay = true,
+        )
+        val rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3)
+        val master = EventEntity(
+            id = EventId("event://all-day"),
+            calendarId = calendarId,
+            summary = "All-day daily",
+            timing = timing,
+            rrule = rrule,
+            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            etag = "1",
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val slicesByDay = repository.observeVisibleDaySlices(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val occurrenceIds = slicesByDay.values.flatten().map { it.event.id.url }
+        assertEquals(3, occurrenceIds.size, "all-day DAILY COUNT=3 must yield 3 occurrences")
+        assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
+        assertTrue(occurrenceIds.all { it.startsWith("event://all-day#") }, "ids must be masterId#key")
+        assertEquals(3, slicesByDay.keys.size, "each all-day occurrence lands on its own day")
     }
 
     /**

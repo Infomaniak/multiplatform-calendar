@@ -430,6 +430,26 @@ class RecurrenceExpanderTest {
     // region BY* : BYMONTH / BYMONTHDAY / BYDAY
 
     @Test
+    fun weeklyByDayDropsCandidatesBeforeDtStart() = runTest {
+        // DTSTART is a Wednesday; MO,WE,FR would generate the Monday of that first week, which is
+        // before DTSTART and must be dropped (RFC 5545 §3.8.5.3).
+        val master = timedMaster("2024-01-03T09:00", "2024-01-03T10:00") // Wednesday
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Weekly, byDay = days(MONDAY, WEDNESDAY, FRIDAY), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-02-01T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-03T09:00"), ldt("2024-01-05T09:00"),
+                ldt("2024-01-08T09:00"), ldt("2024-01-10T09:00"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
     fun weeklyByDayExpandsWithinWeek() = runTest {
         // DTSTART is a Monday; MO,WE,FR → 3 per week.
         val master = timedMaster("2024-01-01T09:00", "2024-01-01T10:00")

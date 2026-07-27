@@ -84,7 +84,6 @@ internal object RecurrenceExpander {
 
             var countedInPeriod = false
             for (occurrenceStartLocal in candidates) {
-                if (occurrenceStartLocal < dtStart) continue // pre-DTSTART candidates are not part of the set
                 val occurrenceStartInstant = occurrenceStartLocal.toInstant(masterTiming.startZone)
 
                 if (rrule.occurrenceCount != null && count >= rrule.occurrenceCount) return Completed
@@ -116,8 +115,13 @@ internal object RecurrenceExpander {
     }
 
     /**
-     * The sorted instance starts for [periodIndex], with `DTSTART` force-included in the first period
-     * so a non-conforming master is still emitted at position 1 (RFC 5545 §3.8.5.3).
+     * The sorted instance starts for [periodIndex] that are not before `DTSTART`, with `DTSTART`
+     * force-included in the first period so a non-conforming master is still emitted at position 1
+     * (RFC 5545 §3.8.5.3).
+     *
+     * A `BY*` rule expands the whole period bucket, so the bucket containing `DTSTART` (only reachable
+     * at `periodIndex == 0`) can yield candidates before `DTSTART`; those are dropped here. Every later
+     * period is entirely after `DTSTART`, so it is returned untouched.
      */
     private fun candidateStarts(
         dtStart: LocalDateTime,
@@ -126,6 +130,8 @@ internal object RecurrenceExpander {
         periodIndex: Int,
     ): List<LocalDateTime> {
         val starts = RecurrenceCandidateSet.startsInPeriod(dtStart, zone, rrule, periodIndex)
-        return if (periodIndex == 0 && dtStart !in starts) (starts + dtStart).sorted() else starts
+        if (periodIndex != 0) return starts
+        val fromDtStart = starts.filter { it >= dtStart }
+        return if (dtStart in fromDtStart) fromDtStart else (fromDtStart + dtStart).sorted()
     }
 }

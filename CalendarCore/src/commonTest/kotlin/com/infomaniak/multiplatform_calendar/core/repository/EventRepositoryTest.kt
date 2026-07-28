@@ -656,7 +656,6 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
 
     override suspend fun discoverCalendars(credentials: DavAccount) = emptyList<RemoteDavCalendar>()
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
-    override suspend fun getEvents(credentials: DavAccount, calendarUrl: String) = emptyList<RemoteDavEvent>()
     override suspend fun getEventsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
         emptyList<RemoteDavEvent>()
 

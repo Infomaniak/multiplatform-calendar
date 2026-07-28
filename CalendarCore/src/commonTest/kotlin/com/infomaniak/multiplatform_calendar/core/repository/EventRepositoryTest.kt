@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
@@ -71,6 +72,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     private lateinit var database: CalendarDatabase
     private lateinit var repository: EventRepository
     private lateinit var fakeCaldav: FakeCaldavClient
+    private lateinit var crashReport: RecordingCrashReport
 
     @BeforeTest
     fun setUp() {
@@ -80,10 +82,12 @@ class EventRepositoryTest : RobolectricTestsBase() {
             inMemory = true,
         )
         fakeCaldav = FakeCaldavClient()
+        crashReport = RecordingCrashReport()
         repository = EventRepository(
             accountDao = database.accountDao(),
             caldavClient = fakeCaldav,
             eventDao = database.eventDao(),
+            crashReport = crashReport,
         )
     }
 

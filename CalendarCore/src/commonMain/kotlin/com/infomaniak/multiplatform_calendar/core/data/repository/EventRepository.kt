@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
@@ -32,6 +34,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -56,6 +59,7 @@ internal class EventRepository(
     private val accountDao: AccountDao,
     private val caldavClient: CalendarSyncRemoteSource,
     private val eventDao: EventDao,
+    private val crashReport: CrashReport,
 ) {
 
     fun observeVisibleEvents(
@@ -99,10 +103,18 @@ internal class EventRepository(
         return observeVisibleEvents(accountIds, start, end, zone = timeZone)
             .mapLatest { events ->
                 events
-                    .expandRecurrencesInWindow(start, end, timeZone)
+                    .expandRecurrencesInWindow(start, end, timeZone, onExpansionTruncated = ::logTruncatedExpansion)
                     .groupDaySlicesByDay(start, end, timeZone)
             }
             .flowOn(Dispatchers.Default)
+    }
+
+    private fun logTruncatedExpansion(masterId: EventId, outcome: ExpansionOutcome) {
+        crashReport.capture(
+            message = "Recurrence expansion hit a safety cap for event ${masterId.url}",
+            data = mapOf("masterId" to masterId.url, "outcome" to outcome.name),
+            level = CrashReportLevel.Warning,
+        )
     }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {

@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceExpander
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -37,12 +38,17 @@ import kotlin.time.Instant
  * it belongs to a series — the expander is never re-run on an already-materialised occurrence.
  *
  * RRULE only for now: `RDATE` / `EXDATE` / overrides come in later PRs.
+ *
+ * [onExpansionTruncated] is invoked with the master's [EventId] whenever the expander stops on a safety cap
+ * (outcome other than [ExpansionOutcome.Completed]) so the caller can surface it (e.g. to Sentry); the
+ * partial occurrences gathered so far are still returned.
  */
 internal suspend fun List<Event>.expandRecurrencesInWindow(
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
     limits: ExpansionLimits = ExpansionLimits(),
+    onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
 ): List<Event> {
     val expanded = ArrayList<Event>(size)
     val occurrences = ArrayList<Occurrence>()
@@ -54,7 +60,7 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
             continue
         }
         occurrences.clear()
-        RecurrenceExpander.expandInto(
+        val outcome = RecurrenceExpander.expandInto(
             target = occurrences,
             master = event.timing,
             rrule = rrule,
@@ -63,6 +69,7 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
             defaultZone = timeZone,
             limits = limits,
         )
+        if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(event.id, outcome)
         for (occurrence in occurrences) expanded += event.toOccurrenceEvent(occurrence)
     }
     return expanded

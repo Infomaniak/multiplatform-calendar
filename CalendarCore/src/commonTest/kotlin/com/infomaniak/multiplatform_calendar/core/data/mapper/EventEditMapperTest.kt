@@ -24,9 +24,15 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -207,7 +213,129 @@ class EventEditMapperTest {
         assertEquals(RemoteColorChange.Set(hex = "#E53935FF"), edit.colorChange)
     }
 
+    // ---- RRULE (RFC 5545 §3.8.5.3) — tri-state resolution ---------------------------------------
+
+    @Test
+    fun createWithRecurrence_emitsSetSerializedRule() {
+        val edit = editData(recurrence = RecurrenceRule(freq = Frequency.Daily)).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Set(value = "FREQ=DAILY"), edit.recurrenceChange)
+    }
+
+    @Test
+    fun createWithoutRecurrence_emitsUnchanged() {
+        val edit = editData(recurrence = null).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange)
+    }
+
+    @Test
+    fun editKeepingSameRecurrence_emitsUnchanged() {
+        val rule = RecurrenceRule(freq = Frequency.Daily)
+        val previous = eventEntity(colorArgb = null, rrule = rule)
+
+        val edit = editData(recurrence = rule).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange)
+    }
+
+    @Test
+    fun editRemovingRecurrence_emitsCleared() {
+        val previous = eventEntity(colorArgb = null, rrule = RecurrenceRule(freq = Frequency.Daily))
+
+        val edit = editData(recurrence = null).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Cleared, edit.recurrenceChange)
+    }
+
+    @Test
+    fun editChangingRecurrence_emitsSetNewValue() {
+        val previous = eventEntity(colorArgb = null, rrule = RecurrenceRule(freq = Frequency.Daily))
+
+        val edit = editData(recurrence = RecurrenceRule(freq = Frequency.Weekly)).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Set(value = "FREQ=WEEKLY"), edit.recurrenceChange)
+    }
+
+    // ---- RRULE UNTIL vs DTSTART value type (RFC 5545 §3.3.10) ------------------------------------
+
+    @Test
+    fun createTimedWithDateOnlyUntil_normalizesUntilToUtc() {
+        val rule = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateOnly(LocalDate(2026, 7, 1)))
+
+        val edit = editData(recurrence = rule, isAllDay = false, zone = TimeZone.UTC).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Set(value = "FREQ=DAILY;UNTIL=20260701T000000Z"), edit.recurrenceChange)
+    }
+
+    @Test
+    fun createAllDayWithUtcUntil_normalizesUntilToDate() {
+        val utcUntil = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 7, 1, 0, 0).toInstant(TimeZone.UTC))
+        val rule = RecurrenceRule(freq = Frequency.Daily, until = utcUntil)
+
+        val edit = editData(recurrence = rule, isAllDay = true, zone = null).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Set(value = "FREQ=DAILY;UNTIL=20260701"), edit.recurrenceChange)
+    }
+
+    @Test
+    fun editTogglingAllDayToTimed_reEmitsRuleWithCompatibleUntil() {
+        // The stored all-day rule carries a DATE UNTIL; switching to a timed event must not leave that
+        // DATE UNTIL on a DATE-TIME DTSTART (invalid ICS), so the rule is re-emitted as a Set.
+        val allDayRule = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateOnly(LocalDate(2026, 7, 1)))
+        val previous = eventEntity(colorArgb = null, rrule = allDayRule)
+
+        val edit = editData(recurrence = allDayRule, isAllDay = false, zone = TimeZone.UTC)
+            .toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Set(value = "FREQ=DAILY;UNTIL=20260701T000000Z"), edit.recurrenceChange)
+    }
+
+    @Test
+    fun editKeepingSameAllDayRecurrenceWithUntil_emitsUnchanged() {
+        val rule = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateOnly(LocalDate(2026, 7, 1)))
+        val previous = eventEntity(colorArgb = null, rrule = rule)
+
+        val edit = editData(recurrence = rule, isAllDay = true, zone = null).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange)
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
+
+    private fun editData(recurrence: RecurrenceRule?, isAllDay: Boolean, zone: TimeZone?) = EventEditData(
+        title = "Test",
+        timing = EventTiming(
+            start = LocalDateTime(2026, 6, 15, 10, 0),
+            end = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = zone,
+            endTimeZone = zone,
+            isAllDay = isAllDay,
+            recurrenceRule = recurrence,
+        ),
+        location = null,
+        description = null,
+        calendarId = calendarId,
+        eventColor = null,
+        alarms = emptyList(),
+    )
+
+    private fun editData(recurrence: RecurrenceRule?) = EventEditData(
+        title = "Test",
+        timing = EventTiming(
+            start = LocalDateTime(2026, 6, 15, 10, 0),
+            end = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = TimeZone.UTC,
+            endTimeZone = TimeZone.UTC,
+            isAllDay = false,
+            recurrenceRule = recurrence,
+        ),
+        location = null,
+        description = null,
+        calendarId = calendarId,
+        eventColor = null,
+        alarms = emptyList(),
+    )
 
     private fun editData(timing: EventTiming) = EventEditData(
         title = "Test",
@@ -235,7 +363,7 @@ class EventEditMapperTest {
         alarms = emptyList(),
     )
 
-    private fun eventEntity(colorArgb: Int?, colorIcalName: String? = null) = EventEntity(
+    private fun eventEntity(colorArgb: Int?, colorIcalName: String? = null, rrule: RecurrenceRule? = null) = EventEntity(
         id = EventId("https://cal/tests/1.ics"),
         calendarId = calendarId,
         summary = "Test",
@@ -248,6 +376,7 @@ class EventEditMapperTest {
         etag = "etag-1",
         colorArgb = colorArgb,
         colorIcalName = colorIcalName,
+        rrule = rrule,
     )
 
     private companion object {

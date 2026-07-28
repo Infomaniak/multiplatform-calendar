@@ -19,20 +19,34 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleSerializer
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Set
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Unchanged
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.TimeZone.Companion.UTC
 import kotlinx.datetime.UtcOffset
+import kotlinx.datetime.atTime
 import kotlinx.datetime.format
 import kotlinx.datetime.offsetIn
 import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 
 internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): RemoteEventEdit {
     val startZone = timing.startTimeZone
@@ -48,6 +62,7 @@ internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): 
         description = description?.ifBlank { null },
         timeZones = timing.vTimeZones(),
         colorChange = resolveColorChange(previous?.colorArgb),
+        recurrenceChange = resolveRecurrenceChange(previous?.rrule),
         alarms = resolveAlarmEdits(alarms, previous?.alarms.orEmpty()),
         stamp = stamp,
     )
@@ -60,7 +75,50 @@ private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteCol
 }
 
 /**
- * Serialize a wall-clock [LocalDateTime] as an RFC 5545 value:
+ * Tri-state mirror of [resolveColorChange], with the rule's `UNTIL` first coerced to the value type
+ * this edit's `DTSTART` requires (RFC 5545 §3.3.10) — otherwise toggling e.g. all-day would emit an
+ * `RRULE` that [resolveRecurrence] rejects on reparse. Coercing before the equality check also lets a
+ * type-only change re-emit the rule instead of being masked as [RemoteRecurrenceChange.Unchanged].
+ */
+private fun EventEditData.resolveRecurrenceChange(previousRule: RecurrenceRule?): RemoteRecurrenceChange {
+    return when (val rule = timing.recurrenceRuleWithMatchingUntil()) {
+        previousRule -> Unchanged
+        null -> Cleared
+        else -> Set(value = RecurrenceRuleSerializer.serialize(rule))
+    }
+}
+
+/**
+ * This timing's [recurrenceRule][EventTiming.recurrenceRule] (or `null`) with its `UNTIL` coerced to the
+ * value type this timing's `DTSTART` requires (RFC 5545 §3.3.10): all-day → `DATE`, floating → local
+ * `DATE-TIME`, otherwise UTC `DATE-TIME`. The calendar-face value is reinterpreted across forms (zone-free,
+ * deterministic) rather than converted across zones.
+ */
+private fun EventTiming.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
+    val rule = recurrenceRule ?: return null
+    val current = rule.until ?: return rule
+    val normalized = when {
+        isAllDay -> DateOnly(current.calendarDate())
+        startTimeZone == null -> Floating(current.calendarDateTime())
+        else -> DateTimeUtc(current.calendarDateTime().toInstant(UTC))
+    }
+    return if (normalized == current) rule else rule.copy(until = normalized)
+}
+
+private fun RecurrenceUntil.calendarDate(): LocalDate = when (this) {
+    is DateOnly -> date
+    is Floating -> dateTime.date
+    is DateTimeUtc -> instant.toLocalDateTime(UTC).date
+}
+
+private fun RecurrenceUntil.calendarDateTime(): LocalDateTime = when (this) {
+    is DateOnly -> date.atTime(0, 0)
+    is Floating -> dateTime
+    is DateTimeUtc -> instant.toLocalDateTime(UTC)
+}
+
+/**
+ * Serialize a calendar-face [LocalDateTime] as an RFC 5545 value:
  * - All-day      → `DATE` (`YYYYMMDD`).
  * - `zone` UTC   → FORM #2 (`...Z` suffix).
  * - `zone` set   → FORM #3 (no suffix; caller emits a `TZID` parameter alongside).
@@ -68,7 +126,7 @@ private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteCol
  */
 private fun LocalDateTime.toICal(isAllDay: Boolean, zone: TimeZone?): String = when {
     isAllDay -> date.toICalDate()
-    zone == TimeZone.UTC -> toInstant(TimeZone.UTC).toICalUtcDateTime()
+    zone == UTC -> toInstant(UTC).toICalUtcDateTime()
     else -> toICalLocalDateTime()
 }
 
@@ -110,8 +168,7 @@ private fun TimeZone?.vTimeZone(local: LocalDateTime): RemoteVTimeZone? {
  * Zones returned here are exactly those that require both a `TZID=` parameter on their
  * DATE-TIME value **and** a matching `VTIMEZONE` block in the emitted iCalendar.
  */
-private fun TimeZone?.explicitInIcal(): TimeZone? =
-    if (this != null && this != TimeZone.UTC) this else null
+private fun TimeZone?.explicitInIcal(): TimeZone? = this?.takeUnless { it == UTC }
 
 /**
  * Format the UTC offset valid at [local] in this zone as an RFC 5545 `TZOFFSETTO` value (e.g. "+0200").

@@ -164,6 +164,19 @@ pub enum ColorChange {
     Cleared,
 }
 
+/// Requested change to a recurrence master's `RRULE` (RFC 5545 §3.8.5.3).
+/// `Unchanged` leaves any existing `RRULE` untouched so an exotic/unmodelled rule survives a
+/// partial edit of unrelated fields (mirrors [`ColorChange`] / [`AlarmsChange::Unchanged`]).
+#[derive(uniffi::Enum)]
+pub enum RecurrenceChange {
+    /// Leave the existing `RRULE` as-is (no `RRULE` emitted on create).
+    Unchanged,
+    /// Write `RRULE:<value>` (the value is the raw rule text without the `RRULE:` prefix).
+    Set { rrule: String },
+    /// Drop any existing `RRULE`, turning the event into a single (non-recurring) occurrence.
+    Cleared,
+}
+
 /// Requested change to a VEVENT's VALARM sub-components.
 /// `Unchanged` leaves source VALARM blocks untouched so `X-*` / exotic params survive partial edits.
 #[derive(uniffi::Enum)]
@@ -195,6 +208,7 @@ pub struct EventEdit {
     pub description: Option<String>,
     pub timezones: Vec<VTimeZoneSpec>,
     pub color_change: ColorChange,
+    pub recurrence_change: RecurrenceChange,
     pub alarms_change: AlarmsChange,
     pub stamp: String,
 }

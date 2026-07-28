@@ -628,4 +628,274 @@ class RecurrenceExpanderTest {
     }
 
     // endregion
+
+    // region sub-daily BYHOUR / BYMINUTE / BYSECOND
+
+    @Test
+    fun dailyByHourExpandsWithinDay() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T10:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, byHour = listOf(9, 14), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-02-01T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00"), ldt("2024-01-01T14:00"),
+                ldt("2024-01-02T09:00"), ldt("2024-01-02T14:00"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun dailyByHourAndByMinuteFormCartesianProduct() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T09:30")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Daily, byHour = listOf(9, 10), byMinute = listOf(0, 30), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-02-01T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00"), ldt("2024-01-01T09:30"),
+                ldt("2024-01-01T10:00"), ldt("2024-01-01T10:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
+
+    // region BYYEARDAY / BYWEEKNO
+
+    @Test
+    fun yearlyByYearDayNegativeSelectsLastDayOfYear() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byYearDay = listOf(-1), occurrenceCount = 2),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2026-06-01T00:00"),
+        )
+        // DTSTART is always emitted first (§7.8), then the conforming last-day-of-year instances.
+        assertEquals(listOf(ldt("2024-01-01T08:00"), ldt("2024-12-31T08:00")), occ.map { it.start })
+    }
+
+    @Test
+    fun yearlyByWeekNumberWithByDaySelectsMondayOfWeekOne() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(1), byDay = days(DayOfWeek.MONDAY), occurrenceCount = 3),
+            windowStart = instant("2023-01-01T00:00"),
+            windowEnd = instant("2027-06-01T00:00"),
+        )
+        // ISO week 1 Mondays: 2024-01-01, 2024-12-30 (week 1 of 2025), 2025-12-29 (week 1 of 2026).
+        assertEquals(
+            listOf(ldt("2024-01-01T08:00"), ldt("2024-12-30T08:00"), ldt("2025-12-29T08:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun yearlyByWeekNumberNegativeSelectsMondayOfLastWeek() = runTest {
+        val master = timedMaster("2024-12-23T08:00", "2024-12-23T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(-1), byDay = days(DayOfWeek.MONDAY), occurrenceCount = 2),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2026-06-01T00:00"),
+        )
+        // Monday of the last ISO week: 2024-W52-1 = 2024-12-23, 2025-W52-1 = 2025-12-22.
+        assertEquals(listOf(ldt("2024-12-23T08:00"), ldt("2025-12-22T08:00")), occ.map { it.start })
+    }
+
+    @Test
+    fun yearlyByWeekNumberWithoutByDayInheritsStartWeekday() = runTest {
+        val master = timedMaster("2024-01-01T08:00", "2024-01-01T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byWeekNumber = listOf(1), occurrenceCount = 3),
+            windowStart = instant("2023-01-01T00:00"),
+            windowEnd = instant("2027-06-01T00:00"),
+        )
+        // No BYDAY: RFC 5545 §3.3.10 keeps only DTSTART's weekday (Monday), not all 7 days of week 1.
+        assertEquals(
+            listOf(ldt("2024-01-01T08:00"), ldt("2024-12-30T08:00"), ldt("2025-12-29T08:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun yearlyByYearDaySixtyTracksLeapYearShift() = runTest {
+        val master = timedMaster("2024-02-29T08:00", "2024-02-29T09:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Yearly, byYearDay = listOf(60), occurrenceCount = 2),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2026-06-01T00:00"),
+        )
+        // Day 60 is Feb 29 in the leap year 2024, then March 1 in the common year 2025.
+        assertEquals(listOf(ldt("2024-02-29T08:00"), ldt("2025-03-01T08:00")), occ.map { it.start })
+    }
+
+    // endregion
+
+    // region BYSETPOS
+
+    @Test
+    fun monthlyBySetPosSelectsLastWeekdayOfMonth() = runTest {
+        val master = timedMaster("2024-01-31T10:00", "2024-01-31T11:00")
+        val weekdays = days(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Monthly, byDay = weekdays, byOccurrencePosition = listOf(-1), occurrenceCount = 3),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-05-01T00:00"),
+        )
+        assertEquals(
+            listOf(ldt("2024-01-31T10:00"), ldt("2024-02-29T10:00"), ldt("2024-03-29T10:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun monthlyBySetPosSelectsFirstAndThirdWeekdayOfMonth() = runTest {
+        val master = timedMaster("2024-01-01T10:00", "2024-01-01T11:00")
+        val weekdays = days(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Monthly, byDay = weekdays, byOccurrencePosition = listOf(1, 3), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-04-01T00:00"),
+        )
+        // 1st and 3rd weekday: Jan Mon 1 / Wed 3, Feb Thu 1 / Mon 5.
+        assertEquals(
+            listOf(ldt("2024-01-01T10:00"), ldt("2024-01-03T10:00"), ldt("2024-02-01T10:00"), ldt("2024-02-05T10:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
+
+    // region WKST alignment
+
+    @Test
+    fun weeklyIntervalTwoWithWeekStartMonday() = runTest {
+        val master = timedMaster("1997-08-05T09:00", "1997-08-05T10:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(
+                freq = Frequency.Weekly,
+                interval = 2,
+                byDay = days(DayOfWeek.TUESDAY, DayOfWeek.SUNDAY),
+                weekStart = DayOfWeek.MONDAY,
+                occurrenceCount = 4,
+            ),
+            windowStart = instant("1997-08-01T00:00"),
+            windowEnd = instant("1997-09-01T00:00"),
+        )
+        assertEquals(
+            listOf(ldt("1997-08-05T09:00"), ldt("1997-08-10T09:00"), ldt("1997-08-19T09:00"), ldt("1997-08-24T09:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun weeklyIntervalTwoWithWeekStartSundayShiftsBoundary() = runTest {
+        val master = timedMaster("1997-08-05T09:00", "1997-08-05T10:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(
+                freq = Frequency.Weekly,
+                interval = 2,
+                byDay = days(DayOfWeek.TUESDAY, DayOfWeek.SUNDAY),
+                weekStart = DayOfWeek.SUNDAY,
+                occurrenceCount = 4,
+            ),
+            windowStart = instant("1997-08-01T00:00"),
+            windowEnd = instant("1997-09-01T00:00"),
+        )
+        assertEquals(
+            listOf(ldt("1997-08-05T09:00"), ldt("1997-08-17T09:00"), ldt("1997-08-19T09:00"), ldt("1997-08-31T09:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
+
+    // region sub-daily BY* expand/limit
+
+    @Test
+    fun hourlyByMinuteExpandsWithinEachHour() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T09:15")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Hourly, byMinute = listOf(0, 30), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-01-02T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00"), ldt("2024-01-01T09:30"),
+                ldt("2024-01-01T10:00"), ldt("2024-01-01T10:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun minutelyBySecondExpandsWithinEachMinute() = runTest {
+        val master = timedMaster("2024-01-01T09:00:00", "2024-01-01T09:01:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Minutely, bySecond = listOf(0, 30), occurrenceCount = 4),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-01-02T00:00"),
+        )
+        assertEquals(
+            listOf(
+                ldt("2024-01-01T09:00:00"), ldt("2024-01-01T09:00:30"),
+                ldt("2024-01-01T09:01:00"), ldt("2024-01-01T09:01:30"),
+            ),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun hourlyByHourLimitsWhichHoursCount() = runTest {
+        val master = timedMaster("2024-01-01T09:00", "2024-01-01T09:15")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Hourly, byHour = listOf(9, 12), occurrenceCount = 3),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-01-03T00:00"),
+        )
+        // 09:00 (DTSTART), 12:00, then next day's 09:00.
+        assertEquals(
+            listOf(ldt("2024-01-01T09:00"), ldt("2024-01-01T12:00"), ldt("2024-01-02T09:00")),
+            occ.map { it.start },
+        )
+    }
+
+    @Test
+    fun minutelyByMinuteLimitsWhichMinutesCount() = runTest {
+        val master = timedMaster("2024-01-01T09:00:00", "2024-01-01T09:01:00")
+        val (occ, _) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Minutely, byMinute = listOf(0, 15), occurrenceCount = 3),
+            windowStart = instant("2024-01-01T00:00"),
+            windowEnd = instant("2024-01-02T00:00"),
+        )
+        // BYMINUTE limits MINUTELY: 09:00 (DTSTART), 09:15, then next hour's 10:00.
+        assertEquals(
+            listOf(ldt("2024-01-01T09:00:00"), ldt("2024-01-01T09:15:00"), ldt("2024-01-01T10:00:00")),
+            occ.map { it.start },
+        )
+    }
+
+    // endregion
 }

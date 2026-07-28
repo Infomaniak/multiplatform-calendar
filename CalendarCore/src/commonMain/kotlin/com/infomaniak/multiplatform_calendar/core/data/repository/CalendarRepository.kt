@@ -85,32 +85,6 @@ internal class CalendarRepository(
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
     }
 
-    suspend fun syncCalendars(
-        accountId: AccountId,
-        credentials: DavAccount,
-    ) {
-        syncCalendarMetadata(accountId, credentials)
-        calendarDao.getByAccountId(accountId).forEach { calendarEntity ->
-            runCatching {
-                val remoteEvents = getRemoteEvents(credentials, calendarEntity.id)
-                val entities = remoteEvents.mapNotNull { event ->
-                    currentCoroutineContext().ensureActive()
-                    val recurrence = runCatching { event.resolveRecurrence() }
-                        .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
-                        .getOrNull()
-                    runCatching { EventWithRawIcs(event.toEntity(calendarEntity.id, recurrence), event.icsData) }
-                        .cancellable()
-                        .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
-                        .getOrNull()
-                }
-                val (eventEntities, rawIcsEntities) = entities.toEventAndRawIcsEntities()
-                eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
-            }.cancellable().onFailure {
-                if (it is RustNetworkException) throw it
-                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
-            }
-        }
-    }
 
     suspend fun syncEvents(
         accountId: AccountId,
@@ -311,10 +285,6 @@ internal class CalendarRepository(
         )
     }
 
-    private suspend fun getRemoteEvents(
-        credentials: DavAccount,
-        id: CalendarId,
-    ): List<RemoteDavEvent> = caldavClient.getEvents(credentials, id.url)
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

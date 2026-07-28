@@ -31,6 +31,10 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavO
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Set
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Unchanged
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +44,7 @@ import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
+import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.fetchEvents
@@ -247,6 +252,7 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     description = description,
     timezones = timeZones.map { it.toRust() },
     colorChange = colorChange.toRust(),
+    recurrenceChange = recurrenceChange.toRust(),
     alarmsChange = alarms.toRustAlarmsChange(),
     stamp = stamp,
 )
@@ -269,6 +275,12 @@ private fun RemoteColorChange.toRust(): ColorChange = when (this) {
     RemoteColorChange.Unchanged -> ColorChange.Unchanged
     is RemoteColorChange.Set -> ColorChange.Set(hex)
     RemoteColorChange.Cleared -> ColorChange.Cleared
+}
+
+private fun RemoteRecurrenceChange.toRust(): RecurrenceChange = when (this) {
+    Unchanged -> RecurrenceChange.Unchanged
+    is Set -> RecurrenceChange.Set(value)
+    Cleared -> RecurrenceChange.Cleared
 }
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)

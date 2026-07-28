@@ -20,7 +20,6 @@ package com.infomaniak.multiplatform_calendar.core.managers
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -91,17 +90,6 @@ public class CalendarManager internal constructor(
         }
     }
 
-    @Deprecated(
-        message = "Use syncEvents() instead",
-        replaceWith = ReplaceWith("syncEvents()"),
-    )
-    @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun syncCalendars(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "sync calendars for account $accountId") {
-            val credentials = accountRepository.getCredentials(accountId)
-            calendarRepository.syncCalendars(accountId = accountId, credentials = credentials)
-        }
-    }
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {

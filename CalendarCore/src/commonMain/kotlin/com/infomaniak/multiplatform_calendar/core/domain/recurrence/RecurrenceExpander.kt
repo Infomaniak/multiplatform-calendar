@@ -21,15 +21,26 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Daily
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Hourly
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Minutely
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Secondly
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Weekly
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.isExceededBy
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.StoppedByConsecutiveEmptyPeriods
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.StoppedByScannedInstanceCap
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.TruncatedByOccurrenceCap
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
@@ -74,8 +85,9 @@ internal object RecurrenceExpander {
 
         var count = 0
         var generated = 0
+        var scanned = 0
         var consecutiveEmptyPeriods = 0
-        var periodIndex = 0
+        var periodIndex = fastForwardIndex(dtStart, masterTiming, rrule, inputStart)
 
         while (true) {
             currentCoroutineContext().ensureActive()
@@ -84,12 +96,21 @@ internal object RecurrenceExpander {
 
             var countedInPeriod = false
             for (occurrenceStartLocal in candidates) {
-                val occurrenceStartInstant = occurrenceStartLocal.toInstant(masterTiming.startZone)
 
+                // Bound total work: the empty-period cap can't fire on dense series (every period yields
+                // a candidate), so a far-past COUNT rule would otherwise scan unboundedly (fast-forward
+                // is disabled for COUNT). See [ExpansionLimits.maxScannedInstances].
+                if (scanned >= limits.maxScannedInstances) return StoppedByScannedInstanceCap
+                scanned++
+
+                // The resolved instant is monotonic (a spring-forward gap resolves forward), so a series
+                // whose every wall-clock is a DST gap still terminates on COUNT/UNTIL/window instead of
+                // scanning to the empty-period cap. It becomes the real start once the gap check passes.
+                val occurrenceStartInstant = masterTiming.resolvedStartInstant(occurrenceStartLocal)
                 if (isExpansionComplete(rrule, count, occurrenceStartLocal, occurrenceStartInstant, inputEnd)) return Completed
 
-                // Skip candidates that are not real instances of the set, without counting them.
-                if (isNonInstance(occurrenceStartLocal, dtStart)) continue
+                // Skip candidates that are not real instances of the set (pre-DTSTART or DST gap), without counting them.
+                if (isNonInstance(masterTiming, occurrenceStartLocal, occurrenceStartInstant, dtStart)) continue
 
                 val occurrenceAdded = appendOccurrenceIfWithinWindow(
                     target = target,
@@ -160,13 +181,18 @@ internal object RecurrenceExpander {
     }
 
     /**
-     * Whether [occurrenceStartLocal] must be skipped **without counting** because it is not a real
-     * instance of the recurrence set. For now the only such case is a candidate before [dtStart]: a
-     * `BY*` period bucket can produce slots earlier than `DTSTART`, which are not part of the set
-     * (RFC 5545 §3.8.5.3).
+     * Whether [occurrenceStartLocal] (already resolved to [occurrenceStartInstant]) must be skipped
+     * **without counting** because it is not a real instance of the recurrence set. Two such cases:
+     * - a candidate before [dtStart]: a `BY*` period bucket can produce slots earlier than `DTSTART`,
+     *   which are not part of the set (RFC 5545 §3.8.5.3);
+     * - a nonexistent wall-clock (spring-forward DST gap), see [MasterTiming.existsAt] (RFC 5545 §3.3.10).
      */
-    private fun isNonInstance(occurrenceStartLocal: LocalDateTime, dtStart: LocalDateTime): Boolean =
-        occurrenceStartLocal < dtStart
+    private fun isNonInstance(
+        masterTiming: MasterTiming,
+        occurrenceStartLocal: LocalDateTime,
+        occurrenceStartInstant: Instant,
+        dtStart: LocalDateTime,
+    ): Boolean = occurrenceStartLocal < dtStart || !masterTiming.existsAt(occurrenceStartLocal, occurrenceStartInstant)
 
     /**
      * The sorted instance starts for [periodIndex], with `DTSTART` force-included in the first period
@@ -184,5 +210,43 @@ internal object RecurrenceExpander {
     ): List<LocalDateTime> {
         val starts = RecurrenceCandidateSet.startsInPeriod(dtStart, zone, rrule, periodIndex)
         return if (periodIndex == 0 && dtStart !in starts) (starts + dtStart).sorted() else starts
+    }
+
+    /**
+     * A lower-bound [periodIndex] to start from, so a dense series beginning long before the window
+     * (e.g. a years-old `FREQ=SECONDLY`) jumps straight to it instead of stepping period-by-period and
+     * scanning billions of pre-window instances.
+     *
+     * Only applied without `COUNT` (which must tally every instance from the first) and only for the
+     * fixed-length frequencies; `MONTHLY`/`YEARLY` keep few enough periods to walk directly. The result
+     * under-shoots by the master span plus one whole period, so no window-overlapping instance is skipped.
+     *
+     * Known limitation: [periodIndex] is an `Int`, so the index is clamped to `Int.MAX_VALUE`. A
+     * `FREQ=SECONDLY` series starting more than ~68 years before the window exceeds that range; the
+     * fast-forward saturates and the subsequent `periodIndex++` would overflow. Such a pathological input
+     * is not expanded correctly (the empty-period cap still stops it). Widening the period index to `Long`
+     * throughout (here and in `RecurrenceCandidateSet.startsInPeriod`) would lift the limit.
+     */
+    private fun fastForwardIndex(
+        dtStart: LocalDateTime,
+        masterTiming: MasterTiming,
+        rrule: RecurrenceRule,
+        inputStart: Instant,
+    ): Int {
+        if (rrule.occurrenceCount != null) return 0
+        val periodSpan = when (rrule.freq) {
+            Secondly -> rrule.interval.seconds
+            Minutely -> rrule.interval.minutes
+            Hourly -> rrule.interval.hours
+            Daily -> rrule.interval.days
+            Weekly -> (rrule.interval * 7).days
+            else -> return 0
+        }
+
+        val lead = (inputStart - masterTiming.maxOccurrenceDuration) - dtStart.toInstant(masterTiming.startZone)
+        if (lead <= Duration.ZERO) return 0
+
+        val wholePeriodsBefore = (lead / periodSpan).toLong() - 1
+        return wholePeriodsBefore.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
     }
 }

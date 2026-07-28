@@ -23,7 +23,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventImpl
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -34,7 +33,7 @@ internal fun EventEntity.toDomain(
 ): Event {
     val organizer = organizer?.toDomain()
     val attendees = attendees.map { it.toDomain(isOrganizer = it.email == organizer?.email) }
-    return EventImpl(
+    return Event(
         id = id,
         calendarId = calendarId,
         accountId = calendar.accountId,

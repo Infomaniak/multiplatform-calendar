@@ -422,7 +422,7 @@ class EventDaySliceTest {
         id = id,
     )
 
-    private fun eventOf(timing: EventTiming, id: String = "event://test"): Event = EventImpl(
+    private fun eventOf(timing: EventTiming, id: String = "event://test"): Event = Event(
         id = EventId(id),
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),

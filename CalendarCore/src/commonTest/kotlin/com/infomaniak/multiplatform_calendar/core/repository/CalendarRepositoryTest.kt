@@ -21,12 +21,12 @@ import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
-import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -43,7 +43,6 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class CalendarRepositoryTest : RobolectricTestsBase() {
@@ -109,12 +108,12 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val calendarUrl = "https://dav.example/cal/raw-ics/"
         val eventUrl = "${calendarUrl}rich.ics"
         val icsData = "BEGIN:VEVENT\r\n" +
-            "UID:uid-raw\r\n" +
-            "SUMMARY:S\r\n" +
-            "DTSTART:20260615T140000Z\r\n" +
-            "X-CUSTOM-PROP:keep-me\r\n" +
-            "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nX-VENDOR:v\r\nEND:VALARM\r\n" +
-            "END:VEVENT\r\n"
+                "UID:uid-raw\r\n" +
+                "SUMMARY:S\r\n" +
+                "DTSTART:20260615T140000Z\r\n" +
+                "X-CUSTOM-PROP:keep-me\r\n" +
+                "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nX-VENDOR:v\r\nEND:VALARM\r\n" +
+                "END:VEVENT\r\n"
         val event = remoteEvent(url = eventUrl, uid = "uid-raw", icsData = icsData)
         val remote = FakeCalendarSyncRemoteSource(
             calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),

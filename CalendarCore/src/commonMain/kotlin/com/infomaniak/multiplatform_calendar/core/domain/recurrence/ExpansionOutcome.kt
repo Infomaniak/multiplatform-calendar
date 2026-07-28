@@ -27,4 +27,7 @@ internal enum class ExpansionOutcome {
 
     /** Stopped: [ExpansionLimits.maxScannedPeriods] consecutive empty periods scanned. */
     StoppedByConsecutiveEmptyPeriods,
+
+    /** Stopped: [ExpansionLimits.maxScannedInstances] candidate instances examined in total. */
+    StoppedByScannedInstanceCap,
 }

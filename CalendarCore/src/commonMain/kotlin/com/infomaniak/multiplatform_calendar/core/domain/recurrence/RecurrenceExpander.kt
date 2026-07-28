@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.isExceededBy
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.StoppedByConsecutiveEmptyPeriods
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.StoppedByScannedInstanceCap
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.TruncatedByOccurrenceCap
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -84,6 +85,7 @@ internal object RecurrenceExpander {
 
         var count = 0
         var generated = 0
+        var scanned = 0
         var consecutiveEmptyPeriods = 0
         var periodIndex = fastForwardIndex(dtStart, masterTiming, rrule, inputStart)
 
@@ -94,6 +96,12 @@ internal object RecurrenceExpander {
 
             var countedInPeriod = false
             for (occurrenceStartLocal in candidates) {
+
+                // Bound total work: the empty-period cap can't fire on dense series (every period yields
+                // a candidate), so a far-past COUNT rule would otherwise scan unboundedly (fast-forward
+                // is disabled for COUNT). See [ExpansionLimits.maxScannedInstances].
+                if (scanned >= limits.maxScannedInstances) return StoppedByScannedInstanceCap
+                scanned++
 
                 // The resolved instant is monotonic (a spring-forward gap resolves forward), so a series
                 // whose every wall-clock is a DST gap still terminates on COUNT/UNTIL/window instead of

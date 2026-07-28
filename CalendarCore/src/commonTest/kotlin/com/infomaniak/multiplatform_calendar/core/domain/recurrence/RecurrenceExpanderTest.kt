@@ -415,6 +415,23 @@ class RecurrenceExpanderTest {
     }
 
     @Test
+    fun farPastCountRuleStopsOnScannedInstanceCapInsteadOfScanningUnbounded() = runTest {
+        // FREQ=SECONDLY;COUNT=1_000_000 starting long before the window: fast-forward is disabled for
+        // COUNT and every period yields an instance, so neither the empty-period nor the occurrence cap
+        // fires. The total scanned-instance cap bounds the otherwise huge pre-window scan.
+        val master = timedMaster("2024-01-01T09:00:00", "2024-01-01T09:00:01")
+        val (occ, outcome) = expand(
+            master,
+            RecurrenceRule(freq = Frequency.Secondly, occurrenceCount = 1_000_000),
+            windowStart = instant("2030-01-01T00:00"),
+            windowEnd = instant("2100-01-01T00:00"),
+            limits = ExpansionLimits(maxScannedInstances = 100),
+        )
+        assertTrue(occ.isEmpty())
+        assertEquals(ExpansionOutcome.StoppedByScannedInstanceCap, outcome)
+    }
+
+    @Test
     fun degenerateRuleProducingNoDateStopsOnConsecutiveEmptyPeriodsInsteadOfLooping() = runTest {
         // Feb 31 never exists: only the forced DTSTART is emitted, then the empty streak trips the cap.
         val master = timedMaster("2024-01-01T09:00", "2024-01-01T10:00")

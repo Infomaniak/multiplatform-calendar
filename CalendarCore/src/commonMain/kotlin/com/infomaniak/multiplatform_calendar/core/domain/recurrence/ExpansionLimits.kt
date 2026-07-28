@@ -25,8 +25,14 @@ package com.infomaniak.multiplatform_calendar.core.domain.recurrence
  *   match). Prevents an unbounded scan.
  * - [maxGeneratedOccurrences] caps how many instances a single rule may emit (dense `FREQ=SECONDLY`
  *   inside a wide window). Prevents unbounded memory growth.
+ * - [maxScannedInstances] caps how many candidate instances are *examined* in total (counted or not).
+ *   The per-period empty cap doesn't fire when every period yields an instance, so a far-past
+ *   `COUNT` rule (fast-forward is disabled for `COUNT`, which must tally from the first instance) such
+ *   as `FREQ=SECONDLY;COUNT=100000000` would otherwise scan hundreds of millions of pre-window
+ *   instances. Bounds the worst-case work for any rule shape (defence against untrusted synced rules).
  */
 internal data class ExpansionLimits(
     val maxScannedPeriods: Int = 100_000,
     val maxGeneratedOccurrences: Int = 100_000,
+    val maxScannedInstances: Int = 1_000_000,
 )

@@ -70,29 +70,9 @@ public class CalendarManager internal constructor(
     }
 
     /**
-     * Observe events from all *visible* calendars of the current account overlapping [start, end[.
-     *
-     * [timeZone] is used to re-interpret the wall-clock of floating events against the range so a
-     * floating event stays visible at "10:00 local" wherever the user travels. Defaults to the
-     * device zone, which is what a standard planning grid wants.
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    public fun observeEvents(
-        start: Instant,
-        end: Instant,
-        timeZone: TimeZone = TimeZone.currentSystemDefault(),
-    ): Flow<List<Event>> {
-        return sdkCaller.flow(operation = "observe events from $start to $end for zone $timeZone") {
-            nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
-                eventRepository.observeVisibleEvents(accountIds, start, end, timeZone)
-            }
-        }
-    }
-
-    /**
-     * Like [observeEvents], but recurring masters are expanded into their occurrences and every event
-     * is split into one [EventDaySlice] per day, grouped by day and sorted, ready for a planning grid
-     * (all-day first, then by start).
+     * Observe events from all *visible* calendars of the current account overlapping [start, end[,
+     * with multi-day events split into one [EventDaySlice] per day and the
+     * result is grouped by day and sorted, ready for a planning grid (all-day first, then by start).
      *
      * [timeZone] is the zone the planning grid is displayed in (device zone by default); it is
      * forwarded to the repository so floating-event visibility, recurrence expansion and the day split

@@ -47,7 +47,6 @@ import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
-import uniffi.caldav_bridge.fetchEvents
 import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
 import uniffi.caldav_bridge.AlarmsChange as RustAlarmsChange
 import uniffi.caldav_bridge.DavAccount as RustDavAccount
@@ -107,17 +106,6 @@ internal class RustCaldavBridge(
         }
     }
 
-    override suspend fun getEvents(
-        credentials: DavAccount,
-        calendarUrl: String,
-    ): List<RemoteDavEvent> {
-        try {
-            val entries = fetchEvents(account = credentials.toRust(), calendarUrl)
-            return entries.map(EventEntry::toRemoteEvent)
-        } catch (e: CaldavException) {
-            throw e.toCaldavBridgeException("getEvents")
-        }
-    }
 
     override suspend fun getEventsInRange(
         credentials: DavAccount,

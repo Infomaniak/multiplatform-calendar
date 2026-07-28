@@ -90,7 +90,6 @@ public class CalendarManager internal constructor(
         }
     }
 
-
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "sync events for all accounts") {

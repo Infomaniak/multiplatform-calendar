@@ -52,6 +52,7 @@ internal data class EventEntity(
     val lastModified: LocalDateTime? = null,
     val dtStamp: LocalDateTime? = null,
     val rrule: RecurrenceRule? = null,
+    @Embedded val recurrenceBounds: RecurrenceBoundsEntity? = null,
     val status: EventStatus? = null,
     val transp: String? = null,
     val classification: Classification? = null,

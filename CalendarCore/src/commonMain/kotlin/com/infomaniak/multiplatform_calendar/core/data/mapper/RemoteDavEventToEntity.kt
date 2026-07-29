@@ -44,17 +44,19 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 
 @Throws(CaldavParsingException::class)
 internal fun RemoteDavEvent.toEntity(calendarId: CalendarId, recurrenceRule: RecurrenceRule? = null): EventEntity {
+    val timing = toTimingEntity()
     return EventEntity(
         id = EventId(url),
         calendarId = calendarId,
         summary = summary ?: "",
         description = description,
         location = location,
-        timing = toTimingEntity(),
+        timing = timing,
         created = parseICalDateTime(created),
         lastModified = parseICalDateTime(lastModified),
         dtStamp = parseICalDateTime(dtstamp),
         rrule = recurrenceRule,
+        recurrenceBounds = recurrenceRule?.toRecurrenceBoundsEntity(timing),
         status = EventStatus.fromIcalString(status),
         transp = transp,
         classification = Classification.fromIcalString(classification),

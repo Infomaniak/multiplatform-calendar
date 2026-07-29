@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
@@ -30,7 +32,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -55,6 +59,7 @@ internal class EventRepository(
     private val accountDao: AccountDao,
     private val caldavClient: CalendarSyncRemoteSource,
     private val eventDao: EventDao,
+    private val crashReport: CrashReport,
 ) {
 
     fun observeVisibleEvents(
@@ -79,13 +84,14 @@ internal class EventRepository(
     }
 
     /**
-     * Like [observeVisibleEvents], but each multi-day event is split into one [EventDaySlice] per day
-     * it covers (see [groupDaySlicesByDay]), then grouped by day and sorted for direct planning
+     * Like [observeVisibleEvents], but recurring masters are first expanded into their occurrences
+     * (see [expandRecurrencesInWindow]) and each resulting event is split into one [EventDaySlice] per
+     * day it covers (see [groupDaySlicesByDay]), then grouped by day and sorted for direct planning
      * display (all-day first, then by start time).
      *
-     * [timeZone] drives both the SQL wall-clock filter for floating events (forwarded to
-     * [observeVisibleEvents]) and the day split, so the two always agree on which floating events
-     * are visible.
+     * [timeZone] drives the SQL wall-clock filter for floating events (forwarded to
+     * [observeVisibleEvents]), the recurrence expansion anchor for floating / all-day occurrences
+     * (RFC 5545 FORM #1) and the day split, so all three agree on which floating events are visible.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeVisibleDaySlices(
@@ -95,8 +101,20 @@ internal class EventRepository(
         timeZone: TimeZone,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
         return observeVisibleEvents(accountIds, start, end, zone = timeZone)
-            .mapLatest { events -> events.groupDaySlicesByDay(start, end, timeZone) }
+            .mapLatest { events ->
+                events
+                    .expandRecurrencesInWindow(start, end, timeZone, onExpansionTruncated = ::logTruncatedExpansion)
+                    .groupDaySlicesByDay(start, end, timeZone)
+            }
             .flowOn(Dispatchers.Default)
+    }
+
+    private fun logTruncatedExpansion(masterId: EventId, outcome: ExpansionOutcome) {
+        crashReport.capture(
+            message = "Recurrence expansion hit a safety cap for event ${masterId.url}",
+            data = mapOf("masterId" to masterId.url, "outcome" to outcome.name),
+            level = CrashReportLevel.Warning,
+        )
     }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {

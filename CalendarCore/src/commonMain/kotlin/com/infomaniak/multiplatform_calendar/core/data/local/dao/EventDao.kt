@@ -45,13 +45,22 @@ internal abstract class EventDao {
      * and its resolved end ([EventTimingEntity.dtEndInstantMs], which already accounts for `DTEND`/`DURATION`)
      * is at/after [startInstantMs].
      *
-     * Two branches, unioned:
+     * Non-recurring events use two branches, unioned:
      * - **Anchored events** (zoned / UTC / all-day): comparison on absolute UTC epoch milliseconds.
      *   Correct across mixed time-zones since bounds are absolute.
      * - **Floating events** (RFC 5545 FORM #1, [EventTimingEntity.dtStartInstantMs] `IS NULL`): comparison
      *   on wall-clock strings, using [startLocalDateTime]/[endLocalDateTime] which are the range bounds re-interpreted
      *   in the recipient's *current* zone. This branch re-anchors automatically on device zone
      *   change (travel, DST) — a floating event has no fixed absolute instant by definition.
+     *
+     * **Recurring masters** (`rrule IS NOT NULL`) match on the *whole series* bounds populated at sync
+     * (see `recurrenceBounds`), not just their first occurrence. Two symmetric branches:
+     * - **Anchored series**: `firstOccurrenceInstantMs` as low bound, `lastPossibleOccurrenceEndInstantMs`
+     *   (an over-approximation of the last end) as high bound. `Infinite`/`FiniteDeferred` series have an open
+     *   upper bound. Masters are returned whenever the series *could* overlap the window; the expander
+     *   later materialises the actual occurrences and drops any that fall outside.
+     * - **Floating series**: `dtStart` as low bound (first occurrence == `DTSTART` for RRULE-only) and
+     *   `lastOccurrenceEndLocalDateTime` as high bound, both wall-clock.
      */
     @Transaction
     @Query(
@@ -61,13 +70,10 @@ internal abstract class EventDao {
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND (
-            (event.dtStartInstantMs IS NOT NULL
-              AND event.dtStartInstantMs < :endInstantMs
-              AND event.dtEndInstantMs >= :startInstantMs)
-            OR
-            (event.dtStartInstantMs IS NULL
-              AND event.dtStart < :endLocalDateTime
-              AND event.dtEndEffective >= :startLocalDateTime)
+            (event.rrule IS NULL AND $ANCHORED_TIMING)
+            OR (event.rrule IS NULL AND $FLOATING_TIMING)
+            OR $RECURRING_ANCHORED
+            OR $RECURRING_FLOATING
           )
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
@@ -104,17 +110,8 @@ internal abstract class EventDao {
 
     @Query(
         """
-        SELECT id, etag FROM events
-        WHERE calendarId = :calendarId
-          AND (
-            (dtStartInstantMs IS NOT NULL
-              AND dtStartInstantMs < :endInstantMs
-              AND dtEndInstantMs >= :startInstantMs)
-            OR
-            (dtStartInstantMs IS NULL
-              AND dtStart < :endLocalDateTime
-              AND dtEndEffective >= :startLocalDateTime)
-          )
+        SELECT event.id, event.etag FROM events event
+        WHERE event.calendarId = :calendarId AND ($ANCHORED_TIMING OR $FLOATING_TIMING)
         """,
     )
     abstract suspend fun getEventRefsInRange(
@@ -152,4 +149,35 @@ internal abstract class EventDao {
 
     @Query("DELETE FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     abstract suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
+
+    private companion object {
+
+        /** Non-recurring / master timing overlap on absolute UTC epoch ms (zoned / UTC / all-day rows). */
+        private const val ANCHORED_TIMING = """(
+            event.dtStartInstantMs IS NOT NULL
+              AND event.dtStartInstantMs < :endInstantMs
+              AND event.dtEndInstantMs >= :startInstantMs)"""
+
+        /** Non-recurring / master timing overlap on wall-clock strings (floating DATE-TIME rows). */
+        private const val FLOATING_TIMING = """(
+            event.dtStartInstantMs IS NULL
+              AND event.dtStart < :endLocalDateTime
+              AND event.dtEndEffective >= :startLocalDateTime)"""
+
+        /** Anchored recurrence set: series bounds in absolute epoch ms; open upper bound unless `Finite`. */
+        private const val RECURRING_ANCHORED = """(
+            event.rrule IS NOT NULL
+              AND event.firstOccurrenceInstantMs IS NOT NULL
+              AND event.firstOccurrenceInstantMs < :endInstantMs
+              AND (event.recurrenceBoundKind != 'Finite'
+                OR event.lastPossibleOccurrenceEndInstantMs >= :startInstantMs))"""
+
+        /** Floating recurrence set: series bounds in wall-clock; open upper bound unless `Finite`. */
+        private const val RECURRING_FLOATING = """(
+            event.rrule IS NOT NULL
+              AND event.firstOccurrenceInstantMs IS NULL
+              AND event.dtStart < :endLocalDateTime
+              AND (event.recurrenceBoundKind != 'Finite'
+                OR event.lastOccurrenceEndLocalDateTime >= :startLocalDateTime))"""
+    }
 }

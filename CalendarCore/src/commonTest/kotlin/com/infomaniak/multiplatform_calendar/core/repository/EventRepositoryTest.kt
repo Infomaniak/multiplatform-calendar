@@ -33,6 +33,10 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepositor
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
@@ -47,12 +51,15 @@ import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -60,6 +67,7 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Duration.Companion.minutes
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -403,6 +411,75 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertTrue(created.isSynced)
     }
 
+    /**
+     * End-to-end wiring on the create path: the edited RRULE and alarm flow through `toRemoteEdit` into the
+     * bridge (emulated here), then the reparsed event is persisted. We read the row back from the DB and assert
+     * the recurrence rule and alarm landed — proving the repository forwards the edit AND stores the result.
+     */
+    @Test
+    fun createEvent_persistsEditedRecurrenceRuleAndAlarm() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        fakeCaldav.applyEdit = ::bridgeApplyingEdit
+        fakeCaldav.patchedEvent = remoteDavEvent(icsData = "BEGIN:VEVENT\nUID:new\nEND:VEVENT", summary = "Fresh")
+        fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/main/new.ics", etag = "etag-1")
+
+        repository.createEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            data = editData(
+                title = "Fresh",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily),
+                alarms = listOf(
+                    EventAlarm(
+                        action = AlarmAction.Display,
+                        trigger = AlarmTrigger.Relative(offset = -(15.minutes), relatedTo = TriggerRelation.Start),
+                    ),
+                ),
+            ),
+        )
+
+        val stored = eventDao().getEvent(EventId("https://cal/main/new.ics"))!!
+        assertEquals(RecurrenceRule(freq = Frequency.Daily), stored.rrule)
+        val alarm = stored.alarms.single()
+        assertEquals("DISPLAY", alarm.action)
+        assertEquals(TriggerRelation.Start, alarm.triggerRelatedTo)
+        assertEquals(-(15.minutes), alarm.triggerRelative, "the 15-min-before offset must survive the ICS duration round-trip")
+        assertTrue(stored.isSynced)
+    }
+
+    /**
+     * End-to-end wiring on the update path: dropping the RRULE of a previously WEEKLY event emits `Cleared`,
+     * which the bridge honors by removing it; the persisted row must then have no recurrence rule. Starting the
+     * bridge's reparse from a WEEKLY event proves the clear is driven by the edit, not by an empty fixture.
+     */
+    @Test
+    fun updateEvent_persistsClearedRecurrenceRule() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val eventId = EventId("https://cal/main/event.ics")
+        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = eventId, calendarId = calendarId, etag = "etag-old"), "BEGIN:VEVENT")))
+        assertEquals(Frequency.Weekly, eventDao().getEvent(eventId)!!.rrule?.freq, "precondition: event starts recurring")
+
+        fakeCaldav.applyEdit = ::bridgeApplyingEdit
+        fakeCaldav.patchedEvent = remoteDavEvent(
+            icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
+            summary = "Renamed",
+            rrule = "FREQ=WEEKLY;BYDAY=MO",
+        )
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            eventId = eventId,
+            data = editData(title = "Renamed", calendarId = calendarId), // no recurrence, no alarms
+        )
+
+        assertNull(eventDao().getEvent(eventId)!!.rrule, "cleared recurrence must not survive in the DB")
+    }
+
     private fun richEvent(id: EventId, calendarId: CalendarId, etag: String): EventEntity = EventEntity(
         id = id,
         calendarId = calendarId,
@@ -467,7 +544,12 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
     }
 
-    private fun editData(title: String, calendarId: CalendarId) = EventEditData(
+    private fun editData(
+        title: String,
+        calendarId: CalendarId,
+        recurrence: RecurrenceRule? = null,
+        alarms: List<EventAlarm> = emptyList(),
+    ) = EventEditData(
         title = title,
         timing = EventTiming(
             start = LocalDateTime(2026, 6, 15, 10, 0),
@@ -475,12 +557,13 @@ class EventRepositoryTest : RobolectricTestsBase() {
             startTimeZone = TimeZone.UTC,
             endTimeZone = TimeZone.UTC,
             isAllDay = false,
+            recurrenceRule = recurrence,
         ),
         location = null,
         description = null,
         calendarId = calendarId,
         eventColor = null,
-        alarms = emptyList(),
+        alarms = alarms,
     )
 
     private fun eventDao() = database.eventDao()
@@ -532,10 +615,42 @@ private fun remoteDavEvent(
     attendees = attendees,
 )
 
-/** Fake remote source: records create/delete calls and returns [patchedEvent] for patch/build. */
+/**
+ * Emulates the Rust bridge's edit round-trip: it rewrites the VEVENT from [edit] and reparses it, so the
+ * returned event mirrors the edited recurrence rule and alarms. Mirrors the bridge contract narrowly (the
+ * only fields exercised here): RRULE set/cleared/untouched and the VALARM list replace-or-keep semantics.
+ */
+private fun bridgeApplyingEdit(base: RemoteDavEvent, edit: RemoteEventEdit): RemoteDavEvent = base.copy(
+    rrule = when (val change = edit.recurrenceChange) {
+        is RemoteRecurrenceChange.Set -> change.value
+        RemoteRecurrenceChange.Cleared -> null
+        RemoteRecurrenceChange.Unchanged -> base.rrule
+    },
+    alarms = edit.alarms?.map { it.toRemoteDavAlarm() } ?: base.alarms,
+)
+
+private fun RemoteAlarmEdit.toRemoteDavAlarm() = RemoteDavAlarm(
+    action = action,
+    triggerDuration = triggerDuration,
+    triggerAbsolute = triggerAbsolute,
+    triggerRelatedTo = triggerRelatedTo,
+    description = description,
+    summary = summary,
+    attendees = attendees,
+    attach = attach,
+)
+
+/** Fake remote source: records create/delete calls and returns [patchedEvent] for patch/build,
+ *  optionally folding the [RemoteEventEdit] into it via [applyEdit] to emulate the Rust bridge. */
 private class FakeCaldavClient : CalendarSyncRemoteSource {
     var patchedEvent: RemoteDavEvent = remoteDavEvent(icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT")
     var createdRef: RemoteDavEventRef = RemoteDavEventRef(url = "", etag = "")
+    /**
+     * When set, emulates the real Rust bridge: it rewrites the ICS from the edit and reparses it, so the
+     * returned event reflects the edited recurrence/alarms. Null (default) returns [patchedEvent] verbatim,
+     * matching the "bridge already reparsed this" fixtures the other tests rely on.
+     */
+    var applyEdit: ((base: RemoteDavEvent, edit: RemoteEventEdit) -> RemoteDavEvent)? = null
     val creates = mutableListOf<Pair<String, String>>()
     val deletes = mutableListOf<Pair<String, String>>()
 
@@ -554,8 +669,11 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
     override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
         emptyList<RemoteDavEvent>()
 
-    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = patchedEvent
-    override suspend fun buildEventIcs(edit: RemoteEventEdit) = patchedEvent
+    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) =
+        applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+
+    override suspend fun buildEventIcs(edit: RemoteEventEdit) =
+        applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
         creates += calendarUrl to icsData
         return createdRef

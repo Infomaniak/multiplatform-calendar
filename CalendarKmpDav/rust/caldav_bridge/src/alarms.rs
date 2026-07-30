@@ -27,21 +27,27 @@ pub(crate) fn parse_alarms(ev: &icalendar::Event) -> Vec<AlarmEntry> {
         .collect()
 }
 
-/// Strips VALARMs from the first VEVENT only, preserving recurrence-exception alarms.
+/// Strips VALARMs from the VEVENT at `target_vevent` (0-based ordinal among VEVENTs), leaving every
+/// other VEVENT's alarms — e.g. recurrence-exception overrides — untouched.
 /// Only the line terminator is trimmed so folded continuation lines aren't mistaken for boundaries.
-pub(crate) fn strip_valarms_in_first_vevent(ics: &str) -> String {
+pub(crate) fn strip_valarms_in_vevent(ics: &str, target_vevent: usize) -> String {
     let mut out = String::with_capacity(ics.len());
-    let mut in_vevent = false;
+    let mut vevent_seen = 0usize;
+    let mut in_target = false;
     let mut done = false;
     let mut in_alarm = false;
     for line in ics.split_inclusive('\n') {
         let marker = line.trim_end_matches(['\r', '\n']);
-        if !done && !in_vevent && is_begin_marker(marker, VEVENT) {
-            in_vevent = true;
+        if !done && !in_target && is_begin_marker(marker, VEVENT) {
+            let is_target = vevent_seen == target_vevent;
+            vevent_seen += 1;
+            if is_target {
+                in_target = true;
+            }
             out.push_str(line);
             continue;
         }
-        if in_vevent {
+        if in_target {
             if is_begin_marker(marker, VALARM) {
                 in_alarm = true;
                 continue;
@@ -53,7 +59,7 @@ pub(crate) fn strip_valarms_in_first_vevent(ics: &str) -> String {
                 continue;
             }
             if is_end_marker(marker, VEVENT) {
-                in_vevent = false;
+                in_target = false;
                 done = true;
             }
         }
@@ -62,8 +68,9 @@ pub(crate) fn strip_valarms_in_first_vevent(ics: &str) -> String {
     out
 }
 
-/// Splices VALARM blocks before the first VEVENT's END:VEVENT, matched as a complete content line.
-pub(crate) fn splice_alarms_into_first_vevent(ics: &str, alarms: &[AlarmEdit]) -> String {
+/// Splices VALARM blocks before the `END:VEVENT` of the VEVENT at `target_vevent` (0-based ordinal
+/// among VEVENTs), matched as a complete content line.
+pub(crate) fn splice_alarms_into_vevent(ics: &str, target_vevent: usize, alarms: &[AlarmEdit]) -> String {
     if alarms.is_empty() {
         return ics.to_string();
     }
@@ -72,15 +79,20 @@ pub(crate) fn splice_alarms_into_first_vevent(ics: &str, alarms: &[AlarmEdit]) -
         return ics.to_string();
     }
     let mut out = String::with_capacity(ics.len() + blocks.len());
-    let mut in_vevent = false;
+    let mut vevent_seen = 0usize;
+    let mut in_target = false;
     let mut done = false;
     for line in ics.split_inclusive('\n') {
         let marker = line.trim_end_matches(['\r', '\n']);
-        if !done && !in_vevent && is_begin_marker(marker, VEVENT) {
-            in_vevent = true;
-        } else if in_vevent && is_end_marker(marker, VEVENT) {
+        if !done && !in_target && is_begin_marker(marker, VEVENT) {
+            let is_target = vevent_seen == target_vevent;
+            vevent_seen += 1;
+            if is_target {
+                in_target = true;
+            }
+        } else if in_target && is_end_marker(marker, VEVENT) {
             out.push_str(&blocks);
-            in_vevent = false;
+            in_target = false;
             done = true;
         }
         out.push_str(line);

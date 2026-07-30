@@ -3,7 +3,7 @@
 use icalendar::{Calendar, CalendarComponent, Component, Property};
 use std::collections::HashSet;
 
-use crate::alarms::{parse_alarms, splice_alarms_into_first_vevent, strip_valarms_in_first_vevent};
+use crate::alarms::{parse_alarms, splice_alarms_into_vevent, strip_valarms_in_vevent};
 use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
 use crate::models::{
@@ -17,6 +17,7 @@ use crate::models::{
     EventResourceRef,
     EventSyncDelta,
     OrganizerEntry,
+    RecurrenceChange,
     VTimeZoneSpec,
 };
 
@@ -41,13 +42,16 @@ fn prop_with_tzid(event: &icalendar::Event, name: &str) -> (Option<String>, Opti
     }
 }
 
-/// Parse raw iCS data into an [`EventEntry`], extracting the first `VEVENT`.
+/// Parse raw iCS data into an [`EventEntry`], extracting the recurrence master `VEVENT`.
+///
+/// A CalDAV resource can bundle the master and its detached overrides (same `UID`) in any order, so
+/// we select the master (first `VEVENT` without a `RECURRENCE-ID`, else the first `VEVENT`) rather
+/// than blindly taking the first component — otherwise an override preceding the master would shadow
+/// it (RFC 5545 §3.8.4.4).
 pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> {
     let parsed: Calendar = ics_data.parse().unwrap_or_default();
 
-    let vevent = parsed.components.iter().find_map(|c| {
-        if let CalendarComponent::Event(e) = c { Some(e) } else { None }
-    });
+    let vevent = master_vevent(&parsed);
 
     match vevent {
         Some(ev) => {
@@ -142,28 +146,34 @@ fn strip_mailto(value: &str) -> String {
 /// `etag` are left empty for the caller to fill from the server response.
 #[uniffi::export]
 pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<EventEntry, CaldavError> {
+    // Locate the recurrence master up front so both the field mutation and the (textual) alarm
+    // replacement target the *same* VEVENT even when a detached override precedes it in the resource.
+    let probe: Calendar = ics_data.parse().map_err(|e| bridge_error("Patch", e))?;
+    let master_ordinal = master_vevent_index(&probe)
+        .map(|index| vevent_ordinal(&probe, index))
+        .ok_or_else(|| bridge_error("Patch", "no VEVENT in ICS"))?;
+
     // Unchanged leaves source VALARMs untouched so `X-*` / exotic params survive partial edits.
     let (source, new_alarms) = match &edit.alarms_change {
         AlarmsChange::Unchanged => (ics_data.to_string(), None),
-        AlarmsChange::Set { alarms } => (strip_valarms_in_first_vevent(ics_data), Some(alarms.as_slice())),
+        AlarmsChange::Set { alarms } => {
+            (strip_valarms_in_vevent(ics_data, master_ordinal), Some(alarms.as_slice()))
+        }
     };
     let mut calendar: Calendar = source.parse().map_err(|e| bridge_error("Patch", e))?;
 
-    let event = calendar
-        .components
-        .iter_mut()
-        .find_map(|component| match component {
-            CalendarComponent::Event(event) => Some(event),
-            _ => None,
-        })
-        .ok_or_else(|| bridge_error("Patch", "no VEVENT in ICS"))?;
+    let master_index = master_vevent_index(&calendar).ok_or_else(|| bridge_error("Patch", "no VEVENT in ICS"))?;
+    let event = match &mut calendar.components[master_index] {
+        CalendarComponent::Event(event) => event,
+        _ => unreachable!("master_vevent_index only returns VEVENT indices"),
+    };
 
     apply_edited_fields(event, &edit);
     bump_revision(event, &edit.stamp);
 
     let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
     let final_ics = match new_alarms {
-        Some(alarms) => splice_alarms_into_first_vevent(&serialised, alarms),
+        Some(alarms) => splice_alarms_into_vevent(&serialised, master_ordinal, alarms),
         None => serialised,
     };
     reparse_edited(final_ics, "Patch")
@@ -175,6 +185,7 @@ fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "LOCATION", edit.location.as_deref());
     set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
     apply_color_change(event, &edit.color_change);
+    apply_recurrence_change(event, &edit.recurrence_change);
 
     event.remove_property("DTSTART");
     event.remove_property("DTEND");
@@ -218,7 +229,7 @@ pub fn build_event_ics(edit: EventEdit) -> Result<EventEntry, CaldavError> {
     let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
     let final_ics = match &edit.alarms_change {
         AlarmsChange::Unchanged => serialised,
-        AlarmsChange::Set { alarms } => splice_alarms_into_first_vevent(&serialised, alarms),
+        AlarmsChange::Set { alarms } => splice_alarms_into_vevent(&serialised, 0, alarms),
     };
     reparse_edited(final_ics, "Build")
 }
@@ -333,6 +344,52 @@ fn set_or_clear(event: &mut icalendar::Event, key: &str, value: Option<&str>) {
     event.remove_property(key);
     if let Some(value) = value {
         event.add_property(key, value);
+    }
+}
+
+/// The first VEVENT without a `RECURRENCE-ID` (the recurrence master), else the first VEVENT.
+///
+/// `RRULE` and every edited field belong to the master, never to a detached override instance
+/// (RFC 5545 §3.8.4.4). Returns an index (not a reference) so callers can take a fresh mutable
+/// borrow of the chosen component.
+fn master_vevent_index(calendar: &Calendar) -> Option<usize> {
+    let mut first_vevent = None;
+    for (index, component) in calendar.components.iter().enumerate() {
+        if let CalendarComponent::Event(event) = component {
+            if event.property_value("RECURRENCE-ID").is_none() {
+                return Some(index);
+            }
+            first_vevent.get_or_insert(index);
+        }
+    }
+    first_vevent
+}
+
+/// The recurrence master VEVENT (see [`master_vevent_index`]), or `None` when the calendar has none.
+fn master_vevent(calendar: &Calendar) -> Option<&icalendar::Event> {
+    match &calendar.components[master_vevent_index(calendar)?] {
+        CalendarComponent::Event(event) => Some(event),
+        _ => None,
+    }
+}
+
+/// Zero-based position of the VEVENT at `index` among all VEVENTs (ignoring non-VEVENT components).
+///
+/// The textual alarm splicing/stripping helpers address a VEVENT by this ordinal, so field edits and
+/// alarm edits stay aligned on the same VEVENT regardless of surrounding VTIMEZONE/override components.
+fn vevent_ordinal(calendar: &Calendar, index: usize) -> usize {
+    calendar.components[..index]
+        .iter()
+        .filter(|component| matches!(component, CalendarComponent::Event(_)))
+        .count()
+}
+
+/// Apply an `RRULE` change to the recurrence master (mirrors [`apply_color_change`]).
+fn apply_recurrence_change(event: &mut icalendar::Event, change: &RecurrenceChange) {
+    match change {
+        RecurrenceChange::Unchanged => {}
+        RecurrenceChange::Set { rrule } => set_or_clear(event, "RRULE", Some(rrule)),
+        RecurrenceChange::Cleared => set_or_clear(event, "RRULE", None),
     }
 }
 
@@ -517,4 +574,3 @@ pub async fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> R
     let resp = cli.delete_if_match(event_url, etag).await.map_err(|error| network_or_bridge_error("Delete", error.as_ref()))?;
     ensure_success("Delete", &resp)
 }
-

@@ -66,7 +66,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     fun tearDown() {
         if (::database.isInitialized) database.close()
     }
-    
+
     @Test
     fun syncEvents_upsertsChanged_deletesRemoved_andUpdatesSyncToken() = runTest {
         val accountId = AccountId(3)

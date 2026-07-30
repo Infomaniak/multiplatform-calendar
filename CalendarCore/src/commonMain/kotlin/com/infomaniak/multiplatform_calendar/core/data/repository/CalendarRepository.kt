@@ -23,24 +23,23 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLeve
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.toEventAndRawIcsEntities
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.mapper.RecurrenceDroppedException
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
+import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrence
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
-import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrence
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
-import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
@@ -84,7 +83,6 @@ internal class CalendarRepository(
     suspend fun getCalendar(calendarId: CalendarId): Calendar {
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
     }
-
 
     suspend fun syncEvents(
         accountId: AccountId,
@@ -284,7 +282,6 @@ internal class CalendarRepository(
             ),
         )
     }
-
 
     private fun List<RemoteDavCalendar>.excludeScheduling() = filterNot { remote ->
         // Exclude scheduling calendars (RFC 6638 inbox/outbox)

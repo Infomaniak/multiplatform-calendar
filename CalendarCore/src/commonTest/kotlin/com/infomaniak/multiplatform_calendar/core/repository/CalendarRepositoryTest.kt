@@ -218,10 +218,11 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         ).apply {
             rangeEvents[calendarUrl] = listOf(validBefore, invalid, validAfter)
         }
+        val crashReport = RecordingCrashReport()
         val repository = CalendarRepository(
             caldavClient = remote,
             calendarDao = database.calendarDao(),
-            crashReport = CrashReportProvider.noOp,
+            crashReport = crashReport,
             eventDao = database.eventDao(),
         )
 
@@ -231,6 +232,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
 
         val storedIds = database.eventDao().observeEvents(calendarId).first().map { it.id.url }
         assertEquals(listOf(validBefore.url, validAfter.url).sorted(), storedIds.sorted())
+        assertEquals(1, crashReport.exceptionCaptures.size)
+        assertTrue(crashReport.exceptionCaptures[0].message.contains(invalid.url))
     }
 
     @Test

@@ -55,8 +55,10 @@ class NoOpCrashReport : CrashReport {
 class RecordingCrashReport : CrashReport {
 
     data class Capture(val message: String, val data: Map<String, String>?, val level: CrashReportLevel?)
+    data class ExceptionCapture(val message: String, val exception: Throwable)
 
     val captures: MutableList<Capture> = mutableListOf()
+    val exceptionCaptures: MutableList<ExceptionCapture> = mutableListOf()
 
     override fun addBreadcrumb(
         message: String,
@@ -66,7 +68,9 @@ class RecordingCrashReport : CrashReport {
         data: Map<String, String>?,
     ) = Unit
 
-    override fun capture(message: String, exception: Throwable, data: Map<String, String>?) = Unit
+    override fun capture(message: String, exception: Throwable, data: Map<String, String>?) {
+        exceptionCaptures += ExceptionCapture(message, exception)
+    }
 
     override fun capture(
         message: String,

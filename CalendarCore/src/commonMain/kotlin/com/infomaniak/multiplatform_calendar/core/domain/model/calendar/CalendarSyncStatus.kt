@@ -17,20 +17,25 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.NeverSynced
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
-@OptIn(ExperimentalObjCRefinement::class)
-public data class Calendar(
-    @HiddenFromObjC
-    val id: CalendarId,
-    @HiddenFromObjC
-    val accountId: AccountId,
-    val displayName: String,
-    val colors: CalendarColors,
-    val isVisible: Boolean,
-    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
-    val syncStatus: CalendarSyncStatus = NeverSynced,
-)
+/**
+ * Per-calendar sync state exposed to consumers (UI badge, "synced X ago", error banner). [Syncing]
+ * is runtime-only; the others are derived from persisted bookkeeping. [Failed] keeps the last
+ * successful [lastSyncedAt] (or `null`) so the UI can still show it alongside the error.
+ */
+@OptIn(ExperimentalTime::class)
+public sealed interface CalendarSyncStatus {
+
+    public data object NeverSynced : CalendarSyncStatus
+
+    public data object Syncing : CalendarSyncStatus
+
+    public data class Synced(val lastSyncedAt: Instant) : CalendarSyncStatus
+
+    public data class Failed(
+        val lastSyncedAt: Instant?,
+        val reason: SyncErrorReason,
+    ) : CalendarSyncStatus
+}

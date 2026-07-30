@@ -17,20 +17,11 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.NeverSynced
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
-
-@OptIn(ExperimentalObjCRefinement::class)
-public data class Calendar(
-    @HiddenFromObjC
-    val id: CalendarId,
-    @HiddenFromObjC
-    val accountId: AccountId,
-    val displayName: String,
-    val colors: CalendarColors,
-    val isVisible: Boolean,
-    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
-    val syncStatus: CalendarSyncStatus = NeverSynced,
-)
+/** Coarse reason a calendar's last sync attempt failed, decoupled from Rust/HTTP specifics. */
+public enum class SyncErrorReason {
+    NETWORK,
+    AUTH,
+    CONFLICT,
+    SERVER,
+    UNKNOWN,
+}

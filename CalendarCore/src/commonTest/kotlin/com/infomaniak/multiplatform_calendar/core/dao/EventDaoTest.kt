@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarSyncStateEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
@@ -514,6 +515,7 @@ class EventDaoTest : RobolectricTestsBase() {
                     displayName = "Calendar ${calendarId.url}",
                     color = null,
                     isVisible = isVisible,
+                    syncState = CalendarSyncStateEntity(),
                 ),
             ),
         )

@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarSyncStateEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
@@ -37,7 +38,13 @@ internal fun List<RemoteDavCalendar>.toEntitiesPreservingLocalPrefs(
 ): List<CalendarEntity> = map { remoteCalendar ->
     val freshEntity = remoteCalendar.toEntity(accountId)
     existingByCalendarId[freshEntity.id]
-        ?.let { existing -> freshEntity.copy(isVisible = existing.isVisible) }
+        ?.let { existing ->
+            freshEntity.copy(
+                isVisible = existing.isVisible,
+                syncToken = existing.syncToken,
+                syncState = existing.syncState,
+            )
+        }
         ?: freshEntity
 }
 
@@ -49,4 +56,5 @@ private fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
     caldavColor = parseHexColor(color),
     ctag = ctag,
     accessLevel = accessLevel.toEntity(),
+    syncState = CalendarSyncStateEntity(),
 )

@@ -106,7 +106,6 @@ internal class RustCaldavBridge(
         }
     }
 
-
     override suspend fun getEventsInRange(
         credentials: DavAccount,
         calendarUrl: String,

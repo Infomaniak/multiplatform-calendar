@@ -42,7 +42,6 @@ interface CalendarSyncRemoteSource {
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit)
 
-
     /** Fetch only VEVENT resources overlapping the UTC iCal range [start, end]. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun getEventsInRange(

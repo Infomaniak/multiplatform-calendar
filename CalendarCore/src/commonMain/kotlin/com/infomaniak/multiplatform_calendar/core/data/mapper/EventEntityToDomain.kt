@@ -18,11 +18,11 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -34,7 +34,8 @@ internal fun EventEntity.toDomain(
     val organizer = organizer?.toDomain()
     val attendees = attendees.map { it.toDomain(isOrganizer = it.email == organizer?.email) }
     return Event(
-        id = id,
+        eventId = id,
+        occurrenceId = OccurrenceId(id.url),
         calendarId = calendarId,
         accountId = calendar.accountId,
         title = summary,

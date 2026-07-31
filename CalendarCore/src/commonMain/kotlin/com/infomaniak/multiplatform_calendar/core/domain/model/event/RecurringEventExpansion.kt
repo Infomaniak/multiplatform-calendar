@@ -32,7 +32,8 @@ import kotlin.time.Instant
  * untouched. Runs **before** the day split ([groupDaySlicesByDay]) so each occurrence is then sliced
  * like any other event.
  *
- * Each occurrence is a synthetic [Event] whose id is `masterId + "#" + canonicalRecurrenceKey`
+ * Each occurrence is a synthetic [Event] whose [Event.occurrenceId] is
+ * `masterId + "#" + canonicalRecurrenceKey`
  * (stable per instance) and whose timing is the occurrence's own (wall-clock preserved across DST,
  * `end` exclusive). The master's `RRULE` is kept on the instance's timing so consumers can still tell
  * it belongs to a series — the expander is never re-run on an already-materialised occurrence.
@@ -69,7 +70,7 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
             defaultZone = timeZone,
             limits = limits,
         )
-        if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(event.id, outcome)
+        if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(event.eventId, outcome)
         for (occurrence in occurrences) expanded += event.toOccurrenceEvent(occurrence)
     }
     return expanded
@@ -79,7 +80,7 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
 private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
     // Copying keeps all master fields (title, colors, attendees, …) while overriding identity and timing.
     return copy(
-        id = EventId("${id.url}#${occurrence.key.canonical}"),
+        occurrenceId = OccurrenceId("${eventId.url}#${occurrence.key.canonical}"),
         timing = timing.copy(
             start = occurrence.start,
             end = occurrence.end,

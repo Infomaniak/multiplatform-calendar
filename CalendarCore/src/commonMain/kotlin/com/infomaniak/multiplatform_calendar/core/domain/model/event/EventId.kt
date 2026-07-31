@@ -21,6 +21,11 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
 
+/**
+ * Persistent identifier of an event resource (DB/CalDAV id).
+ *
+ * For recurring series, this stays the master event id and is used for read/write operations.
+ */
 @Serializable
 @JvmInline
 public value class EventId(public val url: String)

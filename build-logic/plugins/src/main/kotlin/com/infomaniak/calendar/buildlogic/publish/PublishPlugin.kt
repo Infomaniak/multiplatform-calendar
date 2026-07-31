@@ -89,8 +89,6 @@ class PublishPlugin : Plugin<Project> {
                         url = uri(
                             if (version.toString().endsWith("SNAPSHOT")) {
                                 "https://maven.infomaniak.app/snapshots"
-                            } else if (version.toString().endsWith("dev")) {
-                                "https://maven.infomaniak.app/dev"
                             } else {
                                 "https://maven.infomaniak.app/releases"
                             }

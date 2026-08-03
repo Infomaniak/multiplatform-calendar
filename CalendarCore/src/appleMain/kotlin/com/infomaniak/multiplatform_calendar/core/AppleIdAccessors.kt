@@ -24,11 +24,27 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
  * Apple-only accessors that expose the underlying values of the `value class` ids as plain types.
  *
  * Kotlin value classes are boxed to `Any` when exported as *properties* to Swift/ObjC, which makes
- * `calendar.id` / `event.id` unusable from Swift. These extensions surface the wrapped value while
+ * `calendar.id` / event id value classes are unusable from Swift. These extensions surface wrapped
+ * values while
  * keeping the value classes intact in common code and on Android.
  */
 public val Calendar.idValue: String get() = id.url
 public val Calendar.accountIdValue: Long get() = accountId.value
-public val Event.idValue: String get() = id.url
+
+/**
+ * Persistent event identifier (master DB/CalDAV id).
+ *
+ * For recurring events this stays the same across all occurrences and is the value to use for
+ * read/write operations (`observeEvent`, `updateEvent`, `deleteEvent`, ...).
+ */
+public val Event.eventIdValue: String get() = eventId.url
+
+/**
+ * Display occurrence identifier.
+ *
+ * Non-recurring events: same value as [eventIdValue].
+ * Recurring events: synthetic value `"<eventId>#<canonicalOccurrenceKey>"` unique per occurrence.
+ */
+public val Event.occurrenceIdValue: String get() = occurrenceId.value
 public val Event.calendarIdValue: String get() = calendarId.url
 public val Event.accountIdValue: Long get() = accountId.value

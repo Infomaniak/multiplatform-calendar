@@ -40,7 +40,6 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -301,19 +300,20 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         database.accountDao().insert(AccountEntity(accountId))
         val calendarUrl = "https://dav.example/cal/cancel/"
         val calendarId = CalendarId(calendarUrl)
+        var syncJob: Job? = null
         // Each event has an invalid RRULE that would be dropped and logged if the loop ever processed it.
         val events = (1..3).map { remoteEvent(url = "${calendarUrl}e$it.ics", uid = "u$it", rrule = "COUNT=5") }
         val remote = FakeCalendarSyncRemoteSource(
             calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
         ).apply {
             rangeEvents[calendarUrl] = events
-            // Cancel the sync right after the events are fetched, before the per-event loop runs.
-            onGetEventsInRange = { currentCoroutineContext()[Job]!!.cancel() }
+            // Cancel the parent sync job right after events are fetched, before the per-event loop runs.
+            onGetEventsInRange = { syncJob?.cancel() }
         }
         val crashReport = RecordingCrashReport()
         val repository = CalendarRepository(remote, database.calendarDao(), crashReport, database.eventDao())
 
-        val syncJob = launch {
+        syncJob = launch {
             repository.downloadEventsByRange(
                 accountId,
                 fakeCredentials(),
@@ -324,7 +324,6 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         syncJob.join()
 
         assertTrue(syncJob.isCancelled, "The cancelled sync should stop instead of completing")
-        // ensureActive() throws on the first event, so nothing is processed, persisted, or logged.
         assertEquals(emptyList(), database.eventDao().observeEvents(calendarId).first())
         assertTrue(crashReport.captures.isEmpty(), "No per-event work should run once the sync is cancelled")
     }

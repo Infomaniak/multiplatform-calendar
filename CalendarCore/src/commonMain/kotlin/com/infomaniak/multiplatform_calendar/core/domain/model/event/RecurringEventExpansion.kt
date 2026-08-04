@@ -70,7 +70,7 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
             defaultZone = timeZone,
             limits = limits,
         )
-        if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(event.eventId, outcome)
+        if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(event.masterEventId, outcome)
         for (occurrence in occurrences) expanded += event.toOccurrenceEvent(occurrence)
     }
     return expanded
@@ -80,7 +80,7 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
 private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
     // Copying keeps all master fields (title, colors, attendees, …) while overriding identity and timing.
     return copy(
-        occurrenceId = OccurrenceId("${eventId.url}#${occurrence.key.canonical}"),
+        occurrenceId = OccurrenceId("${masterEventId.url}#${occurrence.key.canonical}"),
         timing = timing.copy(
             start = occurrence.start,
             end = occurrence.end,

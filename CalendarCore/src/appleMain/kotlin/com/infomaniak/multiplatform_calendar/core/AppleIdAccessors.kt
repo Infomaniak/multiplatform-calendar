@@ -37,13 +37,13 @@ public val Calendar.accountIdValue: Long get() = accountId.value
  * For recurring events this stays the same across all occurrences and is the value to use for
  * read/write operations (`observeEvent`, `updateEvent`, `deleteEvent`, ...).
  */
-public val Event.eventIdValue: String get() = eventId.url
+public val Event.masterEventIdValue: String get() = masterEventId.url
 
 /**
  * Display occurrence identifier.
  *
- * Non-recurring events: same value as [eventIdValue].
- * Recurring events: synthetic value `"<eventId>#<canonicalOccurrenceKey>"` unique per occurrence.
+ * Non-recurring events: same value as [masterEventIdValue].
+ * Recurring events: synthetic value `"<masterEventId>#<canonicalOccurrenceKey>"` unique per occurrence.
  */
 public val Event.occurrenceIdValue: String get() = occurrenceId.value
 public val Event.calendarIdValue: String get() = calendarId.url

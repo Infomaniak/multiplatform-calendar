@@ -29,7 +29,7 @@ import kotlin.time.Instant
 @OptIn(ExperimentalTime::class, ExperimentalObjCRefinement::class)
 public data class Event(
     @HiddenFromObjC
-    val eventId: EventId,
+    val masterEventId: EventId,
     @HiddenFromObjC
     val occurrenceId: OccurrenceId,
     @HiddenFromObjC

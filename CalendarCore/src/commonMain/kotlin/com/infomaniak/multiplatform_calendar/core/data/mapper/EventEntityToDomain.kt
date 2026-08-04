@@ -34,7 +34,7 @@ internal fun EventEntity.toDomain(
     val organizer = organizer?.toDomain()
     val attendees = attendees.map { it.toDomain(isOrganizer = it.email == organizer?.email) }
     return Event(
-        eventId = id,
+        masterEventId = id,
         occurrenceId = OccurrenceId(id.url),
         calendarId = calendarId,
         accountId = calendar.accountId,

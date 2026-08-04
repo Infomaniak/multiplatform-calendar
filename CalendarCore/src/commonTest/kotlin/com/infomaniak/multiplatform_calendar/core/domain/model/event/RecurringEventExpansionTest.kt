@@ -116,7 +116,7 @@ class RecurringEventExpansionTest {
 
         suspend fun idsByStart(rangeStart: Instant): Map<LocalDateTime, String> = listOf(master)
             .expandRecurrencesInWindow(rangeStart = rangeStart, rangeEnd = utc(2026, 1, 11), timeZone = TimeZone.UTC)
-            .associate { it.timing.start to it.id.url }
+            .associate { it.timing.start to it.occurrenceId.value }
 
         val wide = idsByStart(utc(2026, 1, 1))   // Jan 1..5
         val narrow = idsByStart(utc(2026, 1, 3)) // Jan 3..5 — same occurrences, later window start
@@ -141,8 +141,11 @@ class RecurringEventExpansionTest {
         // its 2 occurrences → 3 events total.
         assertEquals(3, result.size)
         assertTrue(result.contains(plain), "a non-recurring event must pass through untouched")
-        assertTrue(result.none { it.id == recurring.id }, "the recurring master itself must not survive expansion")
-        assertEquals(2, result.count { it.id.url.startsWith("event://daily#") })
+        assertTrue(
+            result.none { it.masterEventId == recurring.masterEventId && it.occurrenceId == recurring.occurrenceId },
+            "the recurring master itself must not survive expansion",
+        )
+        assertEquals(2, result.count { it.occurrenceId.value.startsWith("event://daily#") })
     }
 
     @Test
@@ -169,7 +172,7 @@ class RecurringEventExpansionTest {
 
         assertEquals(2, occurrences.size)
         occurrences.forEach { occurrence ->
-            assertTrue(occurrence.id.url.startsWith("event://daily#"), "each occurrence gets its synthetic id")
+            assertTrue(occurrence.occurrenceId.value.startsWith("event://daily#"), "each occurrence gets its synthetic id")
             assertEquals(master.title, occurrence.title, "title must be copied from the master")
             assertEquals(master.colors, occurrence.colors, "colors must be copied from the master")
             assertEquals(master.canEdit, occurrence.canEdit, "editability must be copied from the master")
@@ -182,7 +185,8 @@ class RecurringEventExpansionTest {
     }
 
     private fun dailyMaster(id: String, rule: RecurrenceRule): Event = Event(
-        id = EventId(id),
+        masterEventId = EventId(id),
+        occurrenceId = OccurrenceId(id),
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",

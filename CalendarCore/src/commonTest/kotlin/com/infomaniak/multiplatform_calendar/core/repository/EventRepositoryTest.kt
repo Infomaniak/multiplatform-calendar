@@ -33,16 +33,16 @@ import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -59,21 +59,21 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
-import kotlin.time.Duration.Companion.minutes
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 
 class EventRepositoryTest : RobolectricTestsBase() {
 
@@ -183,7 +183,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             timeZone = TimeZone.UTC,
         ).first()
 
-        val occurrenceIds = slicesByDay.values.flatten().map { it.event.id.url }
+        val occurrenceIds = slicesByDay.values.flatten().map { it.event.occurrenceId.value }
         assertEquals(5, occurrenceIds.size, "DAILY COUNT=5 must yield 5 occurrences")
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
         assertTrue(occurrenceIds.all { it.startsWith("event://daily#") }, "ids must be masterId#key")
@@ -229,7 +229,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             timeZone = TimeZone.UTC,
         ).first()
 
-        val occurrenceIds = slicesByDay.values.flatten().map { it.event.id.url }
+        val occurrenceIds = slicesByDay.values.flatten().map { it.event.occurrenceId.value }
         assertEquals(3, occurrenceIds.size, "all-day DAILY COUNT=3 must yield 3 occurrences")
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
         assertTrue(occurrenceIds.all { it.startsWith("event://all-day#") }, "ids must be masterId#key")
@@ -468,7 +468,14 @@ class EventRepositoryTest : RobolectricTestsBase() {
         seedCalendar(account, calendarId)
 
         val eventId = EventId("https://cal/main/event.ics")
-        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = eventId, calendarId = calendarId, etag = "etag-old"), "BEGIN:VEVENT")))
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    richEvent(id = eventId, calendarId = calendarId, etag = "etag-old"),
+                    "BEGIN:VEVENT",
+                ),
+            ),
+        )
         assertEquals(Frequency.Weekly, eventDao().getEvent(eventId)!!.rrule?.freq, "precondition: event starts recurring")
 
         fakeCaldav.applyEdit = ::bridgeApplyingEdit
@@ -680,6 +687,7 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
 
     override suspend fun buildEventIcs(edit: RemoteEventEdit) =
         applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
         creates += calendarUrl to icsData
         return createdRef

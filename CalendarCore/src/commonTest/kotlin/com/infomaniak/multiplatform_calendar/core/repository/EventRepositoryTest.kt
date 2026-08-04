@@ -41,8 +41,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule

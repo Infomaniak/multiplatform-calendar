@@ -24,8 +24,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
  * Apple-only accessors that expose the underlying values of the `value class` ids as plain types.
  *
  * Kotlin value classes are boxed to `Any` when exported as *properties* to Swift/ObjC, which makes
- * `calendar.id` / event id value classes are unusable from Swift. These extensions surface wrapped
- * values while
+ * `calendar.id` and the event ID value-class properties are unusable from Swift. These extensions
+ * surface their wrapped values while
  * keeping the value classes intact in common code and on Android.
  */
 public val Calendar.idValue: String get() = id.url

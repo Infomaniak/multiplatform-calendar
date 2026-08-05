@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,17 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
 
 /**
- * Persistent identifier of an event resource (DB/CalDAV id).
+ * Identifier of a displayed event occurrence.
  *
- * For recurring series, this stays the master event id and is used for read/write operations.
+ * Non-recurring events: same value as [EventId.url].
+ * Recurring occurrences: `"<eventId>#<canonicalOccurrenceKey>"`.
  */
 @Serializable
 @JvmInline
-public value class EventId(public val url: String)
+public value class OccurrenceId(public val value: String)

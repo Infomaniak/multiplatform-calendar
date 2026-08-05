@@ -265,7 +265,7 @@ class EventDaySliceTest {
 
         assertEquals(
             listOf("event://allday", "event://morning", "event://afternoon"),
-            day.map { it.event.id.url },
+            day.map { it.event.occurrenceId.value },
         )
     }
 
@@ -282,7 +282,7 @@ class EventDaySliceTest {
             timeZone = paris,
         ).getValue(LocalDate(2026, 1, 5))
 
-        assertEquals(listOf("event://a", "event://b"), day.map { it.event.id.url })
+        assertEquals(listOf("event://a", "event://b"), day.map { it.event.occurrenceId.value })
     }
 
     @Test
@@ -327,12 +327,12 @@ class EventDaySliceTest {
         // Day 6: continuation of `a` (00:00) comes before timed `b` (09:00).
         assertEquals(
             listOf("event://a", "event://b"),
-            result.getValue(LocalDate(2026, 1, 6)).map { it.event.id.url },
+            result.getValue(LocalDate(2026, 1, 6)).map { it.event.occurrenceId.value },
         )
         // Day 7: continuation of `a` (00:00, ends 10:00) comes before timed `c` (09:00).
         assertEquals(
             listOf("event://a", "event://c"),
-            result.getValue(LocalDate(2026, 1, 7)).map { it.event.id.url },
+            result.getValue(LocalDate(2026, 1, 7)).map { it.event.occurrenceId.value },
         )
     }
 
@@ -423,7 +423,8 @@ class EventDaySliceTest {
     )
 
     private fun eventOf(timing: EventTiming, id: String = "event://test"): Event = Event(
-        id = EventId(id),
+        masterEventId = EventId(id),
+        occurrenceId = OccurrenceId(id),
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",

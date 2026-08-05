@@ -185,13 +185,13 @@ internal suspend fun Event.expandDaySlicesInto(
 }
 
 /**
- * Sorts slices within a single day: all-day first, then timed by start time; [EventId.url] breaks
+ * Sorts slices within a single day: all-day first, then timed by start time; [OccurrenceId.value] breaks
  * ties for stability. No `date` key — buckets are already mono-date.
  */
 private val perDayDaySliceComparator = compareBy<EventDaySlice>(
     { !it.isAllDay },
     { it.displayStart },
-    { it.event.id.url },
+    { it.event.occurrenceId.value },
 )
 
 /**

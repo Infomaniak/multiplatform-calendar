@@ -260,7 +260,7 @@ private suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     val colorsBySourceColor = HashMap<Int?, CalendarColors>()
     val colorsByDay = LinkedHashMap<LocalDate, LinkedHashSet<CalendarColors>>()
     val timeZoneCache = HashMap<String, TimeZone>()
-    val occurrences = ArrayList<Occurrence>()
+    val occurrences = ArrayList<Occurrence>() // Reused buffer for recurring expansion
 
     for (row in this@foldToDailyCalendarColors) {
         currentCoroutineContext().ensureActive()

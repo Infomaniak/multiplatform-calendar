@@ -262,7 +262,7 @@ private suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     val timeZoneCache = HashMap<String, TimeZone>()
     val occurrences = ArrayList<Occurrence>()
 
-    for (row in this) {
+    for (row in this@foldToDailyCalendarColors) {
         currentCoroutineContext().ensureActive()
 
         val colors = colorsBySourceColor.getOrPut(row.colorArgb) { CalendarColors.from(row.colorArgb) }

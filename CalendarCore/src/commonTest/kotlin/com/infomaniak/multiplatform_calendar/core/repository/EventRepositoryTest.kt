@@ -339,6 +339,76 @@ class EventRepositoryTest : RobolectricTestsBase() {
         }
     }
 
+    @Test
+    fun observeVisibleCalendarColorsByDay_reprojectsAnchoredEventAcrossDateBoundary() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://tz")
+        val purple = CalendarSourceColor(0xFF8E24AA.toInt())
+        val displayZone = TimeZone.of("Europe/Paris")
+        seedCalendar(account, calendarId, purple)
+
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    timedEvent(
+                        id = EventId("event://utc-late"),
+                        calendarId = calendarId,
+                        start = LocalDateTime(2026, 6, 15, 23, 30),
+                        end = LocalDateTime(2026, 6, 16, 0, 30),
+                    ),
+                    "",
+                ),
+            ),
+        )
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = displayZone,
+        ).first()
+
+        val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
+        assertEquals(setOf(day16), colorsByDay.keys, "UTC late event must land on day 16 in Europe/Paris")
+        assertEquals(setOf(purple.argb), colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet())
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_keepsFloatingWallClockPlacementInDisplayZone() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://floating")
+        val amber = CalendarSourceColor(0xFFFFB300.toInt())
+        val displayZone = TimeZone.of("Europe/Paris")
+        seedCalendar(account, calendarId, amber)
+
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    floatingTimedEvent(
+                        id = EventId("event://floating-night"),
+                        calendarId = calendarId,
+                        start = LocalDateTime(2026, 6, 15, 23, 30),
+                        end = LocalDateTime(2026, 6, 16, 0, 30),
+                    ),
+                    "",
+                ),
+            ),
+        )
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(displayZone),
+            end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(displayZone),
+            timeZone = displayZone,
+        ).first()
+
+        val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
+        val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
+        assertEquals(setOf(day15, day16), colorsByDay.keys)
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day15).map { it.calendarSourceColor }.toSet())
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet())
+    }
+
     /**
      * Regression: a cross-calendar move persists the patched event **reparsed from its final ICS**,
      * so every server-only field (attendees, categories, rrule, status, sequence, refreshed
@@ -662,6 +732,26 @@ class EventRepositoryTest : RobolectricTestsBase() {
             endTimeZone = TimeZone.UTC.id,
             dtStartInstantMs = start.toInstant(TimeZone.UTC).toEpochMilliseconds(),
             dtEndInstantMs = end.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+        ),
+        etag = "1",
+    )
+
+    private fun floatingTimedEvent(
+        id: EventId,
+        calendarId: CalendarId,
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): EventEntity = EventEntity(
+        id = id,
+        calendarId = calendarId,
+        summary = id.url,
+        timing = EventTimingEntity(
+            dtStart = start,
+            dtEndEffective = end,
+            startTimeZone = null,
+            endTimeZone = null,
+            dtStartInstantMs = null,
+            dtEndInstantMs = null,
         ),
         etag = "1",
     )

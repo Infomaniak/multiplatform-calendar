@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
@@ -40,8 +41,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.YearMonth
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -86,6 +91,36 @@ public class CalendarManager internal constructor(
         return sdkCaller.flow(operation = "observe day slices from $start to $end for zone $timeZone") {
             accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
                 eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone)
+            }
+        }
+    }
+
+    /**
+     * Observe, for a whole calendar [month], the per-day calendar colors used to draw month-grid dots.
+     *
+     * The result maps each day of [month] that has at least one event from a *visible* calendar of the current account
+     * to the distinct [CalendarColors] of the calendars owning those events; days with no event are omitted. Returning
+     * the full [CalendarColors] (rather than a single resolved color) lets clients pick whatever they need — e.g.
+     * `datavizContainerVariant` for the dots — and keeps future flexibility.
+     *
+     * This is backed by a lightweight Room projection ([EventRepository.observeVisibleCalendarColorsByDay]): it never
+     * materialises full events nor `EventDaySlice`s, and each source color's palette is computed once, so even busy
+     * months stay cheap to observe.
+     *
+     * [timeZone] is the zone the month grid is displayed in (device zone by default); it defines each day's boundaries
+     * and is forwarded so floating events land on the day the user sees.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    public fun observeMonthlyCalendarColors(
+        month: YearMonth,
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<Map<LocalDate, List<CalendarColors>>> {
+        val start = month.firstDay.atStartOfDayIn(timeZone)
+        val end = month.lastDay.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone) // Exclusive end: start of the next month.
+
+        return sdkCaller.flow(operation = "observe monthly calendar colors for $month in $timeZone") {
+            nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
+                eventRepository.observeVisibleCalendarColorsByDay(accountIds, start, end, timeZone)
             }
         }
     }

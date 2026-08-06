@@ -34,13 +34,13 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySli
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrenceOccurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.lastInclusiveDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
-import com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceExpander
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -269,33 +269,30 @@ private suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
 
         val startZone = row.startZoneId?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
         val endZone = row.endZoneId?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
-        val rrule = row.rrule
+        val timing = EventTiming(
+            start = row.dtStart,
+            end = row.dtEndEffective,
+            startTimeZone = startZone,
+            endTimeZone = endZone,
+            isAllDay = row.isAllDay,
+            recurrenceRule = row.rrule,
+        )
 
-        if (rrule == null) {
+        val hasRecurringExpansion = timing.expandRecurrenceOccurrencesInWindow(
+            masterId = row.eventId,
+            rangeStart = rangeStart,
+            rangeEnd = rangeEnd,
+            timeZone = timeZone,
+            target = occurrences,
+            limits = limits,
+            onExpansionTruncated = onExpansionTruncated,
+        )
+        if (!hasRecurringExpansion) {
             val firstDay = row.dtStart.projectInto(startZone, timeZone).date
             val lastDay = row.dtEndEffective.projectInto(endZone, timeZone).lastInclusiveDay(notBefore = firstDay)
             colorsByDay.addCalendarColorsForCoveredDays(firstDay, lastDay, fromDay, toDay, colors)
             continue
         }
-
-        occurrences.clear()
-        val outcome = RecurrenceExpander.expandInto(
-            target = occurrences,
-            master = EventTiming(
-                start = row.dtStart,
-                end = row.dtEndEffective,
-                startTimeZone = startZone,
-                endTimeZone = endZone,
-                isAllDay = row.isAllDay,
-                recurrenceRule = rrule,
-            ),
-            rrule = rrule,
-            inputStart = rangeStart,
-            inputEnd = rangeEnd,
-            defaultZone = timeZone,
-            limits = limits,
-        )
-        if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(row.eventId, outcome)
 
         for (occurrence in occurrences) {
             val firstDay = occurrence.start.projectInto(occurrence.startTimeZone, timeZone).date

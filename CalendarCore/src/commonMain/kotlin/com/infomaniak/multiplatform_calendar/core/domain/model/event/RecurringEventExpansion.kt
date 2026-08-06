@@ -55,25 +55,52 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
     val occurrences = ArrayList<Occurrence>()
     for (event in this) {
         currentCoroutineContext().ensureActive()
-        val rrule = event.timing.recurrenceRule
-        if (rrule == null) {
+        val hasRecurringExpansion = event.timing.expandRecurrenceOccurrencesInWindow(
+            masterId = event.masterEventId,
+            rangeStart = rangeStart,
+            rangeEnd = rangeEnd,
+            timeZone = timeZone,
+            target = occurrences,
+            limits = limits,
+            onExpansionTruncated = onExpansionTruncated,
+        )
+        if (!hasRecurringExpansion) {
             expanded += event
             continue
         }
-        occurrences.clear()
-        val outcome = RecurrenceExpander.expandInto(
-            target = occurrences,
-            master = event.timing,
-            rrule = rrule,
-            inputStart = rangeStart,
-            inputEnd = rangeEnd,
-            defaultZone = timeZone,
-            limits = limits,
-        )
-        if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(event.masterEventId, outcome)
         for (occurrence in occurrences) expanded += event.toOccurrenceEvent(occurrence)
     }
     return expanded
+}
+
+/**
+ * Expand this timing's RRULE into [target] for `[rangeStart, rangeEnd[` in [timeZone].
+ *
+ * Returns `true` when this timing is recurring (`recurrenceRule != null`) and [target] has been refreshed
+ * with the expanded occurrences, `false` otherwise (non-recurring timing, [target] left untouched).
+ */
+internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
+    masterId: EventId,
+    rangeStart: Instant,
+    rangeEnd: Instant,
+    timeZone: TimeZone,
+    target: MutableList<Occurrence>,
+    limits: ExpansionLimits = ExpansionLimits(),
+    onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
+): Boolean {
+    val rrule = recurrenceRule ?: return false
+    target.clear()
+    val outcome = RecurrenceExpander.expandInto(
+        target = target,
+        master = this,
+        rrule = rrule,
+        inputStart = rangeStart,
+        inputEnd = rangeEnd,
+        defaultZone = timeZone,
+        limits = limits,
+    )
+    if (outcome != ExpansionOutcome.Completed) onExpansionTruncated(masterId, outcome)
+    return true
 }
 
 /** Materialise one [occurrence] of this recurring master into a concrete synthetic [Event]. */

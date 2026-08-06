@@ -295,7 +295,7 @@ private suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
             continue
         }
 
-        for (occurrence in occurrences) {
+        occurrences.forEach { occurrence ->
             val firstDay = occurrence.start.projectInto(occurrence.startTimeZone, timeZone).date
             val lastDay = occurrence.end.projectInto(occurrence.endTimeZone, timeZone).lastInclusiveDay(notBefore = firstDay)
             colorsByDay.addCalendarColorsForCoveredDays(firstDay, lastDay, fromDay, toDay, colors)

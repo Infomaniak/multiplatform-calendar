@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBo
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
+import com.infomaniak.multiplatform_calendar.core.dataset.EventRepositoryColorByDayDataset
 import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -247,45 +248,19 @@ class EventRepositoryTest : RobolectricTestsBase() {
         seedCalendar(account, calendarA, red)
         seedCalendar(account, calendarB, blue)
 
+        val events = EventRepositoryColorByDayDataset.groupingScenario(calendarA, calendarB)
         eventDao().upsert(
-            listOf(
+            events.map { event ->
                 EventWithRawIcs(
-                    timedEvent(
-                        id = EventId("event://a1"),
-                        calendarId = calendarA,
-                        start = LocalDateTime(2026, 6, 15, 10, 0),
-                        end = LocalDateTime(2026, 6, 15, 11, 0),
+                    event = timedEvent(
+                        id = event.id,
+                        calendarId = event.calendarId,
+                        start = event.start,
+                        end = event.end,
                     ),
-                    "",
-                ),
-                EventWithRawIcs(
-                    timedEvent(
-                        id = EventId("event://a2"),
-                        calendarId = calendarA,
-                        start = LocalDateTime(2026, 6, 15, 15, 0),
-                        end = LocalDateTime(2026, 6, 15, 16, 0),
-                    ),
-                    "",
-                ),
-                EventWithRawIcs(
-                    timedEvent(
-                        id = EventId("event://b1"),
-                        calendarId = calendarB,
-                        start = LocalDateTime(2026, 6, 15, 12, 0),
-                        end = LocalDateTime(2026, 6, 15, 13, 0),
-                    ),
-                    "",
-                ),
-                EventWithRawIcs(
-                    timedEvent(
-                        id = EventId("event://a3"),
-                        calendarId = calendarA,
-                        start = LocalDateTime(2026, 6, 16, 9, 0),
-                        end = LocalDateTime(2026, 6, 16, 10, 0),
-                    ),
-                    "",
-                ),
-            ),
+                    rawIcs = "",
+                )
+            },
         )
 
         val colorsByDay = repository.observeVisibleCalendarColorsByDay(

@@ -55,6 +55,7 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
     val occurrences = ArrayList<Occurrence>()
     for (event in this) {
         currentCoroutineContext().ensureActive()
+        occurrences.clear()
         val hasRecurringExpansion = event.timing.expandRecurrenceOccurrencesInWindow(
             masterId = event.masterEventId,
             rangeStart = rangeStart,
@@ -76,8 +77,10 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
 /**
  * Expand this timing's RRULE into [target] for `[rangeStart, rangeEnd[` in [timeZone].
  *
- * Returns `true` when this timing is recurring (`recurrenceRule != null`) and [target] has been refreshed
- * with the expanded occurrences, `false` otherwise (non-recurring timing, [target] left untouched).
+ * [target] is caller-owned: callers must clear it before each expansion when reusing the same buffer.
+ *
+ * Returns `true` when this timing is recurring (`recurrenceRule != null`) and occurrences have been appended
+ * into [target], `false` otherwise (non-recurring timing, [target] left untouched).
  */
 internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
     masterId: EventId,
@@ -89,7 +92,6 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
 ): Boolean {
     val rrule = recurrenceRule ?: return false
-    target.clear()
     val outcome = RecurrenceExpander.expandInto(
         target = target,
         master = this,

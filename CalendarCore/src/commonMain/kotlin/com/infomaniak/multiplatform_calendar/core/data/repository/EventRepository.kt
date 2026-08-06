@@ -278,6 +278,7 @@ private suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
             recurrenceRule = row.rrule,
         )
 
+        occurrences.clear()
         val hasRecurringExpansion = timing.expandRecurrenceOccurrencesInWindow(
             masterId = row.eventId,
             rangeStart = rangeStart,

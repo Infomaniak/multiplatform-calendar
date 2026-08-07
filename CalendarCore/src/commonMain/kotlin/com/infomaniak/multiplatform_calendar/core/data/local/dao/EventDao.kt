@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -85,6 +86,44 @@ internal abstract class EventDao {
         startLocalDateTime: LocalDateTime,
         endLocalDateTime: LocalDateTime,
     ): Flow<List<EventWithCalendarEntity>>
+
+    /**
+     * Same *visible calendars* + *range overlap* filter as [observeVisibleInRange], but returns only the
+     * lightweight [EventCalendarColorInRange] projection (owning calendar color + wall-clock bounds), never a
+     * full event. Meant to feed a per-day calendar-color map (e.g. a month grid): no event body, attendees or
+     * raw ICS is read, so large months stay cheap. Day placement is done in Kotlin from the wall-clock columns
+     * (mirroring `EventTiming.startIn`/`endIn`) since day boundaries depend on the caller's display zone.
+     */
+    @Query(
+        """
+        SELECT event.id AS eventId,
+               calendar.color AS colorArgb,
+               event.dtStart AS dtStart,
+               event.dtEndEffective AS dtEndEffective,
+               event.startTimeZone AS startZoneId,
+               event.endTimeZone AS endZoneId,
+               event.isAllDay AS isAllDay,
+               event.rrule AS rrule
+        FROM events event
+        INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        WHERE calendar.accountId IN(:accountIds)
+          AND calendar.isVisible = 1
+          AND (
+            (event.rrule IS NULL AND $ANCHORED_TIMING)
+            OR (event.rrule IS NULL AND $FLOATING_TIMING)
+            OR $RECURRING_ANCHORED
+            OR $RECURRING_FLOATING
+          )
+        ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
+        """,
+    )
+    abstract fun observeVisibleCalendarColorsInRange(
+        accountIds: Set<AccountId>,
+        startInstantMs: Long,
+        endInstantMs: Long,
+        startLocalDateTime: LocalDateTime,
+        endLocalDateTime: LocalDateTime,
+    ): Flow<List<EventCalendarColorInRange>>
 
     @Transaction
     open suspend fun upsertEventsWithRawIcs(events: List<EventEntity>, rawIcs: List<EventRawIcsEntity>) {

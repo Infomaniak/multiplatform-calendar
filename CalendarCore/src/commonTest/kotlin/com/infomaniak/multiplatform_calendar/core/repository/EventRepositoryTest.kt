@@ -29,9 +29,11 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBo
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
+import com.infomaniak.multiplatform_calendar.core.dataset.EventRepositoryColorByDayDataset
 import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -234,6 +236,177 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
         assertTrue(occurrenceIds.all { it.startsWith("event://all-day#") }, "ids must be masterId#key")
         assertEquals(3, slicesByDay.keys.size, "each all-day occurrence lands on its own day")
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_groupsByDay_andDeduplicatesPerCalendar() = runTest {
+        val account = AccountId(1)
+        val calendarA = CalendarId("calendar://a")
+        val calendarB = CalendarId("calendar://b")
+        val red = CalendarSourceColor(0xFFE53935.toInt())
+        val blue = CalendarSourceColor(0xFF1E88E5.toInt())
+        seedCalendar(account, calendarA, red)
+        seedCalendar(account, calendarB, blue)
+
+        val events = EventRepositoryColorByDayDataset.groupingScenario(calendarA, calendarB)
+        eventDao().upsert(
+            events.map { event ->
+                EventWithRawIcs(
+                    event = timedEvent(
+                        id = event.id,
+                        calendarId = event.calendarId,
+                        start = event.start,
+                        end = event.end,
+                    ),
+                    rawIcs = "",
+                )
+            },
+        )
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
+        val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
+        val day17 = LocalDateTime(2026, 6, 17, 0, 0).date
+
+        assertEquals(setOf(day15, day16), colorsByDay.keys)
+        assertEquals(
+            setOf(red.argb, blue.argb),
+            colorsByDay.getValue(day15).map { it.calendarSourceColor }.toSet(),
+            "day 15 must expose one color per calendar with at least one event",
+        )
+        assertEquals(
+            setOf(red.argb),
+            colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet(),
+            "day 16 must only expose calendar A color",
+        )
+        assertNull(colorsByDay[day17], "days without events must be omitted")
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_expandsRecurringMasterIntoOccurrenceDays() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://rrule")
+        val green = CalendarSourceColor(0xFF43A047.toInt())
+        seedCalendar(account, calendarId, green)
+
+        val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
+        val dtEnd = LocalDateTime(2026, 6, 15, 11, 0)
+        val timing = EventTimingEntity(
+            dtStart = dtStart,
+            dtEndEffective = dtEnd,
+            startTimeZone = TimeZone.UTC.id,
+            endTimeZone = TimeZone.UTC.id,
+            dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+        )
+        val rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3)
+        val master = EventEntity(
+            id = EventId("event://colors-rrule"),
+            calendarId = calendarId,
+            summary = "Daily recurring",
+            timing = timing,
+            rrule = rrule,
+            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            etag = "1",
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val expectedDays = setOf(
+            LocalDateTime(2026, 6, 15, 0, 0).date,
+            LocalDateTime(2026, 6, 16, 0, 0).date,
+            LocalDateTime(2026, 6, 17, 0, 0).date,
+        )
+        assertEquals(expectedDays, colorsByDay.keys)
+        expectedDays.forEach { day ->
+            assertEquals(
+                setOf(green.argb),
+                colorsByDay.getValue(day).map { it.calendarSourceColor }.toSet(),
+                "each occurrence day must include the recurring calendar color",
+            )
+        }
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_reprojectsAnchoredEventAcrossDateBoundary() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://tz")
+        val purple = CalendarSourceColor(0xFF8E24AA.toInt())
+        val displayZone = TimeZone.of("Europe/Paris")
+        seedCalendar(account, calendarId, purple)
+
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    timedEvent(
+                        id = EventId("event://utc-late"),
+                        calendarId = calendarId,
+                        start = LocalDateTime(2026, 6, 15, 23, 30),
+                        end = LocalDateTime(2026, 6, 16, 0, 30),
+                    ),
+                    "",
+                ),
+            ),
+        )
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = displayZone,
+        ).first()
+
+        val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
+        assertEquals(setOf(day16), colorsByDay.keys, "UTC late event must land on day 16 in Europe/Paris")
+        assertEquals(setOf(purple.argb), colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet())
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_keepsFloatingWallClockPlacementInDisplayZone() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://floating")
+        val amber = CalendarSourceColor(0xFFFFB300.toInt())
+        val displayZone = TimeZone.of("Europe/Paris")
+        seedCalendar(account, calendarId, amber)
+
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    floatingTimedEvent(
+                        id = EventId("event://floating-night"),
+                        calendarId = calendarId,
+                        start = LocalDateTime(2026, 6, 15, 23, 30),
+                        end = LocalDateTime(2026, 6, 16, 0, 30),
+                    ),
+                    "",
+                ),
+            ),
+        )
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(displayZone),
+            end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(displayZone),
+            timeZone = displayZone,
+        ).first()
+
+        val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
+        val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
+        assertEquals(setOf(day15, day16), colorsByDay.keys)
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day15).map { it.calendarSourceColor }.toSet())
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet())
     }
 
     /**
@@ -524,7 +697,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
         etag = etag,
     )
 
-    private suspend fun seedCalendar(accountId: AccountId, calendarId: CalendarId) {
+    private suspend fun seedCalendar(
+        accountId: AccountId,
+        calendarId: CalendarId,
+        color: CalendarSourceColor? = null,
+    ) {
         database.accountDao().insert(AccountEntity(id = accountId))
         database.calendarDao().upsert(
             listOf(
@@ -532,12 +709,52 @@ class EventRepositoryTest : RobolectricTestsBase() {
                     id = calendarId,
                     accountId = accountId,
                     displayName = "cal",
-                    color = null,
+                    color = color,
                     isVisible = true,
                 ),
             ),
         )
     }
+
+    private fun timedEvent(
+        id: EventId,
+        calendarId: CalendarId,
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): EventEntity = EventEntity(
+        id = id,
+        calendarId = calendarId,
+        summary = id.url,
+        timing = EventTimingEntity(
+            dtStart = start,
+            dtEndEffective = end,
+            startTimeZone = TimeZone.UTC.id,
+            endTimeZone = TimeZone.UTC.id,
+            dtStartInstantMs = start.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = end.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+        ),
+        etag = "1",
+    )
+
+    private fun floatingTimedEvent(
+        id: EventId,
+        calendarId: CalendarId,
+        start: LocalDateTime,
+        end: LocalDateTime,
+    ): EventEntity = EventEntity(
+        id = id,
+        calendarId = calendarId,
+        summary = id.url,
+        timing = EventTimingEntity(
+            dtStart = start,
+            dtEndEffective = end,
+            startTimeZone = null,
+            endTimeZone = null,
+            dtStartInstantMs = null,
+            dtEndInstantMs = null,
+        ),
+        etag = "1",
+    )
 
     private fun floatingEvent(calendarId: CalendarId): EventEntity {
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)

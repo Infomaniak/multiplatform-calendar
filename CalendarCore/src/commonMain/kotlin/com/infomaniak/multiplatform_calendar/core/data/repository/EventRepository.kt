@@ -21,18 +21,25 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrenceOccurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.lastInclusiveDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -43,12 +50,18 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -109,10 +122,64 @@ internal class EventRepository(
             .flowOn(Dispatchers.Default)
     }
 
+    /**
+     * For each day of `[start, end[` (in [timeZone]) that has at least one event from a *visible* calendar of
+     * [accountIds], the distinct [CalendarColors] of the calendars owning those events; days with no event are omitted.
+     *
+     * Returning the full [CalendarColors] (rather than a single resolved color) lets clients pick whatever they need
+     * (e.g. `datavizContainerVariant` for month-grid dots) and keeps future flexibility. Unlike [observeVisibleDaySlices]
+     * this never builds domain events nor [EventDaySlice]s: only the [EventCalendarColorInRange] projection is read and
+     * folded, each recurring master is expanded into its RRULE occurrences, and each source color's palette is computed
+     * once (cached) instead of once per event. Multi-day events/occurrences still mark every covered day.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeVisibleCalendarColorsByDay(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone,
+    ): Flow<Map<LocalDate, List<CalendarColors>>> {
+        return eventDao.observeVisibleCalendarColorsInRange(
+            accountIds = accountIds,
+            startInstantMs = start.toEpochMilliseconds(),
+            endInstantMs = end.toEpochMilliseconds(),
+            startLocalDateTime = start.toLocalDateTime(timeZone),
+            endLocalDateTime = end.toLocalDateTime(timeZone),
+        ).mapLatest { rows ->
+            rows.foldToDailyCalendarColors(
+                rangeStart = start,
+                rangeEnd = end,
+                timeZone = timeZone,
+                onExpansionTruncated = ::logTruncatedExpansion,
+                onInvalidRange = ::logInvalidCalendarColorsRange,
+            )
+        }.flowOn(Dispatchers.Default)
+    }
+
     private fun logTruncatedExpansion(masterId: EventId, outcome: ExpansionOutcome) {
         crashReport.capture(
             message = "Recurrence expansion hit a safety cap for event ${masterId.url}",
             data = mapOf("masterId" to masterId.url, "outcome" to outcome.name),
+            level = CrashReportLevel.Warning,
+        )
+    }
+
+    private fun logInvalidCalendarColorsRange(
+        rangeStart: Instant,
+        rangeEnd: Instant,
+        timeZone: TimeZone,
+        fromDay: LocalDate,
+        toDay: LocalDate,
+    ) {
+        crashReport.capture(
+            message = "Invalid day range computed while building calendar colors by day",
+            data = mapOf(
+                "rangeStart" to rangeStart.toString(),
+                "rangeEnd" to rangeEnd.toString(),
+                "timeZone" to timeZone.id,
+                "fromDay" to fromDay.toString(),
+                "toDay" to toDay.toString(),
+            ),
             level = CrashReportLevel.Warning,
         )
     }
@@ -165,3 +232,104 @@ internal class EventRepository(
         eventDao.upsertEventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = data.calendarId), patched.icsData)
     }
 }
+
+/**
+ * Fold the lightweight [EventCalendarColorInRange] rows into `day -> distinct calendar colors` over
+ * `[rangeStart, rangeEnd[` (in [timeZone]).
+ *
+ * Only days that actually own events are kept; each maps to the distinct [CalendarColors] of the calendars having at
+ * least one event that day. Non-recurring rows are handled as direct spans; recurring masters are expanded into
+ * occurrences (same expander as planning) and then each occurrence span is folded by day. This keeps RRULE parity with
+ * the planning day-slice flow while staying lightweight (projection rows only, no full domain event graph).
+ */
+private suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
+    rangeStart: Instant,
+    rangeEnd: Instant,
+    timeZone: TimeZone,
+    limits: ExpansionLimits = ExpansionLimits(),
+    onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
+    onInvalidRange: (rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone, fromDay: LocalDate, toDay: LocalDate) -> Unit = { _, _, _, _, _ -> },
+): Map<LocalDate, List<CalendarColors>> {
+    val fromDay = rangeStart.toLocalDateTime(timeZone).date
+    val toDay = rangeEnd.toLocalDateTime(timeZone).lastInclusiveDay(notBefore = fromDay)
+    if (fromDay > toDay) {
+        onInvalidRange(rangeStart, rangeEnd, timeZone, fromDay, toDay)
+        return emptyMap()
+    }
+
+    val colorsBySourceColor = HashMap<Int?, CalendarColors>()
+    val colorsByDay = LinkedHashMap<LocalDate, LinkedHashSet<CalendarColors>>()
+    val timeZoneCache = HashMap<String, TimeZone>()
+    val occurrences = ArrayList<Occurrence>() // Reused buffer for recurring expansion
+
+    for (row in this@foldToDailyCalendarColors) {
+        currentCoroutineContext().ensureActive()
+
+        val colors = colorsBySourceColor.getOrPut(row.colorArgb) { CalendarColors.from(row.colorArgb) }
+
+        val startZone = row.startZoneId?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
+        val endZone = row.endZoneId?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
+        val timing = EventTiming(
+            start = row.dtStart,
+            end = row.dtEndEffective,
+            startTimeZone = startZone,
+            endTimeZone = endZone,
+            isAllDay = row.isAllDay,
+            recurrenceRule = row.rrule,
+        )
+
+        occurrences.clear()
+        val hasRecurringExpansion = timing.expandRecurrenceOccurrencesInWindow(
+            masterId = row.eventId,
+            rangeStart = rangeStart,
+            rangeEnd = rangeEnd,
+            timeZone = timeZone,
+            target = occurrences,
+            limits = limits,
+            onExpansionTruncated = onExpansionTruncated,
+        )
+        if (!hasRecurringExpansion) {
+            val firstDay = row.dtStart.projectInto(startZone, timeZone).date
+            val lastDay = row.dtEndEffective.projectInto(endZone, timeZone).lastInclusiveDay(notBefore = firstDay)
+            colorsByDay.addCalendarColorsForCoveredDays(firstDay, lastDay, fromDay, toDay, colors)
+            continue
+        }
+
+        occurrences.forEach { occurrence ->
+            val firstDay = occurrence.start.projectInto(occurrence.startTimeZone, timeZone).date
+            val lastDay = occurrence.end.projectInto(occurrence.endTimeZone, timeZone).lastInclusiveDay(notBefore = firstDay)
+            colorsByDay.addCalendarColorsForCoveredDays(firstDay, lastDay, fromDay, toDay, colors)
+        }
+    }
+
+    return colorsByDay.mapValues { (_, colors) -> colors.toList() }
+}
+
+private fun MutableMap<LocalDate, LinkedHashSet<CalendarColors>>.addCalendarColorsForCoveredDays(
+    firstDay: LocalDate,
+    lastDay: LocalDate,
+    lowerBound: LocalDate,
+    upperBound: LocalDate,
+    colors: CalendarColors,
+) {
+    val from = maxOf(firstDay, lowerBound)
+    val to = minOf(lastDay, upperBound)
+    if (from > to) return
+
+    var day = from
+    while (day <= to) {
+        getOrPut(day) { LinkedHashSet() }.add(colors)
+        day = day.plus(1, DateTimeUnit.DAY)
+    }
+}
+
+/**
+ * Reproject a stored wall-clock into [targetZone], matching `EventTiming.startIn`/`endIn`:
+ * a `null` source zone (floating or all-day) is interpreted directly in [targetZone]; any other zone is
+ * reprojected through an absolute instant.
+ */
+private fun LocalDateTime.projectInto(sourceZone: TimeZone?, targetZone: TimeZone): LocalDateTime {
+    if (sourceZone == null || sourceZone == targetZone) return this
+    return toInstant(sourceZone).toLocalDateTime(targetZone)
+}
+

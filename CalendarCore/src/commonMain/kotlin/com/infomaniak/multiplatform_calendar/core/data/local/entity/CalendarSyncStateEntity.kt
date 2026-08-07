@@ -15,22 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
+package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.NeverSynced
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.SyncErrorReason
 
-@OptIn(ExperimentalObjCRefinement::class)
-public data class Calendar(
-    @HiddenFromObjC
-    val id: CalendarId,
-    @HiddenFromObjC
-    val accountId: AccountId,
-    val displayName: String,
-    val colors: CalendarColors,
-    val isVisible: Boolean,
-    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
-    val syncStatus: CalendarSyncStatus = NeverSynced,
+/** Sync bookkeeping for a [CalendarEntity], grouped as a Room `@Embedded` sub-type (no column prefix, so its columns live directly on the `calendars` table). */
+internal data class CalendarSyncStateEntity(
+    val lastSyncedAtMs: Long? = null,
+    val lastSyncAttemptAtMs: Long? = null,
+    val lastSyncError: SyncErrorReason? = null,
 )

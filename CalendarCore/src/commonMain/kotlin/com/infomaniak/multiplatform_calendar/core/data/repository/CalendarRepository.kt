@@ -33,10 +33,14 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncErrorReason
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.core.data.sync.SyncStateHolder
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.Syncing
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
@@ -56,9 +60,12 @@ import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -68,12 +75,15 @@ internal class CalendarRepository(
     private val calendarDao: CalendarDao,
     private val crashReport: CrashReport,
     private val eventDao: EventDao,
+    private val syncStateHolder: SyncStateHolder,
 ) {
 
     fun observeCalendars(accountIds: Set<AccountId>): Flow<List<Calendar>> {
-        return calendarDao.observeByAccountIds(accountIds).map { calendarEntities ->
+        val persistedCalendars = calendarDao.observeByAccountIds(accountIds).map { calendarEntities ->
             calendarEntities.map(CalendarEntity::toDomain)
         }
+        return combine(persistedCalendars, syncStateHolder.syncingCalendarIds, ::applySyncingStatus)
+            .distinctUntilChanged()
     }
 
     suspend fun getCalendars(
@@ -90,22 +100,22 @@ internal class CalendarRepository(
     ) {
         syncCalendarMetadata(accountId, credentials)
         calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 2) { calendarEntity ->
-            runCatching {
-                val syncResult = caldavClient.syncCollection(
-                    credentials = credentials,
-                    calendarUrl = calendarEntity.id.url,
-                    syncToken = calendarEntity.syncToken,
-                )
-                syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
-                    updateChangedEvents(credentials, calendarEntity.id, changed.map { it.eventUrl })
-                    updateDeletedEvents(calendarEntity.id, deleted.map { EventId(it.eventUrl) })
-                }
-                if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
-                    calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
-                }
-            }.cancellable().onFailure {
-                if (it is RustNetworkException) throw it
-                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+            trackSyncingState(calendarEntity.id) {
+                runCatching {
+                    val syncResult = caldavClient.syncCollection(
+                        credentials = credentials,
+                        calendarUrl = calendarEntity.id.url,
+                        syncToken = calendarEntity.syncToken,
+                    )
+                    syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
+                        updateChangedEvents(credentials, calendarEntity.id, changed.map { it.eventUrl })
+                        updateDeletedEvents(calendarEntity.id, deleted.map { EventId(it.eventUrl) })
+                    }
+                    if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
+                        calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
+                    }
+                    calendarDao.updateSyncSuccess(calendarEntity.id, Clock.System.now().toEpochMilliseconds())
+                }.cancellable().onFailure { recordSyncFailure(calendarEntity.id, it) }
             }
         }
     }
@@ -173,6 +183,30 @@ internal class CalendarRepository(
         calendarDao.syncCalendars(accountId) { existingCalendarsById ->
             remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
         }
+    }
+
+    private fun applySyncingStatus(calendars: List<Calendar>, syncingIds: Set<CalendarId>): List<Calendar> {
+        if (syncingIds.isEmpty()) return calendars
+        return calendars.map { if (it.id in syncingIds) it.copy(syncStatus = Syncing) else it }
+    }
+
+    private suspend fun trackSyncingState(calendarId: CalendarId, block: suspend () -> Unit) {
+        syncStateHolder.markSyncing(calendarId)
+        try {
+            block()
+        } finally {
+            syncStateHolder.clear(calendarId)
+        }
+    }
+
+    private suspend fun recordSyncFailure(calendarId: CalendarId, throwable: Throwable) {
+        if (throwable is RustNetworkException) throw throwable
+        throwable.logFailuresToSentry(message = "Skip calendar $calendarId")
+        calendarDao.updateSyncFailure(
+            calendarId = calendarId,
+            attemptedAtMs = Clock.System.now().toEpochMilliseconds(),
+            reason = throwable.toSyncErrorReason(),
+        )
     }
 
     private suspend fun syncExistingRange(
@@ -251,9 +285,10 @@ internal class CalendarRepository(
                 // TODO[Optimize]: upsert in batches
                 eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
             }.onFailure {
-                // An error here is not critical, we can continue syncing other calendars
-                // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.
+                // Rare (corrupted database or logged-out user): report, then let the caller record the
+                // per-calendar failure instead of silently reporting this calendar as synced.
                 reportEventUpsertFailure(calendarId, it, entities)
+                throw it
             }
         }
     }

@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,20 +15,23 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
-/** Reason a RRULE cannot be safely expanded. Logged to Sentry at the sync boundary. */
-internal enum class RecurrenceRuleFailureReason {
-    MalformedGrammar,
-    MissingFrequency,
-    CountAndUntilTogether,
-    InvalidByDayOrdinalForFrequency,
-    InvalidByMonthDayForFrequency,
-    InvalidByYearDayFrequency,
-    InvalidByWeekNoFrequency,
-    BySetPosWithoutByRule,
-    LeapSecondUnsupported,
-    UnsupportedRscale,
-    UntilTypeMismatch,
-    RdatePeriodUnsupported,
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.Serializable
+import kotlin.time.Instant
+
+/** Typed iCalendar date values used by `RDATE` / `EXDATE`. */
+@Serializable
+public sealed interface IcalDateValue {
+    @Serializable
+    public data class Zoned(val instant: Instant, val timeZoneId: String) : IcalDateValue
+
+    @Serializable
+    public data class AllDay(val date: LocalDate) : IcalDateValue
+
+    @Serializable
+    public data class Floating(val localDateTime: LocalDateTime) : IcalDateValue
 }
+

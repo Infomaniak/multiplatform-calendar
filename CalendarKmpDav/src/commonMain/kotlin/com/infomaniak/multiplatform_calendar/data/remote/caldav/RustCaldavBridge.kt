@@ -31,6 +31,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavO
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Set
@@ -44,6 +46,8 @@ import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
+import uniffi.caldav_bridge.IcalDateValueEntry
+import uniffi.caldav_bridge.IcalDateValueKind
 import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
@@ -290,6 +294,8 @@ private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
         lastModified = this.lastModified,
         dtstamp = this.dtstamp,
         rrule = this.rrule,
+        rDates = this.rdates.map(IcalDateValueEntry::toRemote),
+        exDates = this.exdates.map(IcalDateValueEntry::toRemote),
         status = this.status,
         transp = this.transp,
         classification = this.classification,
@@ -327,3 +333,14 @@ private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
         },
     )
 }
+
+private fun IcalDateValueEntry.toRemote() = RemoteIcalDateValue(
+    value = value,
+    valueType = when (valueType) {
+        IcalDateValueKind.DATE -> RemoteIcalDateValueType.Date
+        IcalDateValueKind.DATE_TIME -> RemoteIcalDateValueType.DateTime
+        IcalDateValueKind.PERIOD -> RemoteIcalDateValueType.Period
+    },
+    tzid = tzid,
+)
+

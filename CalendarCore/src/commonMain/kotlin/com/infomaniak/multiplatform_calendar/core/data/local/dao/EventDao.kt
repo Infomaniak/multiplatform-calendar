@@ -54,7 +54,7 @@ internal abstract class EventDao {
      *   in the recipient's *current* zone. This branch re-anchors automatically on device zone
      *   change (travel, DST) — a floating event has no fixed absolute instant by definition.
      *
-     * **Recurring masters** (`rrule IS NOT NULL`) match on the *whole series* bounds populated at sync
+     * **Recurring masters** (`hasRecurrence = 1`) match on the *whole series* bounds populated at sync
      * (see `recurrenceBounds`), not just their first occurrence. Two symmetric branches:
      * - **Anchored series**: `firstOccurrenceInstantMs` as low bound, `lastPossibleOccurrenceEndInstantMs`
      *   (an over-approximation of the last end) as high bound. `Infinite`/`FiniteDeferred` series have an open
@@ -71,8 +71,8 @@ internal abstract class EventDao {
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND (
-            (event.rrule IS NULL AND $ANCHORED_TIMING)
-            OR (event.rrule IS NULL AND $FLOATING_TIMING)
+            (event.hasRecurrence = 0 AND $ANCHORED_TIMING)
+            OR (event.hasRecurrence = 0 AND $FLOATING_TIMING)
             OR $RECURRING_ANCHORED
             OR $RECURRING_FLOATING
           )
@@ -104,14 +104,16 @@ internal abstract class EventDao {
                event.startTimeZone AS startZoneId,
                event.endTimeZone AS endZoneId,
                event.isAllDay AS isAllDay,
-               event.rrule AS rrule
+               event.rrule AS rrule,
+               event.rDates AS rDates,
+               event.exDates AS exDates
         FROM events event
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND (
-            (event.rrule IS NULL AND $ANCHORED_TIMING)
-            OR (event.rrule IS NULL AND $FLOATING_TIMING)
+            (event.hasRecurrence = 0 AND $ANCHORED_TIMING)
+            OR (event.hasRecurrence = 0 AND $FLOATING_TIMING)
             OR $RECURRING_ANCHORED
             OR $RECURRING_FLOATING
           )
@@ -206,7 +208,7 @@ internal abstract class EventDao {
 
         /** Anchored recurrence set: series bounds in absolute epoch ms; open upper bound unless `Finite`. */
         private const val RECURRING_ANCHORED = """(
-            event.rrule IS NOT NULL
+            event.hasRecurrence = 1
               AND event.firstOccurrenceInstantMs IS NOT NULL
               AND event.firstOccurrenceInstantMs < :endInstantMs
               AND (event.recurrenceBoundKind != 'Finite'
@@ -214,7 +216,7 @@ internal abstract class EventDao {
 
         /** Floating recurrence set: series bounds in wall-clock; open upper bound unless `Finite`. */
         private const val RECURRING_FLOATING = """(
-            event.rrule IS NOT NULL
+            event.hasRecurrence = 1
               AND event.firstOccurrenceInstantMs IS NULL
               AND event.dtStart < :endLocalDateTime
               AND (event.recurrenceBoundKind != 'Finite'

@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local.projection
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 
@@ -45,6 +46,8 @@ internal data class EventCalendarColorInRange(
     val endZoneId: String?,
     val isAllDay: Boolean,
     val rrule: RecurrenceRule?,
+    val rDates: List<IcalDateValue>,
+    val exDates: List<IcalDateValue>,
 )
 
 

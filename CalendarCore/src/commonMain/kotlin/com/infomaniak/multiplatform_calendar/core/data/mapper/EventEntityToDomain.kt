@@ -44,7 +44,7 @@ internal fun EventEntity.toDomain(
         status = status,
         classification = classification,
         categories = categories?.filter { it.isNotBlank() }.orEmpty(),
-        timing = timing.toDomain(recurrenceRule = rrule),
+        timing = timing.toDomain(recurrenceRule = rrule, rDates = rDates, exDates = exDates),
         lastModified = lastModified?.toInstant(TimeZone.UTC),
         attendees = attendees,
         organizer = organizer,

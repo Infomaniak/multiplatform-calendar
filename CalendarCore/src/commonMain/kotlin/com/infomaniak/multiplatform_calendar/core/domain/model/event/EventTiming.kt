@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -58,6 +59,8 @@ public data class EventTiming(
     val endTimeZone: TimeZone?,
     val isAllDay: Boolean,
     val recurrenceRule: RecurrenceRule? = null,
+    val rDates: List<IcalDateValue> = emptyList(),
+    val exDates: List<IcalDateValue> = emptyList(),
 ) {
     /**
      * Resolve [EventTiming.start] to an absolute [Instant].

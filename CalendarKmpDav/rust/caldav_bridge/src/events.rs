@@ -16,6 +16,8 @@ use crate::models::{
     EventEntry,
     EventResourceRef,
     EventSyncDelta,
+    IcalDateValueEntry,
+    IcalDateValueKind,
     OrganizerEntry,
     RecurrenceChange,
     VTimeZoneSpec,
@@ -40,6 +42,41 @@ fn prop_with_tzid(event: &icalendar::Event, name: &str) -> (Option<String>, Opti
         }
         None => (None, None),
     }
+}
+
+fn prop_values_with_meta(event: &icalendar::Event, name: &str) -> Vec<IcalDateValueEntry> {
+    let mut values = Vec::new();
+    let Some(props) = event.multi_properties().get(name) else {
+        return values;
+    };
+
+    for property in props {
+        let tzid = property.params().get("TZID").map(|v| v.value().to_string());
+        let value_kind = property
+            .params()
+            .get("VALUE")
+            .map(|v| v.value().to_ascii_uppercase())
+            .as_deref()
+            .map(|value| match value {
+                "DATE" => IcalDateValueKind::Date,
+                "PERIOD" => IcalDateValueKind::Period,
+                _ => IcalDateValueKind::DateTime,
+            })
+            .unwrap_or(IcalDateValueKind::DateTime);
+
+        for raw in property.value().split(',') {
+            let value = raw.trim();
+            if value.is_empty() {
+                continue;
+            }
+            values.push(IcalDateValueEntry {
+                value: value.to_string(),
+                value_type: value_kind,
+                tzid: tzid.clone(),
+            });
+        }
+    }
+    values
 }
 
 /// Parse raw iCS data into an [`EventEntry`], extracting the recurrence master `VEVENT`.
@@ -73,6 +110,8 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
                 last_modified: prop(ev, "LAST-MODIFIED"),
                 dtstamp: prop(ev, "DTSTAMP"),
                 rrule: prop(ev, "RRULE"),
+                rdates: prop_values_with_meta(ev, "RDATE"),
+                exdates: prop_values_with_meta(ev, "EXDATE"),
                 status: prop(ev, "STATUS"),
                 transp: prop(ev, "TRANSP"),
                 classification: prop(ev, "CLASS"),

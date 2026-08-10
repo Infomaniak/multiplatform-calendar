@@ -57,6 +57,8 @@ pub struct EventEntry {
     pub last_modified: Option<String>,
     pub dtstamp: Option<String>,
     pub rrule: Option<String>,
+    pub rdates: Vec<IcalDateValueEntry>,
+    pub exdates: Vec<IcalDateValueEntry>,
     pub status: Option<String>,
     pub transp: Option<String>,
     pub classification: Option<String>,
@@ -70,6 +72,20 @@ pub struct EventEntry {
     pub attendees: Vec<AttendeeEntry>,
     pub organizer: Option<OrganizerEntry>,
     pub alarms: Vec<AlarmEntry>,
+}
+
+#[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IcalDateValueKind {
+    Date,
+    DateTime,
+    Period,
+}
+
+#[derive(uniffi::Record)]
+pub struct IcalDateValueEntry {
+    pub value: String,
+    pub value_type: IcalDateValueKind,
+    pub tzid: Option<String>,
 }
 
 #[derive(uniffi::Record)]

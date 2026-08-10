@@ -19,20 +19,25 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.AllDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Zoned
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Finite
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Infinite
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.FiniteDeferred
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Infinite
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Floating as FloatingDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating as FloatingUntil
 
 /**
  * Derive the recurrence-set bounds of an event from its [timing] and parsed [rrule] (RRULE only — RDATE,
@@ -63,6 +68,137 @@ import kotlin.time.Duration.Companion.hours
  * sides to stay a safe superset for every possible device zone; the expander drops the false positives.
  */
 internal fun RecurrenceRule.toRecurrenceBoundsEntity(timing: EventTimingEntity): RecurrenceBoundsEntity {
+    return checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = this, rDates = emptyList()))
+}
+
+internal fun toRecurrenceBoundsEntity(
+    timing: EventTimingEntity,
+    recurrenceRule: RecurrenceRule?,
+    rDates: List<IcalDateValue>,
+): RecurrenceBoundsEntity? {
+    val hasRecurrence = recurrenceRule != null || rDates.isNotEmpty()
+    if (!hasRecurrence) return null
+
+    val base = recurrenceRule?.baseRecurrenceBoundsEntity(timing)
+    val durationMs = timing.anchoredDurationMs() + timing.allDayUpperBoundPaddingMs()
+    val rDateBounds = rDates.computeRDateBounds(timing = timing, durationMs = durationMs)
+
+    val firstOccurrenceInstantMs = minNotNull(
+        base?.firstOccurrenceInstantMs ?: timing.lowBoundInstantMs(),
+        rDateBounds.firstAnchoredStartInstantMs,
+    )
+
+    if (base == null) {
+        // No RRULE means there is no "base" bound shape to merge with: recurrence comes only from
+        // explicit RDATE entries, so derive a finite bound directly from those occurrences.
+        return rdateOnlyBoundsEntity(
+            timing = timing,
+            durationMs = durationMs,
+            firstOccurrenceInstantMs = firstOccurrenceInstantMs,
+            anchoredEnds = rDateBounds.anchoredEnds,
+            localEnds = rDateBounds.localEnds,
+        )
+    }
+
+    return when (base.recurrenceBoundKind) {
+        Finite -> mergeFiniteBoundsWithRDates(
+            timing = timing,
+            base = base,
+            firstOccurrenceInstantMs = firstOccurrenceInstantMs,
+            anchoredEnds = rDateBounds.anchoredEnds,
+            localEnds = rDateBounds.localEnds,
+        )
+        Infinite, FiniteDeferred, null -> base.copy(firstOccurrenceInstantMs = firstOccurrenceInstantMs)
+    }
+}
+
+private data class RDateBoundsComputation(
+    val firstAnchoredStartInstantMs: Long?,
+    val anchoredEnds: List<Long>,
+    val localEnds: List<LocalDateTime>,
+)
+
+private fun List<IcalDateValue>.computeRDateBounds(
+    timing: EventTimingEntity,
+    durationMs: Long,
+): RDateBoundsComputation {
+    val localDuration = timing.localDuration()
+    var firstAnchoredStartInstantMs: Long? = null
+    val anchoredEnds = mutableListOf<Long>()
+    val localEnds = mutableListOf<LocalDateTime>()
+
+    this@computeRDateBounds.forEach { dateValue ->
+        dateValue.startInstantMs(timing)?.let { startMs ->
+            firstAnchoredStartInstantMs = minNotNull(firstAnchoredStartInstantMs, startMs)
+            anchoredEnds += startMs + durationMs
+        }
+        dateValue.startLocalDateTime(timing)?.let { localStart ->
+            localEnds += localStart.toInstant(TimeZone.UTC).plus(localDuration).toLocalDateTime(TimeZone.UTC)
+        }
+    }
+
+    return RDateBoundsComputation(
+        firstAnchoredStartInstantMs = firstAnchoredStartInstantMs,
+        anchoredEnds = anchoredEnds,
+        localEnds = localEnds,
+    )
+}
+
+private fun mergeFiniteBoundsWithRDates(
+    timing: EventTimingEntity,
+    base: RecurrenceBoundsEntity,
+    firstOccurrenceInstantMs: Long?,
+    anchoredEnds: List<Long>,
+    localEnds: List<LocalDateTime>,
+): RecurrenceBoundsEntity {
+    return if (timing.dtStartInstantMs != null) {
+        base.copy(
+            firstOccurrenceInstantMs = firstOccurrenceInstantMs,
+            lastPossibleOccurrenceEndInstantMs = maxNotNull(
+                base.lastPossibleOccurrenceEndInstantMs,
+                anchoredEnds.maxOrNull(),
+            ),
+        )
+    } else {
+        base.copy(
+            firstOccurrenceInstantMs = null,
+            lastOccurrenceEndLocalDateTime = maxOf(
+                base.lastOccurrenceEndLocalDateTime ?: timing.dtEndEffective,
+                localEnds.maxOrNull() ?: timing.dtEndEffective,
+            ),
+        )
+    }
+}
+
+private fun rdateOnlyBoundsEntity(
+    timing: EventTimingEntity,
+    durationMs: Long,
+    firstOccurrenceInstantMs: Long?,
+    anchoredEnds: List<Long>,
+    localEnds: List<LocalDateTime>,
+): RecurrenceBoundsEntity {
+    return when {
+        timing.dtStartInstantMs != null -> {
+            val dtStartMs = timing.lowBoundInstantMs()
+            val lastBound = maxNotNull(dtStartMs?.let { it + durationMs }, anchoredEnds.maxOrNull())
+            RecurrenceBoundsEntity(
+                firstOccurrenceInstantMs = firstOccurrenceInstantMs,
+                lastPossibleOccurrenceEndInstantMs = lastBound,
+                recurrenceBoundKind = Finite,
+            )
+        }
+        else -> {
+            val lastLocalEnd = maxOf(timing.dtEndEffective, localEnds.maxOrNull() ?: timing.dtEndEffective)
+            RecurrenceBoundsEntity(
+                firstOccurrenceInstantMs = null,
+                lastOccurrenceEndLocalDateTime = lastLocalEnd,
+                recurrenceBoundKind = Finite,
+            )
+        }
+    }
+}
+
+private fun RecurrenceRule.baseRecurrenceBoundsEntity(timing: EventTimingEntity): RecurrenceBoundsEntity {
     val firstOccurrenceInstantMs = timing.lowBoundInstantMs()
 
     return when {
@@ -83,6 +219,33 @@ internal fun RecurrenceRule.toRecurrenceBoundsEntity(timing: EventTimingEntity):
             recurrenceBoundKind = Finite,
         )
     }
+}
+
+private fun IcalDateValue.startInstantMs(timing: EventTimingEntity): Long? = when (this) {
+    is Zoned -> instant.toEpochMilliseconds()
+    is AllDay -> LocalDateTime(date, timing.dtStart.time).toInstant(TimeZone.UTC).toEpochMilliseconds()
+    is FloatingDateValue -> null
+}
+
+private fun IcalDateValue.startLocalDateTime(timing: EventTimingEntity): LocalDateTime? = when (this) {
+    is FloatingDateValue -> localDateTime
+    is AllDay -> LocalDateTime(date, timing.dtStart.time)
+    is Zoned -> null
+}
+
+private fun EventTimingEntity.localDuration(): Duration =
+    dtEndEffective.toInstant(TimeZone.UTC) - dtStart.toInstant(TimeZone.UTC)
+
+private fun minNotNull(a: Long?, b: Long?): Long? = when {
+    a == null -> b
+    b == null -> a
+    else -> minOf(a, b)
+}
+
+private fun maxNotNull(a: Long?, b: Long?): Long? = when {
+    a == null -> b
+    b == null -> a
+    else -> maxOf(a, b)
 }
 
 /** Effective duration of one instance in epoch ms, from the anchored start/end instants. */
@@ -114,13 +277,13 @@ private fun RecurrenceUntil.toInstantMs(timing: EventTimingEntity): Long = when 
     // All-day `UNTIL` (matching an all-day DTSTART): the day at UTC midnight, like the stored start.
     is DateOnly -> LocalDateTime(date, timing.dtStart.time).toInstant(TimeZone.UTC).toEpochMilliseconds()
     // Defensive: an anchored event never carries a floating UNTIL (form checked at sync, RFC §3.3.10).
-    is Floating -> dateTime.toInstant(TimeZone.UTC).toEpochMilliseconds()
+    is FloatingUntil -> dateTime.toInstant(TimeZone.UTC).toEpochMilliseconds()
 }
 
 /** `UNTIL + duration` as a wall-clock, for floating series (no DST → any anchor yields the same). */
 private fun RecurrenceUntil.toLocalEnd(timing: EventTimingEntity): LocalDateTime {
     val untilLocal = when (this) {
-        is Floating -> dateTime
+        is FloatingUntil -> dateTime
         is DateOnly -> LocalDateTime(date, timing.dtStart.time)
         is DateTimeUtc -> instant.toLocalDateTime(TimeZone.UTC)
     }

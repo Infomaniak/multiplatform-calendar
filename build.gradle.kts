@@ -33,26 +33,7 @@ plugins {
     alias(kmpCalendar.plugins.kotlin.serialization) apply false
     alias(kmpCalendar.plugins.ksp) apply false
     alias(kmpCalendar.plugins.metro) apply false
-    alias(kmpCalendar.plugins.nmcp.aggregation)
     alias(kmpCalendar.plugins.skie) apply false
     kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin apply false
-}
-
-nmcpAggregation {
-    centralPortal {
-        username = getPropertyValue("ossrhUsername")
-        password = getPropertyValue("ossrhPassword")
-        publishingType = "AUTOMATIC"
-    }
-}
-
-dependencies {
-    nmcpAggregation(project(":CalendarCore"))
-    nmcpAggregation(project(":CalendarKmpDav"))
-}
-
-fun getPropertyValue(propertyName: String): String? {
-    if (project.hasProperty(propertyName)) return project.property(propertyName) as String
-    return System.getenv(propertyName)
 }
 

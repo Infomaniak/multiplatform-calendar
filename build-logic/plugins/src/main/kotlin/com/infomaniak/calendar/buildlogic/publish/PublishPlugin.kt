@@ -31,21 +31,20 @@ import org.gradle.plugins.signing.SigningPlugin
 
 class PublishPlugin : Plugin<Project> {
 
-    override fun apply(target: Project) {
-        target.plugins.apply(SigningPlugin::class.java)
-        target.plugins.apply("maven-publish")
-        target.plugins.apply("com.gradleup.nmcp")
+    override fun apply(target: Project) = with(target) {
+        plugins.apply(SigningPlugin::class.java)
+        plugins.apply("maven-publish")
 
-        target.group = "com.infomaniak.multiplatform_calendar"
-        target.version = getPropertyValue(target, "core.version") ?: "unspecified"
+        group = "com.infomaniak.multiplatform_calendar"
+        version = getPropertyValue("core.version") ?: "unspecified"
 
-        target.afterEvaluate {
-            target.extensions.configure<PublishingExtension> {
+        afterEvaluate {
+            extensions.configure<PublishingExtension> {
                 publications {
                     withType<MavenPublication> {
                         pom {
-                            name.set("MultiplatformeCalendar")
-                            description.set("Multiplatform Calendar - MultiplatformeCalendar core library")
+                            name.set("MultiplatformCalendar")
+                            description.set("Multiplatform Calendar - MultiplatformCalendar core library")
                             licenses {
                                 license {
                                     name.set("GPL-3.0")
@@ -76,12 +75,29 @@ class PublishPlugin : Plugin<Project> {
                         }
                     }
                 }
+
+                repositories {
+                    maven {
+                        name = "reposilite"
+                        url = uri(
+                            if (version.toString().endsWith("SNAPSHOT")) {
+                                "https://maven.infomaniak.app/snapshots"
+                            } else {
+                                "https://maven.infomaniak.app/releases"
+                            }
+                        )
+                        credentials {
+                            username = getPropertyValue("reposiliteUsername")
+                            password = getPropertyValue("reposilitePassword")
+                        }
+                    }
+                }
             }
 
-            target.extensions.configure<SigningExtension> {
-                val keyId: String = getPropertyValue(project, "GPG_key_id") ?: return@configure
-                val ringFile: String = getPropertyValue(project, "GPG_private_key")?.replace('#', '\n') ?: return@configure
-                val password: String = getPropertyValue(project, "GPG_private_password") ?: return@configure
+            extensions.configure<SigningExtension> {
+                val keyId: String = getPropertyValue("GPG_key_id") ?: return@configure
+                val ringFile: String = getPropertyValue("GPG_private_key")?.replace('#', '\n') ?: return@configure
+                val password: String = getPropertyValue("GPG_private_password") ?: return@configure
 
                 isRequired = true
                 useInMemoryPgpKeys(keyId, ringFile, password)
@@ -96,9 +112,10 @@ class PublishPlugin : Plugin<Project> {
             }
         }
     }
-}
 
-private fun getPropertyValue(project: Project, propertyName: String): String? {
-    if (project.hasProperty(propertyName)) return project.property(propertyName) as String
-    return System.getenv(propertyName)
+    private fun Project.getPropertyValue(propertyName: String): String? {
+        if (project.hasProperty(propertyName)) return project.property(propertyName) as String
+        return System.getenv(propertyName)
+    }
+
 }

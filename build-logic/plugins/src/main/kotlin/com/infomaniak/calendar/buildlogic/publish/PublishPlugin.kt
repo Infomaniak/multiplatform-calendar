@@ -34,7 +34,6 @@ class PublishPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         plugins.apply(SigningPlugin::class.java)
         plugins.apply("maven-publish")
-        plugins.apply("com.gradleup.nmcp")
 
         group = "com.infomaniak.multiplatform_calendar"
         version = getPropertyValue("core.version") ?: "unspecified"
@@ -77,12 +76,6 @@ class PublishPlugin : Plugin<Project> {
                     }
                 }
 
-                // Reposilite: public read (repos "releases"/"snapshots" are configured as
-                // PUBLIC visibility server-side), authenticated write only. Credentials come
-                // from gradle.properties (local dev, gitignored) or env vars (CI secrets) —
-                // never hardcoded. If they're missing, Gradle will simply fail the `publish`
-                // task for THIS repository when actually invoked, without blocking the
-                // Maven Central (nmcp) publication path.
                 repositories {
                     maven {
                         name = "reposilite"

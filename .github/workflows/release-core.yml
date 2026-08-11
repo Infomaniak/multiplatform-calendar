@@ -149,15 +149,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-snapshot-android:
-    name: Publish Android snapshot to Maven Central
+    name: Publish Android snapshot to Reposilite
     needs: resolve-version
-    uses: ./.github/workflows/publish-to-maven-central-snapshots.yml
+    uses: ./.github/workflows/publish-to-reposilite-snapshots.yml
     with:
       version: ${{ needs['resolve-version'].outputs.version }}-SNAPSHOT
       commit-sha: ${{ github.sha }}
     secrets:
-      SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-      SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+      REPOSILITE_USERNAME: ${{ secrets.REPOSILITE_USERNAME }}
+      REPOSILITE_PASSWORD: ${{ secrets.REPOSILITE_PASSWORD }}
       GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       GPG_PRIVATE_PASSWORD: ${{ secrets.GPG_PRIVATE_PASSWORD }}
@@ -176,7 +176,7 @@ jobs:
           VERSION="${{ needs['resolve-version'].outputs.version }}"
           gh pr create \
             --title "chore: Release $VERSION" \
-            --body "Update \`Package.swift\` with the new XCFramework URL and checksum for version \`$VERSION\`. Merging this PR will automatically publish the GitHub Release and the Android library on Maven Central." \
+            --body "Update \`Package.swift\` with the new XCFramework URL and checksum for version \`$VERSION\`. Merging this PR will automatically publish the GitHub Release and the Android library on Reposilite." \
             --head "release/$VERSION" \
             --base main \
             --repo "$GITHUB_REPOSITORY"

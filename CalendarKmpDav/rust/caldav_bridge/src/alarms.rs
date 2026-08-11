@@ -70,7 +70,11 @@ pub(crate) fn strip_valarms_in_vevent(ics: &str, target_vevent: usize) -> String
 
 /// Splices VALARM blocks before the `END:VEVENT` of the VEVENT at `target_vevent` (0-based ordinal
 /// among VEVENTs), matched as a complete content line.
-pub(crate) fn splice_alarms_into_vevent(ics: &str, target_vevent: usize, alarms: &[AlarmEdit]) -> String {
+pub(crate) fn splice_alarms_into_vevent(
+    ics: &str,
+    target_vevent: usize,
+    alarms: &[AlarmEdit],
+) -> String {
     if alarms.is_empty() {
         return ics.to_string();
     }
@@ -99,7 +103,6 @@ pub(crate) fn splice_alarms_into_vevent(ics: &str, target_vevent: usize, alarms:
     }
     out
 }
-
 
 /// VALARMs without a TRIGGER are malformed and dropped.
 fn parse_valarm<C: Component>(c: &C) -> Option<AlarmEntry> {

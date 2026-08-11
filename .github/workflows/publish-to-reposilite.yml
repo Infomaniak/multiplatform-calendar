@@ -1,5 +1,5 @@
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
-name: Publish to Maven Central
+name: Publish to Reposilite
 on:
   workflow_dispatch:
     inputs:
@@ -9,7 +9,7 @@ on:
         type: string
       acknowledgement:
         description: |
-          WARNING: Publishing a version to Maven Central is irrevocable.
+          WARNING: Publishing a version to Reposilite is irrevocable.
           Do you confirm (Yes/no):
           1. You have successfully tested publishing snapshot (with a Gradle CLEAN) just before changing the version
           2. The version is CORRECT, and is NOT a SNAPSHOT
@@ -25,9 +25,9 @@ on:
         required: true
         type: string
     secrets:
-      SONATYPE_USERNAME:
+      REPOSILITE_USERNAME:
         required: true
-      SONATYPE_PASSWORD:
+      REPOSILITE_PASSWORD:
         required: true
       GPG_KEY_ID:
         required: true
@@ -69,11 +69,11 @@ jobs:
           # Cargo's target dir is not cleaned by Gradle — remove it to avoid stale Rust artifacts.
           rm -rf CalendarKmpDav/rust/caldav_bridge/target
       - name: Publish the artifacts
-        run: ./gradlew publishAggregationToCentralPortal -Pcore.version=${{ inputs.version }}
+        run: ./gradlew publish -Pcore.version=${{ inputs.version }}
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
-  ossrhUsername: ${{ secrets.SONATYPE_USERNAME }}
-  ossrhPassword: ${{ secrets.SONATYPE_PASSWORD }}
+  reposiliteUsername: ${{ secrets.REPOSILITE_USERNAME }}
+  reposilitePassword: ${{ secrets.REPOSILITE_PASSWORD }}
   GPG_key_id: ${{ secrets.GPG_KEY_ID }}
   GPG_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
   GPG_private_password: ${{ secrets.GPG_PRIVATE_PASSWORD }}

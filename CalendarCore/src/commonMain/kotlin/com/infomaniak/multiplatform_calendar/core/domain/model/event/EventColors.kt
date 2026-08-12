@@ -20,7 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 
 public data class EventColors(
-    val eventSourceColor: EventSourceColor?,
+    val eventSourceColor: EventSourceColor,
     val datavizContainer: ThemedColor,
     val onDatavizContainer: ThemedColor,
     val datavizContainerVariant: ThemedColor,
@@ -28,7 +28,7 @@ public data class EventColors(
 ) {
     public companion object {
         public fun from(color: CalendarColors): EventColors = EventColors(
-            eventSourceColor = null,
+            eventSourceColor = EventSourceColor(color.calendarSourceColor), //TODO(gigi): Why it was null before?
             datavizContainer = color.datavizContainer,
             onDatavizContainer = color.onDatavizContainer,
             datavizContainerVariant = color.datavizContainerVariant,

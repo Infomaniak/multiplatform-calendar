@@ -1,5 +1,6 @@
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
 name: Publish to Reposilite
+
 on:
   workflow_dispatch:
     inputs:
@@ -37,43 +38,38 @@ on:
         required: true
 
 permissions: {}
+
 jobs:
-  build:
-    runs-on: [ self-hosted, Android ]
+  check-acknowledgement:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     steps:
       - name: Check acknowledgement
-        # Only required when triggered manually — skipped when called from another workflow.
-        if: github.event_name == 'workflow_dispatch'
-        run: test "${{ github.event.inputs.acknowledgement }}" = "Yes" || (echo "Acknowledgement missing" && exit 1)
-      - name: Checkout sources
-        uses: actions/checkout@v6.0.3
-        with:
-          ref: refs/tags/${{ inputs.version }}
-          submodules: recursive
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: 21
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6.2.0
-        with:
-          cache-provider: basic
-      - name: Perform a Gradle clean
+        env:
+          ACKNOWLEDGEMENT: ${{ inputs.acknowledgement }}
+        run: test "$ACKNOWLEDGEMENT" = "Yes" || (echo "Acknowledgement missing" && exit 1)
+      # Guard against publishing a "release" that's actually a snapshot (e.g. "1.2.3-SNAPSHOT"):
+      # PublishPlugin would silently route it to the snapshots repository instead of failing.
+      - name: Validate version format
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          ./gradlew clean
-          # Cargo's target dir is not cleaned by Gradle — remove it to avoid stale Rust artifacts.
-          rm -rf CalendarKmpDav/rust/caldav_bridge/target
-      - name: Publish the artifacts
-        run: ./gradlew publish -Pcore.version=${{ inputs.version }}
-env:
-  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
-  reposiliteUsername: ${{ secrets.REPOSILITE_USERNAME }}
-  reposilitePassword: ${{ secrets.REPOSILITE_PASSWORD }}
-  GPG_key_id: ${{ secrets.GPG_KEY_ID }}
-  GPG_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-  GPG_private_password: ${{ secrets.GPG_PRIVATE_PASSWORD }}
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
+            echo "Version '$VERSION' is not a valid release version (expected x.x.x, e.g. 1.2.3)"
+            exit 1
+          }
+
+  publish:
+    needs: check-acknowledgement
+    if: always() && (needs.check-acknowledgement.result == 'success' || needs.check-acknowledgement.result == 'skipped')
+    uses: Infomaniak/.github/.github/workflows/kmp-publish-reposilite-release.yml@v2
+    with:
+      version: ${{ inputs.version }}
+      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      clean-paths: CalendarKmpDav/rust/caldav_bridge/target
+    secrets:
+      REPOSILITE_USERNAME: ${{ secrets.REPOSILITE_USERNAME }}
+      REPOSILITE_PASSWORD: ${{ secrets.REPOSILITE_PASSWORD }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PRIVATE_PASSWORD: ${{ secrets.GPG_PRIVATE_PASSWORD }}

@@ -18,45 +18,46 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ThemedColor
+import com.infomaniak.multiplatform_calendar.core.utils.aaaToneAgainst
+import com.infomaniak.multiplatform_calendar.core.utils.compositeOver
+import com.infomaniak.multiplatform_calendar.core.utils.withAlpha
 import com.materialkolor.palettes.TonalPalette
 
 // Every color is computed at the calendar level, even if some are hidden, so computations are optimized and only done once per
 // calendar instead of doing it once per event.
 public data class CalendarColors(
-    val calendarSourceColor: Int,
-    internal val datavizContainer: ThemedColor,
-    internal val onDatavizContainer: ThemedColor,
-    val datavizContainerVariant: ThemedColor,
-    val onDatavizContainerVariant: ThemedColor,
+    val sourceColor: Int,
+    val onSourceColor: ThemedColor,
+    val sourceVariantColor: Int,
+    val onSourceVariantColor: ThemedColor,
 ) {
     public companion object {
         private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
+        private const val LIGHT_SURFACE = 0xFFFFFBFE.toInt()
+        private const val DARK_SURFACE = 0xFF141218.toInt()
 
         internal fun from(calendarColor: CalendarSourceColor?): CalendarColors = from(calendarColor?.argb)
 
         public fun from(calendarColor: Int?): CalendarColors {
-            val color = calendarColor ?: DEFAULT_COLOR
-            val palette = TonalPalette.fromInt(color)
+            val sourceColor = calendarColor ?: DEFAULT_COLOR
+            val palette = TonalPalette.fromInt(sourceColor)
+            val onSourceColor = ThemedColor(
+                light = palette.aaaToneAgainst(sourceColor),
+                dark = palette.aaaToneAgainst(sourceColor),
+            )
+
+            val sourceVariantColor = sourceColor.withAlpha(0.20f)
+            val onSourceVariantColor = ThemedColor(
+                light = palette.aaaToneAgainst(sourceVariantColor.compositeOver(LIGHT_SURFACE)),
+                dark = palette.aaaToneAgainst(sourceVariantColor.compositeOver(DARK_SURFACE)),
+            )
+
             return CalendarColors(
-                calendarSourceColor = color, // Kept exactly as given
-                datavizContainer = palette.themedColor(ThemedColorRole.DatavizContainer),
-                onDatavizContainer = palette.themedColor(ThemedColorRole.OnDatavizContainer),
-                datavizContainerVariant = palette.themedColor(ThemedColorRole.DatavizContainerVariant),
-                onDatavizContainerVariant = palette.themedColor(ThemedColorRole.OnDatavizContainerVariant),
+                sourceColor = sourceColor,
+                onSourceColor = onSourceColor,
+                sourceVariantColor = sourceVariantColor,
+                onSourceVariantColor = onSourceVariantColor,
             )
         }
     }
-}
-
-private fun TonalPalette.themedColor(tone: ThemedColorRole): ThemedColor = ThemedColor(
-    light = tone(tone.light),
-    dark = tone(tone.dark),
-)
-
-// Tones are based on what the spec uses for dataviz colors which is itself based on the material logic of what tones to pair
-private enum class ThemedColorRole(val light: Int, val dark: Int) {
-    DatavizContainer(light = 100, dark = 20),
-    OnDatavizContainer(light = 40, dark = 80),
-    DatavizContainerVariant(light = 90, dark = 30),
-    OnDatavizContainerVariant(light = 30, dark = 90),
 }

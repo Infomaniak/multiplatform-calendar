@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ThemedColor
+import com.infomaniak.multiplatform_calendar.core.utils.aaToneAgainst
 import com.infomaniak.multiplatform_calendar.core.utils.aaaToneAgainst
 import com.infomaniak.multiplatform_calendar.core.utils.compositeOver
 import com.infomaniak.multiplatform_calendar.core.utils.withAlpha
@@ -41,9 +42,11 @@ public data class CalendarColors(
         public fun from(calendarColor: Int?): CalendarColors {
             val sourceColor = calendarColor ?: DEFAULT_COLOR
             val palette = TonalPalette.fromInt(sourceColor)
+
+            // Since the source color will be used for decorative purposes an AA contrast is sufficient.
             val onSourceColor = ThemedColor(
-                light = palette.aaaToneAgainst(sourceColor),
-                dark = palette.aaaToneAgainst(sourceColor),
+                light = palette.aaToneAgainst(sourceColor),
+                dark = palette.aaToneAgainst(sourceColor),
             )
 
             val sourceVariantColor = sourceColor.withAlpha(0.20f)

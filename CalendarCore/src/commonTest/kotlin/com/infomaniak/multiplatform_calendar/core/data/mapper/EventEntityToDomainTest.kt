@@ -87,11 +87,11 @@ class EventEntityToDomainTest {
     fun eventWithoutColorArgb_inheritsCalendarColors() {
         val event = eventEntity(colorArgb = null).toDomain(calendar)
 
-        assertEquals(EventSourceColor(calendar.colors.calendarSourceColor), event.colors.eventSourceColor)
-        assertEquals(calendar.colors.datavizContainer, event.colors.datavizContainer)
-        assertEquals(calendar.colors.onDatavizContainer, event.colors.onDatavizContainer)
-        assertEquals(calendar.colors.datavizContainerVariant, event.colors.datavizContainerVariant)
-        assertEquals(calendar.colors.onDatavizContainerVariant, event.colors.onDatavizContainerVariant)
+        assertEquals(EventSourceColor(calendar.colors.sourceColor), event.colors.eventSourceColor)
+        assertEquals(calendar.colors.sourceColor, event.colors.sourceColor)
+        assertEquals(calendar.colors.onSourceColor, event.colors.onSourceColor)
+        assertEquals(calendar.colors.sourceVariantColor, event.colors.sourceVariantColor)
+        assertEquals(calendar.colors.onSourceVariantColor, event.colors.onSourceVariantColor)
     }
 
     @Test
@@ -101,7 +101,7 @@ class EventEntityToDomainTest {
         val event = eventEntity(colorArgb = eventColor).toDomain(calendar)
 
         assertEquals(EventSourceColor(eventColor), event.colors.eventSourceColor)
-        assertNotNull(event.colors.datavizContainer)
+        assertNotNull(event.colors.sourceColor)
     }
 
     @Test

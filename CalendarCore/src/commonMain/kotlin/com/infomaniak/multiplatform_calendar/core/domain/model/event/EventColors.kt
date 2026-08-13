@@ -25,9 +25,10 @@ public data class EventColors(
     val onSourceColor: ThemedColor,
     val sourceVariantColor: Int,
     val onSourceVariantColor: ThemedColor,
+) {
     public companion object {
         public fun from(color: CalendarColors): EventColors = EventColors(
-            eventSourceColor = EventSourceColor(color.calendarSourceColor), //TODO(gigi): Why it was null before?
+            eventSourceColor = EventSourceColor(color.sourceColor), //TODO(gigi): Why it was null before?
             sourceColor = color.sourceColor,
             onSourceColor = color.onSourceColor,
             sourceVariantColor = color.sourceVariantColor,

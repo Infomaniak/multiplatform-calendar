@@ -21,18 +21,17 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 
 public data class EventColors(
     val eventSourceColor: EventSourceColor,
-    val datavizContainer: ThemedColor,
-    val onDatavizContainer: ThemedColor,
-    val datavizContainerVariant: ThemedColor,
-    val onDatavizContainerVariant: ThemedColor,
-) {
+    val sourceColor: Int,
+    val onSourceColor: ThemedColor,
+    val sourceVariantColor: Int,
+    val onSourceVariantColor: ThemedColor,
     public companion object {
         public fun from(color: CalendarColors): EventColors = EventColors(
             eventSourceColor = EventSourceColor(color.calendarSourceColor), //TODO(gigi): Why it was null before?
-            datavizContainer = color.datavizContainer,
-            onDatavizContainer = color.onDatavizContainer,
-            datavizContainerVariant = color.datavizContainerVariant,
-            onDatavizContainerVariant = color.onDatavizContainerVariant,
+            sourceColor = color.sourceColor,
+            onSourceColor = color.onSourceColor,
+            sourceVariantColor = color.sourceVariantColor,
+            onSourceVariantColor = color.onSourceVariantColor,
         )
 
         /** The [cache] must be reused across a batch to avoid recomputing the palette for shared source colors. */
@@ -43,10 +42,10 @@ public data class EventColors(
             val calendarColors = CalendarColors.from(eventSourceColor.argb)
             EventColors(
                 eventSourceColor = eventSourceColor,
-                datavizContainer = calendarColors.datavizContainer,
-                onDatavizContainer = calendarColors.onDatavizContainer,
-                datavizContainerVariant = calendarColors.datavizContainerVariant,
-                onDatavizContainerVariant = calendarColors.onDatavizContainerVariant,
+                sourceColor = calendarColors.sourceColor,
+                onSourceColor = calendarColors.onSourceColor,
+                sourceVariantColor = calendarColors.sourceVariantColor,
+                onSourceVariantColor = calendarColors.onSourceVariantColor,
             )
         }
     }

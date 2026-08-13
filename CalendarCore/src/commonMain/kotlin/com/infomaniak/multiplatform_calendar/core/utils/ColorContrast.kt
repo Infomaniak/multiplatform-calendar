@@ -24,11 +24,22 @@ import kotlin.math.pow
 
 /** Returns a palette tone color (ARGB Int) that reaches WCAG AAA (>= 7:1) against [background]. */
 public fun TonalPalette.aaaToneAgainst(background: Int): Int {
-    val bgIsLight = background.luminance() > 0.5
+    val bgIsLight = tone(0).contrastRatioAgainst(background) >= tone(100).contrastRatioAgainst(background)
     val tones = if (bgIsLight) (50 downTo 0) else (50..100)
 
     return tones
         .firstOrNull { candidateTone -> tone(candidateTone).contrastRatioAgainst(background) >= 7.0 }
+        ?.let(::tone)
+        ?: tone(if (bgIsLight) 0 else 100)
+}
+
+/** Returns a palette tone color (ARGB Int) that reaches WCAG AA (>= 4.5:1) against [background]. */
+public fun TonalPalette.aaToneAgainst(background: Int): Int {
+    val bgIsLight = tone(0).contrastRatioAgainst(background) >= tone(100).contrastRatioAgainst(background)
+    val tones = if (bgIsLight) (50 downTo 0) else (50..100)
+
+    return tones
+        .firstOrNull { candidateTone -> tone(candidateTone).contrastRatioAgainst(background) >= 4.5 }
         ?.let(::tone)
         ?: tone(if (bgIsLight) 0 else 100)
 }
@@ -67,7 +78,7 @@ public fun Int.compositeOver(background: Int): Int {
     return (outAlpha shl 24) or (outR shl 16) or (outG shl 8) or outB
 }
 
-private fun Int.contrastRatioAgainst(other: Int): Double {
+internal fun Int.contrastRatioAgainst(other: Int): Double {
     val l1 = luminance()
     val l2 = other.luminance()
     val lighter = max(l1, l2)

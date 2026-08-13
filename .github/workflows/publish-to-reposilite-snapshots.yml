@@ -1,5 +1,6 @@
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
 name: Publish to Reposilite Snapshots
+
 on:
   workflow_dispatch:
     inputs:
@@ -34,62 +35,26 @@ on:
         required: true
       KCHAT_KMP_WEBHOOK_URL:
         required: false
+
+permissions:
+  contents: read
+
 jobs:
-  build:
-    runs-on: [ self-hosted, Android ]
-    permissions:
-      contents: read
-    steps:
-      - name: Normalize version (append -SNAPSHOT if missing)
-        run: |
-          VERSION="${{ inputs.version }}"
-          if [[ "$VERSION" != *-SNAPSHOT ]]; then
-            VERSION="$VERSION-SNAPSHOT"
-          fi
-          echo "SNAPSHOT_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Checkout sources
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: 21
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-      - name: Perform a Gradle clean, as requested
-        if: ${{ github.event.inputs.perform-a-gradle-clean == 'true' }}
-        run: |
-          ./gradlew clean
-          # Cargo's target dir is not cleaned by Gradle — remove it to avoid stale Rust artifacts.
-          rm -rf CalendarKmpDav/rust/caldav_bridge/target
-      - name: Publish the snapshots
-        run: ./gradlew publish -Pcore.version=${{ env.SNAPSHOT_VERSION }}
-
-      - name: Export commit info
-        id: commit-link
-        uses: Infomaniak/.github/actions/export-commit-info@v2
-        with:
-          sha: ${{ inputs['commit-sha'] || github.sha }}
-
-      - name: Notify KChat
-        env:
-          KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
-        run: |
-          COMMIT_LINK="${{ steps.commit-link.outputs.markdown-link }}"
-          curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"text\": \":android: *Android Calendar snapshot ${{ env.SNAPSHOT_VERSION }}* is available on Reposilite Snapshots!\n:package: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:${{ env.SNAPSHOT_VERSION }}\\\")\`\n:link: https://maven.infomaniak.app/snapshots/com/infomaniak/multiplatform_calendar/\n:pencil: Commit: $COMMIT_LINK\"}"
-env:
-  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx5g -Dfile.encoding=UTF-8"
-  reposiliteUsername: ${{ secrets.REPOSILITE_USERNAME }}
-  reposilitePassword: ${{ secrets.REPOSILITE_PASSWORD }}
-  GPG_key_id: ${{ secrets.GPG_KEY_ID }}
-  GPG_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-  GPG_private_password: ${{ secrets.GPG_PRIVATE_PASSWORD }}
+  publish:
+    uses: Infomaniak/.github/.github/workflows/kmp-publish-reposilite-snapshot.yml@v2
+    with:
+      version: ${{ inputs.version }}
+      commit-sha: ${{ inputs.commit-sha }}
+      perform-a-gradle-clean: ${{ inputs.perform-a-gradle-clean }}
+      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      clean-paths: CalendarKmpDav/rust/caldav_bridge/target
+      lib-name: "Android Calendar"
+      artifact-line: 'implementation("com.infomaniak.multiplatform_calendar:CalendarCore:{VERSION}")'
+      maven-group-path: "com/infomaniak/multiplatform_calendar"
+    secrets:
+      REPOSILITE_USERNAME: ${{ secrets.REPOSILITE_USERNAME }}
+      REPOSILITE_PASSWORD: ${{ secrets.REPOSILITE_PASSWORD }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PRIVATE_PASSWORD: ${{ secrets.GPG_PRIVATE_PASSWORD }}
+      KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}

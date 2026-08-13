@@ -1,0 +1,48 @@
+name: Release library
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (x.x.x). Leave empty to auto-bump from the latest release using "bump"'
+        required: false
+        type: string
+      bump:
+        description: 'Version part to bump automatically when "version" is left empty'
+        required: true
+        default: patch
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    uses: Infomaniak/.github/.github/workflows/kmp-release-library.yml@v2
+    with:
+      version: ${{ inputs.version }}
+      bump: ${{ inputs.bump }}
+      xcframeworks: |
+        [{"name":"MultiplatformCalendar","module":"CalendarCore","task":"assembleMultiplatformCalendarReleaseXCFramework"}]
+      rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin
+      android-rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      clean-paths: |
+        CalendarKmpDav/build
+        CalendarKmpDav/rust/caldav_bridge/target
+      lib-name: "Android Calendar"
+      artifact-line: 'implementation("com.infomaniak.multiplatform_calendar:CalendarCore:{VERSION}")'
+      maven-group-path: "com/infomaniak/multiplatform_calendar"
+    secrets:
+      REPOSILITE_USERNAME: ${{ secrets.REPOSILITE_USERNAME }}
+      REPOSILITE_PASSWORD: ${{ secrets.REPOSILITE_PASSWORD }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PRIVATE_PASSWORD: ${{ secrets.GPG_PRIVATE_PASSWORD }}
+      BOT_MOBILE_GPG_PRIVATE_KEY: ${{ secrets.BOT_MOBILE_GPG_PRIVATE_KEY }}
+      BOT_MOBILE_GPG_PASSPHRASE: ${{ secrets.BOT_MOBILE_GPG_PASSPHRASE }}
+      KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}

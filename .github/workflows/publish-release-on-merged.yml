@@ -9,61 +9,24 @@ permissions:
   contents: write
 
 jobs:
-  prepare:
-    name: Undraft GitHub Release
-    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
-    runs-on: [ self-hosted, Android ]
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-
-    steps:
-      - name: Extract version from branch name
-        id: version
-        env:
-          BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          echo "version=${BRANCH#release/}" >> $GITHUB_OUTPUT
-
-      - name: Setup gh CLI
-        run: command -v gh >/dev/null 2>&1 || brew install gh
-
-      - name: Publish draft release
-        run: gh release edit "${{ steps.version.outputs.version }}" --draft=false --repo ${{ github.repository }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-android:
-    name: Publish Android release to Reposilite
-    needs: prepare
-    permissions: {}
-    uses: ./.github/workflows/publish-to-reposilite.yml
+  publish:
+    uses: Infomaniak/.github/.github/workflows/kmp-publish-on-release-merge.yml@v2
     with:
-      version: ${{ needs.prepare.outputs.version }}
+      merged: ${{ github.event.pull_request.merged }}
+      head-ref: ${{ github.event.pull_request.head.ref }}
+      merge-commit-sha: ${{ github.event.pull_request.merge_commit_sha }}
+      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      clean-paths: CalendarKmpDav/rust/caldav_bridge/target
+      lib-name: "Calendar lib"
+      spm-line: |
+        .package(url: "https://github.com/Infomaniak/multiplatform-calendar", from: "{VERSION}")
+      android-line: |
+        implementation("com.infomaniak.multiplatform_calendar:CalendarCore:{VERSION}")
+      maven-group-path: "com/infomaniak/multiplatform_calendar"
     secrets:
       REPOSILITE_USERNAME: ${{ secrets.REPOSILITE_USERNAME }}
       REPOSILITE_PASSWORD: ${{ secrets.REPOSILITE_PASSWORD }}
       GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       GPG_PRIVATE_PASSWORD: ${{ secrets.GPG_PRIVATE_PASSWORD }}
-
-  notify:
-    name: Notify KChat
-    needs: [ prepare, publish-android ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Export commit info
-        id: commit-link
-        uses: Infomaniak/.github/actions/export-commit-info@v2
-        with:
-          sha: ${{ github.event.pull_request.merge_commit_sha }}
-
-      - name: Notify KChat
-        env:
-          KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}
-        run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
-          RELEASE_URL="https://github.com/Infomaniak/multiplatform-calendar/releases/tag/$VERSION"
-          COMMIT_LINK="${{ steps.commit-link.outputs.markdown-link }}"
-          curl -s -X POST "$KCHAT_KMP_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"text\": \":rocket: *Calendar lib $VERSION* is now available!\n:apple: SPM: \`.package(url: \\\"https://github.com/Infomaniak/multiplatform-calendar\\\", from: \\\"$VERSION\\\")\`\n:android: \`implementation(\\\"com.infomaniak.multiplatform_calendar:CalendarCore:$VERSION\\\")\`\n:link: $RELEASE_URL\n:link: https://maven.infomaniak.app/releases/com/infomaniak/multiplatform_calendar/\n:pencil: Commit: $COMMIT_LINK\"}"
+      KCHAT_KMP_WEBHOOK_URL: ${{ secrets.KCHAT_KMP_WEBHOOK_URL }}

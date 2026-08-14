@@ -188,11 +188,16 @@ internal suspend fun Event.expandDaySlicesInto(
  * Sorts slices within a single day: all-day first, then timed by start time; [OccurrenceId.value] breaks
  * ties for stability. No `date` key — buckets are already mono-date.
  */
-private val perDayDaySliceComparator = compareBy<EventDaySlice>(
-    { !it.isAllDay },
-    { it.displayStart },
-    { it.event.occurrenceId.value },
-)
+private val perDayDaySliceComparator = Comparator<EventDaySlice> { left, right ->
+    comparePerDayDisplayOrder(
+        leftIsAllDay = left.isAllDay,
+        leftDisplayStart = left.displayStart,
+        leftOccurrenceSortId = left.event.occurrenceId.value,
+        rightIsAllDay = right.isAllDay,
+        rightDisplayStart = right.displayStart,
+        rightOccurrenceSortId = right.event.occurrenceId.value,
+    )
+}
 
 /**
  * Convert an exclusive end date-time into the last day it actually covers.

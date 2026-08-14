@@ -329,6 +329,8 @@ private suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     }
 
     return colorOrderByDay.mapValues { (_, keyByColor) ->
+        // Step 2 (final ordering): we now have one key per color for that day (the earliest event for
+        // that color). Sort colors by that key so color order mirrors planning's per-day event order.
         keyByColor.entries
             .sortedWith(
                 compareBy<Map.Entry<CalendarColors, DayColorSortKey>>(
@@ -381,6 +383,9 @@ private fun MutableMap<LocalDate, MutableMap<CalendarColors, DayColorSortKey>>.r
 
         val keyByColor = getOrPut(day) { LinkedHashMap() }
         val previous = keyByColor[color]
+        // Step 1 (per-color reduction): a day can contain multiple events with the same color.
+        // Keep only the earliest event key for that color (min sort key), because this key drives
+        // the final color ordering done once all events have been folded.
         if (previous == null || sortKey < previous) keyByColor[color] = sortKey
 
         day = day.plus(1, DateTimeUnit.DAY)
@@ -398,4 +403,3 @@ private fun LocalDateTime.projectInto(sourceZone: TimeZone?, targetZone: TimeZon
     if (sourceZone == null || sourceZone == targetZone) return this
     return toInstant(sourceZone).toLocalDateTime(targetZone)
 }
-

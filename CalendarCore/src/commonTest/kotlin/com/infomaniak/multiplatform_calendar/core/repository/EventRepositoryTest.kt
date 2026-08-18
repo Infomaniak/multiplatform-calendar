@@ -457,7 +457,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
         assertEquals(
             listOf(floatingColor.argb, anchoredColor.argb),
-            colorsByDay.getValue(day15).map { it.colors.calendarSourceColor },
+            colorsByDay.getValue(day15).map { it.sourceColor },
             "per-day color order must follow event slice ordering (displayStart), not anchored-first SQL ordering",
         )
     }

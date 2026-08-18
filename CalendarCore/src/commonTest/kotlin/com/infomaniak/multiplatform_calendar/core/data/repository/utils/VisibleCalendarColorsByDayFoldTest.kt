@@ -51,7 +51,7 @@ class VisibleCalendarColorsByDayFoldTest {
 
         assertEquals(
             listOf(red, blue),
-            result.getValue(dayStart.date).map { it.colors.calendarSourceColor },
+            result.getValue(dayStart.date).map { it.sourceColor },
         )
         assertEquals(
             listOf(CalendarId("calendar://red"), CalendarId("calendar://blue")),
@@ -78,7 +78,7 @@ class VisibleCalendarColorsByDayFoldTest {
 
         assertEquals(
             listOf(red, blue),
-            result.getValue(dayStart.date).map { it.colors.calendarSourceColor },
+            result.getValue(dayStart.date).map { it.sourceColor },
         )
     }
 
@@ -127,7 +127,7 @@ class VisibleCalendarColorsByDayFoldTest {
 
         assertEquals(
             listOf(red, blue),
-            result.getValue(dayStart.date).map { it.colors.calendarSourceColor },
+            result.getValue(dayStart.date).map { it.sourceColor },
         )
     }
 

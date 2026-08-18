@@ -18,35 +18,41 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 
 public data class EventColors(
-    val eventSourceColor: EventSourceColor,
+    val calendarSourceColor: CalendarSourceColor,
     val sourceColor: Int,
-    val onSourceColor: ThemedColor,
-    val sourceVariantColor: Int,
-    val onSourceVariantColor: ThemedColor,
+    val containerColor: Int,
+    val onContainerColor: ThemedColor,
+    val containerVariantColor: Int,
+    val onContainerVariantColor: ThemedColor,
 ) {
     public companion object {
         public fun from(color: CalendarColors): EventColors = EventColors(
-            eventSourceColor = EventSourceColor(color.sourceColor), //TODO(gigi): Why it was null before?
+            calendarSourceColor = CalendarSourceColor(color.sourceColor),
             sourceColor = color.sourceColor,
-            onSourceColor = color.onSourceColor,
-            sourceVariantColor = color.sourceVariantColor,
-            onSourceVariantColor = color.onSourceVariantColor,
+            containerColor = color.containerColor,
+            onContainerColor = color.onContainerColor,
+            containerVariantColor = color.containerVariantColor,
+            onContainerVariantColor = color.onContainerVariantColor,
         )
 
         /** The [cache] must be reused across a batch to avoid recomputing the palette for shared source colors. */
         internal fun from(
             eventSourceColor: EventSourceColor,
+            calendarSourceColor: Int,
             cache: MutableMap<EventSourceColor, EventColors>,
         ): EventColors = cache.getOrPut(eventSourceColor) {
-            val calendarColors = CalendarColors.from(eventSourceColor.argb)
+            val eventColors = ColorComputation.from(eventSourceColor.argb)
             EventColors(
-                eventSourceColor = eventSourceColor,
-                sourceColor = calendarColors.sourceColor,
-                onSourceColor = calendarColors.onSourceColor,
-                sourceVariantColor = calendarColors.sourceVariantColor,
-                onSourceVariantColor = calendarColors.onSourceVariantColor,
+                calendarSourceColor = CalendarSourceColor(calendarSourceColor),
+                sourceColor = eventSourceColor.argb,
+                containerColor = eventColors.containerColor,
+                onContainerColor = eventColors.onContainerColor,
+                containerVariantColor = eventColors.containerVariantColor,
+                onContainerVariantColor = eventColors.onContainerVariantColor,
             )
         }
     }

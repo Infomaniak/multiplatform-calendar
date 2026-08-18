@@ -67,8 +67,8 @@ class CalendarColorsTest {
     fun sourceVariantColor_onSourceVariantColorLight_meetsWcagAaaOverLightSurface() {
         testColors.forEach { color ->
             val colors = CalendarColors.from(color)
-            val compositedContainer = colors.sourceVariantColor.compositeOver(lightSurface)
-            val contrast = compositedContainer.contrastRatioAgainst(colors.onSourceVariantColor.light)
+            val compositedContainer = colors.containerColor.compositeOver(lightSurface)
+            val contrast = compositedContainer.contrastRatioAgainst(colors.onContainerColor.light)
             assertTrue(
                 actual = contrast >= 7.0,
                 message = "sourceVariantColor #${color.toHex()} over light surface vs onSourceVariantColor.light: contrast ${contrast.format2dp()}:1, expected >= 7.0:1",
@@ -80,8 +80,8 @@ class CalendarColorsTest {
     fun sourceVariantColor_onSourceVariantColorDark_meetsWcagAaaOverDarkSurface() {
         testColors.forEach { color ->
             val colors = CalendarColors.from(color)
-            val compositedContainer = colors.sourceVariantColor.compositeOver(darkSurface)
-            val contrast = compositedContainer.contrastRatioAgainst(colors.onSourceVariantColor.dark)
+            val compositedContainer = colors.containerColor.compositeOver(darkSurface)
+            val contrast = compositedContainer.contrastRatioAgainst(colors.onContainerColor.dark)
             assertTrue(
                 actual = contrast >= 7.0,
                 message = "sourceVariantColor #${color.toHex()} over dark surface vs onSourceVariantColor.dark: contrast ${contrast.format2dp()}:1, expected >= 7.0:1",

@@ -32,11 +32,8 @@ internal fun comparePerDayDisplayOrder(
     rightDisplayStart: LocalDateTime,
     rightOccurrenceSortId: String,
 ): Int {
-    if (leftIsAllDay != rightIsAllDay) return if (leftIsAllDay) -1 else 1
-
-    val byStart = leftDisplayStart.compareTo(rightDisplayStart)
-    if (byStart != 0) return byStart
-
-    return leftOccurrenceSortId.compareTo(rightOccurrenceSortId)
+    return rightIsAllDay.compareTo(leftIsAllDay).takeUnless { it == 0 }
+        ?: leftDisplayStart.compareTo(rightDisplayStart).takeUnless { it == 0 }
+        ?: leftOccurrenceSortId.compareTo(rightOccurrenceSortId)
 }
 

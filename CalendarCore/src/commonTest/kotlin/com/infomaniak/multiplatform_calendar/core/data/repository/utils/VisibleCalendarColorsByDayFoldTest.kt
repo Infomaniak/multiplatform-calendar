@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -38,8 +39,8 @@ class VisibleCalendarColorsByDayFoldTest {
         val blue = 0xFF1E88E5.toInt()
 
         val rows = listOf(
-            row(eventId = "event://blue-09", color = blue, startHour = 9, endHour = 10),
-            row(eventId = "event://red-08", color = red, startHour = 8, endHour = 9),
+            row(eventId = "event://blue-09", calendarId = "calendar://blue", color = blue, startHour = 9, endHour = 10),
+            row(eventId = "event://red-08", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9),
         )
 
         val result = rows.foldToDailyCalendarColors(
@@ -50,7 +51,11 @@ class VisibleCalendarColorsByDayFoldTest {
 
         assertEquals(
             listOf(red, blue),
-            result.getValue(dayStart.date).map { it.calendarSourceColor },
+            result.getValue(dayStart.date).map { it.colors.calendarSourceColor },
+        )
+        assertEquals(
+            listOf(CalendarId("calendar://red"), CalendarId("calendar://blue")),
+            result.getValue(dayStart.date).map { it.id },
         )
     }
 
@@ -60,9 +65,9 @@ class VisibleCalendarColorsByDayFoldTest {
         val blue = 0xFF1E88E5.toInt()
 
         val rows = listOf(
-            row(eventId = "event://red-15", color = red, startHour = 15, endHour = 16),
-            row(eventId = "event://blue-10", color = blue, startHour = 10, endHour = 11),
-            row(eventId = "event://red-08", color = red, startHour = 8, endHour = 9),
+            row(eventId = "event://red-15", calendarId = "calendar://red", color = red, startHour = 15, endHour = 16),
+            row(eventId = "event://blue-10", calendarId = "calendar://blue", color = blue, startHour = 10, endHour = 11),
+            row(eventId = "event://red-08", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9),
         )
 
         val result = rows.foldToDailyCalendarColors(
@@ -73,7 +78,34 @@ class VisibleCalendarColorsByDayFoldTest {
 
         assertEquals(
             listOf(red, blue),
-            result.getValue(dayStart.date).map { it.calendarSourceColor },
+            result.getValue(dayStart.date).map { it.colors.calendarSourceColor },
+        )
+    }
+
+    @Test
+    fun foldToDailyCalendarColors_keepsBothCalendarIds_whenTwoCalendarsShareSameColor() = runTest {
+        val red = 0xFFE53935.toInt()
+
+        val rows = listOf(
+            row(eventId = "event://red1-08", calendarId = "calendar://red1", color = red, startHour = 8, endHour = 9),
+            row(eventId = "event://red2-10", calendarId = "calendar://red2", color = red, startHour = 10, endHour = 11),
+        )
+
+        val result = rows.foldToDailyCalendarColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = dayEnd.toInstant(utc),
+            timeZone = utc,
+        )
+
+        val dayEntries = result.getValue(dayStart.date)
+        assertEquals(2, dayEntries.size)
+        assertEquals(
+            listOf(CalendarId("calendar://red1"), CalendarId("calendar://red2")),
+            dayEntries.map { it.id },
+        )
+        assertEquals(
+            listOf(red, red),
+            dayEntries.map { it.colors.calendarSourceColor },
         )
     }
 
@@ -83,8 +115,8 @@ class VisibleCalendarColorsByDayFoldTest {
         val blue = 0xFF1E88E5.toInt()
 
         val rows = listOf(
-            row(eventId = "event://timed", color = blue, startHour = 8, endHour = 9),
-            allDayRow(eventId = "event://all-day", color = red),
+            row(eventId = "event://timed", calendarId = "calendar://blue", color = blue, startHour = 8, endHour = 9),
+            allDayRow(eventId = "event://all-day", calendarId = "calendar://red", color = red),
         )
 
         val result = rows.foldToDailyCalendarColors(
@@ -95,18 +127,20 @@ class VisibleCalendarColorsByDayFoldTest {
 
         assertEquals(
             listOf(red, blue),
-            result.getValue(dayStart.date).map { it.calendarSourceColor },
+            result.getValue(dayStart.date).map { it.colors.calendarSourceColor },
         )
     }
 
     private fun row(
         eventId: String,
+        calendarId: String,
         color: Int,
         startHour: Int,
         endHour: Int,
     ): EventCalendarColorInRange {
         return EventCalendarColorInRange(
             eventId = EventId(eventId),
+            calendarId = CalendarId(calendarId),
             colorArgb = color,
             dtStart = LocalDateTime(2026, 6, 15, startHour, 0),
             dtEndEffective = LocalDateTime(2026, 6, 15, endHour, 0),
@@ -117,9 +151,10 @@ class VisibleCalendarColorsByDayFoldTest {
         )
     }
 
-    private fun allDayRow(eventId: String, color: Int): EventCalendarColorInRange {
+    private fun allDayRow(eventId: String, calendarId: String, color: Int): EventCalendarColorInRange {
         return EventCalendarColorInRange(
             eventId = EventId(eventId),
+            calendarId = CalendarId(calendarId),
             colorArgb = color,
             dtStart = LocalDateTime(2026, 6, 15, 0, 0),
             dtEndEffective = LocalDateTime(2026, 6, 16, 0, 0),

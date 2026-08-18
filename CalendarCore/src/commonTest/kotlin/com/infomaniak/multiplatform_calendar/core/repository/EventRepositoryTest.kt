@@ -277,12 +277,17 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(setOf(day15, day16), colorsByDay.keys)
         assertEquals(
             setOf(red.argb, blue.argb),
-            colorsByDay.getValue(day15).map { it.calendarSourceColor }.toSet(),
+            colorsByDay.getValue(day15).map { it.colors.calendarSourceColor }.toSet(),
             "day 15 must expose one color per calendar with at least one event",
         )
         assertEquals(
+            setOf(calendarA, calendarB),
+            colorsByDay.getValue(day15).map { it.id }.toSet(),
+            "day 15 entries must expose stable calendar ids",
+        )
+        assertEquals(
             setOf(red.argb),
-            colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet(),
+            colorsByDay.getValue(day16).map { it.colors.calendarSourceColor }.toSet(),
             "day 16 must only expose calendar A color",
         )
         assertNull(colorsByDay[day17], "days without events must be omitted")
@@ -333,7 +338,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         expectedDays.forEach { day ->
             assertEquals(
                 setOf(green.argb),
-                colorsByDay.getValue(day).map { it.calendarSourceColor }.toSet(),
+                colorsByDay.getValue(day).map { it.colors.calendarSourceColor }.toSet(),
                 "each occurrence day must include the recurring calendar color",
             )
         }
@@ -370,7 +375,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
         assertEquals(setOf(day16), colorsByDay.keys, "UTC late event must land on day 16 in Europe/Paris")
-        assertEquals(setOf(purple.argb), colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet())
+        assertEquals(setOf(purple.argb), colorsByDay.getValue(day16).map { it.colors.calendarSourceColor }.toSet())
     }
 
     @Test
@@ -405,8 +410,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
         val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
         assertEquals(setOf(day15, day16), colorsByDay.keys)
-        assertEquals(setOf(amber.argb), colorsByDay.getValue(day15).map { it.calendarSourceColor }.toSet())
-        assertEquals(setOf(amber.argb), colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet())
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day15).map { it.colors.calendarSourceColor }.toSet())
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day16).map { it.colors.calendarSourceColor }.toSet())
     }
 
     @Test
@@ -452,7 +457,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
         assertEquals(
             listOf(floatingColor.argb, anchoredColor.argb),
-            colorsByDay.getValue(day15).map { it.calendarSourceColor },
+            colorsByDay.getValue(day15).map { it.colors.calendarSourceColor },
             "per-day color order must follow event slice ordering (displayStart), not anchored-first SQL ordering",
         )
     }

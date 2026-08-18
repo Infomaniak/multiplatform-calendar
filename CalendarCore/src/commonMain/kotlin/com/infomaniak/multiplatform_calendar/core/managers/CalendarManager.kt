@@ -21,9 +21,9 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -99,7 +99,7 @@ public class CalendarManager internal constructor(
      * Observe per-day calendar colors for months from [startMonth] to [endMonth] (inclusive).
      *
      * The result contains one entry per day having at least one event from a visible calendar,
-     * mapped to the distinct [CalendarColors] used on that day.
+     * mapped to the [VisibleCalendarColor] entries used on that day.
      *
      * [timeZone] defines day boundaries for the returned map.
      *
@@ -110,7 +110,7 @@ public class CalendarManager internal constructor(
         startMonth: YearMonth,
         endMonth: YearMonth,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
-    ): Flow<Map<LocalDate, List<CalendarColors>>> {
+    ): Flow<Map<LocalDate, List<VisibleCalendarColor>>> {
         val start = startMonth.firstDay.atStartOfDayIn(timeZone)
         val end = endMonth.lastDay.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone) // Exclusive end: start of the next month
 

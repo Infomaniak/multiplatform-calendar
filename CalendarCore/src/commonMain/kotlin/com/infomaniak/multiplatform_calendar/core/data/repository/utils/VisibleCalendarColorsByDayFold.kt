@@ -19,6 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.comparePerDayDisplayOrder
@@ -40,16 +42,16 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
- * Fold the lightweight [EventCalendarColorInRange] rows into `day -> distinct calendar colors` over
+ * Fold the lightweight [EventCalendarColorInRange] rows into `day -> visible calendar colors` over
  * `[rangeStart, rangeEnd[` (in [timeZone]).
  *
- * Only days that actually own events are kept; each maps to the distinct [CalendarColors] of the calendars having at
- * least one event that day. Non-recurring rows are handled as direct spans; recurring masters are expanded into
+ * Only days that actually own events are kept; each maps to the [VisibleCalendarColor] entries of the calendars having
+ * at least one event that day. Non-recurring rows are handled as direct spans; recurring masters are expanded into
  * occurrences (same expander as planning) and then each occurrence span is folded by day. This keeps RRULE parity with
  * the planning day-slice flow while staying lightweight (projection rows only, no full domain event graph).
  *
  * Per-day color order mirrors planning's event order: all-day first, then by slice display start time, then by a stable
- * occurrence id. For each day+color, the earliest event for that color defines its position.
+ * occurrence id. For each day+calendar, the earliest event for that calendar defines its position.
  */
 internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     rangeStart: Instant,
@@ -58,7 +60,7 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     limits: ExpansionLimits = ExpansionLimits(),
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
     onInvalidRange: (rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone, fromDay: LocalDate, toDay: LocalDate) -> Unit = { _, _, _, _, _ -> },
-): Map<LocalDate, List<CalendarColors>> {
+): Map<LocalDate, List<VisibleCalendarColor>> {
     val fromDay = rangeStart.toLocalDateTime(timeZone).date
     val toDay = rangeEnd.toLocalDateTime(timeZone).lastInclusiveDay(notBefore = fromDay)
     if (fromDay > toDay) {
@@ -67,7 +69,7 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     }
 
     val colorsBySourceColor = HashMap<Int?, CalendarColors>()
-    val colorOrderByDay = LinkedHashMap<LocalDate, MutableMap<CalendarColors, DayColorSortKey>>()
+    val colorOrderByDay = LinkedHashMap<LocalDate, MutableMap<CalendarId, DayCalendarColorSortData>>()
     val timeZoneCache = HashMap<String, TimeZone>()
     val occurrences = ArrayList<Occurrence>() // Reused buffer for recurring expansion
     val visibleDays = fromDay..toDay
@@ -107,10 +109,13 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
                 firstDay = firstDay,
                 lastDay = lastDay,
                 visibleDays = visibleDays,
+                calendarId = row.calendarId,
                 color = colors,
-                firstDayDisplayStart = startLocalDateTime,
-                isAllDay = row.isAllDay,
-                occurrenceSortId = row.eventId.url,
+                firstDaySortKey = DayColorSortKey(
+                    isAllDay = row.isAllDay,
+                    displayStart = startLocalDateTime,
+                    occurrenceSortId = row.eventId.url,
+                ),
             )
             continue
         }
@@ -124,26 +129,39 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
                 firstDay = firstDay,
                 lastDay = lastDay,
                 visibleDays = visibleDays,
+                calendarId = row.calendarId,
                 color = colors,
-                firstDayDisplayStart = startLocalDateTime,
-                isAllDay = occurrence.isAllDay,
-                occurrenceSortId = "${row.eventId.url}#${occurrence.key.canonical}",
+                firstDaySortKey = DayColorSortKey(
+                    isAllDay = occurrence.isAllDay,
+                    displayStart = startLocalDateTime,
+                    occurrenceSortId = "${row.eventId.url}#${occurrence.key.canonical}",
+                ),
             )
         }
     }
 
-    return colorOrderByDay.mapValues { (_, keyByColor) ->
-        // Step 2 (final ordering): we now have one key per color for that day (the earliest event for
-        // that color). Sort colors by that key so color order mirrors planning's per-day event order.
-        keyByColor.entries
+    return colorOrderByDay.mapValues { (_, dataByCalendarId) ->
+        // Step 2 (final ordering): we now have one key per calendar for that day (the earliest event for
+        // that calendar). Sort entries by that key so output order mirrors planning's per-day event order.
+        dataByCalendarId.entries
             .sortedWith(
-                compareBy<Map.Entry<CalendarColors, DayColorSortKey>>(
-                    { it.value },
-                    { it.key.calendarSourceColor },
+                compareBy<Map.Entry<CalendarId, DayCalendarColorSortData>>(
+                    { it.value.sortKey },
+                    { it.key.url },
                 ),
-            ).map { it.key }
+            ).map { (calendarId, data) ->
+                VisibleCalendarColor(
+                    id = calendarId,
+                    colors = data.calendarColors,
+                )
+            }
     }
 }
+
+private data class DayCalendarColorSortData(
+    val calendarColors: CalendarColors,
+    val sortKey: DayColorSortKey,
+)
 
 private data class DayColorSortKey(
     val isAllDay: Boolean,
@@ -162,14 +180,13 @@ private data class DayColorSortKey(
     }
 }
 
-private fun MutableMap<LocalDate, MutableMap<CalendarColors, DayColorSortKey>>.recordCalendarColorForCoveredDays(
+private fun MutableMap<LocalDate, MutableMap<CalendarId, DayCalendarColorSortData>>.recordCalendarColorForCoveredDays(
     firstDay: LocalDate,
     lastDay: LocalDate,
     visibleDays: ClosedRange<LocalDate>,
+    calendarId: CalendarId,
     color: CalendarColors,
-    firstDayDisplayStart: LocalDateTime,
-    isAllDay: Boolean,
-    occurrenceSortId: String,
+    firstDaySortKey: DayColorSortKey,
 ) {
     val from = maxOf(firstDay, visibleDays.start)
     val to = minOf(lastDay, visibleDays.endInclusive)
@@ -177,19 +194,24 @@ private fun MutableMap<LocalDate, MutableMap<CalendarColors, DayColorSortKey>>.r
 
     var day = from
     while (day <= to) {
-        val displayStart = if (day == firstDay) firstDayDisplayStart else LocalDateTime(day, MIDNIGHT)
-        val sortKey = DayColorSortKey(
-            isAllDay = isAllDay,
-            displayStart = displayStart,
-            occurrenceSortId = occurrenceSortId,
-        )
+        val sortKey = if (day == firstDay) {
+            firstDaySortKey
+        } else {
+            DayColorSortKey(
+                isAllDay = firstDaySortKey.isAllDay,
+                displayStart = LocalDateTime(day, MIDNIGHT),
+                occurrenceSortId = firstDaySortKey.occurrenceSortId,
+            )
+        }
 
-        val keyByColor = getOrPut(day) { LinkedHashMap() }
-        val previous = keyByColor[color]
-        // Step 1 (per-color reduction): a day can contain multiple events with the same color.
-        // Keep only the earliest event key for that color (min sort key), because this key drives
-        // the final color ordering done once all events have been folded.
-        if (previous == null || sortKey < previous) keyByColor[color] = sortKey
+        val dataByCalendarId = getOrPut(day) { LinkedHashMap() }
+        val previous = dataByCalendarId[calendarId]
+        // Step 1 (per-calendar reduction): a day can contain multiple events from the same calendar.
+        // Keep only the earliest event key for that calendar (min sort key), because this key drives
+        // the final per-day ordering once all events have been folded.
+        if (previous == null || sortKey < previous.sortKey) {
+            dataByCalendarId[calendarId] = DayCalendarColorSortData(calendarColors = color, sortKey = sortKey)
+        }
 
         day = day.plus(1, DateTimeUnit.DAY)
     }

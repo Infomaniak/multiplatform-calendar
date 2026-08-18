@@ -97,6 +97,7 @@ internal abstract class EventDao {
     @Query(
         """
         SELECT event.id AS eventId,
+               event.calendarId AS calendarId,
                calendar.color AS colorArgb,
                event.dtStart AS dtStart,
                event.dtEndEffective AS dtEndEffective,

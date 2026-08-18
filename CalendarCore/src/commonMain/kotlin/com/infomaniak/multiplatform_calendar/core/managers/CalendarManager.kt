@@ -115,7 +115,7 @@ public class CalendarManager internal constructor(
         val end = endMonth.lastDay.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone) // Exclusive end: start of the next month
 
         return sdkCaller.flow(operation = "observe monthly calendar colors for $startMonth to $endMonth in $timeZone") {
-            require(start <= end) { "Start month $startMonth must not be after end month $endMonth" }
+            require(start < end) { "Start month $startMonth must not be after end month $endMonth" }
             nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
                 eventRepository.observeVisibleCalendarColorsByDay(accountIds, start, end, timeZone)
             }

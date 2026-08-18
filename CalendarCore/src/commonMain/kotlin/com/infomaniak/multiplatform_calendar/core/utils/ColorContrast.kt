@@ -22,24 +22,13 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 
-/** Returns a palette tone color (ARGB Int) that reaches WCAG AAA (>= 7:1) against [background]. */
-public fun TonalPalette.aaaToneAgainst(background: Int): Int {
+/** Returns a palette tone color (ARGB Int) that reaches the specified [contrast] against [background]. */
+public fun TonalPalette.findToneWithContrast(background: Int, contrast: Double): Int {
     val bgIsLight = tone(0).contrastRatioAgainst(background) >= tone(100).contrastRatioAgainst(background)
     val tones = if (bgIsLight) (50 downTo 0) else (50..100)
 
     return tones
-        .firstOrNull { candidateTone -> tone(candidateTone).contrastRatioAgainst(background) >= 7.0 }
-        ?.let(::tone)
-        ?: tone(if (bgIsLight) 0 else 100)
-}
-
-/** Returns a palette tone color (ARGB Int) that reaches WCAG AA (>= 4.5:1) against [background]. */
-public fun TonalPalette.aaToneAgainst(background: Int): Int {
-    val bgIsLight = tone(0).contrastRatioAgainst(background) >= tone(100).contrastRatioAgainst(background)
-    val tones = if (bgIsLight) (50 downTo 0) else (50..100)
-
-    return tones
-        .firstOrNull { candidateTone -> tone(candidateTone).contrastRatioAgainst(background) >= 4.5 }
+        .firstOrNull { candidateTone -> tone(candidateTone).contrastRatioAgainst(background) >= contrast }
         ?.let(::tone)
         ?: tone(if (bgIsLight) 0 else 100)
 }

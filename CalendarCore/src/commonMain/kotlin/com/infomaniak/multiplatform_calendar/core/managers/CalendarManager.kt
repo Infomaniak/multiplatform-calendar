@@ -96,29 +96,26 @@ public class CalendarManager internal constructor(
     }
 
     /**
-     * Observe, for a whole calendar [month], the per-day calendar colors used to draw month-grid dots.
+     * Observe per-day calendar colors for months from [startMonth] to [endMonth] (inclusive).
      *
-     * The result maps each day of [month] that has at least one event from a *visible* calendar of the current account
-     * to the distinct [CalendarColors] of the calendars owning those events; days with no event are omitted. Returning
-     * the full [CalendarColors] (rather than a single resolved color) lets clients pick whatever they need — e.g.
-     * `datavizContainerVariant` for the dots — and keeps future flexibility.
+     * The result contains one entry per day having at least one event from a visible calendar,
+     * mapped to the distinct [CalendarColors] used on that day.
      *
-     * This is backed by a lightweight Room projection ([EventRepository.observeVisibleCalendarColorsByDay]): it never
-     * materialises full events nor `EventDaySlice`s, and each source color's palette is computed once, so even busy
-     * months stay cheap to observe.
+     * [timeZone] defines day boundaries for the returned map.
      *
-     * [timeZone] is the zone the month grid is displayed in (device zone by default); it defines each day's boundaries
-     * and is forwarded so floating events land on the day the user sees.
+     * [startMonth] must be less than or equal to [endMonth].
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeMonthlyCalendarColors(
-        month: YearMonth,
+        startMonth: YearMonth,
+        endMonth: YearMonth,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<Map<LocalDate, List<CalendarColors>>> {
-        val start = month.firstDay.atStartOfDayIn(timeZone)
-        val end = month.lastDay.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone) // Exclusive end: start of the next month.
+        val start = startMonth.firstDay.atStartOfDayIn(timeZone)
+        val end = endMonth.lastDay.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone) // Exclusive end: start of the next month
 
-        return sdkCaller.flow(operation = "observe monthly calendar colors for $month in $timeZone") {
+        return sdkCaller.flow(operation = "observe monthly calendar colors for $startMonth to $endMonth in $timeZone") {
+            require(start < end) { "Start month $startMonth must not be after end month $endMonth" }
             nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
                 eventRepository.observeVisibleCalendarColorsByDay(accountIds, start, end, timeZone)
             }

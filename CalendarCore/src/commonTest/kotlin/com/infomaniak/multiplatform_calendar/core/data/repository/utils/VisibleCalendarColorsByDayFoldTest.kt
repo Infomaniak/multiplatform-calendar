@@ -148,6 +148,8 @@ class VisibleCalendarColorsByDayFoldTest {
             endZoneId = utc.id,
             isAllDay = false,
             rrule = null,
+            rDates = emptyList(),
+            exDates = emptyList(),
         )
     }
 
@@ -162,7 +164,8 @@ class VisibleCalendarColorsByDayFoldTest {
             endZoneId = null,
             isAllDay = true,
             rrule = null,
+            rDates = emptyList(),
+            exDates = emptyList(),
         )
     }
 }
-

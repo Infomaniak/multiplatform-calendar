@@ -83,6 +83,33 @@ class VisibleCalendarColorsByDayFoldTest {
     }
 
     @Test
+    fun foldToDailyCalendarColors_keepsBothCalendarIds_whenTwoCalendarsShareSameColor() = runTest {
+        val red = 0xFFE53935.toInt()
+
+        val rows = listOf(
+            row(eventId = "event://red1-08", calendarId = "calendar://red1", color = red, startHour = 8, endHour = 9),
+            row(eventId = "event://red2-10", calendarId = "calendar://red2", color = red, startHour = 10, endHour = 11),
+        )
+
+        val result = rows.foldToDailyCalendarColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = dayEnd.toInstant(utc),
+            timeZone = utc,
+        )
+
+        val dayEntries = result.getValue(dayStart.date)
+        assertEquals(2, dayEntries.size)
+        assertEquals(
+            listOf(CalendarId("calendar://red1"), CalendarId("calendar://red2")),
+            dayEntries.map { it.id },
+        )
+        assertEquals(
+            listOf(red, red),
+            dayEntries.map { it.colors.calendarSourceColor },
+        )
+    }
+
+    @Test
     fun foldToDailyCalendarColors_ordersAllDayBeforeTimed() = runTest {
         val red = 0xFFE53935.toInt()
         val blue = 0xFF1E88E5.toInt()

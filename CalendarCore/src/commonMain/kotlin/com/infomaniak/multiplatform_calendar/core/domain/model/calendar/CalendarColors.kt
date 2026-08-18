@@ -18,48 +18,34 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ThemedColor
-import com.infomaniak.multiplatform_calendar.core.utils.aaToneAgainst
-import com.infomaniak.multiplatform_calendar.core.utils.aaaToneAgainst
-import com.infomaniak.multiplatform_calendar.core.utils.compositeOver
-import com.infomaniak.multiplatform_calendar.core.utils.withAlpha
-import com.materialkolor.palettes.TonalPalette
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 
 // Every color is computed at the calendar level, even if some are hidden, so computations are optimized and only done once per
 // calendar instead of doing it once per event.
 public data class CalendarColors(
     val sourceColor: Int,
     val onSourceColor: ThemedColor,
-    val sourceVariantColor: Int,
-    val onSourceVariantColor: ThemedColor,
+    internal val containerColor: Int,
+    internal val onContainerColor: ThemedColor,
+    internal val containerVariantColor: Int,
+    internal val onContainerVariantColor: ThemedColor,
 ) {
     public companion object {
         private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
-        private const val LIGHT_SURFACE = 0xFFFFFBFE.toInt()
-        private const val DARK_SURFACE = 0xFF141218.toInt()
 
         internal fun from(calendarColor: CalendarSourceColor?): CalendarColors = from(calendarColor?.argb)
 
         public fun from(calendarColor: Int?): CalendarColors {
             val sourceColor = calendarColor ?: DEFAULT_COLOR
-            val palette = TonalPalette.fromInt(sourceColor)
-
-            // Since the source color will be used for decorative purposes an AA contrast is sufficient.
-            val onSourceColor = ThemedColor(
-                light = palette.aaToneAgainst(sourceColor),
-                dark = palette.aaToneAgainst(sourceColor),
-            )
-
-            val sourceVariantColor = sourceColor.withAlpha(0.20f)
-            val onSourceVariantColor = ThemedColor(
-                light = palette.aaaToneAgainst(sourceVariantColor.compositeOver(LIGHT_SURFACE)),
-                dark = palette.aaaToneAgainst(sourceVariantColor.compositeOver(DARK_SURFACE)),
-            )
+            val calendarColors = ColorComputation.from(sourceColor)
 
             return CalendarColors(
                 sourceColor = sourceColor,
-                onSourceColor = onSourceColor,
-                sourceVariantColor = sourceVariantColor,
-                onSourceVariantColor = onSourceVariantColor,
+                onSourceColor = calendarColors.onSourceColor,
+                containerColor = calendarColors.containerColor,
+                onContainerColor = calendarColors.onContainerColor,
+                containerVariantColor = calendarColors.containerVariantColor,
+                onContainerVariantColor = calendarColors.onContainerVariantColor,
             )
         }
     }

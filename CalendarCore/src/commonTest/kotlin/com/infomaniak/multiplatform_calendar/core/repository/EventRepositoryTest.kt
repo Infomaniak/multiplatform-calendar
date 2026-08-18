@@ -409,6 +409,54 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(setOf(amber.argb), colorsByDay.getValue(day16).map { it.calendarSourceColor }.toSet())
     }
 
+    @Test
+    fun observeVisibleCalendarColorsByDay_ordersColorsLikePerDayEventSlices() = runTest {
+        val account = AccountId(1)
+        val floatingCalendarId = CalendarId("calendar://floating-08")
+        val anchoredCalendarId = CalendarId("calendar://anchored-09")
+        val floatingColor = CalendarSourceColor(0xFFFFB300.toInt())
+        val anchoredColor = CalendarSourceColor(0xFF1E88E5.toInt())
+        seedCalendar(account, floatingCalendarId, floatingColor)
+        seedCalendar(account, anchoredCalendarId, anchoredColor)
+
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    floatingTimedEvent(
+                        id = EventId("event://floating-08"),
+                        calendarId = floatingCalendarId,
+                        start = LocalDateTime(2026, 6, 15, 8, 0),
+                        end = LocalDateTime(2026, 6, 15, 9, 0),
+                    ),
+                    "",
+                ),
+                EventWithRawIcs(
+                    timedEvent(
+                        id = EventId("event://anchored-09"),
+                        calendarId = anchoredCalendarId,
+                        start = LocalDateTime(2026, 6, 15, 9, 0),
+                        end = LocalDateTime(2026, 6, 15, 10, 0),
+                    ),
+                    "",
+                ),
+            ),
+        )
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 16, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
+        assertEquals(
+            listOf(floatingColor.argb, anchoredColor.argb),
+            colorsByDay.getValue(day15).map { it.calendarSourceColor },
+            "per-day color order must follow event slice ordering (displayStart), not anchored-first SQL ordering",
+        )
+    }
+
     /**
      * Regression: a cross-calendar move persists the patched event **reparsed from its final ICS**,
      * so every server-only field (attendees, categories, rrule, status, sequence, refreshed

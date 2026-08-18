@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
@@ -29,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedEntity
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyCalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -116,10 +118,12 @@ internal class EventRepository(
 
     /**
      * For each day of `[start, end[` (in [timeZone]) that has at least one event from a *visible* calendar of
-     * [accountIds], the distinct [CalendarColors] of the calendars owning those events; days with no event are omitted.
+     * [accountIds], the per-calendar [VisibleCalendarColor] entries of calendars owning those events; days with no event
+     * are omitted.
      *
-     * Returning the full [CalendarColors] (rather than a single resolved color) lets clients pick whatever they need
-     * (e.g. `datavizContainerVariant` for month-grid dots) and keeps future flexibility. Unlike [observeVisibleDaySlices]
+     * Returning [VisibleCalendarColor] (stable calendar id + full [CalendarColors]) lets clients keep stable keys while
+     * still picking whatever color variant they need (e.g. `datavizContainerVariant` for month-grid dots). Unlike
+     * [observeVisibleDaySlices]
      * this never builds domain events nor [EventDaySlice]s: only the [EventCalendarColorInRange] projection is read and
      * folded, each recurring master is expanded into its RRULE occurrences, and each source color's palette is computed
      * once (cached) instead of once per event. Multi-day events/occurrences still mark every covered day.
@@ -130,7 +134,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         timeZone: TimeZone,
-    ): Flow<Map<LocalDate, List<CalendarColors>>> {
+    ): Flow<Map<LocalDate, List<VisibleCalendarColor>>> {
         return eventDao.observeVisibleCalendarColorsInRange(
             accountIds = accountIds,
             startInstantMs = start.toEpochMilliseconds(),

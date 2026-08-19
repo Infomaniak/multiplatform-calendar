@@ -62,15 +62,14 @@ function release_ios {
     ./gradlew :CalendarCore:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
 
     # Strip debug info (DWARF) from each XCFramework slice.
-    # The framework is *static* (an unlinked `ar` archive), so both the Kotlin and
+    # The framework is *dynamic* (a linked Mach-O binary), so both the Kotlin and
     # Rust objects keep their DWARF (~30% of the size) that no released app needs.
     # `strip -S` removes debug sections while keeping the global symbols required
-    # for linking; `ranlib` rebuilds the archive symbol table afterwards.
+    # for linking.
     echo "Strip debug symbols from XCFramework slices"
     find "$XCFRAMEWORK_RELEASE_DIR/MultiplatformCalendar.xcframework" -type f -name 'MultiplatformCalendar' | while read -r slice; do
         echo "  stripping $slice"
         strip -S "$slice"
-        ranlib "$slice" >/dev/null 2>&1 || true
     done
 
     # Archive

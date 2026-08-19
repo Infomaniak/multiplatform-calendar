@@ -22,8 +22,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 

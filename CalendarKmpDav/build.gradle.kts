@@ -15,6 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+import gobley.gradle.cargo.dsl.android
+
 plugins {
     alias(kmpCalendar.plugins.android.library)
     alias(kmpCalendar.plugins.ensureNdkVersion)
@@ -48,6 +50,15 @@ kotlin {
         // bloat the debug APK by ~150 MB. The release profile here is the soft one in Cargo.toml
         // (opt-level "s", lto, strip), not the extreme size-optimized one.
         debug.profile = gobley.gradle.cargo.profiles.CargoProfile.Release
+        // Android Debug gets the `debug-interception` feature, so it builds under its own
+        // `debug-proxy` profile: sharing `target/<triple>/release/` with the Release variant would
+        // let the feature-enabled artifact overwrite the release one.
+        builds.android {
+            debug {
+                profile = gobley.gradle.cargo.profiles.CargoProfile("debug-proxy")
+                features.add("debug-interception")
+            }
+        }
         // Kotlin/Native embeds the Rust static lib at cinterop time, which is
         // variant-agnostic (a single klib). Gobley defaults the native Rust build
         // to `Debug`, so even `assembleKmpCalendarReleaseXCFramework` would link

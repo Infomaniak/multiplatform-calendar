@@ -176,6 +176,21 @@ class RecurrenceRuleToBoundsEntityTest {
         )
     }
 
+    @Test
+    fun allDayRdateLowerBound_isPaddedOnEarlySide() {
+        val timing = allDayTiming(startDate = LocalDate(2026, 1, 15), endDate = LocalDate(2026, 1, 16))
+        val rdate = LocalDate(2026, 1, 10)
+
+        val bounds = toRecurrenceBoundsEntity(
+            timing = timing,
+            recurrenceRule = null,
+            rDates = listOf(IcalDateValue.AllDay(rdate)),
+        )
+
+        val expectedLower = LocalDateTime(rdate, MIDNIGHT).toInstant(TimeZone.UTC).toEpochMilliseconds() - MAX_UTC_OFFSET_MS
+        assertEquals(expectedLower, bounds?.firstOccurrenceInstantMs)
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
 
     private fun utcTiming(

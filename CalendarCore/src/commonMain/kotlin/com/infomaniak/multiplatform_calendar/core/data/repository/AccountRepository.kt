@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.evictCaldavClient
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -39,6 +40,7 @@ import kotlin.coroutines.cancellation.CancellationException
 internal class AccountRepository(
     private val accountDao: AccountDao,
     private val authDataSource: AuthDataSource,
+    private val dropCaldavConnections: (DavAccount) -> Unit = ::evictCaldavClient,
 ) {
     private val mutex = Mutex()
     private val _currentAccountIds = MutableSharedFlow<Set<AccountId>>(replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
@@ -55,7 +57,9 @@ internal class AccountRepository(
         val accountAlreadyExists = accountId in currentIds
         if (accountAlreadyExists && userCredentials[accountId] == credentials) return@withLock
 
-        userCredentials[accountId] = credentials
+        // Reaching here with an existing account means the credentials changed, so drop the client
+        // built with the previous ones.
+        userCredentials.put(accountId, credentials)?.let(dropCaldavConnections)
         accountDao.insert(AccountEntity(id = accountId))
 
         if (!accountAlreadyExists) {
@@ -67,7 +71,7 @@ internal class AccountRepository(
         val currentIds = getCurrentAccountIds()
 
         if (accountId in currentIds) {
-            userCredentials.remove(accountId)
+            userCredentials.remove(accountId)?.let(dropCaldavConnections)
             accountDao.delete(accountId)
             _currentAccountIds.emit(currentIds - accountId)
         }

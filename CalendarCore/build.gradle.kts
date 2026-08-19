@@ -148,7 +148,6 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         baseName = xcFrameworkName
         binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
         xcf.add(this)
-        isStatic = true
         linkerOpts.add("-lsqlite3")
     }
 }

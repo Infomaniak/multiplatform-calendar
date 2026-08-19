@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.utils.assertCancels
 import kotlinx.coroutines.test.runTest
@@ -429,7 +428,7 @@ class EventDaySliceTest {
         accountId = AccountId(1L),
         title = "Test",
         timing = timing,
-        colors = EventColors.from(CalendarColors.from(0xFF2196F3.toInt())),
+        colors = EventColors.from(0xFF2196F3.toInt(), 0xFF2196F3.toInt()),
         canEdit = true,
     )
 }

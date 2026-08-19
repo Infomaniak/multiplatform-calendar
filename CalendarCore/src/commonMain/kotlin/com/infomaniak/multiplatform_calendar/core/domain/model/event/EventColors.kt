@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 
@@ -30,25 +29,16 @@ public data class EventColors(
     val onContainerVariantColor: ThemedColor,
 ) {
     public companion object {
-        public fun from(color: CalendarColors): EventColors = EventColors(
-            calendarSourceColor = CalendarSourceColor(color.sourceColor),
-            sourceColor = color.sourceColor,
-            containerColor = color.containerColor,
-            onContainerColor = color.onContainerColor,
-            containerVariantColor = color.containerVariantColor,
-            onContainerVariantColor = color.onContainerVariantColor,
-        )
 
-        /** The [cache] must be reused across a batch to avoid recomputing the palette for shared source colors. */
-        internal fun from(
-            eventSourceColor: EventSourceColor,
+        public fun from(
+            eventSourceColor: Int?,
             calendarSourceColor: Int,
-            cache: MutableMap<EventSourceColor, EventColors>,
-        ): EventColors = cache.getOrPut(eventSourceColor) {
-            val eventColors = ColorComputation.from(eventSourceColor.argb)
-            EventColors(
+        ): EventColors {
+            val sourceColor = eventSourceColor ?: calendarSourceColor
+            val eventColors = ColorComputation.from(sourceColor)
+            return EventColors(
                 calendarSourceColor = CalendarSourceColor(calendarSourceColor),
-                sourceColor = eventSourceColor.argb,
+                sourceColor = sourceColor,
                 containerColor = eventColors.containerColor,
                 onContainerColor = eventColors.onContainerColor,
                 containerVariantColor = eventColors.containerVariantColor,

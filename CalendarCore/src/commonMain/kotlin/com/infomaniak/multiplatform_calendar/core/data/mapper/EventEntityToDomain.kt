@@ -48,9 +48,7 @@ internal fun EventEntity.toDomain(
         lastModified = lastModified?.toInstant(TimeZone.UTC),
         attendees = attendees,
         organizer = organizer,
-        colors = colorArgb
-            ?.let { EventColors.from(EventSourceColor(it), calendar.colors.sourceColor, eventColorsCache) }
-            ?: EventColors.from(calendar.colors),
+        colors = EventColors.from(colorArgb, calendar.colors.sourceColor),
         canEdit = calendar.accessLevel.canWrite,
         alarms = alarms.mapNotNull(AlarmEntity::toDomain),
     )

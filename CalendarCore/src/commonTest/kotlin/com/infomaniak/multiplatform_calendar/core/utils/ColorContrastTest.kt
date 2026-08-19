@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.utils
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -66,7 +67,7 @@ class CalendarColorsTest {
     @Test
     fun sourceVariantColor_onSourceVariantColorLight_meetsWcagAaaOverLightSurface() {
         testColors.forEach { color ->
-            val colors = CalendarColors.from(color)
+            val colors = EventColors.from(color, color)
             val compositedContainer = colors.containerColor.compositeOver(lightSurface)
             val contrast = compositedContainer.contrastRatioAgainst(colors.onContainerColor.light)
             assertTrue(
@@ -79,7 +80,7 @@ class CalendarColorsTest {
     @Test
     fun sourceVariantColor_onSourceVariantColorDark_meetsWcagAaaOverDarkSurface() {
         testColors.forEach { color ->
-            val colors = CalendarColors.from(color)
+            val colors = EventColors.from(color, color)
             val compositedContainer = colors.containerColor.compositeOver(darkSurface)
             val contrast = compositedContainer.contrastRatioAgainst(colors.onContainerColor.dark)
             assertTrue(

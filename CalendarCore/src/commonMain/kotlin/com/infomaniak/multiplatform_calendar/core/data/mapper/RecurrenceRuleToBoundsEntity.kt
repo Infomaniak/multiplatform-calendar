@@ -117,7 +117,8 @@ private fun List<IcalDateValue>.computeRDateBounds(
 
     this@computeRDateBounds.forEach { dateValue ->
         dateValue.startInstantMs(timing)?.let { startMs ->
-            firstAnchoredStartInstantMs = minNotNull(firstAnchoredStartInstantMs, startMs)
+            val lowBoundStartMs = if (timing.isAllDay && dateValue is AllDay) startMs - MAX_UTC_OFFSET_MS else startMs
+            firstAnchoredStartInstantMs = minNotNull(firstAnchoredStartInstantMs, lowBoundStartMs)
             anchoredEnds += startMs + durationMs
         }
         dateValue.startLocalDateTime(timing)?.let { localStart ->
@@ -167,8 +168,8 @@ private fun rdateOnlyBoundsEntity(
 ): RecurrenceBoundsEntity {
     return when {
         timing.dtStartInstantMs != null -> {
-            val dtStartMs = timing.lowBoundInstantMs()
-            val lastBound = maxNotNull(dtStartMs?.let { it + durationMs }, anchoredEnds.maxOrNull())
+            val dtStartMs = timing.dtStartInstantMs
+            val lastBound = maxNotNull(dtStartMs + durationMs, anchoredEnds.maxOrNull())
             RecurrenceBoundsEntity(
                 firstOccurrenceInstantMs = firstOccurrenceInstantMs,
                 lastPossibleOccurrenceEndInstantMs = lastBound,

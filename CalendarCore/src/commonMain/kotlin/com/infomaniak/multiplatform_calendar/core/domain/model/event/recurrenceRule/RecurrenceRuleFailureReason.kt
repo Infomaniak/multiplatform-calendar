@@ -30,5 +30,6 @@ internal enum class RecurrenceRuleFailureReason {
     LeapSecondUnsupported,
     UnsupportedRscale,
     UntilTypeMismatch,
+    RecurrenceDateTypeMismatch,
     RdatePeriodUnsupported,
 }

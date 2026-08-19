@@ -302,6 +302,82 @@ class RecurringEventExpansionTest {
         assertEquals(2, result.size)
     }
 
+    @Test
+    fun recurrenceExpansion_keepsOccurrencesAcrossDstSpringForward() = runTest {
+        val paris = TimeZone.of("Europe/Paris")
+        val master = Event(
+            masterEventId = EventId("event://dst-spring"),
+            occurrenceId = OccurrenceId("event://dst-spring"),
+            calendarId = CalendarId("calendar://test"),
+            accountId = AccountId(1L),
+            title = "DST spring",
+            timing = EventTiming(
+                start = LocalDateTime(2026, 3, 28, 10, 0),
+                end = LocalDateTime(2026, 3, 28, 11, 0),
+                startTimeZone = paris,
+                endTimeZone = paris,
+                isAllDay = false,
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+            ),
+            colors = EventColors.from(CalendarColors.from(0xFF2196F3.toInt())),
+            canEdit = true,
+        )
+
+        val result = listOf(master).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 3, 27),
+            rangeEnd = utc(2026, 4, 2),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(
+            listOf(
+                LocalDateTime(2026, 3, 28, 10, 0),
+                LocalDateTime(2026, 3, 29, 10, 0),
+                LocalDateTime(2026, 3, 30, 10, 0),
+            ),
+            result.map { it.timing.start },
+            "daily zoned expansion must keep all occurrences across DST spring-forward",
+        )
+    }
+
+    @Test
+    fun recurrenceExpansion_exdateStillExcludesAcrossDstFallBack() = runTest {
+        val paris = TimeZone.of("Europe/Paris")
+        val master = Event(
+            masterEventId = EventId("event://dst-fall"),
+            occurrenceId = OccurrenceId("event://dst-fall"),
+            calendarId = CalendarId("calendar://test"),
+            accountId = AccountId(1L),
+            title = "DST fall",
+            timing = EventTiming(
+                start = LocalDateTime(2026, 10, 24, 10, 0),
+                end = LocalDateTime(2026, 10, 24, 11, 0),
+                startTimeZone = paris,
+                endTimeZone = paris,
+                isAllDay = false,
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                exDates = listOf(IcalDateValue.Zoned(Instant.parse("2026-10-25T09:00:00Z"), "America/New_York")),
+            ),
+            colors = EventColors.from(CalendarColors.from(0xFF2196F3.toInt())),
+            canEdit = true,
+        )
+
+        val result = listOf(master).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 10, 23),
+            rangeEnd = utc(2026, 10, 28),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(
+            listOf(
+                LocalDateTime(2026, 10, 24, 10, 0),
+                LocalDateTime(2026, 10, 26, 10, 0),
+            ),
+            result.map { it.timing.start },
+            "EXDATE must still match and exclude the fallback-day occurrence across DST changes",
+        )
+    }
+
     private fun dailyMaster(id: String, rule: RecurrenceRule): Event = Event(
         masterEventId = EventId(id),
         occurrenceId = OccurrenceId(id),

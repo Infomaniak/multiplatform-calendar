@@ -18,7 +18,25 @@
 package com.infomaniak.multiplatform_calendar.core.utils
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ThemedColor
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation.Companion.from
 import com.materialkolor.palettes.TonalPalette
+
+/**
+ * Precomputed color roles derived from one calendar/event source color.
+ *
+ * Naming follows Material-style roles:
+ * - `sourceColor` (input) is the base calendar or event color (if the user chose a specific one).
+ * - `containerColor` is a 20% alpha variant from the source color. Used for the event background.
+ * - `containerVariantColor` is a 10% alpha variant from the source color. Used for the pending event background.
+ * - `on*` colors are content colors intended to be used on top of their matching role.
+ *
+ * Contrast targets:
+ * - `onSourceColor` is computed for AA contrast over `sourceColor`.
+ * - `onContainerColor` and `onContainerVariantColor` are computed for AAA contrast once containers are
+ *   composited on light/dark app surfaces.
+ *
+ * Instances are cached by source ARGB via [from] so the same source color is computed only once.
+ */
 
 internal data class ColorComputation(
     val onSourceColor: ThemedColor,

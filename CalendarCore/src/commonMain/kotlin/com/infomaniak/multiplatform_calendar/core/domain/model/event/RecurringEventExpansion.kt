@@ -104,6 +104,18 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
 ): Boolean {
     if (!hasRecurrenceSet()) return false
 
+    if (rDates.isEmpty() && exDates.isEmpty()) {
+        val outcome = expandRRuleDirectlyInto(
+            target = target,
+            rangeStart = rangeStart,
+            rangeEnd = rangeEnd,
+            timeZone = timeZone,
+            limits = limits,
+        )
+        if (outcome != Completed) onExpansionTruncated(masterId, outcome)
+        return true
+    }
+
     val masterTiming = MasterTiming.of(this, timeZone)
     val occurrencesByKey = LinkedHashMap<String, Occurrence>()
     val outcome = expandRRuleOccurrencesInWindow(
@@ -136,6 +148,25 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
 }
 
 private fun EventTiming.hasRecurrenceSet(): Boolean = recurrenceRule != null || rDates.isNotEmpty()
+
+private suspend fun EventTiming.expandRRuleDirectlyInto(
+    target: MutableList<Occurrence>,
+    rangeStart: Instant,
+    rangeEnd: Instant,
+    timeZone: TimeZone,
+    limits: ExpansionLimits,
+): ExpansionOutcome {
+    val rrule = recurrenceRule ?: return Completed
+    return RecurrenceExpander.expandInto(
+        target = target,
+        master = this,
+        rrule = rrule,
+        inputStart = rangeStart,
+        inputEnd = rangeEnd,
+        defaultZone = timeZone,
+        limits = limits,
+    )
+}
 
 private suspend fun EventTiming.expandRRuleOccurrencesInWindow(
     target: MutableMap<String, Occurrence>,

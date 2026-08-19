@@ -229,6 +229,84 @@ class RecurringEventExpansionTest {
         assertEquals(2, result.size)
     }
 
+    @Test
+    fun recurrenceExpansion_exdateWithDifferentTzidStillExcludesZonedMasterOccurrence() = runTest {
+        val paris = TimeZone.of("Europe/Paris")
+        val master = dailyMaster(
+            id = "event://exdate-zoned",
+            rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        ).copy(
+            timing = EventTiming(
+                start = LocalDateTime(2026, 1, 1, 10, 0),
+                end = LocalDateTime(2026, 1, 1, 11, 0),
+                startTimeZone = paris,
+                endTimeZone = paris,
+                isAllDay = false,
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                exDates = listOf(IcalDateValue.Zoned(Instant.parse("2026-01-02T09:00:00Z"), "America/New_York")),
+            ),
+        )
+
+        val result = listOf(master).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertEquals(2, result.size)
+    }
+
+    @Test
+    fun recurrenceExpansion_exdateUtcExcludesUtcMasterOccurrence() = runTest {
+        val base = dailyMaster(
+            id = "event://exdate-utc",
+            rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val master = base.copy(
+            timing = base.timing.copy(
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                exDates = listOf(IcalDateValue.Zoned(Instant.parse("2026-01-02T10:00:00Z"), "Europe/Zurich")),
+            ),
+        )
+
+        val result = listOf(master).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertEquals(2, result.size)
+    }
+
+    @Test
+    fun recurrenceExpansion_exdateFloatingExcludesFloatingMasterOccurrence() = runTest {
+        val master = dailyMaster(
+            id = "event://exdate-floating",
+            rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        ).copy(
+            timing = EventTiming(
+                start = LocalDateTime(2026, 1, 1, 10, 0),
+                end = LocalDateTime(2026, 1, 1, 11, 0),
+                startTimeZone = null,
+                endTimeZone = null,
+                isAllDay = false,
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                exDates = listOf(IcalDateValue.Floating(LocalDateTime(2026, 1, 2, 10, 0))),
+            ),
+        )
+
+        val result = listOf(master).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertEquals(2, result.size)
+    }
+
     private fun dailyMaster(id: String, rule: RecurrenceRule): Event = Event(
         masterEventId = EventId(id),
         occurrenceId = OccurrenceId(id),

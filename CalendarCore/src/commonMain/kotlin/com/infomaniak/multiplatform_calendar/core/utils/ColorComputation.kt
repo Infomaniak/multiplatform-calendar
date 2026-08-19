@@ -33,7 +33,17 @@ internal data class ColorComputation(
         private const val WCAG_AAA_CONTRAST = 7.0
         private const val WCAG_AA_CONTRAST = 4.5
 
+        private val cache = linkedMapOf<Int, ColorComputation>()
+
         fun from(sourceColor: Int): ColorComputation {
+            cache[sourceColor]?.let { return it }
+
+            val computed = compute(sourceColor)
+            cache[sourceColor] = computed
+            return computed
+        }
+
+        fun compute(sourceColor: Int): ColorComputation {
             val palette = TonalPalette.fromInt(sourceColor)
 
             // Since the source color will be used for decorative purposes an AA contrast is sufficient.

@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RdatePeriodUnsupported
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RecurrenceDateTypeMismatch
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.UntilTypeMismatch
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Failed
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Supported
@@ -167,7 +168,7 @@ private fun RemoteIcalDateValue.toIcalDateValue(
 ): IcalDateValue {
     return when (valueType) {
         RemoteIcalDateValueType.Date -> {
-            if (form != DtStartForm.Date || !isICalDateOnly(value)) throw RecurrenceDroppedException(UntilTypeMismatch.name)
+            if (form != DtStartForm.Date || !isICalDateOnly(value)) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
             val parsed = parseICalDateTime(value) ?: throw RecurrenceDroppedException(MalformedGrammar.name)
             IcalDateValue.AllDay(parsed.date)
         }
@@ -191,7 +192,7 @@ private fun RemoteIcalDateValue.toDateTimeIcalValue(
     val parsed = parseICalDateTime(value) ?: throw RecurrenceDroppedException(MalformedGrammar.name)
     return when {
         tzid != null -> {
-            if (form != DtStartForm.Utc) throw RecurrenceDroppedException(UntilTypeMismatch.name)
+            if (form != DtStartForm.Utc) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
             val zone = resolveTimeZone(
                 isAllDay = false,
                 rawValue = value,
@@ -202,11 +203,11 @@ private fun RemoteIcalDateValue.toDateTimeIcalValue(
             IcalDateValue.Zoned(parsed.toInstant(zone), zone.id)
         }
         value.endsWith("Z") -> {
-            if (form != DtStartForm.Utc) throw RecurrenceDroppedException(UntilTypeMismatch.name)
+            if (form != DtStartForm.Utc) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
             IcalDateValue.Zoned(parsed.toInstant(TimeZone.UTC), TimeZone.UTC.id)
         }
         else -> {
-            if (form != DtStartForm.Floating) throw RecurrenceDroppedException(UntilTypeMismatch.name)
+            if (form != DtStartForm.Floating) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
             IcalDateValue.Floating(parsed)
         }
     }

@@ -228,6 +228,8 @@ private fun EventTiming.addRDateOccurrences(
 
 private fun EventTiming.removeExDateOccurrences(target: MutableMap<String, Occurrence>, timeZone: TimeZone) {
     exDates.forEach { dateValue ->
+        // Mapper-side validation keeps EXDATE value forms aligned with DTSTART. If a future change
+        // breaks that invariant, `toRecurrenceKey` returns null and we keep this explicit no-op path.
         val key = dateValue.toRecurrenceKey(this, timeZone) ?: return@forEach
         target.remove(key.canonical)
     }

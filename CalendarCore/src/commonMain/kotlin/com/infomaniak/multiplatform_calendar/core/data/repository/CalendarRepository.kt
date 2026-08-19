@@ -29,12 +29,11 @@ import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEve
 import com.infomaniak.multiplatform_calendar.core.data.mapper.RecurrenceDroppedException
 import com.infomaniak.multiplatform_calendar.core.data.mapper.ResolvedRecurrence
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
-import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrence
+import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrenceSet
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
@@ -239,7 +238,7 @@ internal class CalendarRepository(
 
         val entities = remoteEvents.mapNotNull { event ->
             currentCoroutineContext().ensureActive()
-            val recurrence = runCatching { event.resolveRecurrence(event.toTimingEntity()) }
+            val recurrence = runCatching { event.resolveRecurrenceSet() }
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
                 .getOrDefault(ResolvedRecurrence())
 

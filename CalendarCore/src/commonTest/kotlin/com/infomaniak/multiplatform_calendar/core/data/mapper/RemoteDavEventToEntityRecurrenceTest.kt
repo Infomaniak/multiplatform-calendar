@@ -150,7 +150,7 @@ class RemoteDavEventToEntityRecurrenceTest {
         )
 
         assertDropped(RecurrenceRuleFailureReason.RdatePeriodUnsupported) {
-            remote.resolveRecurrence(remote.toTimingEntity())
+            remote.resolveRecurrenceSet()
         }
     }
 
@@ -169,9 +169,28 @@ class RemoteDavEventToEntityRecurrenceTest {
             ),
         )
 
-        val resolved = remote.resolveRecurrence(remote.toTimingEntity())
+        val resolved = remote.resolveRecurrenceSet()
         assertTrue(resolved.rDates.first() is IcalDateValue.AllDay)
         assertEquals(LocalDate(2026, 7, 1), (resolved.rDates.first() as IcalDateValue.AllDay).date)
+    }
+
+    @Test
+    fun rdateDate_onTimedEvent_isDroppedAsDateTypeMismatch() {
+        val remote = remoteEvent(
+            rrule = "FREQ=DAILY",
+            dtstart = "20260615T100000Z",
+            rDates = listOf(
+                RemoteIcalDateValue(
+                    value = "20260701",
+                    valueType = RemoteIcalDateValueType.Date,
+                    tzid = null,
+                ),
+            ),
+        )
+
+        assertDropped(RecurrenceRuleFailureReason.RecurrenceDateTypeMismatch) {
+            remote.resolveRecurrenceSet()
+        }
     }
 
     private inline fun assertDropped(expected: RecurrenceRuleFailureReason, block: () -> Unit) {

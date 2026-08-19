@@ -25,6 +25,7 @@ uniffi::setup_scaffolding!();
 
 mod alarms;
 mod client;
+mod config;
 mod error;
 mod ical_components;
 mod models;

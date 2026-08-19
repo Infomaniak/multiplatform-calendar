@@ -103,18 +103,38 @@ class AccountRepositoryTest : RobolectricTestsBase() {
 
     @Test
     fun removeCredentials_removesCredentials_thenGetCredentialsThrows_andEmitsUpdatedIds() = runTest {
-        val repository = createRepositoryWithLocalAuthCalls()
+        val droppedAccounts = mutableListOf<DavAccount>()
+        val repository = createRepositoryWithLocalAuthCalls(droppedAccounts = droppedAccounts)
         val accountId = AccountId(11)
         val credentials = DavAccount(baseUrl = "https://dav.example", username = "john", password = "secret")
 
         repository.storeCredentials(accountId, credentials)
         repository.removeCredentials(accountId)
 
+        assertEquals(listOf(credentials), droppedAccounts)
+
         val exception = assertFailsWith<IllegalStateException> {
             repository.getCredentials(accountId)
         }
         assertEquals("Credentials for account $accountId not found", exception.message)
         assertEquals(emptySet(), repository.currentAccountIdsFlow.first())
+    }
+
+    @Test
+    fun storeCredentials_rotatedPassword_dropsTheConnectionsOpenedWithTheOldOne() = runTest {
+        val droppedAccounts = mutableListOf<DavAccount>()
+        val repository = createRepositoryWithLocalAuthCalls(droppedAccounts = droppedAccounts)
+        val accountId = AccountId(14)
+        val oldCredentials = DavAccount(baseUrl = "https://dav.example", username = "john", password = "old")
+        val newCredentials = oldCredentials.copy(password = "new")
+
+        repository.storeCredentials(accountId, oldCredentials)
+        assertEquals(emptyList(), droppedAccounts)
+
+        repository.storeCredentials(accountId, newCredentials)
+
+        assertEquals(listOf(oldCredentials), droppedAccounts)
+        assertEquals(newCredentials, repository.getCredentials(accountId))
     }
 
     @Test
@@ -206,10 +226,16 @@ class AccountRepositoryTest : RobolectricTestsBase() {
 
     private fun createRepositoryWithLocalAuthCalls(
         calledPaths: MutableList<String>? = null,
+        droppedAccounts: MutableList<DavAccount>? = null,
         responder: ((path: String, request: HttpRequestData) -> HttpResponseData)? = null,
     ): AccountRepository {
         val authDataSource = AuthDataSource(createMockHttpClient(calledPaths, responder))
-        return AccountRepository(accountDao = accountDao, authDataSource = authDataSource)
+        // The real implementation reaches into the native library, which JVM unit tests cannot load.
+        return AccountRepository(
+            accountDao = accountDao,
+            authDataSource = authDataSource,
+            dropCaldavConnections = { droppedAccounts?.add(it) },
+        )
     }
 
     private fun createMockHttpClient(

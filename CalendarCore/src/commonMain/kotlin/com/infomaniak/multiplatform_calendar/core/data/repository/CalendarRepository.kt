@@ -240,7 +240,7 @@ internal class CalendarRepository(
             currentCoroutineContext().ensureActive()
             val recurrence = runCatching { event.resolveRecurrenceSet() }
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
-                .getOrDefault(ResolvedRecurrence())
+                .getOrElse { ResolvedRecurrence() }
 
             runCatching { EventWithRawIcs(event.toEntity(calendarId, recurrence = recurrence), event.icsData) }
                 .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }

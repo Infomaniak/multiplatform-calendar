@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Finite
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Infinite
@@ -149,6 +150,29 @@ class RecurrenceRuleToBoundsEntityTest {
         assertTrue(
             bounds.lastPossibleOccurrenceEndInstantMs!! < bounds.firstOccurrenceInstantMs!!,
             "an UNTIL before DTSTART must leave the upper bound below the low bound (empty series)",
+        )
+    }
+
+    @Test
+    fun rdateAfterUntil_extendsFiniteUpperBound() {
+        val timing = utcTiming(start = LocalDateTime(2026, 1, 1, 9, 0), end = LocalDateTime(2026, 1, 1, 10, 0))
+        val until = LocalDateTime(2026, 1, 5, 9, 0).toInstant(TimeZone.UTC)
+
+        val bounds = toRecurrenceBoundsEntity(
+            timing = timing,
+            recurrenceRule = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateTimeUtc(until)),
+            rDates = listOf(
+                IcalDateValue.Zoned(
+                    LocalDateTime(2026, 1, 10, 9, 0).toInstant(TimeZone.UTC),
+                    TimeZone.UTC.id,
+                ),
+            ),
+        )
+
+        assertEquals(Finite, bounds?.recurrenceBoundKind)
+        assertEquals(
+            LocalDateTime(2026, 1, 10, 10, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            bounds?.lastPossibleOccurrenceEndInstantMs,
         )
     }
 

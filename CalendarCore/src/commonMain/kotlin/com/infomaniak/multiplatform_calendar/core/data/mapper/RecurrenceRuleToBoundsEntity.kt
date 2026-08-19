@@ -39,38 +39,26 @@ import kotlin.time.Duration.Companion.hours
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Floating as FloatingDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating as FloatingUntil
 
-/**
- * Derive the recurrence-set bounds of an event from its [timing] and parsed [rrule] (RRULE only — RDATE,
- * EXDATE and overrides come in PR 10/11). Callers pass a non-null [rrule]; the result feeds the nullable
- * [RecurrenceBoundsEntity] `@Embedded` (`null` when the event has no recurrence). Field-level column
- * semantics live on [RecurrenceBoundsEntity].
- *
- * - **Low bound**: `firstOccurrenceInstantMs = DTSTART` — an RRULE instance can never precede
- *   `DTSTART` (RFC 5545 §3.8.5.3). It is `null` for floating series (no absolute instant); the range
- *   query then falls back to the master's `dtStart` wall-clock. All-day series pad it earlier by
- *   [MAX_UTC_OFFSET_MS] (see below).
- * - **Upper bound** ([RecurrenceBoundKind]):
- *   - `UNTIL` present → [RecurrenceBoundKind.Finite]. The bound is the **conservative**
- *     `UNTIL + effective duration`: an instance starts at `≤ UNTIL`, so its end is `≤ UNTIL + duration`.
- *     This is a safe over-approximation that avoids expanding the whole (possibly dense) series at
- *     sync — a range falling between the true last end and this bound merely keeps the series, which
- *     the expander then correctly resolves to zero occurrences. Anchored (zoned / UTC / all-day)
- *     series fill the instant column; floating series fill the wall-clock column.
- *   - `COUNT` without `UNTIL` → [RecurrenceBoundKind.FiniteDeferred]: finite, but its last occurrence
- *     is deliberately not pre-computed at sync (expanding a high `COUNT` per event would be wasteful);
- *     the cut-off is applied by the expander at read time.
- *   - neither → [RecurrenceBoundKind.Infinite].
- *
- * **All-day zone padding**: all-day occurrences are anchored in the reader's *device* zone by the
- * expander ([com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming]), whereas these
- * sync-time bounds are computed at UTC midnight. Each all-day occurrence's absolute instant therefore
- * shifts by the device's UTC offset, so the instant bounds are padded by [MAX_UTC_OFFSET_MS] on both
- * sides to stay a safe superset for every possible device zone; the expander drops the false positives.
- */
+/** Test helper overload for RRULE-only bounds. Production callers use [toRecurrenceBoundsEntity]. */
 internal fun RecurrenceRule.toRecurrenceBoundsEntity(timing: EventTimingEntity): RecurrenceBoundsEntity {
     return checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = this, rDates = emptyList()))
 }
 
+/**
+ * Derive recurrence-set bounds from [timing], [recurrenceRule], and [rDates]. Returns `null` only when
+ * no recurrence data is present at all.
+ *
+ * - **Low bound**: earliest occurrence start (`DTSTART` and optional RDATE starts), as epoch ms for
+ *   anchored series and `null` for floating series.
+ * - **Upper bound** ([RecurrenceBoundKind]):
+ *   - `UNTIL` present → [RecurrenceBoundKind.Finite] with conservative `UNTIL + duration`.
+ *   - `COUNT` without `UNTIL` → [RecurrenceBoundKind.FiniteDeferred].
+ *   - neither → [RecurrenceBoundKind.Infinite].
+ *   - `RDATE` can extend finite upper bounds (including after `UNTIL`).
+ *
+ * **All-day zone padding**: all-day starts/ends are padded by [MAX_UTC_OFFSET_MS] to stay a safe
+ * superset across device zones (bounds are computed at UTC midnight; expansion anchors in reader zone).
+ */
 internal fun toRecurrenceBoundsEntity(
     timing: EventTimingEntity,
     recurrenceRule: RecurrenceRule?,

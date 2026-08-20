@@ -30,7 +30,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import kotlinx.datetime.LocalDateTime
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -41,6 +43,10 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class EventEntityToDomainTest {
+    @BeforeTest
+    fun setUp() {
+        ColorComputation.resetCache()
+    }
 
     @Test
     fun blankDescriptionAndLocation_areNormalizedToNull() {

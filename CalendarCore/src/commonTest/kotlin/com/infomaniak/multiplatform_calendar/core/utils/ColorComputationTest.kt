@@ -1,6 +1,7 @@
 package com.infomaniak.multiplatform_calendar.core.utils
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
@@ -25,9 +26,13 @@ import kotlin.test.assertSame
  */
 class ColorComputationTest {
 
+    @BeforeTest
+    fun setUp() {
+        ColorComputation.resetCache()
+    }
+
     @Test
     fun eventColors_sameSourceColor_reusesCachedComputation() {
-        ColorComputation.resetCache()
         val color = 0xFF1E88E5.toInt()
 
         val first = EventColors.from(eventSourceColor = color, calendarSourceColor = color)
@@ -42,7 +47,6 @@ class ColorComputationTest {
 
     @Test
     fun eventColors_distinctSourceColors_createNewColorComputationInCache() {
-        ColorComputation.resetCache()
         val calendarColor = 0xFFE53935.toInt()
         val event1Color = 0xFF1E88E5.toInt()
         val event2Color = 0xFFE53935.toInt()

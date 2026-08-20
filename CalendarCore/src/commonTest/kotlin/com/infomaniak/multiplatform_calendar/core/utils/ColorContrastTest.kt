@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.utils
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -41,6 +42,11 @@ class CalendarColorsTest {
     private val lightSurface = 0xFFFFFBFE.toInt()
     private val darkSurface = 0xFF141218.toInt()
 
+    @BeforeTest
+    fun setUp() {
+        ColorComputation.resetCache()
+    }
+    
     @Test
     fun sourceColor_onSourceColorLight_meetsWcagAa() {
         testColors.forEach { color ->

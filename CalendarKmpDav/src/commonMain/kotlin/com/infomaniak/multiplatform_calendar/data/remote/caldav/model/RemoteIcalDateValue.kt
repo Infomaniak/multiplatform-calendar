@@ -29,5 +29,3 @@ enum class RemoteIcalDateValueType {
     DateTime,
     Period,
 }
-
-

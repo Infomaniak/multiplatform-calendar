@@ -92,6 +92,10 @@ internal data class ColorComputation(
                 onContainerVariantColor = onContainerVariantColor,
             )
         }
-    }
 
+        // This function is use by the tests.
+        internal fun resetCache() {
+            cache.clear()
+        }
+    }
 }

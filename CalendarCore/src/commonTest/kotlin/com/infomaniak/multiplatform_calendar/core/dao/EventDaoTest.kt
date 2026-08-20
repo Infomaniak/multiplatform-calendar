@@ -655,7 +655,7 @@ class EventDaoTest : RobolectricTestsBase() {
             timing = timing,
             rrule = rrule,
             hasRecurrence = true,
-            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
             etag = "etag-all-day-daily",
         )
         seedEvents(listOf(master))
@@ -793,7 +793,7 @@ class EventDaoTest : RobolectricTestsBase() {
             timing = timing,
             rrule = rrule,
             hasRecurrence = true,
-            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
             etag = "etag-${eventId.url}",
         )
     }

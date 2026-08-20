@@ -65,6 +65,23 @@ internal sealed class RecurrenceKey {
     data class Utc(val instant: Instant) : RecurrenceKey() {
         override val canonical: String get() = "U:$instant"
     }
+
+    companion object {
+        /** Rebuild a key from its [canonical] form. */
+        fun parse(canonical: String): RecurrenceKey {
+            val payload = canonical.drop(PREFIX_LENGTH)
+            return when (val prefix = canonical.take(PREFIX_LENGTH)) {
+                "D:" -> AllDay(LocalDate.parse(payload))
+                "F:" -> Floating(LocalDateTime.parse(payload))
+                // IANA zone ids never contain a colon, so the first one separates zone from wall-clock.
+                "Z:" -> Zoned(LocalDateTime.parse(payload.substringAfter(':')), payload.substringBefore(':'))
+                "U:" -> Utc(Instant.parse(payload))
+                else -> error("Unknown RecurrenceKey prefix '$prefix'")
+            }
+        }
+
+        private const val PREFIX_LENGTH = 2
+    }
 }
 
 /**

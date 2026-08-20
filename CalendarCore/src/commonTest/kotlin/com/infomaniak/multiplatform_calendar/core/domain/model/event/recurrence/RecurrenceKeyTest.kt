@@ -63,4 +63,21 @@ class RecurrenceKeyTest {
         )
         for (key in keys) assertEquals(key.canonical, key.toString())
     }
+
+    @Test
+    fun parseRoundTripsEveryCanonicalForm() {
+        val keys = listOf(
+            AllDay(LocalDate(2026, 3, 14)),
+            Floating(LocalDateTime(2026, 3, 14, 9, 30)),
+            Zoned(LocalDateTime(2026, 3, 14, 9, 30), "Europe/Zurich"),
+            Utc(Instant.parse("2026-03-14T08:30:00Z")),
+        )
+        for (key in keys) assertEquals(key, RecurrenceKey.parse(key.canonical))
+    }
+
+    @Test
+    fun parseKeepsZonesApartFromTheWallClock() {
+        val key = RecurrenceKey.parse("Z:America/New_York:2026-03-14T09:30")
+        assertEquals(Zoned(LocalDateTime(2026, 3, 14, 9, 30), "America/New_York"), key)
+    }
 }

@@ -155,11 +155,12 @@ into the app. The release profile (`lto`, `opt-level = "s"`, `strip`) is configu
 
   This is opt-in so day-to-day Apple builds keep a debug Rust (faster rebuilds, native debug symbols).
 
-  **Static framework keeps DWARF** — the Apple framework is *static* (`isStatic = true`), i.e. an unlinked `ar` archive, so
-  both the Kotlin and Rust objects keep their debug info (`__DWARF`) even in release (Cargo's `strip` only applies to *linked*
-  binaries like the Android `.so`, not to static `.a`). That is ~30% of dead weight per slice (e.g. iosArm64: 31 MB → 22 MB).
-  `buildRelease` therefore runs `strip -S` (+ `ranlib`) on each XCFramework slice before zipping; `strip -S` removes the debug
-  sections while keeping the global symbols required for linking.
+  **Dynamic framework keeps DWARF** — the Apple framework is *dynamic* (default, `isStatic` no longer set), i.e. a linked
+  Mach-O binary, but the Kotlin and Rust objects still keep their debug info (`__DWARF`) even in release (Kotlin/Native's
+  linker doesn't strip it, and Cargo's `strip` only applies to the Rust crate's own artifacts, not to the final Kotlin/Native
+  binary that embeds it). That is ~30% of dead weight per slice (e.g. iosArm64: 31 MB → 22 MB). `buildRelease` therefore runs
+  `strip -S` on each XCFramework slice before zipping; `strip -S` removes the debug sections while keeping the global
+  symbols required for linking.
 
 **Build the app in debug but Rust in release** (small/optimized native lib in a debug app): repoint the `debug` Cargo
 variant to the `release` profile in `kmpdav/build.gradle.kts`:

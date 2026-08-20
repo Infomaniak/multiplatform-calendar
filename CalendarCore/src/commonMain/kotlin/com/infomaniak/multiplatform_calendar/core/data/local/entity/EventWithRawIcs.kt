@@ -25,14 +25,24 @@ package com.infomaniak.multiplatform_calendar.core.data.local.entity
 internal data class EventWithRawIcs(
     val event: EventEntity,
     val rawIcs: String,
+    val overrides: List<EventOverrideEntity> = emptyList(),
 )
 
-internal fun List<EventWithRawIcs>.toEventAndRawIcsEntities(): Pair<List<EventEntity>, List<EventRawIcsEntity>> {
+/** The three tables a synced event spreads over, ready to be written in a single transaction. */
+internal data class EventUpsertBatch(
+    val events: List<EventEntity>,
+    val rawIcs: List<EventRawIcsEntity>,
+    val overrides: List<EventOverrideEntity>,
+)
+
+internal fun List<EventWithRawIcs>.toUpsertBatch(): EventUpsertBatch {
     val events = ArrayList<EventEntity>(size)
     val rawIcs = ArrayList<EventRawIcsEntity>(size)
+    val overrides = ArrayList<EventOverrideEntity>()
     for (item in this) {
         events += item.event
         rawIcs += EventRawIcsEntity(eventId = item.event.id, rawIcs = item.rawIcs)
+        overrides += item.overrides
     }
-    return events to rawIcs
+    return EventUpsertBatch(events, rawIcs, overrides)
 }

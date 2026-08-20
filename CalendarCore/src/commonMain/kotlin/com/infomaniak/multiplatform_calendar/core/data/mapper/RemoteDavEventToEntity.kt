@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
@@ -29,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RangeThisAndFutureUnsupported
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RdatePeriodUnsupported
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RecurrenceDateTypeMismatch
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.UntilTypeMismatch
@@ -127,7 +129,15 @@ internal fun RemoteDavEvent.resolveRecurrenceSet(): ResolvedRecurrence {
     val rule = resolveRecurrence()
     val rDates = parseIcalDateValues(values = rDates, propertyName = "RDATE", form = form)
     val exDates = parseIcalDateValues(values = exDates, propertyName = "EXDATE", form = form)
-    return ResolvedRecurrence(rule = rule, rDates = rDates, exDates = exDates)
+    val resolved = ResolvedRecurrence(rule = rule, rDates = rDates, exDates = exDates)
+
+    // RANGE=THISANDFUTURE redefines every later instance: expanding the master anyway would render
+    // them all wrong, so the whole series falls back to a single event.
+    if (resolved.hasRecurrence && overrides.any { it.isThisAndFuture }) {
+        throw RecurrenceDroppedException(RangeThisAndFutureUnsupported.name)
+    }
+
+    return resolved
 }
 
 internal class RecurrenceDroppedException(val reason: String) : Exception(reason)
@@ -212,16 +222,18 @@ private fun RemoteIcalDateValue.toDateTimeIcalValue(
 
 /**
  * Persist a freshly built/patched event (from [CalendarSyncRemoteSource.buildEventIcs] /
- * [CalendarSyncRemoteSource.patchEventIcs]) as a local row, binding it to the server-assigned
+ * [CalendarSyncRemoteSource.patchEventIcs]) as local rows, binding it to the server-assigned
  * [ref] (href + etag) and marking it synced. All parsed fields come straight from the ICS, so the
- * row mirrors exactly what was written to the server.
+ * rows mirror exactly what was written to the server, detached overrides included.
  */
 @Throws(CaldavParsingException::class)
-internal fun RemoteDavEvent.toSyncedEntity(ref: RemoteDavEventRef, calendarId: CalendarId): EventEntity {
+internal fun RemoteDavEvent.toSyncedUpsert(ref: RemoteDavEventRef, calendarId: CalendarId): EventWithRawIcs {
     val synced = copy(url = ref.url, etag = ref.etag)
     val recurrence = runCatching { synced.resolveRecurrenceSet() }.getOrDefault(ResolvedRecurrence())
-    return synced.toEntity(calendarId, recurrence = recurrence)
-        .copy(isSynced = true)
+    val entity = synced.toEntity(calendarId, recurrence = recurrence).copy(isSynced = true)
+    val overrides = if (recurrence.hasRecurrence) synced.toOverrideEntities(entity.timing) else emptyList()
+
+    return EventWithRawIcs(entity, synced.icsData, overrides)
 }
 
 
@@ -237,7 +249,7 @@ private val TEXT_ESCAPE = Regex("""\\[\\;,nN]""")
  * Each token is trimmed and blanks are dropped. Returns `null` when the property is absent or yields
  * no usable token, so "no categories" stays distinct from an empty list.
  */
-private fun parseICalCategories(raw: String?): List<String>? {
+internal fun parseICalCategories(raw: String?): List<String>? {
     if (raw == null) return null
     return CATEGORY_TOKEN.findAll(raw)
         .map { it.value.unescapeIcalText().trim() }

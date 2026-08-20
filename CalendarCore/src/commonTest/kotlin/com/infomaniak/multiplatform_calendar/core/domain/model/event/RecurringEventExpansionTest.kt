@@ -197,7 +197,7 @@ class RecurringEventExpansionTest {
             isAllDay = false,
             recurrenceRule = rule,
         ),
-        colors = EventColors.from(0xFF2196F3.toInt(), 0xFF2196F3.toInt()),
+        colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
         canEdit = true,
     )
 

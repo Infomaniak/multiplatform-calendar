@@ -428,7 +428,7 @@ class EventDaySliceTest {
         accountId = AccountId(1L),
         title = "Test",
         timing = timing,
-        colors = EventColors.from(0xFF2196F3.toInt(), 0xFF2196F3.toInt()),
+        colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
         canEdit = true,
     )
 }

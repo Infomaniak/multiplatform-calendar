@@ -20,14 +20,12 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ThemedColor
 import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 
-public data class CalendarColors private constructor(
+public data class CalendarColors(
     val sourceColor: Int,
     val onSourceColor: ThemedColor,
 ) {
     public companion object {
         private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
-
-        internal fun from(calendarColor: CalendarSourceColor?): CalendarColors = from(calendarColor?.argb)
 
         public fun from(calendarColor: Int?): CalendarColors {
             val sourceColor = calendarColor ?: DEFAULT_COLOR

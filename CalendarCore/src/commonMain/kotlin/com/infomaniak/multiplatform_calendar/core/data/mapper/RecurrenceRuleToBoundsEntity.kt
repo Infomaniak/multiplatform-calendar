@@ -60,8 +60,7 @@ internal fun toRecurrenceBoundsEntity(
     recurrenceRule: RecurrenceRule?,
     rDates: List<IcalDateValue>,
 ): RecurrenceBoundsEntity? {
-    val hasRecurrence = recurrenceRule != null || rDates.isNotEmpty()
-    if (!hasRecurrence) return null
+    if (!hasPersistedRecurrence(recurrenceRule, rDates)) return null
 
     val base = recurrenceRule?.baseRecurrenceBoundsEntity(timing)
     val durationMs = timing.anchoredDurationMs() + timing.allDayUpperBoundPaddingMs()

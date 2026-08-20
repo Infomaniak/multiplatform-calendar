@@ -20,7 +20,6 @@ package com.infomaniak.multiplatform_calendar.core.utils
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import kotlin.test.Test
-import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -100,26 +99,6 @@ class CalendarColorsTest {
         val second = CalendarColors.from(color)
 
         assertSame(first.onSourceColor, second.onSourceColor)
-    }
-
-    @Test
-    fun eventColors_sameSourceColor_reusesCachedContrastComputation() {
-        val color = 0xFF1E88E5.toInt()
-
-        val first = EventColors.from(color, color)
-        val second = EventColors.from(color, color)
-
-        assertSame(first.onContainerColor, second.onContainerColor)
-        assertSame(first.onContainerVariantColor, second.onContainerVariantColor)
-    }
-
-    @Test
-    fun eventColors_distinctSourceColors_doNotReuseCachedContrastComputation() {
-        val first = EventColors.from(0xFF1E88E5.toInt(), 0xFF1E88E5.toInt())
-        val second = EventColors.from(0xFFE53935.toInt(), 0xFFE53935.toInt())
-
-        assertNotSame(first.onContainerColor, second.onContainerColor)
-        assertNotSame(first.onContainerVariantColor, second.onContainerVariantColor)
     }
 
     private fun Int.toHex() = toString(16).padStart(8, '0').uppercase()

@@ -25,6 +25,7 @@ import kotlin.time.Instant
 /** Typed iCalendar date values used by `RDATE` / `EXDATE`. */
 @Serializable
 public sealed interface IcalDateValue {
+    // Kept for future write-path re-encoding where original zone identifiers must round-trip.
     @Serializable
     public data class Zoned(val instant: Instant, val timeZoneId: String) : IcalDateValue
 
@@ -34,4 +35,3 @@ public sealed interface IcalDateValue {
     @Serializable
     public data class Floating(val localDateTime: LocalDateTime) : IcalDateValue
 }
-

@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 
 /**
@@ -30,6 +31,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
  */
 public val Calendar.idValue: String get() = id.url
 public val Calendar.accountIdValue: Long get() = accountId.value
+
+/** Owning calendar id, usable as a stable `Identifiable` key for the per-day color lists. */
+public val VisibleCalendarColor.idValue: String get() = id.url
 
 /**
  * Persistent event identifier (master DB/CalDAV id).

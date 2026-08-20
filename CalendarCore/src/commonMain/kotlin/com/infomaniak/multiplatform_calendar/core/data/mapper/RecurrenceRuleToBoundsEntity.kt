@@ -39,10 +39,6 @@ import kotlin.time.Duration.Companion.hours
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Floating as FloatingDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating as FloatingUntil
 
-/** Test helper overload for RRULE-only bounds. Production callers use [toRecurrenceBoundsEntity]. */
-internal fun RecurrenceRule.toRecurrenceBoundsEntity(timing: EventTimingEntity): RecurrenceBoundsEntity {
-    return checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = this, rDates = emptyList()))
-}
 
 /**
  * Derive recurrence-set bounds from [timing], [recurrenceRule], and [rDates]. Returns `null` only when

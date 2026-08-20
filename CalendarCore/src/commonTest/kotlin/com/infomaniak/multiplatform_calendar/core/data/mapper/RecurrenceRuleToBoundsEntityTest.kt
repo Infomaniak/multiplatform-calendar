@@ -21,8 +21,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Finite
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Infinite
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.FiniteDeferred
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Infinite
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import kotlinx.datetime.LocalDate
@@ -46,7 +46,7 @@ class RecurrenceRuleToBoundsEntityTest {
     fun infiniteRule_setsInfinite_andLowBoundOnly() {
         val timing = utcTiming()
 
-        val bounds = RecurrenceRule(freq = Frequency.Daily).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Daily).toBounds(timing)
 
         assertEquals(timing.dtStartInstantMs, bounds.firstOccurrenceInstantMs)
         assertEquals(Infinite, bounds.recurrenceBoundKind)
@@ -58,7 +58,7 @@ class RecurrenceRuleToBoundsEntityTest {
     fun countWithoutUntil_setsFiniteDeferred_andLeavesUpperBoundNull() {
         val timing = utcTiming()
 
-        val bounds = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 200).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 200).toBounds(timing)
 
         assertEquals(timing.dtStartInstantMs, bounds.firstOccurrenceInstantMs)
         assertEquals(FiniteDeferred, bounds.recurrenceBoundKind)
@@ -74,7 +74,7 @@ class RecurrenceRuleToBoundsEntityTest {
         val timing = utcTiming(start = LocalDateTime(2026, 1, 1, 10, 0), end = LocalDateTime(2026, 1, 1, 12, 0))
         val until = LocalDateTime(2026, 3, 31, 10, 0).toInstant(TimeZone.UTC)
 
-        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateTimeUtc(until)).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateTimeUtc(until)).toBounds(timing)
 
         assertEquals(Finite, bounds.recurrenceBoundKind)
         assertEquals((until + 2.hours).toEpochMilliseconds(), bounds.lastPossibleOccurrenceEndInstantMs)
@@ -87,7 +87,7 @@ class RecurrenceRuleToBoundsEntityTest {
         val timing = utcTiming(start = LocalDateTime(2026, 1, 1, 9, 0), end = LocalDateTime(2026, 1, 4, 9, 0))
         val until = LocalDateTime(2026, 6, 1, 9, 0).toInstant(TimeZone.UTC)
 
-        val bounds = RecurrenceRule(freq = Frequency.Weekly, until = RecurrenceUntil.DateTimeUtc(until)).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Weekly, until = RecurrenceUntil.DateTimeUtc(until)).toBounds(timing)
 
         assertEquals((until + 3.days).toEpochMilliseconds(), bounds.lastPossibleOccurrenceEndInstantMs)
     }
@@ -98,7 +98,7 @@ class RecurrenceRuleToBoundsEntityTest {
         val timing = allDayTiming(startDate = LocalDate(2026, 1, 1), endDate = LocalDate(2026, 1, 2))
         val until = LocalDate(2026, 1, 31)
 
-        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateOnly(until)).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateOnly(until)).toBounds(timing)
 
         assertEquals(Finite, bounds.recurrenceBoundKind)
         // 31 Jan + 1 day (UTC midnight) padded 14 h later so negative-offset device zones aren't dropped.
@@ -115,7 +115,7 @@ class RecurrenceRuleToBoundsEntityTest {
         val timing = floatingTiming(start = LocalDateTime(2026, 1, 1, 8, 0), end = LocalDateTime(2026, 1, 1, 9, 30))
         val until = LocalDateTime(2026, 5, 20, 8, 0)
 
-        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.Floating(until)).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.Floating(until)).toBounds(timing)
 
         assertEquals(Finite, bounds.recurrenceBoundKind)
         assertNull(bounds.firstOccurrenceInstantMs)
@@ -130,7 +130,7 @@ class RecurrenceRuleToBoundsEntityTest {
         val timing = utcTiming(start = instant, end = instant)
         val until = LocalDateTime(2026, 3, 31, 10, 0).toInstant(TimeZone.UTC)
 
-        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateTimeUtc(until)).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateTimeUtc(until)).toBounds(timing)
 
         assertEquals(Finite, bounds.recurrenceBoundKind)
         assertEquals(until.toEpochMilliseconds(), bounds.lastPossibleOccurrenceEndInstantMs)
@@ -144,7 +144,7 @@ class RecurrenceRuleToBoundsEntityTest {
         val timing = utcTiming(start = LocalDateTime(2026, 1, 1, 10, 0), end = LocalDateTime(2026, 1, 1, 11, 0))
         val until = LocalDateTime(2025, 12, 1, 10, 0).toInstant(TimeZone.UTC)
 
-        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateTimeUtc(until)).toRecurrenceBoundsEntity(timing)
+        val bounds = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.DateTimeUtc(until)).toBounds(timing)
 
         assertEquals(Finite, bounds.recurrenceBoundKind)
         assertTrue(
@@ -227,6 +227,14 @@ class RecurrenceRuleToBoundsEntityTest {
         dtStartInstantMs = null,
         dtEndInstantMs = null,
         isAllDay = false,
+    )
+
+    private fun RecurrenceRule.toBounds(timing: EventTimingEntity) = checkNotNull(
+        toRecurrenceBoundsEntity(
+            timing = timing,
+            recurrenceRule = this,
+            rDates = emptyList(),
+        ),
     )
 
     private companion object {

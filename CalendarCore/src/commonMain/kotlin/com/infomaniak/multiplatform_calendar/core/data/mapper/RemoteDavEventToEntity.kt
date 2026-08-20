@@ -19,16 +19,18 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
-import com.infomaniak.multiplatform_calendar.core.data.mapper.DtStartForm.Date
-import com.infomaniak.multiplatform_calendar.core.data.mapper.DtStartForm.Floating
-import com.infomaniak.multiplatform_calendar.core.data.mapper.DtStartForm.Utc
+import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RdatePeriodUnsupported
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RecurrenceDateTypeMismatch
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.UntilTypeMismatch
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Failed
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Supported
@@ -41,9 +43,16 @@ import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 
 @Throws(CaldavParsingException::class)
-internal fun RemoteDavEvent.toEntity(calendarId: CalendarId, recurrenceRule: RecurrenceRule? = null): EventEntity {
+internal fun RemoteDavEvent.toEntity(
+    calendarId: CalendarId,
+    recurrence: ResolvedRecurrence = ResolvedRecurrence(),
+): EventEntity {
     val timing = toTimingEntity()
     return EventEntity(
         id = EventId(url),
@@ -55,8 +64,15 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId, recurrenceRule: Rec
         created = parseICalDateTime(created),
         lastModified = parseICalDateTime(lastModified),
         dtStamp = parseICalDateTime(dtstamp),
-        rrule = recurrenceRule,
-        recurrenceBounds = recurrenceRule?.toRecurrenceBoundsEntity(timing),
+        rrule = recurrence.rule,
+        rDates = recurrence.rDates,
+        exDates = recurrence.exDates,
+        hasRecurrence = recurrence.hasRecurrence,
+        recurrenceBounds = toRecurrenceBoundsEntity(
+            timing = timing,
+            recurrenceRule = recurrence.rule,
+            rDates = recurrence.rDates,
+        ),
         status = EventStatus.fromIcalString(status),
         transp = transp,
         classification = Classification.fromIcalString(classification),
@@ -70,6 +86,14 @@ internal fun RemoteDavEvent.toEntity(calendarId: CalendarId, recurrenceRule: Rec
         colorArgb = resolveColorArgb(),
         colorIcalName = colorIcalName,
     )
+}
+
+internal data class ResolvedRecurrence(
+    val rule: RecurrenceRule? = null,
+    val rDates: List<IcalDateValue> = emptyList(),
+    val exDates: List<IcalDateValue> = emptyList(),
+) {
+    val hasRecurrence: Boolean get() = hasPersistedRecurrence(rule, rDates)
 }
 
 /** Resolve the wire's color into a single ARGB: Apple hex wins over the RFC 7986 CSS3 name. */
@@ -97,22 +121,93 @@ internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
     }
 }
 
+@Throws(RecurrenceDroppedException::class)
+internal fun RemoteDavEvent.resolveRecurrenceSet(): ResolvedRecurrence {
+    val form = dtStartForm()
+    val rule = resolveRecurrence()
+    val rDates = parseIcalDateValues(values = rDates, propertyName = "RDATE", form = form)
+    val exDates = parseIcalDateValues(values = exDates, propertyName = "EXDATE", form = form)
+    return ResolvedRecurrence(rule = rule, rDates = rDates, exDates = exDates)
+}
+
 internal class RecurrenceDroppedException(val reason: String) : Exception(reason)
 
 private enum class DtStartForm { Date, Utc, Floating }
 
 /** Classify DTSTART's value form (RFC 5545 §3.3.4/§3.3.5): bare date, UTC/zoned, or floating date-time. */
 private fun RemoteDavEvent.dtStartForm(): DtStartForm = when {
-    isICalDateOnly(dtstart) -> Date
-    dtstart?.endsWith("Z") == true || dtStartTzid != null -> Utc
-    else -> Floating
+    isICalDateOnly(dtstart) -> DtStartForm.Date
+    dtstart?.endsWith("Z") == true || dtStartTzid != null -> DtStartForm.Utc
+    else -> DtStartForm.Floating
 }
 
 /** RFC 5545 §3.3.10: UNTIL's value type must match DTSTART's form. */
 private fun RecurrenceUntil.matchesDtStartForm(form: DtStartForm): Boolean = when (this) {
-    is DateOnly -> form == Date
-    is DateTimeUtc -> form == Utc
-    is Floating -> form == Floating
+    is DateOnly -> form == DtStartForm.Date
+    is DateTimeUtc -> form == DtStartForm.Utc
+    is Floating -> form == DtStartForm.Floating
+}
+
+@Throws(RecurrenceDroppedException::class)
+private fun RemoteDavEvent.parseIcalDateValues(
+    values: List<RemoteIcalDateValue>,
+    propertyName: String,
+    form: DtStartForm,
+): List<IcalDateValue> = values.map { value ->
+    value.toIcalDateValue(propertyName = propertyName, form = form, eventUrl = url)
+}
+
+@Throws(RecurrenceDroppedException::class)
+private fun RemoteIcalDateValue.toIcalDateValue(
+    propertyName: String,
+    form: DtStartForm,
+    eventUrl: String,
+): IcalDateValue {
+    return when (valueType) {
+        RemoteIcalDateValueType.Date -> {
+            if (form != DtStartForm.Date || !isICalDateOnly(value)) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
+            val parsed = parseICalDateTime(value) ?: throw RecurrenceDroppedException(MalformedGrammar.name)
+            IcalDateValue.AllDay(parsed.date)
+        }
+        RemoteIcalDateValueType.DateTime -> toDateTimeIcalValue(form, propertyName, eventUrl)
+        RemoteIcalDateValueType.Period -> {
+            // PERIOD is intentionally unsupported in this mapper: we only expand DATE/DATE-TIME.
+            // Keep a dedicated reason for RDATE (product decision), while other properties are
+            // treated as malformed grammar so the recurrence is dropped explicitly.
+            val reason = if (propertyName == "RDATE") RdatePeriodUnsupported else MalformedGrammar
+            throw RecurrenceDroppedException(reason.name)
+        }
+    }
+}
+
+@Throws(RecurrenceDroppedException::class)
+private fun RemoteIcalDateValue.toDateTimeIcalValue(
+    form: DtStartForm,
+    propertyName: String,
+    eventUrl: String,
+): IcalDateValue {
+    val parsed = parseICalDateTime(value) ?: throw RecurrenceDroppedException(MalformedGrammar.name)
+    return when {
+        tzid != null -> {
+            if (form != DtStartForm.Utc) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
+            val zone = resolveTimeZone(
+                isAllDay = false,
+                rawValue = value,
+                tzid = tzid,
+                eventUrl = eventUrl,
+                propertyName = propertyName,
+            ) ?: TimeZone.UTC
+            IcalDateValue.Zoned(parsed.toInstant(zone), zone.id)
+        }
+        value.endsWith("Z") -> {
+            if (form != DtStartForm.Utc) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
+            IcalDateValue.Zoned(parsed.toInstant(TimeZone.UTC), TimeZone.UTC.id)
+        }
+        else -> {
+            if (form != DtStartForm.Floating) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
+            IcalDateValue.Floating(parsed)
+        }
+    }
 }
 
 /**
@@ -124,7 +219,8 @@ private fun RecurrenceUntil.matchesDtStartForm(form: DtStartForm): Boolean = whe
 @Throws(CaldavParsingException::class)
 internal fun RemoteDavEvent.toSyncedEntity(ref: RemoteDavEventRef, calendarId: CalendarId): EventEntity {
     val synced = copy(url = ref.url, etag = ref.etag)
-    return synced.toEntity(calendarId, recurrenceRule = runCatching { synced.resolveRecurrence() }.getOrNull())
+    val recurrence = runCatching { synced.resolveRecurrenceSet() }.getOrDefault(ResolvedRecurrence())
+    return synced.toEntity(calendarId, recurrence = recurrence)
         .copy(isSynced = true)
 }
 
@@ -153,4 +249,3 @@ private fun parseICalCategories(raw: String?): List<String>? {
 private fun String.unescapeIcalText(): String = TEXT_ESCAPE.replace(this) {
     if (it.value[1].equals('n', ignoreCase = true)) "\n" else it.value[1].toString()
 }
-

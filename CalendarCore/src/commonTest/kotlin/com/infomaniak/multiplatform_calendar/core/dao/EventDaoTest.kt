@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -43,6 +44,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Instant
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -652,7 +654,8 @@ class EventDaoTest : RobolectricTestsBase() {
             summary = "All-day daily",
             timing = timing,
             rrule = rrule,
-            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            hasRecurrence = true,
+            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
             etag = "etag-all-day-daily",
         )
         seedEvents(listOf(master))
@@ -663,6 +666,82 @@ class EventDaoTest : RobolectricTestsBase() {
             endInstantMs = LocalDateTime(2026, 6, 14, 20, 0).toEpochMs(TimeZone.UTC),
             startLocalDateTime = LocalDateTime(2026, 6, 14, 12, 0),
             endLocalDateTime = LocalDateTime(2026, 6, 14, 20, 0),
+        ).first()
+
+        assertEquals(listOf(master.id), observed.map { it.event.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_rdateOnlyMaster_isIncludedWithoutRrule() = runTest {
+        val account = AccountId(37)
+        val calendarId = CalendarId("calendar://recurring")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        val timing = EventTimingEntity(
+            dtStart = LocalDateTime(2026, 6, 29, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 10, 0),
+            startTimeZone = TimeZone.UTC.id,
+            endTimeZone = TimeZone.UTC.id,
+            dtStartInstantMs = LocalDateTime(2026, 6, 29, 9, 0).toEpochMs(TimeZone.UTC),
+            dtEndInstantMs = LocalDateTime(2026, 6, 29, 10, 0).toEpochMs(TimeZone.UTC),
+        )
+        val rDates = listOf(IcalDateValue.Zoned(Instant.parse("2026-07-10T09:00:00Z"), TimeZone.UTC.id))
+        val master = EventEntity(
+            id = EventId("event://rdate-only"),
+            calendarId = calendarId,
+            summary = "RDATE only",
+            timing = timing,
+            rDates = rDates,
+            hasRecurrence = true,
+            recurrenceBounds = toRecurrenceBoundsEntity(timing, recurrenceRule = null, rDates = rDates),
+            etag = "etag-rdate-only",
+        )
+        seedEvents(listOf(master))
+
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = LocalDateTime(2026, 7, 10, 0, 0).toEpochMs(TimeZone.UTC),
+            endInstantMs = LocalDateTime(2026, 7, 11, 0, 0).toEpochMs(TimeZone.UTC),
+            startLocalDateTime = LocalDateTime(2026, 7, 10, 0, 0),
+            endLocalDateTime = LocalDateTime(2026, 7, 11, 0, 0),
+        ).first()
+
+        assertEquals(listOf(master.id), observed.map { it.event.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_rdateBeforeDtStart_usesFirstOccurrenceLowBound() = runTest {
+        val account = AccountId(38)
+        val calendarId = CalendarId("calendar://recurring")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        val timing = EventTimingEntity(
+            dtStart = LocalDateTime(2026, 7, 10, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 7, 10, 10, 0),
+            startTimeZone = TimeZone.UTC.id,
+            endTimeZone = TimeZone.UTC.id,
+            dtStartInstantMs = LocalDateTime(2026, 7, 10, 9, 0).toEpochMs(TimeZone.UTC),
+            dtEndInstantMs = LocalDateTime(2026, 7, 10, 10, 0).toEpochMs(TimeZone.UTC),
+        )
+        val rDates = listOf(IcalDateValue.Zoned(Instant.parse("2026-06-10T09:00:00Z"), TimeZone.UTC.id))
+        val master = EventEntity(
+            id = EventId("event://rdate-before-dtstart"),
+            calendarId = calendarId,
+            summary = "RDATE before DTSTART",
+            timing = timing,
+            rDates = rDates,
+            hasRecurrence = true,
+            recurrenceBounds = toRecurrenceBoundsEntity(timing, recurrenceRule = null, rDates = rDates),
+            etag = "etag-rdate-before",
+        )
+        seedEvents(listOf(master))
+
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = LocalDateTime(2026, 6, 10, 0, 0).toEpochMs(TimeZone.UTC),
+            endInstantMs = LocalDateTime(2026, 6, 11, 0, 0).toEpochMs(TimeZone.UTC),
+            startLocalDateTime = LocalDateTime(2026, 6, 10, 0, 0),
+            endLocalDateTime = LocalDateTime(2026, 6, 11, 0, 0),
         ).first()
 
         assertEquals(listOf(master.id), observed.map { it.event.id })
@@ -713,7 +792,8 @@ class EventDaoTest : RobolectricTestsBase() {
             summary = "Summary ${eventId.url}",
             timing = timing,
             rrule = rrule,
-            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            hasRecurrence = true,
+            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
             etag = "etag-${eventId.url}",
         )
     }

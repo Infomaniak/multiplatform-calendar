@@ -219,7 +219,13 @@ class EventRepositoryTest : RobolectricTestsBase() {
             summary = "All-day daily",
             timing = timing,
             rrule = rrule,
-            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            recurrenceBounds = checkNotNull(
+                toRecurrenceBoundsEntity(
+                    timing = timing,
+                    recurrenceRule = rrule,
+                    rDates = emptyList(),
+                ),
+            ),
             etag = "1",
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
@@ -317,7 +323,13 @@ class EventRepositoryTest : RobolectricTestsBase() {
             summary = "Daily recurring",
             timing = timing,
             rrule = rrule,
-            recurrenceBounds = rrule.toRecurrenceBoundsEntity(timing),
+            recurrenceBounds = checkNotNull(
+                toRecurrenceBoundsEntity(
+                    timing = timing,
+                    recurrenceRule = rrule,
+                    rDates = emptyList(),
+                ),
+            ),
             etag = "1",
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))

@@ -51,6 +51,8 @@ data class RemoteDavEvent(
     /** Raw RFC 5545 date-time string of the instance creation in the calendar store. */
     val dtstamp: String?,
     val rrule: String?,
+    val rDates: List<RemoteIcalDateValue> = emptyList(),
+    val exDates: List<RemoteIcalDateValue> = emptyList(),
     val status: String?,
     /** Time transparency: `OPAQUE` or `TRANSPARENT`. */
     val transp: String?,

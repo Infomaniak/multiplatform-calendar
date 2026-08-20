@@ -17,12 +17,17 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
+
 /**
  * Calendar color entry used in per-day visibility maps.
  *
  * [id] is the stable owning calendar id. [colors] carries the full precomputed palette for that calendar.
  */
+@OptIn(ExperimentalObjCRefinement::class)
 public data class VisibleCalendarColor(
+    @HiddenFromObjC
     val id: CalendarId,
     val colors: CalendarColors,
 )

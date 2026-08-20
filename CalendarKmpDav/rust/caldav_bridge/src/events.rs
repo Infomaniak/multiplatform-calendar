@@ -14,6 +14,7 @@ use crate::models::{
     EventChangeRef,
     EventEdit,
     EventEntry,
+    EventOverrideEntry,
     EventResourceRef,
     EventSyncDelta,
     IcalDateValueEntry,
@@ -123,6 +124,7 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
                 attendees: parse_attendees(ev),
                 organizer: parse_organizer(ev),
                 alarms: parse_alarms(ev),
+                overrides: parse_overrides(&parsed),
                 ics_data,
             })
         }
@@ -131,6 +133,72 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
             None
         },
     }
+}
+
+/// Collect every `VEVENT` carrying a `RECURRENCE-ID`, i.e. the detached overrides of the series.
+///
+/// The master is skipped explicitly: on a resource holding *only* detached instances,
+/// [`master_vevent_index`] falls back to the first `VEVENT`, which would then be reported twice.
+fn parse_overrides(calendar: &Calendar) -> Vec<EventOverrideEntry> {
+    let master = master_vevent_index(calendar);
+    calendar
+        .components
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| Some(*index) != master)
+        .filter_map(|(_, component)| match component {
+            CalendarComponent::Event(event) => parse_override(event),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Build an [`EventOverrideEntry`] from a `VEVENT`, or `None` when it has no `RECURRENCE-ID`.
+fn parse_override(ev: &icalendar::Event) -> Option<EventOverrideEntry> {
+    use icalendar::Component;
+
+    let recurrence_id_property = ev.properties().get("RECURRENCE-ID")?;
+    let param = |key: &str| {
+        recurrence_id_property
+            .params()
+            .get(key)
+            .map(|value| value.value().to_string())
+    };
+    let (dtstart, dtstart_tzid) = prop_with_tzid(ev, "DTSTART");
+    let (dtend, dtend_tzid) = prop_with_tzid(ev, "DTEND");
+
+    Some(EventOverrideEntry {
+        recurrence_id: recurrence_id_property.value().to_string(),
+        recurrence_id_tzid: param("TZID"),
+        recurrence_id_value_type: match param("VALUE").as_deref().map(str::to_ascii_uppercase).as_deref() {
+            Some("DATE") => IcalDateValueKind::Date,
+            Some("PERIOD") => IcalDateValueKind::Period,
+            _ => IcalDateValueKind::DateTime,
+        },
+        recurrence_id_range: param("RANGE"),
+        summary: prop(ev, "SUMMARY"),
+        description: prop(ev, "DESCRIPTION"),
+        location: prop(ev, "LOCATION"),
+        dtstart,
+        dtstart_tzid,
+        dtend,
+        dtend_tzid,
+        duration: prop(ev, "DURATION"),
+        created: prop(ev, "CREATED"),
+        last_modified: prop(ev, "LAST-MODIFIED"),
+        dtstamp: prop(ev, "DTSTAMP"),
+        status: prop(ev, "STATUS"),
+        transp: prop(ev, "TRANSP"),
+        classification: prop(ev, "CLASS"),
+        priority: prop(ev, "PRIORITY"),
+        sequence: prop(ev, "SEQUENCE"),
+        categories: prop(ev, "CATEGORIES"),
+        color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
+        color_ical_name: prop(ev, "COLOR"),
+        attendees: parse_attendees(ev),
+        organizer: parse_organizer(ev),
+        alarms: parse_alarms(ev),
+    })
 }
 
 /// Collect every ATTENDEE of a VEVENT into a participant list. The ORGANIZER is parsed

@@ -3,7 +3,6 @@ package com.infomaniak.multiplatform_calendar.core.utils
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 
@@ -31,14 +30,13 @@ class ColorComputationTest {
         val color = 0xFF1E88E5.toInt()
 
         val first = EventColors.from(eventSourceColor = color, calendarSourceColor = color)
-        val sizeAfterFirst = ColorComputation.cache.size
+        val sizeAfterFirst = ColorComputation.cacheSize
         val second = EventColors.from(eventSourceColor = color, calendarSourceColor = color)
-        val sizeAfterSecond = ColorComputation.cache.size
+        val sizeAfterSecond = ColorComputation.cacheSize
 
         assertSame(first.onContainerColor, second.onContainerColor)
         assertSame(first.onContainerVariantColor, second.onContainerVariantColor)
         assertEquals(sizeAfterFirst, sizeAfterSecond)
-
     }
 
     @Test
@@ -48,13 +46,13 @@ class ColorComputationTest {
         val event2Color = 0xFFE53935.toInt()
 
         val first = EventColors.from(eventSourceColor = event1Color, calendarSourceColor = calendarColor)
-        val sizeAfterFirst = ColorComputation.cache.size
+        val sizeAfterFirst = ColorComputation.cacheSize
         val second = EventColors.from(eventSourceColor = event2Color, calendarSourceColor = calendarColor)
-        val sizeAfterSecond = ColorComputation.cache.size
+        val sizeAfterSecond = ColorComputation.cacheSize
 
         assertNotSame(first.onContainerColor, second.onContainerColor)
         assertNotSame(first.onContainerVariantColor, second.onContainerVariantColor)
-        assertNotEquals(sizeAfterFirst, sizeAfterSecond)
+        assertEquals(1, sizeAfterFirst)
+        assertEquals(2, sizeAfterSecond)
     }
-
 }

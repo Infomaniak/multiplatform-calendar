@@ -93,7 +93,7 @@ internal data class ResolvedRecurrence(
     val rDates: List<IcalDateValue> = emptyList(),
     val exDates: List<IcalDateValue> = emptyList(),
 ) {
-    val hasRecurrence: Boolean get() = rule != null || rDates.isNotEmpty()
+    val hasRecurrence: Boolean get() = hasPersistedRecurrence(rule, rDates)
 }
 
 /** Resolve the wire's color into a single ARGB: Apple hex wins over the RFC 7986 CSS3 name. */
@@ -249,4 +249,3 @@ private fun parseICalCategories(raw: String?): List<String>? {
 private fun String.unescapeIcalText(): String = TEXT_ESCAPE.replace(this) {
     if (it.value[1].equals('n', ignoreCase = true)) "\n" else it.value[1].toString()
 }
-

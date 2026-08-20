@@ -140,7 +140,7 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
         rangeEnd = rangeEnd,
         timeZone = timeZone,
     )
-    removeExDateOccurrences(target = occurrencesByKey, timeZone = timeZone)
+    removeExDateOccurrences(target = occurrencesByKey)
 
     target += occurrencesByKey.values.sortedBy(Occurrence::start)
     if (outcome != Completed) onExpansionTruncated(masterId, outcome)
@@ -215,7 +215,7 @@ private fun EventTiming.addRDateOccurrences(
     timeZone: TimeZone,
 ) {
     rDates.forEach { dateValue ->
-        val key = dateValue.toRecurrenceKey(this, timeZone) ?: return@forEach
+        val key = dateValue.toRecurrenceKey(this) ?: return@forEach
         buildOccurrenceAt(
             key = key,
             masterTiming = masterTiming,
@@ -226,11 +226,11 @@ private fun EventTiming.addRDateOccurrences(
     }
 }
 
-private fun EventTiming.removeExDateOccurrences(target: MutableMap<String, Occurrence>, timeZone: TimeZone) {
+private fun EventTiming.removeExDateOccurrences(target: MutableMap<String, Occurrence>) {
     exDates.forEach { dateValue ->
         // Mapper-side validation keeps EXDATE value forms aligned with DTSTART. If a future change
         // breaks that invariant, `toRecurrenceKey` returns null and we keep this explicit no-op path.
-        val key = dateValue.toRecurrenceKey(this, timeZone) ?: return@forEach
+        val key = dateValue.toRecurrenceKey(this) ?: return@forEach
         target.remove(key.canonical)
     }
 }
@@ -261,7 +261,7 @@ private fun EventTiming.buildOccurrenceAt(
     )
 }
 
-private fun IcalDateValue.toRecurrenceKey(master: EventTiming, defaultZone: TimeZone): RecurrenceKey? = when {
+private fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? = when {
     master.isAllDay && this is IcalDateValue.AllDay -> AllDay(date)
     !master.isAllDay && master.startTimeZone == null && this is IcalDateValue.Floating -> Floating(localDateTime)
     !master.isAllDay && master.startTimeZone == TimeZone.UTC && this is IcalDateValue.Zoned -> Utc(instant)

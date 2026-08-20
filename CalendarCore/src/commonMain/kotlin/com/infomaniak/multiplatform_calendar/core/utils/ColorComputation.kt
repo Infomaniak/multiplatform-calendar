@@ -51,7 +51,7 @@ internal data class ColorComputation(
         private const val WCAG_AAA_CONTRAST = 7.0
         private const val WCAG_AA_CONTRAST = 4.5
 
-        private val cache = linkedMapOf<Int, ColorComputation>()
+        internal val cache = linkedMapOf<Int, ColorComputation>()
 
         fun from(sourceColor: Int): ColorComputation {
             cache[sourceColor]?.let { return it }

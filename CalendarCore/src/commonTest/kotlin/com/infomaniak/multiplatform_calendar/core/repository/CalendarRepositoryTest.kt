@@ -20,17 +20,27 @@ package com.infomaniak.multiplatform_calendar.core.repository
 import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarSyncStateEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.data.sync.SyncStateHolder
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
 import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.Failed
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.NeverSynced
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.Synced
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.Syncing
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.SyncErrorReason.UNKNOWN
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -47,6 +57,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -92,6 +104,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             calendarDao = database.calendarDao(),
             crashReport = CrashReportProvider.noOp,
             eventDao = database.eventDao(),
+            syncStateHolder = SyncStateHolder(),
         )
 
         // Seed one event that should be removed by incremental sync.
@@ -104,6 +117,72 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val storedIds = database.eventDao().observeEvents(calendarId).first().map { it.id.url }
         assertEquals(listOf(changed.url), storedIds)
         assertEquals("sync-token-2", database.calendarDao().findById(calendarId)?.syncToken)
+    }
+
+    @Test
+    fun syncEvents_success_recordsSyncedStatusWithTimestamp() = runTest {
+        val accountId = AccountId(20)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/status-ok/"
+        val calendarId = CalendarId(calendarUrl)
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+        )
+        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao(), SyncStateHolder())
+
+        repository.syncEvents(accountId, fakeCredentials())
+
+        val stored = database.calendarDao().findById(calendarId)!!
+        assertNull(stored.syncState.lastSyncError)
+        assertTrue(stored.syncState.lastSyncedAtMs != null, "A successful sync must record its timestamp")
+        assertIs<Synced>(stored.toDomain().syncStatus)
+    }
+
+    @Test
+    fun syncEvents_failure_recordsFailedReason_preservingPreviousSyncedInstant() = runTest {
+        val accountId = AccountId(21)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/status-ko/"
+        val calendarId = CalendarId(calendarUrl)
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+        )
+        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao(), SyncStateHolder())
+
+        // First a successful sync so a previous "synced at" timestamp exists.
+        repository.syncEvents(accountId, fakeCredentials())
+        val previousSyncedAtMs = database.calendarDao().findById(calendarId)!!.syncState.lastSyncedAtMs
+
+        remote.onSyncCollection = { throw RuntimeException("boom") }
+        repository.syncEvents(accountId, fakeCredentials())
+
+        val stored = database.calendarDao().findById(calendarId)!!
+        assertEquals(UNKNOWN, stored.syncState.lastSyncError)
+        assertEquals(previousSyncedAtMs, stored.syncState.lastSyncedAtMs, "A failed sync must keep the last successful timestamp")
+        val status = stored.toDomain().syncStatus
+        assertIs<Failed>(status)
+        assertEquals(UNKNOWN, status.reason)
+        assertTrue(status.lastSyncedAt != null, "Failed status should still expose the previous success instant")
+    }
+
+    @Test
+    fun syncEvents_networkFailure_isRethrown_andNotRecordedAsFailedStatus() = runTest {
+        val accountId = AccountId(22)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/status-net/"
+        val calendarId = CalendarId(calendarUrl)
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+        ).apply {
+            onSyncCollection = { throw RustNetworkException(message = "offline", cause = null) }
+        }
+        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao(), SyncStateHolder())
+
+        assertFailsWith<RustNetworkException> { repository.syncEvents(accountId, fakeCredentials()) }
+
+        // A rethrown global network failure must not be attributed to this calendar as a per-calendar error.
+        val stored = database.calendarDao().findById(calendarId)!!
+        assertNull(stored.syncState.lastSyncError)
     }
 
     @Test
@@ -125,7 +204,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         ).apply {
             rangeEvents[calendarUrl] = listOf(event)
         }
-        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao())
+        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao(), SyncStateHolder())
 
         val start = Instant.parse("2026-06-15T00:00:00Z")
         val end = Instant.parse("2026-06-16T00:00:00Z")
@@ -153,6 +232,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             calendarDao = database.calendarDao(),
             crashReport = CrashReportProvider.noOp,
             eventDao = database.eventDao(),
+            syncStateHolder = SyncStateHolder(),
         )
 
         repository.downloadEventsByRange(accountId, fakeCredentials(), start, end)
@@ -183,7 +263,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         ).apply {
             rangeEvents[calendarUrl] = listOf(unchanged, changedBefore, deleted)
         }
-        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao())
+        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao(), SyncStateHolder())
 
         repository.downloadEventsByRange(accountId, fakeCredentials(), start, end)
         remote.rangeRefs[calendarUrl] = listOf(
@@ -223,6 +303,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             calendarDao = database.calendarDao(),
             crashReport = crashReport,
             eventDao = database.eventDao(),
+            syncStateHolder = SyncStateHolder(),
         )
 
         val start = Instant.parse("2026-06-15T00:00:00Z")
@@ -251,6 +332,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             calendarDao = database.calendarDao(),
             crashReport = CrashReportProvider.noOp,
             eventDao = database.eventDao(),
+            syncStateHolder = SyncStateHolder(),
         )
 
         val start = Instant.parse("2026-06-15T00:00:00Z")
@@ -279,6 +361,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             calendarDao = database.calendarDao(),
             crashReport = crashReport,
             eventDao = database.eventDao(),
+            syncStateHolder = SyncStateHolder(),
         )
 
         val start = Instant.parse("2026-06-15T00:00:00Z")
@@ -311,7 +394,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             onGetEventsInRange = { syncJob?.cancel() }
         }
         val crashReport = RecordingCrashReport()
-        val repository = CalendarRepository(remote, database.calendarDao(), crashReport, database.eventDao())
+        val repository = CalendarRepository(remote, database.calendarDao(), crashReport, database.eventDao(), SyncStateHolder())
 
         syncJob = launch {
             repository.downloadEventsByRange(
@@ -326,6 +409,30 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         assertTrue(syncJob.isCancelled, "The cancelled sync should stop instead of completing")
         assertEquals(emptyList(), database.eventDao().observeEvents(calendarId).first())
         assertTrue(crashReport.captures.isEmpty(), "No per-event work should run once the sync is cancelled")
+    }
+
+    @Test
+    fun observeCalendars_overlaysSyncingState_thenFallsBackToPersistedStatus() = runTest {
+        val accountId = AccountId(30)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/observe/"
+        val calendarId = CalendarId(calendarUrl)
+        database.calendarDao().upsert(
+            listOf(CalendarEntity(id = calendarId, accountId = accountId, displayName = "Cal", color = null, syncState = CalendarSyncStateEntity())),
+        )
+        val holder = SyncStateHolder()
+        val remote = FakeCalendarSyncRemoteSource(calendars = emptyList())
+        val repository = CalendarRepository(remote, database.calendarDao(), CrashReportProvider.noOp, database.eventDao(), holder)
+
+        fun currentStatus() = repository.observeCalendars(setOf(accountId))
+
+        assertEquals(NeverSynced, currentStatus().first().single().syncStatus)
+
+        holder.markSyncing(calendarId)
+        assertEquals(Syncing, currentStatus().first().single().syncStatus)
+
+        holder.clear(calendarId)
+        assertEquals(NeverSynced, currentStatus().first().single().syncStatus)
     }
 
     // ---- helpers --------------------------------------------------------------------------------
@@ -380,6 +487,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         var refRangeRequestCount: Int = 0
         var lastMultigetUrls: List<String> = emptyList()
         var onGetEventsInRange: (suspend () -> Unit)? = null
+        var onSyncCollection: (suspend () -> Unit)? = null
 
         override suspend fun discoverCalendars(credentials: DavAccount) = calendars
 
@@ -408,8 +516,10 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             return rangeRefs[calendarUrl].orEmpty()
         }
 
-        override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
-            syncResults[calendarUrl] ?: RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
+        override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?): RemoteEventSyncDelta {
+            onSyncCollection?.invoke()
+            return syncResults[calendarUrl] ?: RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
+        }
 
         override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
             eventsByUrls[chainedKey(calendarUrl, eventUrls)].orEmpty().also { lastMultigetUrls = eventUrls }

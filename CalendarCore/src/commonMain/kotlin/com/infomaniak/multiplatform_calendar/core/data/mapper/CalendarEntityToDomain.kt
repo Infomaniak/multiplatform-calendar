@@ -18,8 +18,15 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarSyncStateEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.Failed
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.NeverSynced
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSyncStatus.Synced
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 internal fun CalendarEntity.toDomain() = Calendar(
     id = id,
@@ -28,4 +35,16 @@ internal fun CalendarEntity.toDomain() = Calendar(
     colors = CalendarColors.from(color),
     isVisible = isVisible,
     accessLevel = accessLevel,
+    syncStatus = syncState.toSyncStatus(),
 )
+
+/** Derives the persisted status from the bookkeeping columns; the runtime-only `Syncing` is overlaid elsewhere. */
+@OptIn(ExperimentalTime::class)
+private fun CalendarSyncStateEntity.toSyncStatus(): CalendarSyncStatus {
+    val lastSyncedAt = lastSyncedAtMs?.let(Instant::fromEpochMilliseconds)
+    return when {
+        lastSyncError != null -> Failed(lastSyncedAt, lastSyncError)
+        lastSyncedAt != null -> Synced(lastSyncedAt)
+        else -> NeverSynced
+    }
+}

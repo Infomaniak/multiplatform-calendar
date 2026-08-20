@@ -89,6 +89,15 @@ class EventEntityToDomainTest {
     }
 
     @Test
+    fun eventWithColorArgb_exposesItAsEventSourceColor() {
+        val eventColor = 0xFFE53935.toInt()
+
+        val event = eventEntity(colorArgb = eventColor).toDomain(calendar)
+
+        assertEquals(eventColor, event.colors.sourceColor)
+    }
+
+    @Test
     fun eventsSharingColorArgb_reuseSameCachedColorContrast() {
         val shared = 0xFF1E88E5.toInt()
 

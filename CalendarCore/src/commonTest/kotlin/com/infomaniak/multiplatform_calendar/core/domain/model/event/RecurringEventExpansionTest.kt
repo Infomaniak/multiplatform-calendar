@@ -23,10 +23,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -34,6 +36,10 @@ import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class RecurringEventExpansionTest {
+    @BeforeTest
+    fun setUp() {
+        ColorComputation.resetCache()
+    }
 
     @Test
     fun reportsTruncationWithMasterIdAndOutcome() = runTest {

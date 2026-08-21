@@ -6,6 +6,16 @@ edition = "2021"
 [lib]
 crate-type = ["staticlib", "cdylib"]
 
+[features]
+default = []
+# Compiles in the debug-interception knobs of `DavClientConfig` (proxy, extra trust anchors).
+# Enabled only by the Android debug Cargo variant — see CalendarKmpDav/build.gradle.kts. Apple is
+# left out on purpose: its XCFramework only uses the release Rust variant when `rustNativeRelease`
+# is set, so a debug-only feature could leak into a release artifact.
+# `cfg(debug_assertions)` cannot be used instead: Android compiles the `.so` with the `release`
+# profile even for debug builds (APK size), so the flag would be off everywhere.
+debug-interception = []
+
 [dependencies]
 fast-dav-rs = "0.7.0"
 hyper-util = "0.1"
@@ -23,3 +33,8 @@ opt-level = "s"
 # `"debuginfo"` (not `true`/`"symbols"`) keeps the export table so uniffi-bindgen can read the
 # library symbols when bindings are generated from a release .so. AGP strips again at packaging.
 strip = "debuginfo"
+
+# Debug variants build here instead of `release`: same optimisation settings, but a distinct target
+# directory, so the feature-enabled artifact cannot overwrite the release one.
+[profile.debug-proxy]
+inherits = "release"

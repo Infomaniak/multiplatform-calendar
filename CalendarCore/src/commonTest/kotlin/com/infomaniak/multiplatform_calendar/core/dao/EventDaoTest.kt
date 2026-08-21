@@ -789,6 +789,141 @@ class EventDaoTest : RobolectricTestsBase() {
         assertEquals(listOf(master.id), observed.map { it.event.id })
     }
 
+    @Test
+    fun observeVisibleInRange_overrideMovedPastTheSeriesEnd_keepsItsMasterVisible() = runTest {
+        val account = AccountId(39)
+        val calendarId = CalendarId("calendar://recurring")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        // DAILY UNTIL 06-10, but the 06-03 instance was moved to August: the series bounds end in
+        // June, so only the override branch can bring the master back for an August window.
+        val master = createRecurringEvent(
+            eventId = EventId("event://moved-instance"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 1, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 1, 10, 0),
+            rrule = RecurrenceRule(
+                freq = Frequency.Daily,
+                until = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 6, 10, 9, 0).toInstant(TimeZone.UTC)),
+            ),
+        )
+        val moved = createOverride(master.id, LocalDateTime(2026, 6, 3, 9, 0), movedTo = LocalDateTime(2026, 8, 20, 9, 0))
+        eventDao.upsert(listOf(EventWithRawIcs(master, "", listOf(moved))))
+
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = LocalDateTime(2026, 8, 20, 0, 0).toEpochMs(TimeZone.UTC),
+            endInstantMs = LocalDateTime(2026, 8, 21, 0, 0).toEpochMs(TimeZone.UTC),
+            startLocalDateTime = LocalDateTime(2026, 8, 20, 0, 0),
+            endLocalDateTime = LocalDateTime(2026, 8, 21, 0, 0),
+        ).first()
+
+        assertEquals(listOf(master.id), observed.map { it.event.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_windowOnTheVacatedSlot_isCoveredByTheSeriesBoundsAlone() = runTest {
+        val account = AccountId(40)
+        val calendarId = CalendarId("calendar://recurring")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        // Mirror of the test above, on the slot the instance *left*. No override branch can match
+        // there — the effective position is in August — yet the master must still be returned so
+        // the expander can hide the vacated occurrence.
+        val master = createRecurringEvent(
+            eventId = EventId("event://vacated-slot"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 1, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 1, 10, 0),
+            rrule = RecurrenceRule(
+                freq = Frequency.Daily,
+                until = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 6, 10, 9, 0).toInstant(TimeZone.UTC)),
+            ),
+        )
+        val moved = createOverride(master.id, LocalDateTime(2026, 6, 3, 9, 0), movedTo = LocalDateTime(2026, 8, 20, 9, 0))
+        eventDao.upsert(listOf(EventWithRawIcs(master, "", listOf(moved))))
+
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = LocalDateTime(2026, 6, 3, 0, 0).toEpochMs(TimeZone.UTC),
+            endInstantMs = LocalDateTime(2026, 6, 4, 0, 0).toEpochMs(TimeZone.UTC),
+            startLocalDateTime = LocalDateTime(2026, 6, 3, 0, 0),
+            endLocalDateTime = LocalDateTime(2026, 6, 4, 0, 0),
+        ).first()
+
+        assertEquals(listOf(master.id), observed.map { it.event.id })
+    }
+
+    @Test
+    fun observeVisibleInRange_movedOverrideOfANonRecurringEvent_doesNotWidenItsRange() = runTest {
+        val account = AccountId(41)
+        val calendarId = CalendarId("calendar://recurring")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        // A dropped recurrence (RANGE=THISANDFUTURE, unsupported RRULE…) leaves `hasRecurrence = 0`
+        // with its overrides still stored. The series is suspended, so they must not be rendered.
+        val master = createEvent(
+            eventId = EventId("event://dropped-recurrence"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 1, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 1, 10, 0),
+        )
+        val moved = createOverride(master.id, LocalDateTime(2026, 6, 3, 9, 0), movedTo = LocalDateTime(2026, 8, 20, 9, 0))
+        eventDao.upsert(listOf(EventWithRawIcs(master, "", listOf(moved))))
+
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = LocalDateTime(2026, 8, 20, 0, 0).toEpochMs(TimeZone.UTC),
+            endInstantMs = LocalDateTime(2026, 8, 21, 0, 0).toEpochMs(TimeZone.UTC),
+            startLocalDateTime = LocalDateTime(2026, 8, 20, 0, 0),
+            endLocalDateTime = LocalDateTime(2026, 8, 21, 0, 0),
+        ).first()
+
+        assertTrue(observed.isEmpty())
+    }
+
+    @Test
+    fun observeVisibleInRange_loadsEachMasterWithItsOwnOverrides() = runTest {
+        val account = AccountId(42)
+        val calendarId = CalendarId("calendar://recurring")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+
+        val rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 10)
+        val first = createRecurringEvent(
+            eventId = EventId("event://series-a"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 1, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 1, 10, 0),
+            rrule = rrule,
+        )
+        val second = createRecurringEvent(
+            eventId = EventId("event://series-b"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 1, 14, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 1, 15, 0),
+            rrule = rrule,
+        )
+        val firstOverride = createOverride(first.id, LocalDateTime(2026, 6, 3, 9, 0), movedTo = LocalDateTime(2026, 6, 3, 11, 0))
+        eventDao.upsert(
+            listOf(
+                EventWithRawIcs(first, "", listOf(firstOverride)),
+                EventWithRawIcs(second, "", overrides = emptyList()),
+            ),
+        )
+
+        val observed = eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = LocalDateTime(2026, 6, 3, 0, 0).toEpochMs(TimeZone.UTC),
+            endInstantMs = LocalDateTime(2026, 6, 4, 0, 0).toEpochMs(TimeZone.UTC),
+            startLocalDateTime = LocalDateTime(2026, 6, 3, 0, 0),
+            endLocalDateTime = LocalDateTime(2026, 6, 4, 0, 0),
+        ).first()
+
+        assertEquals(listOf(first.id, second.id), observed.map { it.event.id })
+        assertEquals(listOf(firstOverride), observed.single { it.event.id == first.id }.overrides)
+        assertTrue(observed.single { it.event.id == second.id }.overrides.isEmpty())
+    }
+
     private fun createEvent(
         eventId: EventId,
         calendarId: CalendarId,

@@ -22,15 +22,19 @@ import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDateTime
 
@@ -129,16 +133,22 @@ internal abstract class EventDao {
     ): Flow<List<EventCalendarColorInRange>>
 
     @Transaction
-    open suspend fun upsertEventsWithRawIcs(events: List<EventEntity>, rawIcs: List<EventRawIcsEntity>) {
-        upsertEvents(events)
-        upsertRawIcs(rawIcs)
+    open suspend fun upsertEventsWithRawIcs(batch: EventUpsertBatch) {
+        upsertEvents(batch.events)
+        upsertRawIcs(batch.rawIcs)
+        upsertOverrides(batch.overrides)
+        // Overrides have no ETag of their own, so a server-side removal leaves no tombstone: the
+        // incoming list is authoritative for its master, and whatever is missing from it is stale.
+        val incomingKeys = batch.overrides.groupBy(EventOverrideEntity::masterId)
+        for (event in batch.events) {
+            deleteStaleOverridesOf(event.id, incomingKeys[event.id]?.map { it.recurrenceKey }.orEmpty())
+        }
     }
 
-    /** Single-event convenience for the edit paths, avoiding a list allocation + re-partition per event. */
+    /** Single-event convenience for the edit paths, which write one resource at a time. */
     @Transaction
-    open suspend fun upsertEventWithRawIcs(event: EventEntity, rawIcs: String) {
-        upsertEvents(listOf(event))
-        upsertRawIcs(listOf(EventRawIcsEntity(eventId = event.id, rawIcs = rawIcs)))
+    open suspend fun upsertEventWithRawIcs(event: EventWithRawIcs) {
+        upsertEventsWithRawIcs(listOf(event).toUpsertBatch())
     }
 
     @Upsert
@@ -146,6 +156,15 @@ internal abstract class EventDao {
 
     @Upsert
     protected abstract suspend fun upsertRawIcs(rawIcs: List<EventRawIcsEntity>)
+
+    @Upsert
+    protected abstract suspend fun upsertOverrides(overrides: List<EventOverrideEntity>)
+
+    @Query("DELETE FROM event_overrides WHERE masterId = :masterId AND recurrenceKey NOT IN (:keptKeys)")
+    protected abstract suspend fun deleteStaleOverridesOf(masterId: EventId, keptKeys: List<RecurrenceKey>)
+
+    @Query("SELECT * FROM event_overrides WHERE masterId = :masterId ORDER BY recurrenceKey")
+    abstract suspend fun getOverridesOf(masterId: EventId): List<EventOverrideEntity>
 
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     abstract suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>

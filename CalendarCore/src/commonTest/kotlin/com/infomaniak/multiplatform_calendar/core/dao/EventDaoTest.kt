@@ -26,11 +26,13 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntit
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -43,6 +45,7 @@ import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.time.Instant
@@ -89,6 +92,69 @@ class EventDaoTest : RobolectricTestsBase() {
         seedEvents(listOf(event))
 
         assertEquals(event, eventDao.getEvent(event.id))
+    }
+
+    @Test
+    fun upsertEventsWithRawIcs_replacesTheWholeOverrideSetOfTheMaster() = runTest {
+        val accountId = AccountId(1)
+        val calendarId = CalendarId("calendar://visible")
+        seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
+        val master = createEvent(
+            eventId = EventId("event://series"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+        )
+
+        eventDao.upsert(
+            listOf(
+                EventWithRawIcs(
+                    master,
+                    "",
+                    listOf(
+                        createOverride(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+                        createOverride(master.id, LocalDateTime(2026, 6, 18, 10, 0)),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(2, eventDao.getOverridesOf(master.id).size)
+
+        // The 06-18 instance disappeared server-side: leaving no tombstone, only the rewrite removes it.
+        val moved = createOverride(master.id, LocalDateTime(2026, 6, 17, 10, 0), movedTo = LocalDateTime(2026, 6, 17, 15, 0))
+        eventDao.upsert(listOf(EventWithRawIcs(master, "", listOf(moved))))
+
+        assertEquals(listOf(moved), eventDao.getOverridesOf(master.id))
+
+        eventDao.upsert(listOf(EventWithRawIcs(master, "", overrides = emptyList())))
+
+        assertTrue(eventDao.getOverridesOf(master.id).isEmpty())
+    }
+
+    @Test
+    fun upsertEventsWithRawIcs_onlyPrunesOverridesOfTheirOwnMaster() = runTest {
+        val accountId = AccountId(1)
+        val calendarId = CalendarId("calendar://visible")
+        seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
+        val start = LocalDateTime(2026, 6, 15, 10, 0)
+        val masters = List(2) { index ->
+            createEvent(
+                eventId = EventId("event://series$index"),
+                calendarId = calendarId,
+                dtStart = start,
+                dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+            )
+        }
+        // Both series are overridden on the very same instance, so the keys collide across masters.
+        val sharedKeyOverrides = masters.map { createOverride(it.id, start) }
+
+        eventDao.upsert(masters.mapIndexed { index, master -> EventWithRawIcs(master, "", listOf(sharedKeyOverrides[index])) })
+
+        eventDao.upsert(listOf(EventWithRawIcs(masters[0], "", overrides = emptyList())))
+
+        assertTrue(eventDao.getOverridesOf(masters[0].id).isEmpty())
+        assertEquals(listOf(sharedKeyOverrides[1]), eventDao.getOverridesOf(masters[1].id))
     }
 
     @Test
@@ -810,4 +876,32 @@ class EventDaoTest : RobolectricTestsBase() {
     }
 
     private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
+
+    private fun createOverride(
+        masterId: EventId,
+        originalStart: LocalDateTime,
+        movedTo: LocalDateTime = originalStart,
+    ): EventOverrideEntity {
+        val originalEnd = LocalDateTime(originalStart.date, LocalTime(originalStart.hour + 1, originalStart.minute))
+        val movedEnd = LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute))
+        return EventOverrideEntity(
+            masterId = masterId,
+            recurrenceKey = RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC)),
+            originalStartInstantMs = originalStart.toEpochMs(TimeZone.UTC),
+            originalEndInstantMs = originalEnd.toEpochMs(TimeZone.UTC),
+            originalStartLocalDateTime = originalStart,
+            originalEndLocalDateTime = originalEnd,
+            content = EventContentEntity(
+                summary = "Moved instance",
+                timing = EventTimingEntity(
+                    dtStart = movedTo,
+                    dtEndEffective = movedEnd,
+                    startTimeZone = TimeZone.UTC.id,
+                    endTimeZone = TimeZone.UTC.id,
+                    dtStartInstantMs = movedTo.toEpochMs(TimeZone.UTC),
+                    dtEndInstantMs = movedEnd.toEpochMs(TimeZone.UTC),
+                ),
+            ),
+        )
+    }
 }

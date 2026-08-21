@@ -102,6 +102,8 @@ internal sealed class RecurrenceKey {
 /**
  * The [RecurrenceKey] identifying an instance of this master that starts at [localStart] (anchored
  * at [instantStart]), matching the master's `DTSTART` value type.
+ *
+ * Shared by the expander and the sync path: a stored override key must match the slot it replaces.
  */
 internal fun EventTiming.recurrenceKeyAt(localStart: LocalDateTime, instantStart: Instant): RecurrenceKey = when {
     isAllDay -> AllDay(localStart.date)

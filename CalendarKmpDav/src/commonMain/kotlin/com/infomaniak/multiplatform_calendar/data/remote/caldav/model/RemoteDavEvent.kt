@@ -73,5 +73,46 @@ data class RemoteDavEvent(
     /** ORGANIZER of the VEVENT (RFC 5545 §3.8.4.3), independent from [attendees]. */
     val organizer: RemoteDavOrganizer? = null,
     val alarms: List<RemoteDavAlarm> = emptyList(),
+    /** Sibling VEVENTs carrying a `RECURRENCE-ID`. */
+    val overrides: List<RemoteDavEventOverride> = emptyList(),
+)
+
+/**
+ * A VEVENT overriding a single instance of its series (RFC 5545 §3.8.4.4).
+ *
+ * Mirrors [RemoteDavEvent] minus the master-only recurrence properties and minus the resource
+ * identity, shared with its master (same URL, same ETag).
+ */
+data class RemoteDavEventOverride(
+    /** The *original* start of the overridden instance, never this override's own [dtstart]. */
+    val recurrenceId: String,
+    /** Same semantics as [RemoteDavEvent.dtStartTzid]. */
+    val recurrenceIdTzid: String?,
+    /** RFC 5545 requires it to match the master's `DTSTART` value type. */
+    val recurrenceIdValueType: RemoteIcalDateValueType,
+    /** `RANGE=THISANDFUTURE`: this override also applies to every later instance. */
+    val isThisAndFuture: Boolean,
+    val summary: String?,
+    val description: String?,
+    val location: String?,
+    val dtstart: String?,
+    val dtStartTzid: String?,
+    val dtend: String?,
+    val dtEndTzid: String?,
+    val duration: String?,
+    val created: String?,
+    val lastModified: String?,
+    val dtstamp: String?,
+    val status: String?,
+    val transp: String?,
+    val classification: String?,
+    val priority: String?,
+    val sequence: String?,
+    val categories: String?,
+    val colorHex: String?,
+    val colorIcalName: String?,
+    val attendees: List<RemoteDavAttendee> = emptyList(),
+    val organizer: RemoteDavOrganizer? = null,
+    val alarms: List<RemoteDavAlarm> = emptyList(),
 )
 

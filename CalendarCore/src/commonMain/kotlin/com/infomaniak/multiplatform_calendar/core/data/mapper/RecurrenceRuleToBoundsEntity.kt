@@ -66,7 +66,7 @@ internal fun toRecurrenceBoundsEntity(
     val durationMs = timing.anchoredDurationMs() + timing.allDayUpperBoundPaddingMs()
     val rDateBounds = rDates.computeRDateBounds(timing = timing, durationMs = durationMs)
 
-    val firstOccurrenceInstantMs = minNotNull(
+    val firstOccurrenceInstantMs = minIgnoringNull(
         base?.firstOccurrenceInstantMs ?: timing.lowBoundInstantMs(),
         rDateBounds.firstAnchoredStartInstantMs,
     )
@@ -113,7 +113,7 @@ private fun List<IcalDateValue>.computeRDateBounds(
     this@computeRDateBounds.forEach { dateValue ->
         dateValue.startInstantMs(timing)?.let { startMs ->
             val lowBoundStartMs = if (timing.isAllDay && dateValue is AllDay) startMs - MAX_UTC_OFFSET_MS else startMs
-            firstAnchoredStartInstantMs = minNotNull(firstAnchoredStartInstantMs, lowBoundStartMs)
+            firstAnchoredStartInstantMs = minIgnoringNull(firstAnchoredStartInstantMs, lowBoundStartMs)
             anchoredEnds += startMs + durationMs
         }
         dateValue.startLocalDateTime(timing)?.let { localStart ->
@@ -138,7 +138,7 @@ private fun mergeFiniteBoundsWithRDates(
     return if (timing.dtStartInstantMs != null) {
         base.copy(
             firstOccurrenceInstantMs = firstOccurrenceInstantMs,
-            lastPossibleOccurrenceEndInstantMs = maxNotNull(
+            lastPossibleOccurrenceEndInstantMs = maxIgnoringNull(
                 base.lastPossibleOccurrenceEndInstantMs,
                 anchoredEnds.maxOrNull(),
             ),
@@ -164,7 +164,7 @@ private fun rdateOnlyBoundsEntity(
     return when {
         timing.dtStartInstantMs != null -> {
             val dtStartMs = timing.dtStartInstantMs
-            val lastBound = maxNotNull(dtStartMs + durationMs, anchoredEnds.maxOrNull())
+            val lastBound = maxIgnoringNull(dtStartMs + durationMs, anchoredEnds.maxOrNull())
             RecurrenceBoundsEntity(
                 firstOccurrenceInstantMs = firstOccurrenceInstantMs,
                 lastPossibleOccurrenceEndInstantMs = lastBound,
@@ -225,13 +225,13 @@ private fun LocalDateTime.plusEventDuration(duration: Duration): LocalDateTime {
     return toInstant(TimeZone.UTC).plus(duration).toLocalDateTime(TimeZone.UTC)
 }
 
-private fun minNotNull(a: Long?, b: Long?): Long? = when {
+private fun minIgnoringNull(a: Long?, b: Long?): Long? = when {
     a == null -> b
     b == null -> a
     else -> minOf(a, b)
 }
 
-private fun maxNotNull(a: Long?, b: Long?): Long? = when {
+private fun maxIgnoringNull(a: Long?, b: Long?): Long? = when {
     a == null -> b
     b == null -> a
     else -> maxOf(a, b)

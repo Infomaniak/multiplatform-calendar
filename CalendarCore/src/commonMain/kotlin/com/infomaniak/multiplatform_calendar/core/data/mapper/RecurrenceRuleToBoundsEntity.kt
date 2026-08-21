@@ -105,7 +105,7 @@ private fun List<IcalDateValue>.computeRDateBounds(
     timing: EventTimingEntity,
     durationMs: Long,
 ): RDateBoundsComputation {
-    val localDuration = timing.localDuration()
+    val eventDuration = timing.eventDuration()
     var firstAnchoredStartInstantMs: Long? = null
     val anchoredEnds = mutableListOf<Long>()
     val localEnds = mutableListOf<LocalDateTime>()
@@ -117,7 +117,7 @@ private fun List<IcalDateValue>.computeRDateBounds(
             anchoredEnds += startMs + durationMs
         }
         dateValue.startLocalDateTime(timing)?.let { localStart ->
-            localEnds += localStart.toInstant(TimeZone.UTC).plus(localDuration).toLocalDateTime(TimeZone.UTC)
+            localEnds += localStart.plusEventDuration(eventDuration)
         }
     }
 
@@ -217,8 +217,13 @@ private fun IcalDateValue.startLocalDateTime(timing: EventTimingEntity): LocalDa
     is Zoned -> null
 }
 
-private fun EventTimingEntity.localDuration(): Duration =
-    dtEndEffective.toInstant(TimeZone.UTC) - dtStart.toInstant(TimeZone.UTC)
+private fun EventTimingEntity.eventDuration(): Duration {
+    return dtEndEffective.toInstant(TimeZone.UTC) - dtStart.toInstant(TimeZone.UTC)
+}
+
+private fun LocalDateTime.plusEventDuration(duration: Duration): LocalDateTime {
+    return toInstant(TimeZone.UTC).plus(duration).toLocalDateTime(TimeZone.UTC)
+}
 
 private fun minNotNull(a: Long?, b: Long?): Long? = when {
     a == null -> b
@@ -272,5 +277,5 @@ private fun RecurrenceUntil.toLocalEnd(timing: EventTimingEntity): LocalDateTime
         is DateTimeUtc -> instant.toLocalDateTime(TimeZone.UTC)
     }
     val duration = timing.dtEndEffective.toInstant(TimeZone.UTC) - timing.dtStart.toInstant(TimeZone.UTC)
-    return untilLocal.toInstant(TimeZone.UTC).plus(duration).toLocalDateTime(TimeZone.UTC)
+    return untilLocal.plusEventDuration(duration)
 }

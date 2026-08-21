@@ -186,9 +186,13 @@ private fun RemoteIcalDateValue.toDateTimeIcalValue(
     propertyName: String,
     eventUrl: String,
 ): IcalDateValue {
+    // TODO: Evaluate RFC-tolerant support for mixed DATE-TIME forms between DTSTART and RDATE/EXDATE
+    //  using master-aware key normalization in expansion, while keeping deterministic EXDATE matching.
     val parsed = parseICalDateTime(value) ?: throw RecurrenceDroppedException(MalformedGrammar.name)
     return when {
         tzid != null -> {
+            // Product choice (stricter than RFC): keep DATE-TIME anchored/floating forms aligned with DTSTART
+            // to preserve deterministic recurrence-key matching in expansion.
             if (form != DtStartForm.Utc) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
             val zone = resolveTimeZone(
                 isAllDay = false,
@@ -200,10 +204,12 @@ private fun RemoteIcalDateValue.toDateTimeIcalValue(
             IcalDateValue.Zoned(parsed.toInstant(zone), zone.id)
         }
         value.endsWith("Z") -> {
+            // Product choice (stricter than RFC): keep DATE-TIME anchored/floating forms aligned with DTSTART.
             if (form != DtStartForm.Utc) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
             IcalDateValue.Zoned(parsed.toInstant(TimeZone.UTC), TimeZone.UTC.id)
         }
         else -> {
+            // Product choice (stricter than RFC): keep DATE-TIME anchored/floating forms aligned with DTSTART.
             if (form != DtStartForm.Floating) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
             IcalDateValue.Floating(parsed)
         }

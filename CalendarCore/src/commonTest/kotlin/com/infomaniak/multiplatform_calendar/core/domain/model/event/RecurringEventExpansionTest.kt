@@ -205,6 +205,32 @@ class RecurringEventExpansionTest {
     }
 
     @Test
+    fun recurrenceExpansion_dateRDateOnTimedMaster_isAnchoredAtMasterStartTime() = runTest {
+        val master = dailyMaster(
+            id = "event://rdate-date",
+            rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 1),
+        ).copy(
+            timing = EventTiming(
+                start = LocalDateTime(2026, 1, 1, 10, 0),
+                end = LocalDateTime(2026, 1, 1, 11, 0),
+                startTimeZone = TimeZone.of("Europe/Paris"),
+                endTimeZone = TimeZone.of("Europe/Paris"),
+                isAllDay = false,
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 1),
+                rDates = listOf(IcalDateValue.AllDay(kotlinx.datetime.LocalDate(2026, 1, 10))),
+            ),
+        )
+
+        val result = listOf(master).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 15),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertTrue(result.any { it.timing.start == LocalDateTime(2026, 1, 10, 10, 0) })
+    }
+
+    @Test
     fun recurrenceExpansion_excludesExDateFromGeneratedSet() = runTest {
         val master = dailyMaster(id = "event://exdate", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3)).let {
             it.copy(
@@ -217,6 +243,33 @@ class RecurringEventExpansionTest {
         val result = listOf(master).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertEquals(2, result.size)
+    }
+
+    @Test
+    fun recurrenceExpansion_dateExDateOnTimedMaster_excludesAnchoredOccurrence() = runTest {
+        val master = dailyMaster(
+            id = "event://exdate-date",
+            rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        ).copy(
+            timing = EventTiming(
+                start = LocalDateTime(2026, 1, 1, 10, 0),
+                end = LocalDateTime(2026, 1, 1, 11, 0),
+                startTimeZone = TimeZone.of("Europe/Paris"),
+                endTimeZone = TimeZone.of("Europe/Paris"),
+                isAllDay = false,
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                exDates = listOf(IcalDateValue.AllDay(kotlinx.datetime.LocalDate(2026, 1, 2))),
+            ),
+        )
+
+        val result = listOf(master).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 6),
             timeZone = TimeZone.UTC,
         )
 

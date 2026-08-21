@@ -22,23 +22,29 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSeries
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 
-internal fun List<EventWithCalendarEntity>.toDomainEvents(): List<Event> {
+internal fun List<EventWithCalendarEntity>.toDomainSeries(): List<EventSeries> {
     val calendarsDomains = mutableMapOf<CalendarId, Calendar>()
     val eventColorsCache = mutableMapOf<EventSourceColor, EventColors>()
-    return map { it.toDomainEvent(calendarsDomains, eventColorsCache) }
+    return map { it.toDomainSeries(calendarsDomains, eventColorsCache) }
 }
 
-private fun EventWithCalendarEntity.toDomainEvent(
+private fun EventWithCalendarEntity.toDomainSeries(
     calendarsDomains: MutableMap<CalendarId, Calendar>,
     eventColorsCache: MutableMap<EventSourceColor, EventColors>,
-): Event {
+): EventSeries {
     val calendar = with(calendar) {
         calendarsDomains.getOrPut(id) { toDomain() }
     }
 
-    return event.toDomain(calendar, eventColorsCache)
+    return EventSeries(
+        master = event.toDomain(calendar, eventColorsCache),
+        overridesByOccurrenceKey = overrides.associate { override ->
+            override.recurrenceKey.canonical to override.toDomain(calendar, eventColorsCache)
+        },
+    )
 }
 
 internal fun EventWithCalendarEntity?.toDomainEvent(): Event? = this?.let { event.toDomain(calendar.toDomain()) }

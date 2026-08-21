@@ -51,11 +51,17 @@ import kotlin.time.Instant
  *
  * Applies the recurrence set semantics `(RRULE ∪ RDATE ∪ {DTSTART for RDATE-only}) − EXDATE`.
  *
+ * A slot carrying a `RECURRENCE-ID` override is never emitted from the rule: the override *is* the
+ * instance. It is emitted instead — at its own position, which may have been moved — unless it falls
+ * outside the window or is `STATUS:CANCELLED`, the iCalendar way of deleting a single occurrence.
+ * Note the two directions this covers: an instance moved out of the window disappears from the slot
+ * it left, and one moved in appears even though the rule never generates anything there.
+ *
  * [onExpansionTruncated] is invoked with the master's [EventId] whenever the expander stops on a safety cap
  * (outcome other than [ExpansionOutcome.Completed]) so the caller can surface it (e.g. to Sentry); the
  * partial occurrences gathered so far are still returned.
  */
-internal suspend fun List<Event>.expandRecurrencesInWindow(
+internal suspend fun List<EventSeries>.expandRecurrencesInWindow(
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -64,8 +70,9 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
 ): List<Event> {
     val expanded = ArrayList<Event>(size)
     val occurrences = ArrayList<Occurrence>()
-    for (event in this) {
+    for (series in this) {
         currentCoroutineContext().ensureActive()
+        val event = series.master
         occurrences.clear()
         val hasRecurringExpansion = event.timing.expandRecurrenceOccurrencesInWindow(
             masterId = event.masterEventId,
@@ -80,9 +87,22 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
             expanded += event
             continue
         }
-        for (occurrence in occurrences) expanded += event.toOccurrenceEvent(occurrence)
+        val overrides = series.overridesByOccurrenceKey
+        for (occurrence in occurrences) {
+            if (occurrence.key.canonical in overrides) continue
+            expanded += event.toOccurrenceEvent(occurrence)
+        }
+        for (override in overrides.values) {
+            if (override.status == EventStatus.CANCELLED) continue
+            if (override.timing.overlaps(rangeStart, rangeEnd, timeZone)) expanded += override
+        }
     }
     return expanded
+}
+
+/** Same `[rangeStart, rangeEnd[` overlap rule as [buildOccurrenceAt], for an already-positioned instance. */
+private fun EventTiming.overlaps(rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone): Boolean {
+    return startInstant(timeZone) < rangeEnd && endInstant(timeZone) > rangeStart
 }
 
 /**

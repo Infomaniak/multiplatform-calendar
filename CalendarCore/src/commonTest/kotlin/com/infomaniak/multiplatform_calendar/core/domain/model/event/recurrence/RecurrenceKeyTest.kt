@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey.Zoned
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -32,25 +33,25 @@ class RecurrenceKeyTest {
     @Test
     fun allDayCanonicalEncodesDate() {
         val key = AllDay(LocalDate(2026, 3, 14))
-        assertEquals("D:2026-03-14", key.canonical)
+        assertEquals("AllDay:2026-03-14", key.canonical)
     }
 
     @Test
     fun floatingCanonicalEncodesLocalDateTime() {
         val key = Floating(LocalDateTime(2026, 3, 14, 9, 30))
-        assertEquals("F:2026-03-14T09:30", key.canonical)
+        assertEquals("Floating:2026-03-14T09:30", key.canonical)
     }
 
     @Test
     fun zonedCanonicalEncodesZoneThenLocalDateTime() {
         val key = Zoned(LocalDateTime(2026, 3, 14, 9, 30), "Europe/Zurich")
-        assertEquals("Z:Europe/Zurich:2026-03-14T09:30", key.canonical)
+        assertEquals("Zoned:Europe/Zurich:2026-03-14T09:30", key.canonical)
     }
 
     @Test
     fun utcCanonicalEncodesInstant() {
         val key = Utc(Instant.parse("2026-03-14T08:30:00Z"))
-        assertEquals("U:2026-03-14T08:30:00Z", key.canonical)
+        assertEquals("Utc:2026-03-14T08:30:00Z", key.canonical)
     }
 
     @Test
@@ -62,5 +63,31 @@ class RecurrenceKeyTest {
             Utc(Instant.parse("2026-03-14T08:30:00Z")),
         )
         for (key in keys) assertEquals(key.canonical, key.toString())
+    }
+
+    @Test
+    fun parseRoundTripsEveryCanonicalForm() {
+        val keys = listOf(
+            AllDay(LocalDate(2026, 3, 14)),
+            Floating(LocalDateTime(2026, 3, 14, 9, 30)),
+            Zoned(LocalDateTime(2026, 3, 14, 9, 30), "Europe/Zurich"),
+            Utc(Instant.parse("2026-03-14T08:30:00Z")),
+        )
+        for (key in keys) assertEquals(key, RecurrenceKey.parse(key.canonical))
+    }
+
+    @Test
+    fun parseKeepsZonesApartFromTheWallClock() {
+        val key = RecurrenceKey.parse("Zoned:America/New_York:2026-03-14T09:30")
+        assertEquals(Zoned(LocalDateTime(2026, 3, 14, 9, 30), "America/New_York"), key)
+    }
+
+    @Test
+    fun parseRoundTripsAFixedOffsetZoneWhoseIdHoldsAColon() {
+        val zoneId = TimeZone.of("UTC+01:30").id
+        val key = Zoned(LocalDateTime(2026, 3, 14, 9, 30), zoneId)
+
+        assertEquals(key, RecurrenceKey.parse(key.canonical))
+        assertEquals("UTC+01:30", zoneId)
     }
 }

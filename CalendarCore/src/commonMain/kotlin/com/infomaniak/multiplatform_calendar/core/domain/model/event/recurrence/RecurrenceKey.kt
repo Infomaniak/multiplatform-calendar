@@ -48,22 +48,54 @@ internal sealed class RecurrenceKey {
 
     /** `DATE` (whole-day) master: identified by the local date only. */
     data class AllDay(val date: LocalDate) : RecurrenceKey() {
-        override val canonical: String get() = "D:$date"
+        override val canonical: String get() = "$ALL_DAY_TAG:$date"
     }
 
     /** `DATE-TIME` floating master (FORM #1): no zone, wall-clock only. */
     data class Floating(val localDateTime: LocalDateTime) : RecurrenceKey() {
-        override val canonical: String get() = "F:$localDateTime"
+        override val canonical: String get() = "$FLOATING_TAG:$localDateTime"
     }
 
     /** `DATE-TIME` with `TZID` master (FORM #3): wall-clock paired with its IANA zone. */
     data class Zoned(val localDateTime: LocalDateTime, val timeZoneId: String) : RecurrenceKey() {
-        override val canonical: String get() = "Z:$timeZoneId:$localDateTime"
+        override val canonical: String get() = "$ZONED_TAG:$timeZoneId:$localDateTime"
     }
 
     /** `DATE-TIME` UTC master (FORM #2): identified by the absolute instant. */
     data class Utc(val instant: Instant) : RecurrenceKey() {
-        override val canonical: String get() = "U:$instant"
+        override val canonical: String get() = "$UTC_TAG:$instant"
+    }
+
+    companion object {
+        /** Rebuild a key from its [canonical] form. */
+        fun parse(canonical: String): RecurrenceKey {
+            val payload = canonical.substringAfter(':')
+            return when (val tag = canonical.substringBefore(':')) {
+                ALL_DAY_TAG -> AllDay(LocalDate.parse(payload))
+                FLOATING_TAG -> Floating(LocalDateTime.parse(payload))
+                ZONED_TAG -> parseZoned(payload)
+                UTC_TAG -> Utc(Instant.parse(payload))
+                else -> error("Unknown RecurrenceKey tag '$tag'")
+            }
+        }
+
+        /**
+         * Split `<zone>:<wall-clock>` on the separator whose suffix parses, since a fixed-offset id
+         * (`UTC+01:30`) holds colons of its own while a wall-clock never starts with a digit pair.
+         */
+        private fun parseZoned(payload: String): Zoned {
+            payload.forEachIndexed { index, char ->
+                if (char != ':') return@forEachIndexed
+                val localDateTime = runCatching { LocalDateTime.parse(payload.substring(index + 1)) }.getOrNull()
+                if (localDateTime != null) return Zoned(localDateTime, payload.take(index))
+            }
+            error("Unparsable zoned RecurrenceKey '$payload'")
+        }
+
+        private const val ALL_DAY_TAG = "AllDay"
+        private const val FLOATING_TAG = "Floating"
+        private const val ZONED_TAG = "Zoned"
+        private const val UTC_TAG = "Utc"
     }
 }
 

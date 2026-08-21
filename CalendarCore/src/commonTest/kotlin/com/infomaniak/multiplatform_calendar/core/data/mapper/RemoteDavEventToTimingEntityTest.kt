@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingEx
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -245,28 +246,32 @@ class RemoteDavEventToTimingEntityTest {
         etag = "etag-1",
         icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
         uid = "uid-1",
-        summary = "Test",
-        description = null,
-        location = null,
-        dtstart = dtstart,
-        dtStartTzid = dtStartTzid,
-        dtend = dtend,
-        dtEndTzid = dtEndTzid,
-        duration = duration,
-        created = null,
-        lastModified = null,
-        dtstamp = null,
         rrule = null,
-        status = null,
-        transp = null,
-        classification = classification,
-        priority = null,
-        sequence = null,
-        categories = categories,
-        colorHex = null,
-        colorIcalName = null,
-        attendees = emptyList(),
+        content = RemoteDavEventContent(
+            summary = "Test",
+            description = null,
+            location = null,
+            dtstart = dtstart,
+            dtStartTzid = dtStartTzid,
+            dtend = dtend,
+            dtEndTzid = dtEndTzid,
+            duration = duration,
+            created = null,
+            lastModified = null,
+            dtstamp = null,
+            status = null,
+            transp = null,
+            classification = classification,
+            priority = null,
+            sequence = null,
+            categories = categories,
+            colorHex = null,
+            colorIcalName = null,
+            attendees = emptyList(),
+        ),
     )
 
     private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
 }
+
+private fun RemoteDavEvent.toTimingEntity() = content.toTimingEntity(url)

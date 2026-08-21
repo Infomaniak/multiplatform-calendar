@@ -165,7 +165,7 @@ private fun RemoteIcalDateValue.toIcalDateValue(
 ): IcalDateValue {
     return when (valueType) {
         RemoteIcalDateValueType.Date -> {
-            if (form != DtStartForm.Date || !isICalDateOnly(value)) throw RecurrenceDroppedException(RecurrenceDateTypeMismatch.name)
+            if (!isICalDateOnly(value)) throw RecurrenceDroppedException(MalformedGrammar.name)
             val parsed = parseICalDateTime(value) ?: throw RecurrenceDroppedException(MalformedGrammar.name)
             IcalDateValue.AllDay(parsed.date)
         }

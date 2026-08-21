@@ -34,6 +34,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
@@ -263,6 +264,14 @@ private fun EventTiming.buildOccurrenceAt(
 
 private fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? = when {
     master.isAllDay && this is IcalDateValue.AllDay -> AllDay(date)
+    !master.isAllDay && this is IcalDateValue.AllDay -> {
+        val local = LocalDateTime(date, master.start.time)
+        when (val zone = master.startTimeZone) {
+            null -> Floating(local)
+            TimeZone.UTC -> Utc(local.toInstant(TimeZone.UTC))
+            else -> Zoned(local, zone.id)
+        }
+    }
     !master.isAllDay && master.startTimeZone == null && this is IcalDateValue.Floating -> Floating(localDateTime)
     !master.isAllDay && master.startTimeZone == TimeZone.UTC && this is IcalDateValue.Zoned -> Utc(instant)
     !master.isAllDay && master.startTimeZone != null && master.startTimeZone != TimeZone.UTC && this is IcalDateValue.Zoned ->

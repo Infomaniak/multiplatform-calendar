@@ -24,7 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainSeries
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyCalendarColors
@@ -33,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSeries
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
@@ -66,12 +67,13 @@ internal class EventRepository(
     private val crashReport: CrashReport,
 ) {
 
-    fun observeVisibleEvents(
+    /** The visible masters of the window, each with the overrides redefining one of its instances. */
+    private fun observeVisibleSeries(
         accountIds: Set<AccountId>,
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<Event>> {
+    ): Flow<List<EventSeries>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
         // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
         // - Wall-clock strings for floating events, re-interpreted in [zone] so a floating event
@@ -84,8 +86,15 @@ internal class EventRepository(
             endInstantMs = end.toEpochMilliseconds(),
             startLocalDateTime = start.toLocalDateTime(zone),
             endLocalDateTime = end.toLocalDateTime(zone),
-        ).map(List<EventWithCalendarEntity>::toDomainEvents)
+        ).map(List<EventWithCalendarEntity>::toDomainSeries)
     }
+
+    fun observeVisibleEvents(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        zone: TimeZone,
+    ): Flow<List<Event>> = observeVisibleSeries(accountIds, start, end, zone).map { series -> series.map(EventSeries::master) }
 
     /**
      * Like [observeVisibleEvents], but recurring masters are first expanded into their occurrences
@@ -104,9 +113,9 @@ internal class EventRepository(
         end: Instant,
         timeZone: TimeZone,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
-        return observeVisibleEvents(accountIds, start, end, zone = timeZone)
-            .mapLatest { events ->
-                events
+        return observeVisibleSeries(accountIds, start, end, zone = timeZone)
+            .mapLatest { series ->
+                series
                     .expandRecurrencesInWindow(start, end, timeZone, onExpansionTruncated = ::logTruncatedExpansion)
                     .groupDaySlicesByDay(start, end, timeZone)
             }

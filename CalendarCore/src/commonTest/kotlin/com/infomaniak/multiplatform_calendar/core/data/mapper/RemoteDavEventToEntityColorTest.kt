@@ -32,7 +32,7 @@ class RemoteDavEventToEntityColorTest {
 
     @Test
     fun noColorProperties_resolveToNull() {
-        val entity = remoteEvent(colorHex = null, colorIcalName = null).toEntity(calendarId)
+        val entity = remoteEvent(colorHex = null, colorIcalName = null).toEntity(calendarId).content
 
         assertNull(entity.colorArgb)
         assertNull(entity.colorIcalName)
@@ -40,7 +40,7 @@ class RemoteDavEventToEntityColorTest {
 
     @Test
     fun onlyAppleHex_isStoredAsArgb_andIcalNameStaysNull() {
-        val entity = remoteEvent(colorHex = "#1E88E5FF", colorIcalName = null).toEntity(calendarId)
+        val entity = remoteEvent(colorHex = "#1E88E5FF", colorIcalName = null).toEntity(calendarId).content
 
         assertEquals(0xFF1E88E5.toInt(), entity.colorArgb)
         assertNull(entity.colorIcalName)
@@ -48,7 +48,7 @@ class RemoteDavEventToEntityColorTest {
 
     @Test
     fun onlyRfc7986CssName_isResolvedToArgb_andIcalNameIsKeptForRoundTrip() {
-        val entity = remoteEvent(colorHex = null, colorIcalName = "royalblue").toEntity(calendarId)
+        val entity = remoteEvent(colorHex = null, colorIcalName = "royalblue").toEntity(calendarId).content
 
         assertEquals(0xFF4169E1.toInt(), entity.colorArgb)
         assertEquals("royalblue", entity.colorIcalName)
@@ -57,7 +57,7 @@ class RemoteDavEventToEntityColorTest {
     @Test
     fun bothPropertiesPresent_hexWinsOverCssName() {
         // Apple Calendar writes both with disagreeing values; the hex is authoritative.
-        val entity = remoteEvent(colorHex = "#E53935FF", colorIcalName = "royalblue").toEntity(calendarId)
+        val entity = remoteEvent(colorHex = "#E53935FF", colorIcalName = "royalblue").toEntity(calendarId).content
 
         assertEquals(0xFFE53935.toInt(), entity.colorArgb)
         assertEquals("royalblue", entity.colorIcalName)
@@ -65,14 +65,14 @@ class RemoteDavEventToEntityColorTest {
 
     @Test
     fun malformedHexFallsBackToCssName() {
-        val entity = remoteEvent(colorHex = "not-a-hex", colorIcalName = "royalblue").toEntity(calendarId)
+        val entity = remoteEvent(colorHex = "not-a-hex", colorIcalName = "royalblue").toEntity(calendarId).content
 
         assertEquals(0xFF4169E1.toInt(), entity.colorArgb)
     }
 
     @Test
     fun unknownCssName_withNoHex_resolvesToNull() {
-        val entity = remoteEvent(colorHex = null, colorIcalName = "not-a-css3-color").toEntity(calendarId)
+        val entity = remoteEvent(colorHex = null, colorIcalName = "not-a-css3-color").toEntity(calendarId).content
 
         assertNull(entity.colorArgb)
         assertEquals("not-a-css3-color", entity.colorIcalName)

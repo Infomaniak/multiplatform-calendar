@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -366,16 +367,18 @@ class EventEditMapperTest {
     private fun eventEntity(colorArgb: Int?, colorIcalName: String? = null, rrule: RecurrenceRule? = null) = EventEntity(
         id = EventId("https://cal/tests/1.ics"),
         calendarId = calendarId,
-        summary = "Test",
-        timing = EventTimingEntity(
-            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
-            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
-            dtStartInstantMs = null,
-            dtEndInstantMs = null,
+        content = EventContentEntity(
+            summary = "Test",
+            timing = EventTimingEntity(
+                dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+                dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+                dtStartInstantMs = null,
+                dtEndInstantMs = null,
+            ),
+            colorArgb = colorArgb,
+            colorIcalName = colorIcalName,
         ),
         etag = "etag-1",
-        colorArgb = colorArgb,
-        colorIcalName = colorIcalName,
         rrule = rrule,
     )
 

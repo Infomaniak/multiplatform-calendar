@@ -61,9 +61,9 @@ internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): 
         location = location?.ifBlank { null },
         description = description?.ifBlank { null },
         timeZones = timing.vTimeZones(),
-        colorChange = resolveColorChange(previous?.colorArgb),
+        colorChange = resolveColorChange(previous?.content?.colorArgb),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
-        alarms = resolveAlarmEdits(alarms, previous?.alarms.orEmpty()),
+        alarms = resolveAlarmEdits(alarms, previous?.content?.alarms.orEmpty()),
         stamp = stamp,
     )
 }

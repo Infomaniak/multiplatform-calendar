@@ -18,15 +18,10 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
@@ -67,26 +62,7 @@ private fun RemoteDavEventOverride.toEntity(
         originalEndInstantMs = original.endInstantMs,
         originalStartLocalDateTime = original.startLocalDateTime,
         originalEndLocalDateTime = original.endLocalDateTime,
-        content = EventContentEntity(
-            summary = summary ?: "",
-            description = description,
-            location = location,
-            timing = toTimingEntity(url),
-            created = parseICalDateTime(created),
-            lastModified = parseICalDateTime(lastModified),
-            dtStamp = parseICalDateTime(dtstamp),
-            status = EventStatus.fromIcalString(status),
-            transp = transp,
-            classification = Classification.fromIcalString(classification),
-            priority = priority?.toIntOrNull(),
-            sequence = sequence?.toIntOrNull(),
-            categories = parseICalCategories(categories),
-            attendees = attendees.map { it.toEntity() },
-            organizer = organizer?.toEntity(),
-            alarms = alarms.map { it.toEntity() },
-            colorArgb = parseHexColor(colorHex) ?: parseCss3ColorName(colorIcalName),
-            colorIcalName = colorIcalName,
-        ),
+        content = content.toContentEntity(url),
     )
 }
 

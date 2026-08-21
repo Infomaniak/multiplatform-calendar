@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import kotlinx.datetime.DayOfWeek
@@ -229,29 +230,31 @@ class RemoteDavEventToEntityRecurrenceTest {
         etag = "etag-1",
         icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
         uid = "uid-1",
-        summary = "Test",
-        description = null,
-        location = null,
-        dtstart = dtstart,
-        dtStartTzid = dtStartTzid,
-        dtend = dtend,
-        dtEndTzid = null,
-        duration = null,
-        created = null,
-        lastModified = null,
-        dtstamp = null,
         rrule = rrule,
         rDates = rDates,
         exDates = exDates,
-        status = null,
-        transp = null,
-        classification = null,
-        priority = null,
-        sequence = null,
-        categories = null,
-        colorHex = null,
-        colorIcalName = null,
-        attendees = emptyList(),
-        alarms = emptyList(),
+        content = RemoteDavEventContent(
+            summary = "Test",
+            description = null,
+            location = null,
+            dtstart = dtstart,
+            dtStartTzid = dtStartTzid,
+            dtend = dtend,
+            dtEndTzid = null,
+            duration = null,
+            created = null,
+            lastModified = null,
+            dtstamp = null,
+            status = null,
+            transp = null,
+            classification = null,
+            priority = null,
+            sequence = null,
+            categories = null,
+            colorHex = null,
+            colorIcalName = null,
+            attendees = emptyList(),
+            alarms = emptyList(),
+        ),
     )
 }

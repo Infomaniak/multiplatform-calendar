@@ -35,6 +35,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
@@ -344,27 +345,29 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         etag = etag,
         icsData = icsData,
         uid = uid,
-        summary = "S",
-        description = null,
-        location = null,
-        dtstart = dtstart,
-        dtStartTzid = null,
-        dtend = null,
-        dtEndTzid = null,
-        duration = null,
-        created = null,
-        lastModified = null,
-        dtstamp = null,
         rrule = rrule,
-        status = null,
-        transp = null,
-        classification = null,
-        priority = null,
-        sequence = null,
-        categories = null,
-        colorHex = null,
-        colorIcalName = null,
-        attendees = emptyList(),
+        content = RemoteDavEventContent(
+            summary = "S",
+            description = null,
+            location = null,
+            dtstart = dtstart,
+            dtStartTzid = null,
+            dtend = null,
+            dtEndTzid = null,
+            duration = null,
+            created = null,
+            lastModified = null,
+            dtstamp = null,
+            status = null,
+            transp = null,
+            classification = null,
+            priority = null,
+            sequence = null,
+            categories = null,
+            colorHex = null,
+            colorIcalName = null,
+            attendees = emptyList(),
+        ),
     )
 
     private class FakeCalendarSyncRemoteSource(

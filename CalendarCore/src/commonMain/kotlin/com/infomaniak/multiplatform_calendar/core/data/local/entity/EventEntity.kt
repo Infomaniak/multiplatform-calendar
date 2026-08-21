@@ -23,12 +23,9 @@ import androidx.room3.ForeignKey
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import kotlinx.datetime.LocalDateTime
 
 @Entity(
     tableName = "events",
@@ -45,31 +42,12 @@ import kotlinx.datetime.LocalDateTime
 internal data class EventEntity(
     @PrimaryKey val id: EventId,
     val calendarId: CalendarId,
-    val summary: String,
-    val description: String? = null,
-    val location: String? = null,
-    @Embedded val timing: EventTimingEntity,
-    val created: LocalDateTime? = null,
-    val lastModified: LocalDateTime? = null,
-    val dtStamp: LocalDateTime? = null,
+    @Embedded val content: EventContentEntity,
     val rrule: RecurrenceRule? = null,
     val rDates: List<IcalDateValue> = emptyList(),
     val exDates: List<IcalDateValue> = emptyList(),
     val hasRecurrence: Boolean = false,
     @Embedded val recurrenceBounds: RecurrenceBoundsEntity? = null,
-    val status: EventStatus? = null,
-    val transp: String? = null,
-    val classification: Classification? = null,
-    val priority: Int? = null,
-    val sequence: Int? = null,
-    val categories: List<String>? = null,
-    val attendees: List<AttendeeEntity> = emptyList(),
-    val organizer: OrganizerEntity? = null,
-    val alarms: List<AlarmEntity> = emptyList(),
     val etag: String,
-    /** Packed ARGB, or `null` when the event inherits its calendar's color. */
-    val colorArgb: Int? = null,
-    /** Original RFC 7986 `COLOR:<name>` kept verbatim so untouched-color edits round-trip byte-exact. */
-    val colorIcalName: String? = null,
     val isSynced: Boolean = false,
 )

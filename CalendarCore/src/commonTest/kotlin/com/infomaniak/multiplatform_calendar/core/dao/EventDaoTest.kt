@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
@@ -651,8 +652,10 @@ class EventDaoTest : RobolectricTestsBase() {
         val master = EventEntity(
             id = EventId("event://all-day-daily"),
             calendarId = calendarId,
-            summary = "All-day daily",
-            timing = timing,
+            content = EventContentEntity(
+                summary = "All-day daily",
+                timing = timing,
+            ),
             rrule = rrule,
             hasRecurrence = true,
             recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
@@ -689,8 +692,10 @@ class EventDaoTest : RobolectricTestsBase() {
         val master = EventEntity(
             id = EventId("event://rdate-only"),
             calendarId = calendarId,
-            summary = "RDATE only",
-            timing = timing,
+            content = EventContentEntity(
+                summary = "RDATE only",
+                timing = timing,
+            ),
             rDates = rDates,
             hasRecurrence = true,
             recurrenceBounds = toRecurrenceBoundsEntity(timing, recurrenceRule = null, rDates = rDates),
@@ -727,8 +732,10 @@ class EventDaoTest : RobolectricTestsBase() {
         val master = EventEntity(
             id = EventId("event://rdate-before-dtstart"),
             calendarId = calendarId,
-            summary = "RDATE before DTSTART",
-            timing = timing,
+            content = EventContentEntity(
+                summary = "RDATE before DTSTART",
+                timing = timing,
+            ),
             rDates = rDates,
             hasRecurrence = true,
             recurrenceBounds = toRecurrenceBoundsEntity(timing, recurrenceRule = null, rDates = rDates),
@@ -757,14 +764,16 @@ class EventDaoTest : RobolectricTestsBase() {
     ) = EventEntity(
         id = eventId,
         calendarId = calendarId,
-        summary = "Summary ${eventId.url}",
-        timing = EventTimingEntity(
-            dtStart = dtStart,
-            dtEndEffective = dtEndEffective,
-            startTimeZone = startZone?.id,
-            endTimeZone = endZone?.id,
-            dtStartInstantMs = startZone?.let { dtStart.toEpochMs(it) },
-            dtEndInstantMs = endZone?.let { dtEndEffective.toEpochMs(it) },
+        content = EventContentEntity(
+            summary = "Summary ${eventId.url}",
+            timing = EventTimingEntity(
+                dtStart = dtStart,
+                dtEndEffective = dtEndEffective,
+                startTimeZone = startZone?.id,
+                endTimeZone = endZone?.id,
+                dtStartInstantMs = startZone?.let { dtStart.toEpochMs(it) },
+                dtEndInstantMs = endZone?.let { dtEndEffective.toEpochMs(it) },
+            ),
         ),
         etag = "etag-${eventId.url}",
     )
@@ -789,8 +798,10 @@ class EventDaoTest : RobolectricTestsBase() {
         return EventEntity(
             id = eventId,
             calendarId = calendarId,
-            summary = "Summary ${eventId.url}",
-            timing = timing,
+            content = EventContentEntity(
+                summary = "Summary ${eventId.url}",
+                timing = timing,
+            ),
             rrule = rrule,
             hasRecurrence = true,
             recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),

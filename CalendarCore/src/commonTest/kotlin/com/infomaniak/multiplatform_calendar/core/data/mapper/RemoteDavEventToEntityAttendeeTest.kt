@@ -34,7 +34,7 @@ class RemoteDavEventToEntityAttendeeTest {
         val entity = remoteEvent(
             organizer = RemoteDavOrganizer(email = "boss@example.com", displayName = "Boss"),
             attendees = listOf(attendee("guest@example.com")),
-        ).toEntity(calendarId)
+        ).toEntity(calendarId).content
 
         assertEquals("boss@example.com", entity.organizer?.email)
         assertEquals("Boss", entity.organizer?.displayName)
@@ -43,7 +43,7 @@ class RemoteDavEventToEntityAttendeeTest {
 
     @Test
     fun absentOrganizer_yieldsNullColumn() {
-        val entity = remoteEvent(organizer = null, attendees = emptyList()).toEntity(calendarId)
+        val entity = remoteEvent(organizer = null, attendees = emptyList()).toEntity(calendarId).content
 
         assertNull(entity.organizer)
     }
@@ -53,7 +53,7 @@ class RemoteDavEventToEntityAttendeeTest {
         val entity = remoteEvent(
             organizer = RemoteDavOrganizer(email = "boss@example.com", displayName = "Boss"),
             attendees = listOf(attendee("boss@example.com")),
-        ).toEntity(calendarId)
+        ).toEntity(calendarId).content
 
         assertEquals("boss@example.com", entity.organizer?.email)
         assertEquals(1, entity.attendees.size)

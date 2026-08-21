@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
@@ -160,14 +161,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val master = EventEntity(
             id = EventId("event://daily"),
             calendarId = calendarId,
-            summary = "Daily 10-11",
-            timing = EventTimingEntity(
-                dtStart = dtStart,
-                dtEndEffective = dtEnd,
-                startTimeZone = TimeZone.UTC.id,
-                endTimeZone = TimeZone.UTC.id,
-                dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
-                dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            content = EventContentEntity(
+                summary = "Daily 10-11",
+                timing = EventTimingEntity(
+                    dtStart = dtStart,
+                    dtEndEffective = dtEnd,
+                    startTimeZone = TimeZone.UTC.id,
+                    endTimeZone = TimeZone.UTC.id,
+                    dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                    dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                ),
             ),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
             recurrenceBounds = RecurrenceBoundsEntity(
@@ -216,8 +219,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val master = EventEntity(
             id = EventId("event://all-day"),
             calendarId = calendarId,
-            summary = "All-day daily",
-            timing = timing,
+            content = EventContentEntity(
+                summary = "All-day daily",
+                timing = timing,
+            ),
             rrule = rrule,
             recurrenceBounds = checkNotNull(
                 toRecurrenceBoundsEntity(
@@ -320,8 +325,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val master = EventEntity(
             id = EventId("event://colors-rrule"),
             calendarId = calendarId,
-            summary = "Daily recurring",
-            timing = timing,
+            content = EventContentEntity(
+                summary = "Daily recurring",
+                timing = timing,
+            ),
             rrule = rrule,
             recurrenceBounds = checkNotNull(
                 toRecurrenceBoundsEntity(
@@ -532,7 +539,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(target, moved.calendarId)
         assertEquals("etag-new", moved.etag)
         assertEquals(fakeCaldav.patchedEvent.icsData, database.eventDao().getRawIcs(EventId("https://cal/target/event.ics")))
-        assertEquals("Renamed", moved.summary)
+        assertEquals("Renamed", moved.content.summary)
         assertTrue(moved.isSynced)
 
         // Every parsed field from the patched event is persisted.
@@ -540,18 +547,18 @@ class EventRepositoryTest : RobolectricTestsBase() {
             RecurrenceRule(freq = Frequency.Weekly, byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY))),
             moved.rrule,
         )
-        assertEquals(EventStatus.CONFIRMED, moved.status)
-        assertEquals("OPAQUE", moved.transp)
-        assertEquals(Classification.Private, moved.classification)
-        assertEquals(5, moved.priority)
-        assertEquals(listOf("work", "urgent"), moved.categories)
-        assertEquals("guest@example.com", moved.attendees.single().email)
+        assertEquals(EventStatus.CONFIRMED, moved.content.status)
+        assertEquals("OPAQUE", moved.content.transp)
+        assertEquals(Classification.Private, moved.content.classification)
+        assertEquals(5, moved.content.priority)
+        assertEquals(listOf("work", "urgent"), moved.content.categories)
+        assertEquals("guest@example.com", moved.content.attendees.single().email)
 
         // Revision metadata comes straight from the reparsed ICS (bumped by Rust's bump_revision).
-        assertEquals(4, moved.sequence)
-        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), moved.dtStamp)
-        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), moved.lastModified)
-        assertEquals(LocalDateTime(2026, 1, 1, 8, 0), moved.created)
+        assertEquals(4, moved.content.sequence)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), moved.content.dtStamp)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), moved.content.lastModified)
+        assertEquals(LocalDateTime(2026, 1, 1, 8, 0), moved.content.created)
     }
 
     /**
@@ -582,7 +589,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
 
         val moved = database.eventDao().getEvent(EventId("https://cal/target/event.ics"))!!
-        assertEquals("royalblue", moved.colorIcalName)
+        assertEquals("royalblue", moved.content.colorIcalName)
     }
 
     /**
@@ -620,11 +627,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
 
         val updated = database.eventDao().getEvent(eventId)!!
-        assertEquals("Renamed", updated.summary)
+        assertEquals("Renamed", updated.content.summary)
         assertEquals(fakeCaldav.patchedEvent.icsData, database.eventDao().getRawIcs(eventId))
-        assertEquals(4, updated.sequence)
-        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.dtStamp)
-        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.lastModified)
+        assertEquals(4, updated.content.sequence)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.content.dtStamp)
+        assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.content.lastModified)
     }
 
     /** createEvent persists the built event reparsed from its ICS, bound to the server ref. */
@@ -651,8 +658,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val created = database.eventDao().getEvent(EventId("https://cal/main/new.ics"))!!
         assertEquals(calendarId, created.calendarId)
         assertEquals("etag-1", created.etag)
-        assertEquals("Fresh", created.summary)
-        assertEquals(0, created.sequence)
+        assertEquals("Fresh", created.content.summary)
+        assertEquals(0, created.content.sequence)
         assertTrue(created.isSynced)
     }
 
@@ -687,7 +694,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         val stored = eventDao().getEvent(EventId("https://cal/main/new.ics"))!!
         assertEquals(RecurrenceRule(freq = Frequency.Daily), stored.rrule)
-        val alarm = stored.alarms.single()
+        val alarm = stored.content.alarms.single()
         assertEquals("DISPLAY", alarm.action)
         assertEquals(TriggerRelation.Start, alarm.triggerRelatedTo)
         assertEquals(-(15.minutes), alarm.triggerRelative, "the 15-min-before offset must survive the ICS duration round-trip")
@@ -735,30 +742,32 @@ class EventRepositoryTest : RobolectricTestsBase() {
     private fun richEvent(id: EventId, calendarId: CalendarId, etag: String): EventEntity = EventEntity(
         id = id,
         calendarId = calendarId,
-        summary = "Original",
-        timing = EventTimingEntity(
-            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
-            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
-            dtStartInstantMs = LocalDateTime(2026, 6, 15, 10, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
-            dtEndInstantMs = LocalDateTime(2026, 6, 15, 11, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
-        ),
-        created = LocalDateTime(2026, 1, 1, 8, 0),
-        lastModified = LocalDateTime(2026, 1, 2, 9, 0),
-        dtStamp = LocalDateTime(2026, 1, 2, 9, 0),
-        rrule = RecurrenceRule(freq = Frequency.Weekly, byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY))),
-        status = EventStatus.CONFIRMED,
-        transp = "OPAQUE",
-        classification = Classification.Private,
-        priority = 5,
-        sequence = 3,
-        categories = listOf("work", "urgent"),
-        attendees = listOf(
-            AttendeeEntity(
-                email = "guest@example.com",
-                status = ParticipationStatus.Accepted,
-                role = AttendeeRole.Requested,
+        content = EventContentEntity(
+            summary = "Original",
+            timing = EventTimingEntity(
+                dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+                dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+                dtStartInstantMs = LocalDateTime(2026, 6, 15, 10, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                dtEndInstantMs = LocalDateTime(2026, 6, 15, 11, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            ),
+            created = LocalDateTime(2026, 1, 1, 8, 0),
+            lastModified = LocalDateTime(2026, 1, 2, 9, 0),
+            dtStamp = LocalDateTime(2026, 1, 2, 9, 0),
+            status = EventStatus.CONFIRMED,
+            transp = "OPAQUE",
+            classification = Classification.Private,
+            priority = 5,
+            sequence = 3,
+            categories = listOf("work", "urgent"),
+            attendees = listOf(
+                AttendeeEntity(
+                    email = "guest@example.com",
+                    status = ParticipationStatus.Accepted,
+                    role = AttendeeRole.Requested,
+                ),
             ),
         ),
+        rrule = RecurrenceRule(freq = Frequency.Weekly, byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY))),
         etag = etag,
     )
 
@@ -789,14 +798,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
     ): EventEntity = EventEntity(
         id = id,
         calendarId = calendarId,
-        summary = id.url,
-        timing = EventTimingEntity(
-            dtStart = start,
-            dtEndEffective = end,
-            startTimeZone = TimeZone.UTC.id,
-            endTimeZone = TimeZone.UTC.id,
-            dtStartInstantMs = start.toInstant(TimeZone.UTC).toEpochMilliseconds(),
-            dtEndInstantMs = end.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+        content = EventContentEntity(
+            summary = id.url,
+            timing = EventTimingEntity(
+                dtStart = start,
+                dtEndEffective = end,
+                startTimeZone = TimeZone.UTC.id,
+                endTimeZone = TimeZone.UTC.id,
+                dtStartInstantMs = start.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                dtEndInstantMs = end.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            ),
         ),
         etag = "1",
     )
@@ -809,14 +820,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
     ): EventEntity = EventEntity(
         id = id,
         calendarId = calendarId,
-        summary = id.url,
-        timing = EventTimingEntity(
-            dtStart = start,
-            dtEndEffective = end,
-            startTimeZone = null,
-            endTimeZone = null,
-            dtStartInstantMs = null,
-            dtEndInstantMs = null,
+        content = EventContentEntity(
+            summary = id.url,
+            timing = EventTimingEntity(
+                dtStart = start,
+                dtEndEffective = end,
+                startTimeZone = null,
+                endTimeZone = null,
+                dtStartInstantMs = null,
+                dtEndInstantMs = null,
+            ),
         ),
         etag = "1",
     )
@@ -827,14 +840,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
         return EventEntity(
             id = EventId("event://floating"),
             calendarId = calendarId,
-            summary = "Floating 10-11",
-            timing = EventTimingEntity(
-                dtStart = dtStart,
-                dtEndEffective = dtEnd,
-                startTimeZone = null,
-                endTimeZone = null,
-                dtStartInstantMs = null,
-                dtEndInstantMs = null,
+            content = EventContentEntity(
+                summary = "Floating 10-11",
+                timing = EventTimingEntity(
+                    dtStart = dtStart,
+                    dtEndEffective = dtEnd,
+                    startTimeZone = null,
+                    endTimeZone = null,
+                    dtStartInstantMs = null,
+                    dtEndInstantMs = null,
+                ),
             ),
             etag = "1",
         )

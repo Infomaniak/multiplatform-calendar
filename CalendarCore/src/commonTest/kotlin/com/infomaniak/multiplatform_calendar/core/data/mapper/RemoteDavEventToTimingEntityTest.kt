@@ -187,28 +187,28 @@ class RemoteDavEventToTimingEntityTest {
 
     @Test
     fun classification_standardValue_isParsedCaseInsensitively() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "private").toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "private").toEntity(calendarId).content
 
         assertEquals(Classification.Private, entity.classification)
     }
 
     @Test
     fun classification_customValue_isKeptVerbatim() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "X-CUSTOM").toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "X-CUSTOM").toEntity(calendarId).content
 
         assertEquals(Classification.Custom("X-CUSTOM"), entity.classification)
     }
 
     @Test
     fun classification_absent_isNull() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = null).toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = null).toEntity(calendarId).content
 
         assertNull(entity.classification)
     }
 
     @Test
     fun categories_areSplitTrimmedAndBlanksDropped() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", categories = " work , ,personal ").toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", categories = " work , ,personal ").toEntity(calendarId).content
 
         assertEquals(listOf("work", "personal"), entity.categories)
     }
@@ -219,15 +219,15 @@ class RemoteDavEventToTimingEntityTest {
         val entity = remoteEvent(
             dtstart = "20260615T100000Z",
             categories = """work\, ops,path\\to,semi\;colon,line\nbreak""",
-        ).toEntity(calendarId)
+        ).toEntity(calendarId).content
 
         assertEquals(listOf("work, ops", """path\to""", "semi;colon", "line\nbreak"), entity.categories)
     }
 
     @Test
     fun categories_absentOrBlank_isNull() {
-        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).categories)
-        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).categories)
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).content.categories)
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).content.categories)
     }
 
     // ---- Helpers --------------------------------------------------------------------------------

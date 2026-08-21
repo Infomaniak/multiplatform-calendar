@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -50,8 +51,8 @@ internal fun DatabaseProvider.getCalendarDatabase(
 }
 
 @Database(
-    entities = [AccountEntity::class, CalendarEntity::class, EventEntity::class, EventRawIcsEntity::class],
-    version = 13,
+    entities = [AccountEntity::class, CalendarEntity::class, EventEntity::class, EventOverrideEntity::class, EventRawIcsEntity::class],
+    version = 14,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)

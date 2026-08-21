@@ -33,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import kotlinx.datetime.LocalDateTime
@@ -67,26 +68,7 @@ private fun RemoteDavEventOverride.toEntity(
         originalEndInstantMs = original.endInstantMs,
         originalStartLocalDateTime = original.startLocalDateTime,
         originalEndLocalDateTime = original.endLocalDateTime,
-        content = EventContentEntity(
-            summary = summary ?: "",
-            description = description,
-            location = location,
-            timing = toTimingEntity(url),
-            created = parseICalDateTime(created),
-            lastModified = parseICalDateTime(lastModified),
-            dtStamp = parseICalDateTime(dtstamp),
-            status = EventStatus.fromIcalString(status),
-            transp = transp,
-            classification = Classification.fromIcalString(classification),
-            priority = priority?.toIntOrNull(),
-            sequence = sequence?.toIntOrNull(),
-            categories = parseICalCategories(categories),
-            attendees = attendees.map { it.toEntity() },
-            organizer = organizer?.toEntity(),
-            alarms = alarms.map { it.toEntity() },
-            colorArgb = parseHexColor(colorHex) ?: parseCss3ColorName(colorIcalName),
-            colorIcalName = colorIcalName,
-        ),
+        content = content.toContentEntity(url),
     )
 }
 

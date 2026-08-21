@@ -65,6 +65,10 @@ internal abstract class EventDao {
      *   later materialises the actual occurrences and drops any that fall outside.
      * - **Floating series**: `dtStart` as low bound (first occurrence == `DTSTART` for RRULE-only) and
      *   `lastOccurrenceEndLocalDateTime` as high bound, both wall-clock.
+     *
+     * **Overridden instances** finally add a third pair of branches: a `RECURRENCE-ID` override that
+     * was *moved* can land outside the series bounds entirely, so the master is also returned when
+     * one of its overrides overlaps the window at its effective position.
      */
     @Transaction
     @Query(
@@ -78,6 +82,8 @@ internal abstract class EventDao {
             OR (event.hasRecurrence = 0 AND $FLOATING_TIMING)
             OR $RECURRING_ANCHORED
             OR $RECURRING_FLOATING
+            OR $OVERRIDE_ANCHORED
+            OR $OVERRIDE_FLOATING
           )
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
@@ -236,5 +242,30 @@ internal abstract class EventDao {
               AND event.dtStart < :endLocalDateTime
               AND (event.recurrenceBoundKind != 'Finite'
                 OR event.lastOccurrenceEndLocalDateTime >= :startLocalDateTime))"""
+
+        /**
+         * A moved override drags its master back in: the series bounds above only cover the
+         * *theoretical* slots, so an instance pushed past `UNTIL` would otherwise never be read.
+         * The reverse case needs no branch — a theoretical slot inside the window means the series
+         * itself overlaps it, so [RECURRING_ANCHORED]/[RECURRING_FLOATING] already match.
+         *
+         * Both branches mirror [ANCHORED_TIMING]/[FLOATING_TIMING], on the override's *effective*
+         * position: an all-day override is anchored, like any all-day row.
+         */
+        private const val OVERRIDE_ANCHORED = """(
+            event.hasRecurrence = 1
+              AND EXISTS(SELECT 1 FROM event_overrides override
+                WHERE override.masterId = event.id
+                  AND override.dtStartInstantMs IS NOT NULL
+                  AND override.dtStartInstantMs < :endInstantMs
+                  AND override.dtEndInstantMs >= :startInstantMs))"""
+
+        private const val OVERRIDE_FLOATING = """(
+            event.hasRecurrence = 1
+              AND EXISTS(SELECT 1 FROM event_overrides override
+                WHERE override.masterId = event.id
+                  AND override.dtStartInstantMs IS NULL
+                  AND override.dtStart < :endLocalDateTime
+                  AND override.dtEndEffective >= :startLocalDateTime))"""
     }
 }

@@ -44,6 +44,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
@@ -55,17 +56,17 @@ internal fun RemoteDavEvent.toEntity(
     calendarId: CalendarId,
     recurrence: ResolvedRecurrence = ResolvedRecurrence(),
 ): EventEntity {
-    val content = toContentEntity()
+    val contentEntity = content.toContentEntity(url)
     return EventEntity(
         id = EventId(url),
         calendarId = calendarId,
-        content = content,
+        content = contentEntity,
         rrule = recurrence.rule,
         rDates = recurrence.rDates,
         exDates = recurrence.exDates,
         hasRecurrence = recurrence.hasRecurrence,
         recurrenceBounds = toRecurrenceBoundsEntity(
-            timing = content.timing,
+            timing = contentEntity.timing,
             recurrenceRule = recurrence.rule,
             rDates = recurrence.rDates,
         ),
@@ -73,12 +74,13 @@ internal fun RemoteDavEvent.toEntity(
     )
 }
 
+/** The VEVENT body, mapped identically for a master and for a `RECURRENCE-ID` override. */
 @Throws(CaldavParsingException::class)
-internal fun RemoteDavEvent.toContentEntity() = EventContentEntity(
+internal fun RemoteDavEventContent.toContentEntity(url: String) = EventContentEntity(
     summary = summary ?: "",
     description = description,
     location = location,
-    timing = toTimingEntity(),
+    timing = toTimingEntity(url),
     created = parseICalDateTime(created),
     lastModified = parseICalDateTime(lastModified),
     dtStamp = parseICalDateTime(dtstamp),
@@ -104,7 +106,7 @@ internal data class ResolvedRecurrence(
 }
 
 /** Resolve the wire's color into a single ARGB: Apple hex wins over the RFC 7986 CSS3 name. */
-private fun RemoteDavEvent.resolveColorArgb(): Int? {
+private fun RemoteDavEventContent.resolveColorArgb(): Int? {
     return parseHexColor(colorHex) ?: parseCss3ColorName(colorIcalName)
 }
 
@@ -119,7 +121,7 @@ internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
     return when (val result = RecurrenceRuleParser.parse(raw)) {
         is Supported -> {
             val until = result.rule.until
-            if (until != null && !until.matchesDtStartForm(dtStartForm())) {
+            if (until != null && !until.matchesDtStartForm(content.dtStartForm())) {
                 throw RecurrenceDroppedException(UntilTypeMismatch.name)
             }
             result.rule
@@ -130,7 +132,7 @@ internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
 
 @Throws(RecurrenceDroppedException::class)
 internal fun RemoteDavEvent.resolveRecurrenceSet(): ResolvedRecurrence {
-    val form = dtStartForm()
+    val form = content.dtStartForm()
     return ResolvedRecurrence(
         rule = resolveRecurrence(),
         rDates = parseIcalDateValues(values = rDates, propertyName = "RDATE", form = form),
@@ -143,7 +145,7 @@ internal class RecurrenceDroppedException(val reason: String) : Exception(reason
 private enum class DtStartForm { Date, Utc, Floating }
 
 /** Classify DTSTART's value form (RFC 5545 §3.3.4/§3.3.5): bare date, UTC/zoned, or floating date-time. */
-private fun RemoteDavEvent.dtStartForm(): DtStartForm = when {
+private fun RemoteDavEventContent.dtStartForm(): DtStartForm = when {
     isICalDateOnly(dtstart) -> DtStartForm.Date
     dtstart?.endsWith("Z") == true || dtStartTzid != null -> DtStartForm.Utc
     else -> DtStartForm.Floating

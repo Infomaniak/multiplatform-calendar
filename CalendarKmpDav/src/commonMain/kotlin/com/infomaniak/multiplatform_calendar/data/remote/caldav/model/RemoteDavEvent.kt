@@ -23,8 +23,17 @@ data class RemoteDavEvent(
     val etag: String,
     /** Raw iCS data (needed for update/delete round-trips). */
     val icsData: String,
-    /** Parsed VEVENT fields. */
     val uid: String,
+    val rrule: String?,
+    val rDates: List<RemoteIcalDateValue> = emptyList(),
+    val exDates: List<RemoteIcalDateValue> = emptyList(),
+    val content: RemoteDavEventContent,
+    /** Sibling VEVENTs carrying a `RECURRENCE-ID`. */
+    val overrides: List<RemoteDavEventOverride> = emptyList(),
+)
+
+/** The VEVENT properties a master and its detached overrides define alike. */
+data class RemoteDavEventContent(
     val summary: String?,
     val description: String?,
     val location: String?,
@@ -45,74 +54,43 @@ data class RemoteDavEvent(
      */
     val duration: String?,
     /** Raw RFC 5545 date-time string of the event creation. */
-    val created: String?,
+    val created: String? = null,
     /** Raw RFC 5545 date-time string of the last modification. */
-    val lastModified: String?,
+    val lastModified: String? = null,
     /** Raw RFC 5545 date-time string of the instance creation in the calendar store. */
-    val dtstamp: String?,
-    val rrule: String?,
-    val rDates: List<RemoteIcalDateValue> = emptyList(),
-    val exDates: List<RemoteIcalDateValue> = emptyList(),
-    val status: String?,
+    val dtstamp: String? = null,
+    val status: String? = null,
     /** Time transparency: `OPAQUE` or `TRANSPARENT`. */
-    val transp: String?,
+    val transp: String? = null,
     /** Access classification: `PUBLIC`, `PRIVATE` or `CONFIDENTIAL` (iCal `CLASS`). */
-    val classification: String?,
+    val classification: String? = null,
     /** Raw priority (0-9). */
-    val priority: String?,
+    val priority: String? = null,
     /** Raw revision sequence number. */
-    val sequence: String?,
+    val sequence: String? = null,
     /** Comma-separated categories. */
-    val categories: String?,
+    val categories: String? = null,
     /** Raw `X-APPLE-CALENDAR-COLOR` value (Apple extension, typically `#RRGGBB` or `#RRGGBBAA`). */
-    val colorHex: String?,
+    val colorHex: String? = null,
     /** Raw `COLOR` value (RFC 7986 §5.9, a case-insensitive CSS3 color name). */
-    val colorIcalName: String?,
+    val colorIcalName: String? = null,
     /** ATTENDEE participants parsed from the VEVENT. */
-    val attendees: List<RemoteDavAttendee>,
+    val attendees: List<RemoteDavAttendee> = emptyList(),
     /** ORGANIZER of the VEVENT (RFC 5545 §3.8.4.3), independent from [attendees]. */
     val organizer: RemoteDavOrganizer? = null,
     val alarms: List<RemoteDavAlarm> = emptyList(),
-    /** Sibling VEVENTs carrying a `RECURRENCE-ID`. */
-    val overrides: List<RemoteDavEventOverride> = emptyList(),
 )
 
-/**
- * A VEVENT overriding a single instance of its series (RFC 5545 §3.8.4.4).
- *
- * Mirrors [RemoteDavEvent] minus the master-only recurrence properties and minus the resource
- * identity, shared with its master (same URL, same ETag).
- */
+/** A VEVENT overriding a single instance of its series (RFC 5545 §3.8.4.4). */
 data class RemoteDavEventOverride(
-    /** The *original* start of the overridden instance, never this override's own [dtstart]. */
+    /** The *original* start of the overridden instance, never this override's own `DTSTART`. */
     val recurrenceId: String,
-    /** Same semantics as [RemoteDavEvent.dtStartTzid]. */
+    /** Same semantics as [RemoteDavEventContent.dtStartTzid]. */
     val recurrenceIdTzid: String?,
     /** RFC 5545 requires it to match the master's `DTSTART` value type. */
     val recurrenceIdValueType: RemoteIcalDateValueType,
     /** `RANGE=THISANDFUTURE`: this override also applies to every later instance. */
     val isThisAndFuture: Boolean,
-    val summary: String?,
-    val description: String?,
-    val location: String?,
-    val dtstart: String?,
-    val dtStartTzid: String?,
-    val dtend: String?,
-    val dtEndTzid: String?,
-    val duration: String?,
-    val created: String?,
-    val lastModified: String?,
-    val dtstamp: String?,
-    val status: String?,
-    val transp: String?,
-    val classification: String?,
-    val priority: String?,
-    val sequence: String?,
-    val categories: String?,
-    val colorHex: String?,
-    val colorIcalName: String?,
-    val attendees: List<RemoteDavAttendee> = emptyList(),
-    val organizer: RemoteDavOrganizer? = null,
-    val alarms: List<RemoteDavAlarm> = emptyList(),
+    val content: RemoteDavEventContent,
 )
 

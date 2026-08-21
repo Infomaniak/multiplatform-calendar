@@ -59,6 +59,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavA
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
@@ -888,27 +889,29 @@ private fun remoteDavEvent(
     etag = "",
     icsData = icsData,
     uid = "uid",
-    summary = summary,
-    description = null,
-    location = null,
-    dtstart = dtstart,
-    dtStartTzid = null,
-    dtend = dtend,
-    dtEndTzid = null,
-    duration = null,
-    created = created,
-    lastModified = lastModified,
-    dtstamp = dtstamp,
     rrule = rrule,
-    status = status,
-    transp = transp,
-    classification = classification,
-    priority = priority,
-    sequence = sequence,
-    categories = categories,
-    colorHex = colorHex,
-    colorIcalName = colorIcalName,
-    attendees = attendees,
+    content = RemoteDavEventContent(
+        summary = summary,
+        description = null,
+        location = null,
+        dtstart = dtstart,
+        dtStartTzid = null,
+        dtend = dtend,
+        dtEndTzid = null,
+        duration = null,
+        created = created,
+        lastModified = lastModified,
+        dtstamp = dtstamp,
+        status = status,
+        transp = transp,
+        classification = classification,
+        priority = priority,
+        sequence = sequence,
+        categories = categories,
+        colorHex = colorHex,
+        colorIcalName = colorIcalName,
+        attendees = attendees,
+    ),
 )
 
 /**
@@ -922,7 +925,7 @@ private fun bridgeApplyingEdit(base: RemoteDavEvent, edit: RemoteEventEdit): Rem
         RemoteRecurrenceChange.Cleared -> null
         RemoteRecurrenceChange.Unchanged -> base.rrule
     },
-    alarms = edit.alarms?.map { it.toRemoteDavAlarm() } ?: base.alarms,
+    content = base.content.copy(alarms = edit.alarms?.map { it.toRemoteDavAlarm() } ?: base.content.alarms),
 )
 
 private fun RemoteAlarmEdit.toRemoteDavAlarm() = RemoteDavAlarm(

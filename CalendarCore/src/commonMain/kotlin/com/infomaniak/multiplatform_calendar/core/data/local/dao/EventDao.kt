@@ -22,9 +22,12 @@ import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
@@ -129,16 +132,19 @@ internal abstract class EventDao {
     ): Flow<List<EventCalendarColorInRange>>
 
     @Transaction
-    open suspend fun upsertEventsWithRawIcs(events: List<EventEntity>, rawIcs: List<EventRawIcsEntity>) {
-        upsertEvents(events)
-        upsertRawIcs(rawIcs)
+    open suspend fun upsertEventsWithRawIcs(batch: EventUpsertBatch) {
+        upsertEvents(batch.events)
+        upsertRawIcs(batch.rawIcs)
+        // Overrides have no ETag of their own, so a server-side removal leaves no tombstone: clear
+        // before rewriting or the stale instance survives forever.
+        deleteOverridesOf(batch.events.map { it.id })
+        upsertOverrides(batch.overrides)
     }
 
-    /** Single-event convenience for the edit paths, avoiding a list allocation + re-partition per event. */
+    /** Single-event convenience for the edit paths, which write one resource at a time. */
     @Transaction
-    open suspend fun upsertEventWithRawIcs(event: EventEntity, rawIcs: String) {
-        upsertEvents(listOf(event))
-        upsertRawIcs(listOf(EventRawIcsEntity(eventId = event.id, rawIcs = rawIcs)))
+    open suspend fun upsertEventWithRawIcs(event: EventWithRawIcs) {
+        upsertEventsWithRawIcs(listOf(event).toUpsertBatch())
     }
 
     @Upsert
@@ -146,6 +152,15 @@ internal abstract class EventDao {
 
     @Upsert
     protected abstract suspend fun upsertRawIcs(rawIcs: List<EventRawIcsEntity>)
+
+    @Upsert
+    protected abstract suspend fun upsertOverrides(overrides: List<EventOverrideEntity>)
+
+    @Query("DELETE FROM event_overrides WHERE masterId IN (:masterIds)")
+    protected abstract suspend fun deleteOverridesOf(masterIds: List<EventId>)
+
+    @Query("SELECT * FROM event_overrides WHERE masterId = :masterId ORDER BY recurrenceKey")
+    abstract suspend fun getOverridesOf(masterId: EventId): List<EventOverrideEntity>
 
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     abstract suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>

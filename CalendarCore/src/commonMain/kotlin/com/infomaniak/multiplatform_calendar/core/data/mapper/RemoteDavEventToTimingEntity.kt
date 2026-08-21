@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -37,17 +38,44 @@ import kotlin.time.Duration
  * (wall-clocks, per-side TZIDs, resolved end and the indexed UTC epoch-ms).
  */
 @Throws(CaldavParsingException::class)
-internal fun RemoteDavEvent.toTimingEntity(): EventTimingEntity {
-    val rawStart = dtstart ?: throw CaldavParsingException("DTSTART is required for event $url")
+internal fun RemoteDavEvent.toTimingEntity(): EventTimingEntity = resolveTimingEntity(
+    url = url,
+    rawStart = dtstart,
+    dtStartTzid = dtStartTzid,
+    rawEnd = dtend,
+    dtEndTzid = dtEndTzid,
+    rawDuration = duration,
+)
+
+/** Same as [RemoteDavEvent.toTimingEntity], for a `RECURRENCE-ID` override of the event at [url]. */
+@Throws(CaldavParsingException::class)
+internal fun RemoteDavEventOverride.toTimingEntity(url: String): EventTimingEntity = resolveTimingEntity(
+    url = url,
+    rawStart = dtstart,
+    dtStartTzid = dtStartTzid,
+    rawEnd = dtend,
+    dtEndTzid = dtEndTzid,
+    rawDuration = duration,
+)
+
+@Throws(CaldavParsingException::class)
+private fun resolveTimingEntity(
+    url: String,
+    rawStart: String?,
+    dtStartTzid: String?,
+    rawEnd: String?,
+    dtEndTzid: String?,
+    rawDuration: String?,
+): EventTimingEntity {
+    if (rawStart == null) throw CaldavParsingException("DTSTART is required for event $url")
     val start = parseICalDateTime(rawStart) ?: throw CaldavParsingException("Unparsable DTSTART '$rawStart' for event $url")
-    val end = parseICalDateTime(dtend)
+    val end = parseICalDateTime(rawEnd)
     // DTEND and DURATION are mutually exclusive (RFC 5545); keep DURATION only when DTEND is absent.
-    val parsedDuration = if (end == null) parseICalDuration(duration) else null
+    val parsedDuration = if (end == null) parseICalDuration(rawDuration) else null
     // A `VALUE=DATE` DTSTART (no time component) denotes a whole-day event (RFC 5545).
     val allDay = isICalDateOnly(rawStart)
 
     val startTz = resolveTimeZone(allDay, rawStart, dtStartTzid, url, "DTSTART")
-    val rawEnd = dtend
     // DTEND can technically carry its own TZID different from DTSTART (RFC 5545 §3.8.2.2).
     // Resolve it independently — but fall back to the start zone when DTEND has no `TZID`
     // attribute and is not UTC, since a bare local DATE-TIME inherits its anchor from DTSTART.

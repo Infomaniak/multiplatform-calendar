@@ -26,7 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithC
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyCalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
@@ -189,7 +189,7 @@ internal class EventRepository(
         val now = Clock.System.now().toICalUtcDateTime()
         val built = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
-        eventDao.upsertEventWithRawIcs(built.toSyncedEntity(ref = ref, calendarId = data.calendarId), built.icsData)
+        eventDao.upsertEventWithRawIcs(built.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
     }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
@@ -201,7 +201,7 @@ internal class EventRepository(
         val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
         if (data.calendarId == entity.calendarId) {
             val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
-            eventDao.upsertEventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = entity.calendarId), patched.icsData)
+            eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
         } else {
             updateCrossCalendarEvent(credentials, eventId, data, patched)
         }
@@ -222,7 +222,7 @@ internal class EventRepository(
     ) {
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, patched.icsData)
         deleteEvent(credentials, eventId)
-        eventDao.upsertEventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = data.calendarId), patched.icsData)
+        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
     }
 }
 

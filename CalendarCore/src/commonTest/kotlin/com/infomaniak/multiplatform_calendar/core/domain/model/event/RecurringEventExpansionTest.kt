@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
@@ -27,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOut
 import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.BeforeTest
@@ -47,7 +49,7 @@ class RecurringEventExpansionTest {
         val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily))
         val truncations = mutableListOf<Pair<EventId, ExpansionOutcome>>()
 
-        listOf(master).expandRecurrencesInWindow(
+        listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -63,7 +65,7 @@ class RecurringEventExpansionTest {
         val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
         var reported = false
 
-        listOf(master).expandRecurrencesInWindow(
+        listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -81,7 +83,7 @@ class RecurringEventExpansionTest {
         )
         val truncations = mutableListOf<Pair<EventId, ExpansionOutcome>>()
 
-        listOf(master).expandRecurrencesInWindow(
+        listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2030, 1, 1),
             rangeEnd = utc(2100, 1, 1),
             timeZone = TimeZone.UTC,
@@ -102,7 +104,7 @@ class RecurringEventExpansionTest {
         )
         val truncations = mutableListOf<Pair<EventId, ExpansionOutcome>>()
 
-        listOf(master).expandRecurrencesInWindow(
+        listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2999, 1, 1),
             timeZone = TimeZone.UTC,
@@ -120,7 +122,7 @@ class RecurringEventExpansionTest {
         // index within the returned list.
         val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5))
 
-        suspend fun idsByStart(rangeStart: Instant): Map<LocalDateTime, String> = listOf(master)
+        suspend fun idsByStart(rangeStart: Instant): Map<LocalDateTime, String> = listOf(EventSeries(master))
             .expandRecurrencesInWindow(rangeStart = rangeStart, rangeEnd = utc(2026, 1, 11), timeZone = TimeZone.UTC)
             .associate { it.timing.start to it.occurrenceId.value }
 
@@ -137,7 +139,7 @@ class RecurringEventExpansionTest {
             .let { it.copy(timing = it.timing.copy(recurrenceRule = null)) }
         val recurring = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 2))
 
-        val result = listOf(plain, recurring).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(plain), EventSeries(recurring)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -156,7 +158,7 @@ class RecurringEventExpansionTest {
 
     @Test
     fun emptyInputYieldsEmptyResult() = runTest {
-        val result = emptyList<Event>().expandRecurrencesInWindow(
+        val result = emptyList<EventSeries>().expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -170,7 +172,7 @@ class RecurringEventExpansionTest {
         val rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 2)
         val master = dailyMaster(id = "event://daily", rule = rule)
 
-        val occurrences = listOf(master).expandRecurrencesInWindow(
+        val occurrences = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -200,7 +202,7 @@ class RecurringEventExpansionTest {
             )
         }
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -226,7 +228,7 @@ class RecurringEventExpansionTest {
             ),
         )
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 15),
             timeZone = TimeZone.UTC,
@@ -245,7 +247,7 @@ class RecurringEventExpansionTest {
             )
         }
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -272,7 +274,7 @@ class RecurringEventExpansionTest {
             ),
         )
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 6),
             timeZone = TimeZone.UTC,
@@ -300,7 +302,7 @@ class RecurringEventExpansionTest {
             ),
         )
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -323,7 +325,7 @@ class RecurringEventExpansionTest {
             ),
         )
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -350,7 +352,7 @@ class RecurringEventExpansionTest {
             ),
         )
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,
@@ -381,7 +383,7 @@ class RecurringEventExpansionTest {
             canEdit = true,
         )
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 3, 27),
             rangeEnd = utc(2026, 4, 2),
             timeZone = TimeZone.UTC,
@@ -420,7 +422,7 @@ class RecurringEventExpansionTest {
             canEdit = true,
         )
 
-        val result = listOf(master).expandRecurrencesInWindow(
+        val result = listOf(EventSeries(master)).expandRecurrencesInWindow(
             rangeStart = utc(2026, 10, 23),
             rangeEnd = utc(2026, 10, 28),
             timeZone = TimeZone.UTC,
@@ -433,6 +435,110 @@ class RecurringEventExpansionTest {
             ),
             result.map { it.timing.start },
             "EXDATE must still match and exclude the fallback-day occurrence across DST changes",
+        )
+    }
+
+    @Test
+    fun overrideReplacesTheOccurrenceOfItsSlot() = runTest {
+        val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+        val override = master.overrideAt(originalStart = LocalDateTime(2026, 1, 2, 10, 0), movedTo = LocalDateTime(2026, 1, 2, 15, 0))
+
+        val result = listOf(EventSeries(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(3, result.size, "the overridden slot is replaced, not added to")
+        val overridden = result.single { it.occurrenceId == override.second.occurrenceId }
+        assertEquals("Moved instance", overridden.title, "the server's content wins over the master's")
+        assertEquals(LocalDateTime(2026, 1, 2, 15, 0), overridden.timing.start)
+    }
+
+    @Test
+    fun overrideMatchesOnItsTheoreticalSlot_notOnWhereItWasMovedTo() = runTest {
+        val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+        // The 01-02 instance moved onto 01-03, the day of another instance: that one must stay untouched.
+        val override = master.overrideAt(originalStart = LocalDateTime(2026, 1, 2, 10, 0), movedTo = LocalDateTime(2026, 1, 3, 9, 0))
+
+        val result = listOf(EventSeries(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(
+            listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 3, 10, 0), LocalDateTime(2026, 1, 3, 9, 0)),
+            result.map { it.timing.start },
+            "01-02 is vacated, 01-03 keeps its own occurrence, and the moved one lands next to it",
+        )
+    }
+
+    @Test
+    fun overrideMovedOutOfTheWindowLeavesItsSlotEmpty() = runTest {
+        val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+        val override = master.overrideAt(originalStart = LocalDateTime(2026, 1, 2, 10, 0), movedTo = LocalDateTime(2026, 2, 20, 10, 0))
+
+        val result = listOf(EventSeries(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(
+            listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 3, 10, 0)),
+            result.map { it.timing.start },
+        )
+    }
+
+    @Test
+    fun overrideMovedIntoTheWindowIsEmittedThoughTheRuleGeneratesNothingThere() = runTest {
+        val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+        val override = master.overrideAt(originalStart = LocalDateTime(2026, 1, 2, 10, 0), movedTo = LocalDateTime(2026, 2, 20, 10, 0))
+
+        val result = listOf(EventSeries(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 2, 20),
+            rangeEnd = utc(2026, 2, 21),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(listOf(override.second.occurrenceId), result.map { it.occurrenceId })
+    }
+
+    @Test
+    fun cancelledOverrideRemovesItsOccurrence() = runTest {
+        val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+        val override = master.overrideAt(originalStart = LocalDateTime(2026, 1, 2, 10, 0), status = EventStatus.CANCELLED)
+
+        val result = listOf(EventSeries(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(
+            listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 3, 10, 0)),
+            result.map { it.timing.start },
+            "STATUS:CANCELLED on an override deletes that single occurrence",
+        )
+    }
+
+    /** Mirrors what the mapper builds from an `EventOverrideEntity`: a ready-to-emit occurrence. */
+    private fun Event.overrideAt(
+        originalStart: LocalDateTime,
+        movedTo: LocalDateTime = originalStart,
+        status: EventStatus? = null,
+    ): Pair<String, Event> {
+        val key = RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC))
+        return key.canonical to copy(
+            occurrenceId = OccurrenceId("${masterEventId.url}#${key.canonical}"),
+            title = "Moved instance",
+            status = status,
+            timing = timing.copy(
+                start = movedTo,
+                end = LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute)),
+                recurrenceRule = null,
+            ),
         )
     }
 

@@ -175,7 +175,7 @@ class RemoteDavEventToEntityRecurrenceTest {
     }
 
     @Test
-    fun rdateDate_onTimedEvent_isDroppedAsDateTypeMismatch() {
+    fun rdateDate_onTimedEvent_isParsed() {
         val remote = remoteEvent(
             rrule = "FREQ=DAILY",
             dtstart = "20260615T100000Z",
@@ -188,9 +188,28 @@ class RemoteDavEventToEntityRecurrenceTest {
             ),
         )
 
-        assertDropped(RecurrenceRuleFailureReason.RecurrenceDateTypeMismatch) {
-            remote.resolveRecurrenceSet()
-        }
+        val resolved = remote.resolveRecurrenceSet()
+        assertTrue(resolved.rDates.first() is IcalDateValue.AllDay)
+        assertEquals(LocalDate(2026, 7, 1), (resolved.rDates.first() as IcalDateValue.AllDay).date)
+    }
+
+    @Test
+    fun exdateDate_onTimedEvent_isParsed() {
+        val remote = remoteEvent(
+            rrule = "FREQ=DAILY",
+            dtstart = "20260615T100000Z",
+            exDates = listOf(
+                RemoteIcalDateValue(
+                    value = "20260702",
+                    valueType = RemoteIcalDateValueType.Date,
+                    tzid = null,
+                ),
+            ),
+        )
+
+        val resolved = remote.resolveRecurrenceSet()
+        assertTrue(resolved.exDates.first() is IcalDateValue.AllDay)
+        assertEquals(LocalDate(2026, 7, 2), (resolved.exDates.first() as IcalDateValue.AllDay).date)
     }
 
     private inline fun assertDropped(expected: RecurrenceRuleFailureReason, block: () -> Unit) {
@@ -204,6 +223,7 @@ class RemoteDavEventToEntityRecurrenceTest {
         dtend: String? = "20260615T110000Z",
         dtStartTzid: String? = null,
         rDates: List<RemoteIcalDateValue> = emptyList(),
+        exDates: List<RemoteIcalDateValue> = emptyList(),
     ) = RemoteDavEvent(
         url = "https://cal/tests/recurrence.ics",
         etag = "etag-1",
@@ -222,7 +242,7 @@ class RemoteDavEventToEntityRecurrenceTest {
         dtstamp = null,
         rrule = rrule,
         rDates = rDates,
-        exDates = emptyList(),
+        exDates = exDates,
         status = null,
         transp = null,
         classification = null,

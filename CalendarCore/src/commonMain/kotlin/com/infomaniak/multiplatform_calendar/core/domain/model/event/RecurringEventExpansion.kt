@@ -52,11 +52,14 @@ import kotlin.time.Instant
  *
  * Applies the recurrence set semantics `(RRULE ∪ RDATE ∪ {DTSTART for RDATE-only}) − EXDATE`.
  *
+ * A slot carrying a `RECURRENCE-ID` override is never emitted from the rule: the override *is* the
+ * instance, and is emitted in its place. See [addRuleOccurrences] and [addOverriddenInstances].
+ *
  * [onExpansionTruncated] is invoked with the master's [EventId] whenever the expander stops on a safety cap
  * (outcome other than [ExpansionOutcome.Completed]) so the caller can surface it (e.g. to Sentry); the
  * partial occurrences gathered so far are still returned.
  */
-internal suspend fun List<Event>.expandRecurrencesInWindow(
+internal suspend fun List<EventSeries>.expandRecurrencesInWindow(
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -65,8 +68,9 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
 ): List<Event> {
     val expanded = ArrayList<Event>(size)
     val occurrences = ArrayList<Occurrence>()
-    for (event in this) {
+    for (series in this) {
         currentCoroutineContext().ensureActive()
+        val event = series.master
         occurrences.clear()
         val hasRecurringExpansion = event.timing.expandRecurrenceOccurrencesInWindow(
             masterId = event.masterEventId,
@@ -81,9 +85,53 @@ internal suspend fun List<Event>.expandRecurrencesInWindow(
             expanded += event
             continue
         }
-        for (occurrence in occurrences) expanded += event.toOccurrenceEvent(occurrence)
+        val overrides = series.overridesByOccurrenceKey
+        expanded.addRuleOccurrences(event, occurrences, overrides)
+        expanded.addOverriddenInstances(overrides, rangeStart, rangeEnd, timeZone)
     }
     return expanded
+}
+
+/**
+ * Add the occurrences [master]'s rule generated, skipping every slot one of [overrides] claims: the
+ * override *is* that instance, and [addOverriddenInstances] adds it in its place.
+ */
+private suspend fun MutableList<Event>.addRuleOccurrences(
+    master: Event,
+    occurrences: List<Occurrence>,
+    overrides: Map<String, Event>,
+) {
+    for (occurrence in occurrences) {
+        currentCoroutineContext().ensureActive()
+        if (occurrence.key.canonical in overrides) continue
+        this += master.toOccurrenceEvent(occurrence)
+    }
+}
+
+/**
+ * Add each of [overrides] at its own position rather than at the slot it replaces. Since that position
+ * may have been moved, an override can fall outside `[rangeStart, rangeEnd[` — or inside it while the
+ * rule generates nothing there — hence the overlap test rather than a plain add.
+ *
+ * A `STATUS:CANCELLED` override is dropped instead: [addRuleOccurrences] already left its slot empty,
+ * so dropping it here is what leaves that single occurrence deleted, the iCalendar way of removing one.
+ */
+private suspend fun MutableList<Event>.addOverriddenInstances(
+    overrides: Map<String, Event>,
+    rangeStart: Instant,
+    rangeEnd: Instant,
+    timeZone: TimeZone,
+) {
+    for (override in overrides.values) {
+        currentCoroutineContext().ensureActive()
+        if (override.status == EventStatus.CANCELLED) continue
+        if (override.timing.overlaps(rangeStart, rangeEnd, timeZone)) this += override
+    }
+}
+
+/** Same `[rangeStart, rangeEnd[` overlap rule as [buildOccurrenceAt], for an already-positioned instance. */
+private fun EventTiming.overlaps(rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone): Boolean {
+    return startInstant(timeZone) < rangeEnd && endInstant(timeZone) > rangeStart
 }
 
 /**

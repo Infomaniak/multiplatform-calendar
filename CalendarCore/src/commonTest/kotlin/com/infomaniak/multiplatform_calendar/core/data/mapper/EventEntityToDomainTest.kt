@@ -26,22 +26,27 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import kotlinx.datetime.LocalDateTime
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class EventEntityToDomainTest {
+    @BeforeTest
+    fun setUp() {
+        ColorComputation.resetCache()
+    }
 
     @Test
     fun blankDescriptionAndLocation_areNormalizedToNull() {
@@ -86,12 +91,7 @@ class EventEntityToDomainTest {
     @Test
     fun eventWithoutColorArgb_inheritsCalendarColors() {
         val event = eventEntity(colorArgb = null).toDomain(calendar)
-
-        assertEquals(EventSourceColor(calendar.colors.calendarSourceColor), event.colors.eventSourceColor)
-        assertEquals(calendar.colors.datavizContainer, event.colors.datavizContainer)
-        assertEquals(calendar.colors.onDatavizContainer, event.colors.onDatavizContainer)
-        assertEquals(calendar.colors.datavizContainerVariant, event.colors.datavizContainerVariant)
-        assertEquals(calendar.colors.onDatavizContainerVariant, event.colors.onDatavizContainerVariant)
+        assertEquals(calendar.colors.sourceColor, event.colors.sourceColor)
     }
 
     @Test
@@ -100,30 +100,27 @@ class EventEntityToDomainTest {
 
         val event = eventEntity(colorArgb = eventColor).toDomain(calendar)
 
-        assertEquals(EventSourceColor(eventColor), event.colors.eventSourceColor)
-        assertNotNull(event.colors.datavizContainer)
+        assertEquals(eventColor, event.colors.sourceColor)
     }
 
     @Test
-    fun eventsSharingColorArgb_reuseSameCachedEventColors() {
+    fun eventsSharingColorArgb_reuseSameCachedColorContrast() {
         val shared = 0xFF1E88E5.toInt()
-        val cache = mutableMapOf<EventSourceColor, EventColors>()
 
-        val a = eventEntity(id = "a", colorArgb = shared).toDomain(calendar, cache)
-        val b = eventEntity(id = "b", colorArgb = shared).toDomain(calendar, cache)
+        val a = eventEntity(id = "a", colorArgb = shared).toDomain(calendar)
+        val b = eventEntity(id = "b", colorArgb = shared).toDomain(calendar)
 
-        assertSame(a.colors, b.colors)
-        assertEquals(1, cache.size)
+        assertSame(a.colors.onContainerColor, b.colors.onContainerColor)
+        assertSame(a.colors.onContainerVariantColor, b.colors.onContainerVariantColor)
     }
 
     @Test
-    fun eventsWithDistinctColorArgb_populateSeparateCacheEntries() {
-        val cache = mutableMapOf<EventSourceColor, EventColors>()
+    fun eventsWithDistinctColorArgb_doNotReuseCachedColorContrast() {
+        val a = eventEntity(id = "a", colorArgb = 0xFF1E88E5.toInt()).toDomain(calendar)
+        val b = eventEntity(id = "b", colorArgb = 0xFFE53935.toInt()).toDomain(calendar)
 
-        eventEntity(id = "a", colorArgb = 0xFF1E88E5.toInt()).toDomain(calendar, cache)
-        eventEntity(id = "b", colorArgb = 0xFFE53935.toInt()).toDomain(calendar, cache)
-
-        assertEquals(2, cache.size)
+        assertNotSame(a.colors.onContainerColor, b.colors.onContainerColor)
+        assertNotSame(a.colors.onContainerVariantColor, b.colors.onContainerVariantColor)
     }
 
     // ---- Organizer / attendees ------------------------------------------------------------------

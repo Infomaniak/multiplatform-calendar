@@ -23,13 +23,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
 internal fun EventEntity.toDomain(
     calendar: Calendar,
-    eventColorsCache: MutableMap<EventSourceColor, EventColors> = mutableMapOf(),
 ): Event {
     val organizer = organizer?.toDomain()
     val attendees = attendees.map { it.toDomain(isOrganizer = it.email == organizer?.email) }
@@ -48,9 +46,7 @@ internal fun EventEntity.toDomain(
         lastModified = lastModified?.toInstant(TimeZone.UTC),
         attendees = attendees,
         organizer = organizer,
-        colors = colorArgb
-            ?.let { EventColors.from(EventSourceColor(it), eventColorsCache) }
-            ?: EventColors.from(calendar.colors),
+        colors = EventColors.from(colorArgb, calendar.colors.sourceColor),
         canEdit = calendar.accessLevel.canWrite,
         alarms = alarms.mapNotNull(AlarmEntity::toDomain),
     )

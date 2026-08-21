@@ -18,16 +18,17 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,6 +36,10 @@ import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class RecurringEventExpansionTest {
+    @BeforeTest
+    fun setUp() {
+        ColorComputation.resetCache()
+    }
 
     @Test
     fun reportsTruncationWithMasterIdAndOutcome() = runTest {
@@ -198,7 +203,7 @@ class RecurringEventExpansionTest {
             isAllDay = false,
             recurrenceRule = rule,
         ),
-        colors = EventColors.from(CalendarColors.from(0xFF2196F3.toInt())),
+        colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
         canEdit = true,
     )
 

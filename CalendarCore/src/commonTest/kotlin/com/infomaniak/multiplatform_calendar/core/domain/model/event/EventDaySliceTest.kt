@@ -18,8 +18,8 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import com.infomaniak.multiplatform_calendar.core.utils.assertCancels
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -28,6 +28,7 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.toInstant
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -43,6 +44,10 @@ class EventDaySliceTest {
     private val wideWindow = LocalDate(2026, 1, 1)..LocalDate(2026, 3, 31)
 
     // ---- Single day ----------------------------------------------------------------------------
+    @BeforeTest
+    fun setUp() {
+        ColorComputation.resetCache()
+    }
 
     @Test
     fun singleDayTimed_yieldsOneSlice() = runTest {
@@ -429,7 +434,7 @@ class EventDaySliceTest {
         accountId = AccountId(1L),
         title = "Test",
         timing = timing,
-        colors = EventColors.from(CalendarColors.from(0xFF2196F3.toInt())),
+        colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
         canEdit = true,
     )
 }

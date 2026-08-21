@@ -17,36 +17,32 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
+import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 
 public data class EventColors(
-    val eventSourceColor: EventSourceColor,
-    val datavizContainer: ThemedColor,
-    val onDatavizContainer: ThemedColor,
-    val datavizContainerVariant: ThemedColor,
-    val onDatavizContainerVariant: ThemedColor,
+    val calendarSourceColor: CalendarSourceColor,
+    val sourceColor: Int,
+    val containerColor: Int,
+    val onContainerColor: ThemedColor,
+    val containerVariantColor: Int,
+    val onContainerVariantColor: ThemedColor,
 ) {
     public companion object {
-        public fun from(color: CalendarColors): EventColors = EventColors(
-            eventSourceColor = EventSourceColor(color.calendarSourceColor), //TODO(gigi): Why it was null before?
-            datavizContainer = color.datavizContainer,
-            onDatavizContainer = color.onDatavizContainer,
-            datavizContainerVariant = color.datavizContainerVariant,
-            onDatavizContainerVariant = color.onDatavizContainerVariant,
-        )
 
-        /** The [cache] must be reused across a batch to avoid recomputing the palette for shared source colors. */
-        internal fun from(
-            eventSourceColor: EventSourceColor,
-            cache: MutableMap<EventSourceColor, EventColors>,
-        ): EventColors = cache.getOrPut(eventSourceColor) {
-            val calendarColors = CalendarColors.from(eventSourceColor.argb)
-            EventColors(
-                eventSourceColor = eventSourceColor,
-                datavizContainer = calendarColors.datavizContainer,
-                onDatavizContainer = calendarColors.onDatavizContainer,
-                datavizContainerVariant = calendarColors.datavizContainerVariant,
-                onDatavizContainerVariant = calendarColors.onDatavizContainerVariant,
+        public fun from(
+            eventSourceColor: Int?,
+            calendarSourceColor: Int,
+        ): EventColors {
+            val sourceColor = eventSourceColor ?: calendarSourceColor
+            val eventColors = ColorComputation.from(sourceColor)
+            return EventColors(
+                calendarSourceColor = CalendarSourceColor(calendarSourceColor),
+                sourceColor = sourceColor,
+                containerColor = eventColors.containerColor,
+                onContainerColor = eventColors.onContainerColor,
+                containerVariantColor = eventColors.containerVariantColor,
+                onContainerVariantColor = eventColors.onContainerVariantColor,
             )
         }
     }

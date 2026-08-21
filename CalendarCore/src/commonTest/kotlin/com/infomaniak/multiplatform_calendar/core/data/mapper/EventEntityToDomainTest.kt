@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
@@ -221,19 +222,21 @@ class EventEntityToDomainTest {
     ) = EventEntity(
         id = EventId(id),
         calendarId = calendarId,
-        summary = "Test",
-        description = description,
-        location = location,
-        timing = EventTimingEntity(
-            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
-            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
-            dtStartInstantMs = null,
-            dtEndInstantMs = null,
+        content = EventContentEntity(
+            summary = "Test",
+            description = description,
+            location = location,
+            timing = EventTimingEntity(
+                dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+                dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+                dtStartInstantMs = null,
+                dtEndInstantMs = null,
+            ),
+            categories = categories,
+            attendees = attendees,
+            organizer = organizer,
+            colorArgb = colorArgb,
         ),
-        categories = categories,
-        attendees = attendees,
-        organizer = organizer,
-        colorArgb = colorArgb,
         etag = "etag-1",
         rrule = rrule,
     )

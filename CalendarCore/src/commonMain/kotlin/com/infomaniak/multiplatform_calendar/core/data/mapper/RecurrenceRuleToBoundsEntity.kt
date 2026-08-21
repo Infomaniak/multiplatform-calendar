@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.AllDay
@@ -35,7 +36,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.hours
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Floating as FloatingDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating as FloatingUntil
 
@@ -244,14 +244,12 @@ private fun EventTimingEntity.anchoredDurationMs(): Long {
 }
 
 /**
- * Widest IANA UTC offset magnitude (−12:00 … +14:00), used to pad the all-day instant bounds so they
- * remain a safe superset regardless of the reader's device zone (see the type-level "All-day zone
- * padding" note). 14 h covers both directions with margin; the surplus only keeps extra masters that
- * the expander then discards.
+ * Low-bound instant (`DTSTART`), padded [MAX_UTC_OFFSET_MS] earlier for all-day series; `null` for floating.
+ *
+ * Baked into the stored bounds because they exist only to filter. Overrides reuse the master's own
+ * instant columns, which must stay exact, so they get the same widening at query time instead
+ * (see `EventDao.ALL_DAY_PADDING`).
  */
-private val MAX_UTC_OFFSET_MS = 14.hours.inWholeMilliseconds
-
-/** Low-bound instant (`DTSTART`), padded [MAX_UTC_OFFSET_MS] earlier for all-day series; `null` for floating. */
 private fun EventTimingEntity.lowBoundInstantMs(): Long? {
     val startMs = dtStartInstantMs ?: return null
     return if (isAllDay) startMs - MAX_UTC_OFFSET_MS else startMs

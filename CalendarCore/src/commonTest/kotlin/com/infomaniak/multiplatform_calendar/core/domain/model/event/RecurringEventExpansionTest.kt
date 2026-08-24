@@ -377,7 +377,7 @@ class RecurringEventExpansionTest {
                 isAllDay = false,
                 recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
             ),
-            colors = EventColors.from(CalendarColors.from(0xFF2196F3.toInt())),
+            colors = EventColors.from(eventSourceColor = null, calendarSourceColor = 0xFF2196F3.toInt()),
             canEdit = true,
         )
 
@@ -416,7 +416,7 @@ class RecurringEventExpansionTest {
                 recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
                 exDates = listOf(IcalDateValue.Zoned(Instant.parse("2026-10-25T09:00:00Z"), "America/New_York")),
             ),
-            colors = EventColors.from(CalendarColors.from(0xFF2196F3.toInt())),
+            colors = EventColors.from(eventSourceColor = null, calendarSourceColor = 0xFF2196F3.toInt()),
             canEdit = true,
         )
 

@@ -17,9 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local.projection
 
+import androidx.room3.Relation
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 
@@ -34,7 +38,8 @@ import kotlinx.datetime.LocalDateTime
  *
  * [colorArgb] is the owning calendar's source color (`calendars.color`), fed to `CalendarColors.from` to derive the
  * full `CalendarColors`; `null` means "use the default color". [rrule] carries recurring masters so callers can
- * expand occurrences without materialising full event objects.
+ * expand occurrences without materialising full event objects, and [overrides] the instances that redefine their own
+ * placement — same batched Room relation as the planning flow, projected down to the columns that move a day dot.
  */
 internal data class EventCalendarColorInRange(
     val eventId: EventId,
@@ -48,6 +53,25 @@ internal data class EventCalendarColorInRange(
     val rrule: RecurrenceRule?,
     val rDates: List<IcalDateValue>,
     val exDates: List<IcalDateValue>,
+    @Relation(entity = EventOverrideEntity::class, parentColumns = ["eventId"], entityColumns = ["masterId"])
+    val overrides: List<OverrideCalendarColorInRange> = emptyList(),
+)
+
+/**
+ * The override pendant of [EventCalendarColorInRange]: only what decides *which day* gets a dot.
+ *
+ * No color of its own — a day dot always uses the owning calendar's color, and an override cannot
+ * change calendars — so this carries placement and [status] only, the latter because a `CANCELLED`
+ * override deletes its occurrence instead of moving it.
+ */
+internal data class OverrideCalendarColorInRange(
+    val recurrenceKey: RecurrenceKey,
+    val dtStart: LocalDateTime,
+    val dtEndEffective: LocalDateTime,
+    val startTimeZone: String?,
+    val endTimeZone: String?,
+    val isAllDay: Boolean,
+    val status: EventStatus?,
 )
 
 

@@ -27,7 +27,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsE
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
@@ -52,12 +51,13 @@ internal abstract class EventDao {
      * is at/after [startInstantMs].
      *
      * Non-recurring events use two branches, unioned:
-     * - **Anchored events** (zoned / UTC / all-day): comparison on absolute UTC epoch milliseconds.
+     * - **Anchored events** (zoned / UTC): comparison on absolute UTC epoch milliseconds.
      *   Correct across mixed time-zones since bounds are absolute.
-     * - **Floating events** (RFC 5545 FORM #1, [EventTimingEntity.dtStartInstantMs] `IS NULL`): comparison
-     *   on wall-clock strings, using [startLocalDateTime]/[endLocalDateTime] which are the range bounds re-interpreted
-     *   in the recipient's *current* zone. This branch re-anchors automatically on device zone
-     *   change (travel, DST) — a floating event has no fixed absolute instant by definition.
+     * - **Wall-clock events**: comparison on wall-clock strings, using [startLocalDateTime]/[endLocalDateTime]
+     *   which are the range bounds re-interpreted in the recipient's *current* zone. This branch re-anchors
+     *   automatically on device zone change (travel, DST). It covers **floating** events (RFC 5545 FORM #1,
+     *   [EventTimingEntity.dtStartInstantMs] `IS NULL`), which have no fixed absolute instant by definition,
+     *   and **all-day** events, which are stored at UTC midnight but rendered as-is in the reader's zone.
      *
      * **Recurring masters** (`hasRecurrence = 1`) match on the *whole series* bounds populated at sync
      * (see `recurrenceBounds`), not just their first occurrence. Two symmetric branches:
@@ -226,30 +226,23 @@ internal abstract class EventDao {
 
     private companion object {
 
-        /**
-         * Widens all-day overrides by [MAX_UTC_OFFSET_MS]: an all-day instant is stored at UTC midnight,
-         * but the expander re-anchors it in the reader's zone, so the instant actually tested sits up to
-         * 14 h away.
-         *
-         * Series bounds carry that same widening pre-computed — they live in `RecurrenceBoundsEntity`,
-         * whose columns exist only to filter. An override can't: its instants come from
-         * `EventContentEntity`, shared as-is with the master row, so the widening happens here instead.
-         * [ANCHORED_TIMING] needs none at all — `hasRecurrence = 0` rows never reach the expander.
-         *
-         * `CASE` on `isAllDay` keeps zoned overrides exact — they already carry a true instant — while
-         * the surplus rows an all-day match lets through are discarded by the expander.
-         */
-        private const val ALL_DAY_PADDING = "(CASE WHEN override.isAllDay THEN $MAX_UTC_OFFSET_MS ELSE 0 END)"
-
-        /** Non-recurring / master timing overlap on absolute UTC epoch ms (zoned / UTC / all-day rows). */
+        /** Non-recurring / master timing overlap on absolute UTC epoch ms (zoned / UTC rows). */
         private const val ANCHORED_TIMING = """(
-            event.dtStartInstantMs IS NOT NULL
+            event.isAllDay = 0
+              AND event.dtStartInstantMs IS NOT NULL
               AND event.dtStartInstantMs < :endInstantMs
               AND event.dtEndInstantMs >= :startInstantMs)"""
 
-        /** Non-recurring / master timing overlap on wall-clock strings (floating DATE-TIME rows). */
+        /**
+         * Non-recurring / master timing overlap on wall-clock strings.
+         *
+         * Covers floating DATE-TIME rows **and all-day rows**: both render zone-independently
+         * (`EventTiming.startIn` returns their wall-clock as-is when `startTimeZone` is null), so
+         * matching them on the UTC-midnight instants they are stored at would disagree with what the
+         * caller ends up displaying.
+         */
         private const val FLOATING_TIMING = """(
-            event.dtStartInstantMs IS NULL
+            (event.isAllDay = 1 OR event.dtStartInstantMs IS NULL)
               AND event.dtStart < :endLocalDateTime
               AND event.dtEndEffective >= :startLocalDateTime)"""
 
@@ -276,23 +269,23 @@ internal abstract class EventDao {
          * itself overlaps it, so [RECURRING_ANCHORED]/[RECURRING_FLOATING] already match.
          *
          * Both branches mirror [ANCHORED_TIMING]/[FLOATING_TIMING], on the override's *effective*
-         * position: an all-day override is anchored, like any all-day row. It is padded like an
-         * all-day *series* though (see `RecurrenceRuleToBoundsEntity`): stored at UTC midnight but
-         * rendered in the reader's zone, an all-day instance must stay a safe superset across zones.
+         * position. As for non-recurring rows, all-day overrides match on wall-clock so filtering
+         * follows what the reader sees in their zone.
          */
         private const val OVERRIDE_ANCHORED = """(
             event.hasRecurrence = 1
               AND EXISTS(SELECT 1 FROM event_overrides override
                 WHERE override.masterId = event.id
+                  AND override.isAllDay = 0
                   AND override.dtStartInstantMs IS NOT NULL
-                  AND override.dtStartInstantMs - $ALL_DAY_PADDING < :endInstantMs
-                  AND override.dtEndInstantMs + $ALL_DAY_PADDING >= :startInstantMs))"""
+                  AND override.dtStartInstantMs < :endInstantMs
+                  AND override.dtEndInstantMs >= :startInstantMs))"""
 
         private const val OVERRIDE_FLOATING = """(
             event.hasRecurrence = 1
               AND EXISTS(SELECT 1 FROM event_overrides override
                 WHERE override.masterId = event.id
-                  AND override.dtStartInstantMs IS NULL
+                  AND (override.isAllDay = 1 OR override.dtStartInstantMs IS NULL)
                   AND override.dtStart < :endLocalDateTime
                   AND override.dtEndEffective >= :startLocalDateTime))"""
     }

@@ -62,15 +62,15 @@ internal data class EventTimingEntity(
     /**
      * Absolute (UTC) start in epoch milliseconds, resolved from [dtStart] + [startTimeZone] at insertion time.
      * Indexed alongside [dtEndInstantMs] and used by [com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.observeVisibleInRange]
-     * so range-overlap queries stay correct across mixed time-zones (the wall-clock columns are display-only).
+     * so range-overlap queries stay correct across mixed time-zones.
      *
      * `null` for **floating** DATE-TIME events (RFC 5545 FORM #1: no `TZID`, no `Z`): a floating event
      * has no absolute instant by definition — its wall-clock is meant to be interpreted in the recipient's
      * *current* local zone at display time. Anchoring at insertion would go stale on device zone change
      * (travel, DST), so we don't. Range queries fall back to a wall-clock branch for these rows.
-     * For `VALUE=DATE` (all-day) the start of the day is taken in UTC so the value is device-independent.
-     * Shared as-is by masters and overrides, so it always stores the *exact* instant: a filter that must
-     * tolerate the expander's reader-zone re-anchoring widens it itself by [MAX_UTC_OFFSET_MS].
+     * For `VALUE=DATE` (all-day) the start of the day is taken in UTC so the value is device-independent,
+     * but all-day rows render as wall-clock too: range filters that must match visual placement compare
+     * [dtStart]/[dtEndEffective], while this column remains useful for ordering and padded recurrence bounds.
      */
     val dtStartInstantMs: Long?,
     /** Absolute (UTC) end in epoch milliseconds, resolved from [dtEndEffective] + [endTimeZone]. See [dtStartInstantMs] (same `null` rule per end). */

@@ -17,15 +17,18 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.time.Instant
 
 /**
  * `RecurrenceRule` is persisted as a JSON blob through [CalendarTypeConverters]. This exercises the
@@ -57,5 +60,18 @@ class RecurrenceRuleEntitySerializationTest {
     fun nullRule_roundTrips_asNull() {
         assertNull(converters.fromRecurrenceRule(null))
         assertNull(converters.toRecurrenceRule(null))
+    }
+
+    @Test
+    fun icalDateValues_roundTrip_throughConverter() {
+        val original = listOf(
+            IcalDateValue.AllDay(LocalDate(2026, 7, 1)),
+            IcalDateValue.Floating(LocalDateTime(2026, 7, 2, 10, 30)),
+            IcalDateValue.Zoned(Instant.parse("2026-07-03T09:00:00Z"), "Europe/Paris"),
+        )
+
+        val stored = converters.fromIcalDateValues(original)
+        val restored = converters.toIcalDateValues(stored)
+        assertEquals(original, restored)
     }
 }

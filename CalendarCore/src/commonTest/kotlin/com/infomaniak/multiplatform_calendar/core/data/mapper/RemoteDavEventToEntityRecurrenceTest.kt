@@ -17,16 +17,21 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * [resolveRecurrence] returns a typed [RecurrenceRule], `null` when the event has no `RRULE`, or
@@ -131,6 +136,82 @@ class RemoteDavEventToEntityRecurrenceTest {
         assertEquals(Frequency.Daily, rule?.freq)
     }
 
+    @Test
+    fun rdatePeriod_isDropped() {
+        val remote = remoteEvent(
+            rrule = "FREQ=DAILY",
+            rDates = listOf(
+                RemoteIcalDateValue(
+                    value = "20260701T100000Z/20260701T110000Z",
+                    valueType = RemoteIcalDateValueType.Period,
+                    tzid = null,
+                ),
+            ),
+        )
+
+        assertDropped(RecurrenceRuleFailureReason.RdatePeriodUnsupported) {
+            remote.resolveRecurrenceSet()
+        }
+    }
+
+    @Test
+    fun rdateDate_forAllDay_isParsed() {
+        val remote = remoteEvent(
+            rrule = "FREQ=DAILY",
+            dtstart = "20260615",
+            dtend = "20260616",
+            rDates = listOf(
+                RemoteIcalDateValue(
+                    value = "20260701",
+                    valueType = RemoteIcalDateValueType.Date,
+                    tzid = null,
+                ),
+            ),
+        )
+
+        val resolved = remote.resolveRecurrenceSet()
+        assertTrue(resolved.rDates.first() is IcalDateValue.AllDay)
+        assertEquals(LocalDate(2026, 7, 1), (resolved.rDates.first() as IcalDateValue.AllDay).date)
+    }
+
+    @Test
+    fun rdateDate_onTimedEvent_isParsed() {
+        val remote = remoteEvent(
+            rrule = "FREQ=DAILY",
+            dtstart = "20260615T100000Z",
+            rDates = listOf(
+                RemoteIcalDateValue(
+                    value = "20260701",
+                    valueType = RemoteIcalDateValueType.Date,
+                    tzid = null,
+                ),
+            ),
+        )
+
+        val resolved = remote.resolveRecurrenceSet()
+        assertTrue(resolved.rDates.first() is IcalDateValue.AllDay)
+        assertEquals(LocalDate(2026, 7, 1), (resolved.rDates.first() as IcalDateValue.AllDay).date)
+    }
+
+    @Test
+    fun exdateDate_onTimedEvent_isParsed() {
+        val remote = remoteEvent(
+            rrule = "FREQ=DAILY",
+            dtstart = "20260615T100000Z",
+            exDates = listOf(
+                RemoteIcalDateValue(
+                    value = "20260702",
+                    valueType = RemoteIcalDateValueType.Date,
+                    tzid = null,
+                ),
+            ),
+        )
+
+        val resolved = remote.resolveRecurrenceSet()
+        assertTrue(resolved.exDates.first() is IcalDateValue.AllDay)
+        assertEquals(LocalDate(2026, 7, 2), (resolved.exDates.first() as IcalDateValue.AllDay).date)
+    }
+
     private inline fun assertDropped(expected: RecurrenceRuleFailureReason, block: () -> Unit) {
         val exception = assertFailsWith<RecurrenceDroppedException>(block = block)
         assertEquals(expected.name, exception.reason)
@@ -141,6 +222,8 @@ class RemoteDavEventToEntityRecurrenceTest {
         dtstart: String? = "20260615T100000Z",
         dtend: String? = "20260615T110000Z",
         dtStartTzid: String? = null,
+        rDates: List<RemoteIcalDateValue> = emptyList(),
+        exDates: List<RemoteIcalDateValue> = emptyList(),
     ) = RemoteDavEvent(
         url = "https://cal/tests/recurrence.ics",
         etag = "etag-1",
@@ -158,6 +241,8 @@ class RemoteDavEventToEntityRecurrenceTest {
         lastModified = null,
         dtstamp = null,
         rrule = rrule,
+        rDates = rDates,
+        exDates = exDates,
         status = null,
         transp = null,
         classification = null,

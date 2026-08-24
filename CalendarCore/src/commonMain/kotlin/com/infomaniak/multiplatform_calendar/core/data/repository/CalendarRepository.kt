@@ -27,8 +27,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRaw
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.toEventAndRawIcsEntities
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.mapper.RecurrenceDroppedException
+import com.infomaniak.multiplatform_calendar.core.data.mapper.ResolvedRecurrence
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
-import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrence
+import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrenceSet
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
@@ -38,7 +39,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
@@ -238,10 +238,11 @@ internal class CalendarRepository(
 
         val entities = remoteEvents.mapNotNull { event ->
             currentCoroutineContext().ensureActive()
-            val recurrence = runCatching { event.resolveRecurrence() }
+            val recurrence = runCatching { event.resolveRecurrenceSet() }
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
-                .getOrNull()
-            runCatching { EventWithRawIcs(event.toEntity(calendarId, recurrence), event.icsData) }
+                .getOrElse { ResolvedRecurrence() }
+
+            runCatching { EventWithRawIcs(event.toEntity(calendarId, recurrence = recurrence), event.icsData) }
                 .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
         }
@@ -261,7 +262,12 @@ internal class CalendarRepository(
     private fun logDroppedRecurrence(event: RemoteDavEvent, reason: String) {
         crashReport.capture(
             message = "Dropped RRULE for event ${event.url}",
-            data = mapOf("reason" to reason, "rrule" to event.rrule.orEmpty()),
+            data = mapOf(
+                "reason" to reason,
+                "rrule" to event.rrule.orEmpty(),
+                "rdateCount" to event.rDates.size.toString(),
+                "exdateCount" to event.exDates.size.toString(),
+            ),
             level = CrashReportLevel.Warning,
         )
     }
@@ -296,6 +302,6 @@ internal class CalendarRepository(
 }
 
 /** Logs the [reason] when [resolveRecurrence] dropped a present `RRULE` ([RecurrenceDroppedException]). */
-private inline fun Result<RecurrenceRule?>.onRecurrenceDropped(
+private inline fun <T> Result<T>.onRecurrenceDropped(
     action: (reason: String) -> Unit,
-): Result<RecurrenceRule?> = onFailure { if (it is RecurrenceDroppedException) action(it.reason) }
+): Result<T> = onFailure { if (it is RecurrenceDroppedException) action(it.reason) }

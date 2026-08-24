@@ -39,8 +39,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRol
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -51,6 +51,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
@@ -294,14 +295,19 @@ class EventRepositoryTest : RobolectricTestsBase() {
         originalStart: LocalDateTime,
         movedTo: LocalDateTime = originalStart,
         status: EventStatus? = null,
+        floating: Boolean = false,
     ): EventOverrideEntity {
         val originalEnd = LocalDateTime(originalStart.date, LocalTime(originalStart.hour + 1, originalStart.minute))
         val movedEnd = LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute))
         return EventOverrideEntity(
             masterId = masterId,
-            recurrenceKey = RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC)),
-            originalStartInstantMs = originalStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
-            originalEndInstantMs = originalEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            recurrenceKey = if (floating) {
+                RecurrenceKey.Floating(originalStart)
+            } else {
+                RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC))
+            },
+            originalStartInstantMs = originalStart.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
+            originalEndInstantMs = originalEnd.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
             originalStartLocalDateTime = originalStart,
             originalEndLocalDateTime = originalEnd,
             content = EventContentEntity(
@@ -310,10 +316,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 timing = EventTimingEntity(
                     dtStart = movedTo,
                     dtEndEffective = movedEnd,
-                    startTimeZone = TimeZone.UTC.id,
-                    endTimeZone = TimeZone.UTC.id,
-                    dtStartInstantMs = movedTo.toInstant(TimeZone.UTC).toEpochMilliseconds(),
-                    dtEndInstantMs = movedEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                    startTimeZone = TimeZone.UTC.id.takeUnless { floating },
+                    endTimeZone = TimeZone.UTC.id.takeUnless { floating },
+                    dtStartInstantMs = movedTo.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
+                    dtEndInstantMs = movedEnd.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
                 ),
             ),
         )
@@ -485,6 +491,216 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 "each occurrence day must include the recurring calendar color",
             )
         }
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_movedOverrideDotsTheDayItLandedOn() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://override-colors")
+        val green = CalendarSourceColor(0xFF43A047.toInt())
+        seedCalendar(account, calendarId, green)
+
+        // DAILY×3 from 06-15, with the 06-16 instance pushed to 06-19: the month grid must follow the
+        // planning view and dot 06-19, leaving 06-16 bare.
+        val master = recurringColorMaster(
+            eventId = EventId("event://override-moved"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0), movedTo = LocalDateTime(2026, 6, 19, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(
+            setOf(
+                LocalDateTime(2026, 6, 15, 0, 0).date,
+                LocalDateTime(2026, 6, 17, 0, 0).date,
+                LocalDateTime(2026, 6, 19, 0, 0).date,
+            ),
+            colorsByDay.keys,
+        )
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_overrideMovedPastTheSeriesEndStillDotsItsDay() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://override-colors")
+        val green = CalendarSourceColor(0xFF43A047.toInt())
+        seedCalendar(account, calendarId, green)
+
+        // The whole series ends in June, so only the override range branch can bring the master back
+        // for an August window.
+        val master = recurringColorMaster(
+            eventId = EventId("event://override-far-away"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0), movedTo = LocalDateTime(2026, 8, 20, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 8, 17, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 8, 24, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(setOf(LocalDateTime(2026, 8, 20, 0, 0).date), colorsByDay.keys)
+        assertEquals(
+            setOf(green.argb),
+            colorsByDay.getValue(LocalDateTime(2026, 8, 20, 0, 0).date).map { it.colors.sourceColor }.toSet(),
+        )
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_cancelledOverrideClearsItsDay() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://override-colors")
+        val green = CalendarSourceColor(0xFF43A047.toInt())
+        seedCalendar(account, calendarId, green)
+
+        val master = recurringColorMaster(
+            eventId = EventId("event://override-cancelled"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val override = overrideEntity(
+            master.id,
+            originalStart = LocalDateTime(2026, 6, 16, 10, 0),
+            status = EventStatus.CANCELLED,
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(
+            setOf(LocalDateTime(2026, 6, 15, 0, 0).date, LocalDateTime(2026, 6, 17, 0, 0).date),
+            colorsByDay.keys,
+            "a cancelled override deletes its occurrence, so its day loses the dot",
+        )
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_movedFloatingOverrideDotsItsWallClockDayInAnyZone() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://override-colors")
+        val green = CalendarSourceColor(0xFF43A047.toInt())
+        seedCalendar(account, calendarId, green)
+
+        // Floating series (no zone at all) whose 06-16 instance is pushed to 08-20, read from a zone far
+        // from UTC: a floating instance is rendered as wall-clock, so 08-20 is dotted there too.
+        val master = recurringColorMaster(
+            eventId = EventId("event://override-floating"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, until = RecurrenceUntil.Floating(LocalDateTime(2026, 6, 17, 10, 0))),
+            floating = true,
+        )
+        val override = overrideEntity(
+            masterId = master.id,
+            originalStart = LocalDateTime(2026, 6, 16, 10, 0),
+            movedTo = LocalDateTime(2026, 8, 20, 10, 0),
+            floating = true,
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val zone = TimeZone.of("Pacific/Honolulu") // UTC-10, no DST
+        val movedDayColors = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 8, 17, 0, 0).toInstant(zone),
+            end = LocalDateTime(2026, 8, 24, 0, 0).toInstant(zone),
+            timeZone = zone,
+        ).first()
+
+        assertEquals(setOf(LocalDateTime(2026, 8, 20, 0, 0).date), movedDayColors.keys)
+        assertEquals(
+            setOf(green.argb),
+            movedDayColors.getValue(LocalDateTime(2026, 8, 20, 0, 0).date).map { it.colors.sourceColor }.toSet(),
+        )
+
+        val vacatedDayColors = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 16, 0, 0).toInstant(zone),
+            end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(zone),
+            timeZone = zone,
+        ).first()
+
+        assertEquals(emptySet(), vacatedDayColors.keys, "the slot the instance left keeps no dot")
+    }
+
+    @Test
+    fun observeVisibleCalendarColorsByDay_overrideOutsideAPartialDayWindowIsNotDotted() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://override-colors")
+        seedCalendar(account, calendarId, CalendarSourceColor(0xFF43A047.toInt()))
+
+        // The relation carries every override of a selected master, so a window narrower than a day must
+        // still be honoured: nothing happens between 12:00 and 13:00 on 06-19.
+        val master = recurringColorMaster(
+            eventId = EventId("event://override-partial-day"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val override = overrideEntity(
+            masterId = master.id,
+            originalStart = LocalDateTime(2026, 6, 16, 10, 0),
+            movedTo = LocalDateTime(2026, 6, 19, 10, 0),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 19, 12, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 19, 13, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(emptySet(), colorsByDay.keys)
+    }
+
+    private fun recurringColorMaster(
+        eventId: EventId,
+        calendarId: CalendarId,
+        dtStart: LocalDateTime,
+        rrule: RecurrenceRule,
+        floating: Boolean = false,
+    ): EventEntity {
+        val dtEnd = LocalDateTime(dtStart.date, LocalTime(dtStart.hour + 1, dtStart.minute))
+        val timing = EventTimingEntity(
+            dtStart = dtStart,
+            dtEndEffective = dtEnd,
+            startTimeZone = TimeZone.UTC.id.takeUnless { floating },
+            endTimeZone = TimeZone.UTC.id.takeUnless { floating },
+            dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
+            dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
+        )
+        return EventEntity(
+            id = eventId,
+            calendarId = calendarId,
+            content = EventContentEntity(
+                summary = "Daily recurring",
+                timing = timing,
+            ),
+            rrule = rrule,
+            hasRecurrence = true,
+            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
+            etag = "1",
+        )
     }
 
     @Test

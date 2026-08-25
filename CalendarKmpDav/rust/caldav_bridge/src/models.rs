@@ -72,6 +72,44 @@ pub struct EventEntry {
     pub attendees: Vec<AttendeeEntry>,
     pub organizer: Option<OrganizerEntry>,
     pub alarms: Vec<AlarmEntry>,
+    /// Sibling `VEVENT`s carrying a `RECURRENCE-ID` (RFC 5545 §3.8.4.4).
+    pub overrides: Vec<EventOverrideEntry>,
+}
+
+/// A `VEVENT` overriding a single instance of its series, identified by its `RECURRENCE-ID`.
+///
+/// Mirrors [`EventEntry`] minus the master-only recurrence properties and minus the resource
+/// identity, which both siblings share since they live in the same CalDAV resource.
+#[derive(uniffi::Record)]
+pub struct EventOverrideEntry {
+    /// The *original* start of the overridden instance, never this override's own `DTSTART`.
+    pub recurrence_id: String,
+    pub recurrence_id_tzid: Option<String>,
+    pub recurrence_id_value_type: IcalDateValueKind,
+    /// Raw `RANGE` parameter, i.e. `THISANDFUTURE` when present.
+    pub recurrence_id_range: Option<String>,
+    pub summary: Option<String>,
+    pub description: Option<String>,
+    pub location: Option<String>,
+    pub dtstart: Option<String>,
+    pub dtstart_tzid: Option<String>,
+    pub dtend: Option<String>,
+    pub dtend_tzid: Option<String>,
+    pub duration: Option<String>,
+    pub created: Option<String>,
+    pub last_modified: Option<String>,
+    pub dtstamp: Option<String>,
+    pub status: Option<String>,
+    pub transp: Option<String>,
+    pub classification: Option<String>,
+    pub priority: Option<String>,
+    pub sequence: Option<String>,
+    pub categories: Option<String>,
+    pub color_hex: Option<String>,
+    pub color_ical_name: Option<String>,
+    pub attendees: Vec<AttendeeEntry>,
+    pub organizer: Option<OrganizerEntry>,
+    pub alarms: Vec<AlarmEntry>,
 }
 
 #[derive(uniffi::Enum, Clone, Copy, Debug, PartialEq, Eq)]

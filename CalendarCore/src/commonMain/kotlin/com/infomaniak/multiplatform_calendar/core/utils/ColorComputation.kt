@@ -100,9 +100,9 @@ internal data class ColorComputation(
     }
 }
 
-public enum class ContrastType(
-    public val value: Double,
-    public val contrastDelta: Int,
+internal enum class ContrastType(
+    val value: Double,
+    val contrastDelta: Int,
 ) {
     AA(4.5, 50),
     AAA(7.0, 66),

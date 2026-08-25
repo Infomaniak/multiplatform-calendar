@@ -48,8 +48,6 @@ internal data class ColorComputation(
     companion object {
         private const val LIGHT_SURFACE = 0xFFFFFBFE.toInt()
         private const val DARK_SURFACE = 0xFF141218.toInt()
-        private const val WCAG_AAA_CONTRAST = 7.0
-        private const val WCAG_AA_CONTRAST = 4.5
 
         private val cache = linkedMapOf<Int, ColorComputation>()
         internal val cacheSize: Int
@@ -68,20 +66,20 @@ internal data class ColorComputation(
 
             // Since the source color will be used for decorative purposes an AA contrast is sufficient.
             val onSourceColor = ThemedColor(
-                light = palette.findToneWithContrast(sourceColor, WCAG_AA_CONTRAST),
-                dark = palette.findToneWithContrast(sourceColor, WCAG_AA_CONTRAST),
+                light = palette.findToneWithContrast(sourceColor, ContrastType.AA),
+                dark = palette.findToneWithContrast(sourceColor, ContrastType.AA),
             )
 
             val containerColor = sourceColor.withAlpha(0.2f)
             val onContainerColor = ThemedColor(
-                light = palette.findToneWithContrast(containerColor.compositeOver(LIGHT_SURFACE), WCAG_AAA_CONTRAST),
-                dark = palette.findToneWithContrast(containerColor.compositeOver(DARK_SURFACE), WCAG_AAA_CONTRAST),
+                light = palette.findToneWithContrast(containerColor.compositeOver(LIGHT_SURFACE), ContrastType.AAA),
+                dark = palette.findToneWithContrast(containerColor.compositeOver(DARK_SURFACE), ContrastType.AAA),
             )
 
             val containerVariantColor = sourceColor.withAlpha(0.1f)
             val onContainerVariantColor = ThemedColor(
-                light = palette.findToneWithContrast(containerVariantColor.compositeOver(LIGHT_SURFACE), WCAG_AAA_CONTRAST),
-                dark = palette.findToneWithContrast(containerVariantColor.compositeOver(DARK_SURFACE), WCAG_AAA_CONTRAST),
+                light = palette.findToneWithContrast(containerVariantColor.compositeOver(LIGHT_SURFACE), ContrastType.AAA),
+                dark = palette.findToneWithContrast(containerVariantColor.compositeOver(DARK_SURFACE), ContrastType.AAA),
             )
 
             return ColorComputation(
@@ -98,4 +96,12 @@ internal data class ColorComputation(
             cache.clear()
         }
     }
+}
+
+public enum class ContrastType(
+    public val value: Double,
+    public val contrastDelta: Int,
+) {
+    AA(4.5, 50),
+    AAA(7.0, 66),
 }

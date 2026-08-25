@@ -17,20 +17,23 @@
  */
 package com.infomaniak.multiplatform_calendar.core.utils
 
+import com.materialkolor.hct.Hct
 import com.materialkolor.palettes.TonalPalette
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 
-/** Returns a palette tone color (ARGB Int) that reaches the specified [contrast] against [background]. */
-public fun TonalPalette.findToneWithContrast(background: Int, contrast: Double): Int {
-    val bgIsLight = tone(0).contrastRatioAgainst(background) >= tone(100).contrastRatioAgainst(background)
-    val tones = if (bgIsLight) (50 downTo 0) else (50..100)
 
-    return tones
-        .firstOrNull { candidateTone -> tone(candidateTone).contrastRatioAgainst(background) >= contrast }
-        ?.let(::tone)
-        ?: tone(if (bgIsLight) 0 else 100)
+/** Returns a palette tone color (ARGB Int) that reaches the specified [contrast] against [background]. */
+public fun TonalPalette.findToneWithContrast(background: Int, contrast: ContrastType): Int {
+    val backgroundTone = Hct.fromInt(background).tone.toInt()
+    val isBackgroundLight = backgroundTone >= 50
+    val resultTone = (if (isBackgroundLight) {
+        backgroundTone - contrast.contrastDelta
+    } else {
+        backgroundTone + contrast.contrastDelta
+    }).coerceIn(0, 100)
+    return tone(resultTone)
 }
 
 public fun Int.withAlpha(alpha: Float): Int {

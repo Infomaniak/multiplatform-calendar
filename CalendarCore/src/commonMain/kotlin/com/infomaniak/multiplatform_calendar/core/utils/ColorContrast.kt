@@ -25,7 +25,7 @@ import kotlin.math.pow
 
 
 /** Returns a palette tone color (ARGB Int) that reaches the specified [contrast] against [background]. */
-public fun TonalPalette.findToneWithContrast(background: Int, contrast: ContrastType): Int {
+public fun TonalPalette.findColorWithContrast(background: Int, contrast: ContrastType): Int {
     val backgroundTone = Hct.fromInt(background).tone.toInt()
     val isBackgroundLight = backgroundTone >= 50
     val resultTone = (if (isBackgroundLight) {

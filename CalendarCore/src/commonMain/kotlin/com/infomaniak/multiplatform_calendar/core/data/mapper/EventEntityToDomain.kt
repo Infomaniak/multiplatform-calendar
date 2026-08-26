@@ -29,25 +29,25 @@ import kotlinx.datetime.toInstant
 internal fun EventEntity.toDomain(
     calendar: Calendar,
 ): Event {
-    val organizer = organizer?.toDomain()
-    val attendees = attendees.map { it.toDomain(isOrganizer = it.email == organizer?.email) }
+    val organizer = content.organizer?.toDomain()
+    val attendees = content.attendees.map { it.toDomain(isOrganizer = it.email == organizer?.email) }
     return Event(
         masterEventId = id,
         occurrenceId = OccurrenceId(id.url),
         calendarId = calendarId,
         accountId = calendar.accountId,
-        title = summary,
-        description = description?.ifBlank { null },
-        location = location?.ifBlank { null },
-        status = status,
-        classification = classification,
-        categories = categories?.filter { it.isNotBlank() }.orEmpty(),
-        timing = timing.toDomain(recurrenceRule = rrule, rDates = rDates, exDates = exDates),
-        lastModified = lastModified?.toInstant(TimeZone.UTC),
+        title = content.summary,
+        description = content.description?.ifBlank { null },
+        location = content.location?.ifBlank { null },
+        status = content.status,
+        classification = content.classification,
+        categories = content.categories?.filter { it.isNotBlank() }.orEmpty(),
+        timing = content.timing.toDomain(recurrenceRule = rrule, rDates = rDates, exDates = exDates),
+        lastModified = content.lastModified?.toInstant(TimeZone.UTC),
         attendees = attendees,
         organizer = organizer,
-        colors = EventColors.from(colorArgb, calendar.colors.sourceColor),
+        colors = EventColors.from(content.colorArgb, calendar.colors.sourceColor),
         canEdit = calendar.accessLevel.canWrite,
-        alarms = alarms.mapNotNull(AlarmEntity::toDomain),
+        alarms = content.alarms.mapNotNull(AlarmEntity::toDomain),
     )
 }

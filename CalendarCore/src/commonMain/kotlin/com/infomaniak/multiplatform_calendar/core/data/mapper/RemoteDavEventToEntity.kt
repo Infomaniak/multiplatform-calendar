@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
@@ -53,40 +54,45 @@ internal fun RemoteDavEvent.toEntity(
     calendarId: CalendarId,
     recurrence: ResolvedRecurrence = ResolvedRecurrence(),
 ): EventEntity {
-    val timing = toTimingEntity()
+    val content = toContentEntity()
     return EventEntity(
         id = EventId(url),
         calendarId = calendarId,
-        summary = summary ?: "",
-        description = description,
-        location = location,
-        timing = timing,
-        created = parseICalDateTime(created),
-        lastModified = parseICalDateTime(lastModified),
-        dtStamp = parseICalDateTime(dtstamp),
+        content = content,
         rrule = recurrence.rule,
         rDates = recurrence.rDates,
         exDates = recurrence.exDates,
         hasRecurrence = recurrence.hasRecurrence,
         recurrenceBounds = toRecurrenceBoundsEntity(
-            timing = timing,
+            timing = content.timing,
             recurrenceRule = recurrence.rule,
             rDates = recurrence.rDates,
         ),
-        status = EventStatus.fromIcalString(status),
-        transp = transp,
-        classification = Classification.fromIcalString(classification),
-        priority = priority?.toIntOrNull(),
-        sequence = sequence?.toIntOrNull(),
-        categories = parseICalCategories(categories),
-        attendees = attendees.map { it.toEntity() },
-        organizer = organizer?.toEntity(),
-        alarms = alarms.map { it.toEntity() },
         etag = etag,
-        colorArgb = resolveColorArgb(),
-        colorIcalName = colorIcalName,
     )
 }
+
+@Throws(CaldavParsingException::class)
+internal fun RemoteDavEvent.toContentEntity() = EventContentEntity(
+    summary = summary ?: "",
+    description = description,
+    location = location,
+    timing = toTimingEntity(),
+    created = parseICalDateTime(created),
+    lastModified = parseICalDateTime(lastModified),
+    dtStamp = parseICalDateTime(dtstamp),
+    status = EventStatus.fromIcalString(status),
+    transp = transp,
+    classification = Classification.fromIcalString(classification),
+    priority = priority?.toIntOrNull(),
+    sequence = sequence?.toIntOrNull(),
+    categories = parseICalCategories(categories),
+    attendees = attendees.map { it.toEntity() },
+    organizer = organizer?.toEntity(),
+    alarms = alarms.map { it.toEntity() },
+    colorArgb = resolveColorArgb(),
+    colorIcalName = colorIcalName,
+)
 
 internal data class ResolvedRecurrence(
     val rule: RecurrenceRule? = null,

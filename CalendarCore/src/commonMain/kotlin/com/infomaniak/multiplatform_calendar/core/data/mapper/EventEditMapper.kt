@@ -60,6 +60,7 @@ internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): 
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
         description = description?.ifBlank { null },
+        transp = timeBlocking?.toIcalString(),
         timeZones = timing.vTimeZones(),
         colorChange = resolveColorChange(previous?.content?.colorArgb),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),

@@ -1179,8 +1179,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
         val dtEnd = LocalDateTime(2026, 6, 15, 11, 0)
         return EventEntity(
-        timeBlocking = TimeBlocking.Blocks,
-        timeBlocking = TimeBlocking.Blocks,
+            id = EventId("event://floating"),
+            calendarId = calendarId,
             content = EventContentEntity(
                 summary = "Floating 10-11",
                 timing = EventTimingEntity(
@@ -1190,7 +1190,58 @@ class EventRepositoryTest : RobolectricTestsBase() {
                     endTimeZone = null,
                     dtStartInstantMs = null,
                     dtEndInstantMs = null,
+                ),
+            ),
+            etag = "1",
+        )
+    }
+
+    private fun editData(
+        title: String,
+        calendarId: CalendarId,
+        recurrence: RecurrenceRule? = null,
+        alarms: List<EventAlarm> = emptyList(),
+    ) = EventEditData(
+        title = title,
+        timing = EventTiming(
+            start = LocalDateTime(2026, 6, 15, 10, 0),
+            end = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = TimeZone.UTC,
+            endTimeZone = TimeZone.UTC,
+            isAllDay = false,
+            recurrenceRule = recurrence,
+        ),
+        location = null,
+        description = null,
+        timeBlocking = null,
+        calendarId = calendarId,
+        eventColor = null,
         alarms = alarms,
+    )
+
+    private fun eventDao() = database.eventDao()
+}
+
+private fun remoteDavEvent(
+    icsData: String,
+    summary: String? = "Event",
+    dtstart: String? = "20260615T100000Z",
+    dtend: String? = "20260615T110000Z",
+    created: String? = null,
+    lastModified: String? = null,
+    dtstamp: String? = null,
+    rrule: String? = null,
+    status: String? = null,
+    transp: String? = null,
+    classification: String? = null,
+    priority: String? = null,
+    sequence: String? = null,
+    categories: String? = null,
+    colorHex: String? = null,
+    colorIcalName: String? = null,
+    attendees: List<RemoteDavAttendee> = emptyList(),
+) = RemoteDavEvent(
+    url = "",
     etag = "",
     icsData = icsData,
     uid = "uid",

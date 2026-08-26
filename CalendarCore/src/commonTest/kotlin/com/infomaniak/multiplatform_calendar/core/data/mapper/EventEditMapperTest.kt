@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -302,7 +303,45 @@ class EventEditMapperTest {
         assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange)
     }
 
+    @Test
+    fun nonBlockingEvent_emitsTransparentTransp() {
+        val edit = editData(timeBlocking = TimeBlocking.DoesNotBlock).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals("TRANSPARENT", edit.transp)
+    }
+
+    @Test
+    fun blockingEvent_emitsOpaqueTransp() {
+        val edit = editData(timeBlocking = TimeBlocking.Blocks).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals("OPAQUE", edit.transp)
+    }
+
+    @Test
+    fun absentTimeBlocking_dropsTransp() {
+        val edit = editData(timeBlocking = null).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertNull(edit.transp)
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
+
+    private fun editData(timeBlocking: TimeBlocking?) = EventEditData(
+        title = "Test",
+        timing = EventTiming(
+            start = LocalDateTime(2026, 6, 15, 10, 0),
+            end = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = TimeZone.UTC,
+            endTimeZone = TimeZone.UTC,
+            isAllDay = false,
+        ),
+        location = null,
+        description = null,
+        timeBlocking = timeBlocking,
+        calendarId = calendarId,
+        eventColor = null,
+        alarms = emptyList(),
+    )
 
     private fun editData(recurrence: RecurrenceRule?, isAllDay: Boolean, zone: TimeZone?) = EventEditData(
         title = "Test",
@@ -316,6 +355,7 @@ class EventEditMapperTest {
         ),
         location = null,
         description = null,
+        timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
         alarms = emptyList(),
@@ -333,6 +373,7 @@ class EventEditMapperTest {
         ),
         location = null,
         description = null,
+        timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
         alarms = emptyList(),
@@ -343,6 +384,7 @@ class EventEditMapperTest {
         timing = timing,
         location = null,
         description = null,
+        timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
         alarms = emptyList(),
@@ -359,6 +401,7 @@ class EventEditMapperTest {
         ),
         location = null,
         description = null,
+        timeBlocking = null,
         calendarId = calendarId,
         eventColor = eventColor?.let(::EventSourceColor),
         alarms = emptyList(),

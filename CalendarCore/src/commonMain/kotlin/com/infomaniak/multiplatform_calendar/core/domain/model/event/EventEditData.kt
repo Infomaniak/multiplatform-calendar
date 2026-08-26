@@ -31,6 +31,7 @@ public data class EventEditData(
     val timing: EventTiming,
     val location: String?,
     val description: String?,
+    val timeBlocking: TimeBlocking?,
     val calendarId: CalendarId,
     /** `null` to inherit the calendar's color. */
     val eventColor: EventSourceColor?,

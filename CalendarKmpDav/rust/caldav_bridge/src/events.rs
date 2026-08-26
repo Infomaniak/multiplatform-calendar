@@ -264,6 +264,7 @@ fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "SUMMARY", edit.summary.as_deref());
     set_or_clear(event, "LOCATION", edit.location.as_deref());
     set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
+    set_or_clear(event, "TRANSP", edit.transp.as_deref());
     apply_color_change(event, &edit.color_change);
     apply_recurrence_change(event, &edit.recurrence_change);
 

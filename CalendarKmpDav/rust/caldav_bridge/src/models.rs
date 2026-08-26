@@ -243,6 +243,7 @@ pub struct EventEdit {
     pub all_day: bool,
     pub location: Option<String>,
     pub description: Option<String>,
+    pub transp: Option<String>,
     pub timezones: Vec<VTimeZoneSpec>,
     pub color_change: ColorChange,
     pub recurrence_change: RecurrenceChange,

@@ -35,7 +35,7 @@ class RemoteDavEventToEntityAlarmTest {
 
     @Test
     fun eventWithNoAlarms_producesEmptyList() {
-        val entity = remoteEvent(alarms = emptyList()).toEntity(calendarId)
+        val entity = remoteEvent(alarms = emptyList()).toEntity(calendarId).content
 
         assertTrue(entity.alarms.isEmpty())
     }
@@ -43,7 +43,7 @@ class RemoteDavEventToEntityAlarmTest {
     @Test
     fun relativeTrigger_isParsedToNegativeMillis_andRelatedToDefaultsToStart() {
         val remote = alarm(triggerDuration = "-PT15M", triggerRelatedTo = "START")
-        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
+        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
         assertEquals((-15).minutes, entity.triggerRelative)
         assertNull(entity.triggerAbsolute)
@@ -53,7 +53,7 @@ class RemoteDavEventToEntityAlarmTest {
     @Test
     fun relatedToEnd_isPreserved() {
         val remote = alarm(triggerDuration = "PT0S", triggerRelatedTo = "END")
-        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
+        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
         assertEquals(0.seconds, entity.triggerRelative)
         assertEquals(TriggerRelation.End, entity.triggerRelatedTo)
@@ -62,7 +62,7 @@ class RemoteDavEventToEntityAlarmTest {
     @Test
     fun absoluteTrigger_isParsedToEpochMillis_andRelatedToFallsBackToStart() {
         val remote = alarm(triggerDuration = null, triggerAbsolute = "20260615T090000Z", triggerRelatedTo = "")
-        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
+        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
         assertNull(entity.triggerRelative)
         assertEquals(Instant.fromEpochMilliseconds(1_781_514_000_000L), entity.triggerAbsolute)
@@ -72,7 +72,7 @@ class RemoteDavEventToEntityAlarmTest {
     @Test
     fun action_isUppercased_evenForUnknownValues() {
         val remote = alarm(action = "procedure", triggerDuration = "-PT5M")
-        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).alarms.single()
+        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
         assertEquals("PROCEDURE", entity.action)
     }
@@ -81,7 +81,7 @@ class RemoteDavEventToEntityAlarmTest {
     fun multipleAlarms_arePreservedInOrder() {
         val firstAlarm = alarm(triggerDuration = "-PT30M", description = "First")
         val secondAlarm = alarm(triggerDuration = "-PT5M", description = "Second")
-        val entity = remoteEvent(alarms = listOf(firstAlarm, secondAlarm)).toEntity(calendarId)
+        val entity = remoteEvent(alarms = listOf(firstAlarm, secondAlarm)).toEntity(calendarId).content
 
         assertEquals(listOf("First", "Second"), entity.alarms.map { it.description })
     }

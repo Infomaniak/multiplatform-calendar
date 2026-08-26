@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
@@ -85,7 +86,7 @@ internal fun RemoteDavEventContent.toContentEntity(url: String) = EventContentEn
     lastModified = parseICalDateTime(lastModified),
     dtStamp = parseICalDateTime(dtstamp),
     status = EventStatus.fromIcalString(status),
-    transp = transp,
+    timeBlocking = TimeBlocking.fromIcalString(transp),
     classification = Classification.fromIcalString(classification),
     priority = priority?.toIntOrNull(),
     sequence = sequence?.toIntOrNull(),

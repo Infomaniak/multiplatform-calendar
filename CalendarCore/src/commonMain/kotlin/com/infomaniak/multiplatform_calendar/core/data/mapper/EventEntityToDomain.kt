@@ -64,6 +64,7 @@ internal fun EventContentEntity.toDomain(
         description = description?.ifBlank { null },
         location = location?.ifBlank { null },
         status = status,
+        timeBlocking = timeBlocking,
         classification = classification,
         categories = categories?.filter { it.isNotBlank() }.orEmpty(),
         timing = timing.toDomain(recurrenceRule = recurrenceRule, rDates = rDates, exDates = exDates),

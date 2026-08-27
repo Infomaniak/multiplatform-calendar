@@ -49,17 +49,18 @@ function release_ios {
     echo "Deletes all old caches"
     ./gradlew clean
     rm -rf build # We delete to avoid caching problems
-    rm -rf Core/build # We delete to avoid caching problems
-    rm -rf kmpdav/build # We delete to avoid caching problems
+    rm -rf CalendarCore/build # We delete to avoid caching problems
+    rm -rf CalendarKmpDav/build # We delete to avoid caching problems
     rm -rf .gradle # We delete to avoid caching problems
     rm -rf release # The release folder contains the old archives
 
     # Build
     echo "Build all Modules for XCFrameworks"
-    # `-PrustNativeRelease=true` forces the native Rust static lib to be compiled
-    # in release (~14 MB) instead of Gobley's default debug (~140 MB), which would
-    # otherwise bloat the "release" XCFramework (see kmpdav/build.gradle.kts).
-    ./gradlew :CalendarCore:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
+    # `-PreleaseBuild=true` forces the native Rust static lib to be compiled in release
+    # (~14 MB) instead of debug (~140 MB), which would otherwise bloat the "release"
+    # XCFramework. It is the project default (gradle.properties) but is repeated here so the
+    # release build never depends on a local override.
+    ./gradlew :CalendarCore:assembleMultiplatformCalendarReleaseXCFramework -PreleaseBuild=true
 
     # Strip debug info (DWARF) from each XCFramework slice.
     # The framework is *dynamic* (a linked Mach-O binary), so both the Kotlin and

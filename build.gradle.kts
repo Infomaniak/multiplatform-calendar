@@ -25,15 +25,13 @@
 // "shared build service" conflicts (e.g. KotlinNativeBundleBuildService) that
 // occur when a plugin is applied only to sibling projects and not their parent.
 plugins {
-    alias(kmpCalendar.plugins.android.library) apply false
+    alias(kmpCalendar.plugins.android.kmp.library) apply false
     alias(kmpCalendar.plugins.androidx.room) apply false
-    alias(kmpCalendar.plugins.gobley.cargo) apply false
-    alias(kmpCalendar.plugins.gobley.uniffi) apply false
     alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
     alias(kmpCalendar.plugins.kotlin.serialization) apply false
     alias(kmpCalendar.plugins.ksp) apply false
     alias(kmpCalendar.plugins.metro) apply false
     alias(kmpCalendar.plugins.skie) apply false
-    kotlin("plugin.atomicfu") version kmpCalendar.versions.kotlin apply false
+    alias(kmpCalendar.plugins.ubique.uniffi) apply false
 }
 

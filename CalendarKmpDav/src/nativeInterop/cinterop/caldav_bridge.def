@@ -1,3 +1,0 @@
-package = caldav_bridge
-headers = caldav_bridge.h
-staticLibraries = libcaldav_bridge.a

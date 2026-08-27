@@ -15,6 +15,6 @@ jobs:
         CalendarCore/build
         CalendarKmpDav/build
         CalendarKmpDav/rust/caldav_bridge/target
-      # Calendar still uses the classic com.android.library plugin (not androidLibrary),
-      # which doesn't have an "assembleAndroidMain" task - it builds debug/release variants instead.
-      build-task: assembleDebug assembleRelease linkDebugFrameworkIosSimulatorArm64 linkReleaseFrameworkIosSimulatorArm64
+      # The Android KMP library plugin (com.android.kotlin.multiplatform.library) produces a
+      # single variant, so there is one "assembleAndroidMain" task instead of debug/release ones.
+      build-task: assembleAndroidMain linkDebugFrameworkIosSimulatorArm64 linkReleaseFrameworkIosSimulatorArm64

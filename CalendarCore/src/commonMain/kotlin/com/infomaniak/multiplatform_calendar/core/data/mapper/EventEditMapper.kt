@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
@@ -64,6 +65,8 @@ internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): 
         timeZones = timing.vTimeZones(),
         colorChange = resolveColorChange(previous?.content?.colorArgb),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
+        exDateChange = RemoteDateListChange.Unchanged,
+        rDateChange = RemoteDateListChange.Unchanged,
         alarms = resolveAlarmEdits(alarms, previous?.content?.alarms.orEmpty()),
         stamp = stamp,
     )

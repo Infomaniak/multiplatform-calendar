@@ -24,7 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.toEventAndRawIcsEntities
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.mapper.RecurrenceDroppedException
 import com.infomaniak.multiplatform_calendar.core.data.mapper.ResolvedRecurrence
@@ -33,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrenceS
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEntities
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
@@ -241,16 +242,26 @@ internal class CalendarRepository(
             val recurrence = runCatching { event.resolveRecurrenceSet() }
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
                 .getOrElse { ResolvedRecurrence() }
+            // RANGE=THISANDFUTURE is kept as a plain single-instance override, like sabre/dav does:
+            // later instances stay at the master's position. Logged to size up how often it happens.
+            if (recurrence.hasRecurrence && event.overrides.any { it.isThisAndFuture }) {
+                logThisAndFutureOverride(event)
+            }
 
-            runCatching { EventWithRawIcs(event.toEntity(calendarId, recurrence = recurrence), event.icsData) }
+            runCatching {
+                val entity = event.toEntity(calendarId, recurrence = recurrence)
+                // A suspended series is rendered as a single event, so its overrides would never
+                // be applied — keeping them would only make the master surface at their positions.
+                val overrides = if (recurrence.hasRecurrence) event.toOverrideEntities(entity.content.timing) else emptyList()
+                EventWithRawIcs(entity, event.icsData, overrides)
+            }
                 .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
         }
         if (entities.isNotEmpty()) {
             runCatching {
-                val (eventEntities, rawIcsEntities) = entities.toEventAndRawIcsEntities()
                 // TODO[Optimize]: upsert in batches
-                eventDao.upsertEventsWithRawIcs(eventEntities, rawIcsEntities)
+                eventDao.upsertEventsWithRawIcs(entities.toUpsertBatch())
             }.onFailure {
                 // An error here is not critical, we can continue syncing other calendars
                 // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.
@@ -268,6 +279,14 @@ internal class CalendarRepository(
                 "rdateCount" to event.rDates.size.toString(),
                 "exdateCount" to event.exDates.size.toString(),
             ),
+            level = CrashReportLevel.Warning,
+        )
+    }
+
+    private fun logThisAndFutureOverride(event: RemoteDavEvent) {
+        crashReport.capture(
+            message = "Unsupported RANGE=THISANDFUTURE for event ${event.url}",
+            data = mapOf("rrule" to event.rrule.orEmpty()),
             level = CrashReportLevel.Warning,
         )
     }

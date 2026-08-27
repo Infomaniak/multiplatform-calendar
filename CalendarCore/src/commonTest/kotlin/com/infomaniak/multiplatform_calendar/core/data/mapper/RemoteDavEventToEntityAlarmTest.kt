@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -115,27 +116,29 @@ class RemoteDavEventToEntityAlarmTest {
         etag = "etag-1",
         icsData = icsData,
         uid = "uid-1",
-        summary = "Test",
-        description = null,
-        location = null,
-        dtstart = "20260615T100000Z",
-        dtStartTzid = null,
-        dtend = "20260615T110000Z",
-        dtEndTzid = null,
-        duration = null,
-        created = null,
-        lastModified = null,
-        dtstamp = null,
         rrule = null,
-        status = null,
-        transp = null,
-        classification = null,
-        priority = null,
-        sequence = null,
-        categories = null,
-        colorHex = null,
-        colorIcalName = null,
-        attendees = emptyList(),
-        alarms = alarms,
+        content = RemoteDavEventContent(
+            summary = "Test",
+            description = null,
+            location = null,
+            dtstart = "20260615T100000Z",
+            dtStartTzid = null,
+            dtend = "20260615T110000Z",
+            dtEndTzid = null,
+            duration = null,
+            created = null,
+            lastModified = null,
+            dtstamp = null,
+            status = null,
+            transp = null,
+            classification = null,
+            priority = null,
+            sequence = null,
+            categories = null,
+            colorHex = null,
+            colorIcalName = null,
+            attendees = emptyList(),
+            alarms = alarms,
+        ),
     )
 }

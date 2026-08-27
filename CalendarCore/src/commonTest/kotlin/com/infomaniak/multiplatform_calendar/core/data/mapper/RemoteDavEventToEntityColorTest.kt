@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -101,26 +102,28 @@ class RemoteDavEventToEntityColorTest {
         etag = "etag-1",
         icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
         uid = "uid-1",
-        summary = "Test",
-        description = null,
-        location = null,
-        dtstart = "20260615T100000Z",
-        dtStartTzid = null,
-        dtend = "20260615T110000Z",
-        dtEndTzid = null,
-        duration = null,
-        created = null,
-        lastModified = null,
-        dtstamp = null,
         rrule = null,
-        status = null,
-        transp = null,
-        classification = null,
-        priority = null,
-        sequence = null,
-        categories = null,
-        colorHex = colorHex,
-        colorIcalName = colorIcalName,
-        attendees = emptyList(),
+        content = RemoteDavEventContent(
+            summary = "Test",
+            description = null,
+            location = null,
+            dtstart = "20260615T100000Z",
+            dtStartTzid = null,
+            dtend = "20260615T110000Z",
+            dtEndTzid = null,
+            duration = null,
+            created = null,
+            lastModified = null,
+            dtstamp = null,
+            status = null,
+            transp = null,
+            classification = null,
+            priority = null,
+            sequence = null,
+            categories = null,
+            colorHex = colorHex,
+            colorIcalName = colorIcalName,
+            attendees = emptyList(),
+        ),
     )
 }

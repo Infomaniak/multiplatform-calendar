@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavA
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
@@ -47,6 +48,7 @@ import uniffi.caldav_bridge.AttendeeEntry
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
+import uniffi.caldav_bridge.EventContentEntry
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.EventOverrideEntry
@@ -281,46 +283,27 @@ private fun RemoteRecurrenceChange.toRust(): RecurrenceChange = when (this) {
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)
 
-private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
-    return RemoteDavEvent(
-        url = this.url,
-        etag = this.etag,
-        icsData = this.icsData,
-        uid = this.uid,
-        summary = this.summary,
-        description = this.description,
-        location = this.location,
-        dtstart = this.dtstart,
-        dtStartTzid = this.dtstartTzid,
-        dtend = this.dtend,
-        dtEndTzid = this.dtendTzid,
-        duration = this.duration,
-        created = this.created,
-        lastModified = this.lastModified,
-        dtstamp = this.dtstamp,
-        rrule = this.rrule,
-        rDates = this.rdates.map(IcalDateValueEntry::toRemote),
-        exDates = this.exdates.map(IcalDateValueEntry::toRemote),
-        status = this.status,
-        transp = this.transp,
-        classification = this.classification,
-        priority = this.priority,
-        sequence = this.sequence,
-        categories = this.categories,
-        colorHex = this.colorHex,
-        colorIcalName = this.colorIcalName,
-        attendees = this.attendees.map(AttendeeEntry::toRemote),
-        organizer = this.organizer?.toRemote(),
-        alarms = this.alarms.map(AlarmEntry::toRemote),
-        overrides = this.overrides.map(EventOverrideEntry::toRemote),
-    )
-}
+private fun EventEntry.toRemoteEvent() = RemoteDavEvent(
+    url = url,
+    etag = etag,
+    icsData = icsData,
+    uid = uid,
+    rrule = rrule,
+    rDates = rdates.map(IcalDateValueEntry::toRemote),
+    exDates = exdates.map(IcalDateValueEntry::toRemote),
+    content = content.toRemote(),
+    overrides = overrides.map(EventOverrideEntry::toRemote),
+)
 
 private fun EventOverrideEntry.toRemote() = RemoteDavEventOverride(
     recurrenceId = recurrenceId,
     recurrenceIdTzid = recurrenceIdTzid,
     recurrenceIdValueType = recurrenceIdValueType.toRemote(),
     isThisAndFuture = recurrenceIdRange.equals("THISANDFUTURE", ignoreCase = true),
+    content = content.toRemote(),
+)
+
+private fun EventContentEntry.toRemote() = RemoteDavEventContent(
     summary = summary,
     description = description,
     location = location,

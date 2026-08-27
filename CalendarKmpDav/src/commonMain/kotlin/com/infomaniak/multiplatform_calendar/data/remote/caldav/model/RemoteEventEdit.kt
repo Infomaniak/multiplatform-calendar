@@ -42,6 +42,8 @@ data class RemoteEventEdit(
     val timeZones: List<RemoteVTimeZone>,
     val colorChange: RemoteColorChange,
     val recurrenceChange: RemoteRecurrenceChange,
+    val exDateChange: RemoteDateListChange,
+    val rDateChange: RemoteDateListChange,
     val alarms: List<RemoteAlarmEdit>?,
     val stamp: String,
 )

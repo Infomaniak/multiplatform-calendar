@@ -32,5 +32,4 @@ internal enum class RecurrenceRuleFailureReason {
     UntilTypeMismatch,
     RecurrenceDateTypeMismatch,
     RdatePeriodUnsupported,
-    RangeThisAndFutureUnsupported,
 }

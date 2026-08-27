@@ -19,8 +19,12 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleSerializer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -32,6 +36,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
@@ -49,7 +54,16 @@ import kotlinx.datetime.offsetIn
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
-internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): RemoteEventEdit {
+/**
+ * [exDates]/[rDates] stay out of [EventEditData] on purpose — only occurrence-level operations touch a
+ * series' recurrence set, so a plain edit leaves it alone (see [DateListEdit]).
+ */
+internal fun EventEditData.toRemoteEdit(
+    stamp: String,
+    previous: EventEntity?,
+    exDates: DateListEdit = DateListEdit.Preserve,
+    rDates: DateListEdit = DateListEdit.Preserve,
+): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
     return RemoteEventEdit(
@@ -64,8 +78,8 @@ internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): 
         timeZones = timing.vTimeZones(),
         colorChange = resolveColorChange(previous?.colorArgb),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
-        exDateChange = RemoteDateListChange.Unchanged,
-        rDateChange = RemoteDateListChange.Unchanged,
+        exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
+        rDateChange = timing.resolveDateListChange(rDates, previous, previous?.rDates),
         alarms = resolveAlarmEdits(alarms, previous?.alarms.orEmpty()),
         stamp = stamp,
     )
@@ -118,6 +132,72 @@ private fun RecurrenceUntil.calendarDateTime(): LocalDateTime = when (this) {
     is DateOnly -> date.atTime(0, 0)
     is Floating -> dateTime
     is DateTimeUtc -> instant.toLocalDateTime(UTC)
+}
+
+/**
+ * Tri-state `EXDATE`/`RDATE` change. [DateListEdit.Set] values are first coerced to the value type this
+ * edit's `DTSTART` requires (see [coercedToDtStartForm]) — [resolveRecurrence] rejects a mismatched form
+ * on reparse, and coercing before the equality check lets a type-only change re-emit instead of being
+ * masked as [RemoteDateListChange.Unchanged].
+ *
+ * All values then share one form and one zone, so a single line is enough (RFC 5545 §3.2.19).
+ */
+private fun EventTiming.resolveDateListChange(
+    edit: DateListEdit,
+    previous: EventEntity?,
+    previousValues: List<IcalDateValue>?,
+): RemoteDateListChange {
+    val values = when (edit) {
+        DateListEdit.Preserve -> return RemoteDateListChange.Unchanged
+        DateListEdit.Clear -> emptyList()
+        is DateListEdit.Set -> edit.values
+    }
+    // The values designate occurrences of the master as it stands *before* this edit.
+    val reference = previous?.timing?.toDomain() ?: this
+    val coerced = values.mapNotNull { it.coercedToDtStartForm(reference, isAllDay, startTimeZone) }
+    return when {
+        coerced == previousValues.orEmpty() -> RemoteDateListChange.Unchanged
+        coerced.isEmpty() -> RemoteDateListChange.Cleared
+        else -> RemoteDateListChange.Set(
+            lines = listOf(
+                RemoteDateListLine(
+                    tzid = startTimeZone.tzidForIcal(isAllDay),
+                    isDateOnly = isAllDay,
+                    values = coerced.map { it.calendarDateTime().toICal(isAllDay, startTimeZone) },
+                ),
+            ),
+        )
+    }
+}
+
+/**
+ * This value re-expressed in the form a `DTSTART` described by [isAllDay]/[zone] requires, still
+ * designating the occurrence it designated on [reference] (the master as stored before this edit).
+ *
+ * A value only excludes — or adds — an occurrence when it equals that occurrence's start, so the
+ * emitted form has to preserve the wall-clock [reference] resolved it to. Reading the value's own face
+ * instead would silently move it: a date-only value would land on midnight rather than the master's
+ * time of day, and a value carrying a foreign `TZID` would be reinterpreted in the master's zone.
+ *
+ * Returns `null` when the value designates nothing on [reference] — the expander ignores it too.
+ */
+private fun IcalDateValue.coercedToDtStartForm(
+    reference: EventTiming,
+    isAllDay: Boolean,
+    zone: TimeZone?,
+): IcalDateValue? {
+    val face = toRecurrenceKey(reference)?.toLocalStart(reference, defaultZone = UTC) ?: return null
+    return when {
+        isAllDay -> IcalDateValue.AllDay(face.date)
+        zone == null -> IcalDateValue.Floating(face)
+        else -> IcalDateValue.Zoned(face.toInstant(zone), zone.id)
+    }
+}
+
+private fun IcalDateValue.calendarDateTime(): LocalDateTime = when (this) {
+    is IcalDateValue.AllDay -> date.atTime(0, 0)
+    is IcalDateValue.Floating -> localDateTime
+    is IcalDateValue.Zoned -> instant.toLocalDateTime(TimeZone.of(timeZoneId))
 }
 
 /**

@@ -262,24 +262,31 @@ private fun EventTiming.buildOccurrenceAt(
     )
 }
 
-private fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? = when {
-    master.isAllDay && this is IcalDateValue.AllDay -> AllDay(date)
-    !master.isAllDay && this is IcalDateValue.AllDay -> {
-        val local = LocalDateTime(date, master.start.time)
-        when (val zone = master.startTimeZone) {
-            null -> Floating(local)
-            TimeZone.UTC -> Utc(local.toInstant(TimeZone.UTC))
-            else -> Zoned(local, zone.id)
+/**
+ * The occurrence this `RDATE`/`EXDATE` value designates on [master], or `null` when its form can't
+ * designate one. Shared with the write path so an edit re-emits a value that still matches.
+ *
+ * The value only carries *where* the occurrence starts; which key form identifies it is the master's
+ * business, hence the delegation to [recurrenceKeyAt].
+ */
+internal fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? {
+    val zone = master.startTimeZone
+    val (localStart, instantStart) = when {
+        // A bare DATE designates the occurrence falling on that day, which starts at the master's time.
+        this is IcalDateValue.AllDay -> {
+            val local = LocalDateTime(date, master.start.time)
+            local to local.toInstant(zone ?: TimeZone.UTC)
         }
+        // Only a DATE can designate an occurrence of an all-day master.
+        master.isAllDay -> return null
+        this is IcalDateValue.Floating && zone == null -> localDateTime to localDateTime.toInstant(TimeZone.UTC)
+        this is IcalDateValue.Zoned && zone != null -> instant.toLocalDateTime(zone) to instant
+        else -> return null
     }
-    !master.isAllDay && master.startTimeZone == null && this is IcalDateValue.Floating -> Floating(localDateTime)
-    !master.isAllDay && master.startTimeZone == TimeZone.UTC && this is IcalDateValue.Zoned -> Utc(instant)
-    !master.isAllDay && master.startTimeZone != null && master.startTimeZone != TimeZone.UTC && this is IcalDateValue.Zoned ->
-        Zoned(instant.toLocalDateTime(master.startTimeZone), master.startTimeZone.id)
-    else -> null
+    return master.recurrenceKeyAt(localStart, instantStart)
 }
 
-private fun RecurrenceKey.toLocalStart(master: EventTiming, defaultZone: TimeZone): LocalDateTime? = when (this) {
+internal fun RecurrenceKey.toLocalStart(master: EventTiming, defaultZone: TimeZone): LocalDateTime? = when (this) {
     is AllDay -> LocalDateTime(date, master.start.time)
     is Floating -> localDateTime
     is Zoned -> if (master.startTimeZone != null) localDateTime else null

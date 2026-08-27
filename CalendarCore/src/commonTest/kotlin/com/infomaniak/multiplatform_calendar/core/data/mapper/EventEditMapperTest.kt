@@ -20,14 +20,18 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -301,9 +305,205 @@ class EventEditMapperTest {
         assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange)
     }
 
+    // ---- EXDATE / RDATE (RFC 5545 §3.8.5.1-2) ---------------------------------------------------
+
+    @Test
+    fun createWithoutExDates_emitsUnchanged() {
+        val edit = editData(recurrence = null, isAllDay = false, zone = TimeZone.UTC).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteDateListChange.Unchanged, edit.exDateChange)
+        assertEquals(RemoteDateListChange.Unchanged, edit.rDateChange)
+    }
+
+    @Test
+    fun utcExDates_emitZSuffixedValuesOnASingleLine() {
+        val exDates = listOf(zonedAt(2026, 6, 22, TimeZone.UTC), zonedAt(2026, 6, 29, TimeZone.UTC))
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = TimeZone.UTC)
+            .toRemoteEdit(previous = null, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(
+                listOf(RemoteDateListLine(tzid = null, isDateOnly = false, values = listOf("20260622T100000Z", "20260629T100000Z"))),
+            ),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun zonedExDates_emitLocalValuesWithTheDtStartTzid() {
+        val exDates = listOf(zonedAt(2026, 6, 22, paris))
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = paris)
+            .toRemoteEdit(previous = null, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(
+                listOf(RemoteDateListLine(tzid = "Europe/Paris", isDateOnly = false, values = listOf("20260622T100000"))),
+            ),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun allDayExDates_emitDateOnlyValuesWithoutATzid() {
+        val exDates = listOf(IcalDateValue.AllDay(LocalDate(2026, 6, 22)))
+
+        val edit = editData(recurrence = null, isAllDay = true, zone = null)
+            .toRemoteEdit(previous = null, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(listOf(RemoteDateListLine(tzid = null, isDateOnly = true, values = listOf("20260622")))),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun floatingExDates_emitBareLocalValues() {
+        val exDates = listOf(IcalDateValue.Floating(LocalDateTime(2026, 6, 22, 10, 0)))
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = null)
+            .toRemoteEdit(previous = null, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(
+                listOf(RemoteDateListLine(tzid = null, isDateOnly = false, values = listOf("20260622T100000"))),
+            ),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun exDateCarryingAForeignTzid_keepsTheOccurrenceItDesignated() {
+        // 10:00 New York is 16:00 Paris: an unrelated edit must re-emit the occurrence the value
+        // already designated, not reinterpret its face in the event's own zone.
+        val exDates = listOf(zonedAt(2026, 6, 22, newYork))
+        val previous = eventEntity(colorArgb = null, exDates = exDates, startTimeZone = paris)
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = paris)
+            .toRemoteEdit(previous = previous, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(
+                listOf(RemoteDateListLine(tzid = "Europe/Paris", isDateOnly = false, values = listOf("20260622T160000"))),
+            ),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun dateOnlyExDateOnATimedEvent_keepsTheMasterTimeOfDay() {
+        // A bare DATE excludes the occurrence falling on that day, which starts at the master's time.
+        val exDates = listOf(IcalDateValue.AllDay(LocalDate(2026, 6, 22)))
+        val previous = eventEntity(colorArgb = null, startTimeZone = paris)
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = paris)
+            .toRemoteEdit(previous = previous, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(
+                listOf(RemoteDateListLine(tzid = "Europe/Paris", isDateOnly = false, values = listOf("20260622T100000"))),
+            ),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun movingTheEventToAnotherZone_movesItsExDatesAlong() {
+        // The excluded occurrence moves with the event, so its EXDATE keeps the same wall-clock.
+        val exDates = listOf(zonedAt(2026, 6, 22, paris))
+        val previous = eventEntity(colorArgb = null, exDates = exDates, startTimeZone = paris)
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = newYork)
+            .toRemoteEdit(previous = previous, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(
+                listOf(
+                    RemoteDateListLine(tzid = "America/New_York", isDateOnly = false, values = listOf("20260622T100000")),
+                ),
+            ),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun editKeepingSameExDates_emitsUnchanged() {
+        val exDates = listOf(zonedAt(2026, 6, 22, TimeZone.UTC))
+        val previous = eventEntity(colorArgb = null, exDates = exDates)
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = TimeZone.UTC)
+            .toRemoteEdit(previous = previous, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(RemoteDateListChange.Unchanged, edit.exDateChange)
+    }
+
+    @Test
+    fun editRemovingEveryExDate_emitsCleared() {
+        val previous = eventEntity(colorArgb = null, exDates = listOf(zonedAt(2026, 6, 22, TimeZone.UTC)))
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = TimeZone.UTC)
+            .toRemoteEdit(previous = previous, stamp = STAMP, exDates = DateListEdit.Clear)
+
+        assertEquals(RemoteDateListChange.Cleared, edit.exDateChange)
+    }
+
+    @Test
+    fun editLeavingExDatesOut_preservesThem() {
+        // An editor that only touches a title must not drop the series' exceptions by omission.
+        val previous = eventEntity(colorArgb = null, exDates = listOf(zonedAt(2026, 6, 22, TimeZone.UTC)))
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = TimeZone.UTC)
+            .toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteDateListChange.Unchanged, edit.exDateChange)
+        assertEquals(RemoteDateListChange.Unchanged, edit.rDateChange)
+    }
+
+    @Test
+    fun editTogglingAllDay_reEmitsExDatesInTheNewForm() {
+        // A stored DATE-TIME EXDATE on an all-day DTSTART is rejected on reparse, so the form change
+        // alone must re-emit instead of being masked as Unchanged.
+        val exDates = listOf(zonedAt(2026, 6, 22, TimeZone.UTC))
+        val previous = eventEntity(colorArgb = null, exDates = exDates)
+
+        val edit = editData(recurrence = null, isAllDay = true, zone = null)
+            .toRemoteEdit(previous = previous, stamp = STAMP, exDates = DateListEdit.Set(exDates))
+
+        assertEquals(
+            RemoteDateListChange.Set(listOf(RemoteDateListLine(tzid = null, isDateOnly = true, values = listOf("20260622")))),
+            edit.exDateChange,
+        )
+    }
+
+    @Test
+    fun rDatesAreResolvedIndependentlyOfExDates() {
+        val previous = eventEntity(colorArgb = null, exDates = listOf(zonedAt(2026, 6, 22, TimeZone.UTC)))
+        val rDates = listOf(zonedAt(2026, 7, 1, TimeZone.UTC))
+
+        val edit = editData(recurrence = null, isAllDay = false, zone = TimeZone.UTC).toRemoteEdit(
+            previous = previous,
+            stamp = STAMP,
+            exDates = DateListEdit.Clear,
+            rDates = DateListEdit.Set(rDates),
+        )
+
+        assertEquals(RemoteDateListChange.Cleared, edit.exDateChange)
+        assertEquals(
+            RemoteDateListChange.Set(
+                listOf(RemoteDateListLine(tzid = null, isDateOnly = false, values = listOf("20260701T100000Z"))),
+            ),
+            edit.rDateChange,
+        )
+    }
+
     // ---- Helpers --------------------------------------------------------------------------------
 
-    private fun editData(recurrence: RecurrenceRule?, isAllDay: Boolean, zone: TimeZone?) = EventEditData(
+    private fun editData(
+        recurrence: RecurrenceRule?,
+        isAllDay: Boolean,
+        zone: TimeZone?,
+    ) = EventEditData(
         title = "Test",
         timing = EventTiming(
             start = LocalDateTime(2026, 6, 15, 10, 0),
@@ -363,13 +563,22 @@ class EventEditMapperTest {
         alarms = emptyList(),
     )
 
-    private fun eventEntity(colorArgb: Int?, colorIcalName: String? = null, rrule: RecurrenceRule? = null) = EventEntity(
+    private fun eventEntity(
+        colorArgb: Int?,
+        colorIcalName: String? = null,
+        rrule: RecurrenceRule? = null,
+        exDates: List<IcalDateValue> = emptyList(),
+        rDates: List<IcalDateValue> = emptyList(),
+        startTimeZone: TimeZone? = TimeZone.UTC,
+    ) = EventEntity(
         id = EventId("https://cal/tests/1.ics"),
         calendarId = calendarId,
         summary = "Test",
         timing = EventTimingEntity(
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+            startTimeZone = startTimeZone?.id,
+            endTimeZone = startTimeZone?.id,
             dtStartInstantMs = null,
             dtEndInstantMs = null,
         ),
@@ -377,7 +586,13 @@ class EventEditMapperTest {
         colorArgb = colorArgb,
         colorIcalName = colorIcalName,
         rrule = rrule,
+        rDates = rDates,
+        exDates = exDates,
     )
+
+    /** An [IcalDateValue.Zoned] whose wall-clock is 10:00 in [zone] on the given day. */
+    private fun zonedAt(year: Int, month: Int, day: Int, zone: TimeZone) =
+        IcalDateValue.Zoned(LocalDateTime(year, month, day, 10, 0).toInstant(zone), zone.id)
 
     private companion object {
         const val STAMP = "20260615T090000Z"

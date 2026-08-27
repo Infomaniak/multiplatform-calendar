@@ -21,7 +21,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RangeThisAndFutureUnsupported
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
@@ -32,7 +31,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -229,16 +228,18 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun thisAndFutureOverrideSuspendsTheWholeSeries() {
+    fun thisAndFutureOverrideIsKeptAsAPlainSingleInstanceOverride() {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             rrule = "FREQ=DAILY;COUNT=5",
             overrides = listOf(override(recurrenceId = "20260617T100000Z", dtstart = "20260617T140000Z", isThisAndFuture = true)),
         )
 
-        val exception = assertFailsWith<RecurrenceDroppedException> { event.resolveRecurrenceSet() }
+        val recurrence = event.resolveRecurrenceSet()
 
-        assertEquals(RangeThisAndFutureUnsupported.name, exception.reason)
+        assertNotNull(recurrence.rule)
+        val override = event.toOverrideEntities(event.toTimingEntity()).single()
+        assertEquals(LocalDateTime(2026, 6, 17, 14, 0), override.content.timing.dtStart)
     }
 
     @Test

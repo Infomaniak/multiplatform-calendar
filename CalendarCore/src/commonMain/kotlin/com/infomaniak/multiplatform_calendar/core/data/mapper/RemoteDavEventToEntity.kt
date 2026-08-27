@@ -31,7 +31,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RangeThisAndFutureUnsupported
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RdatePeriodUnsupported
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RecurrenceDateTypeMismatch
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.UntilTypeMismatch
@@ -132,18 +131,11 @@ internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
 @Throws(RecurrenceDroppedException::class)
 internal fun RemoteDavEvent.resolveRecurrenceSet(): ResolvedRecurrence {
     val form = dtStartForm()
-    val rule = resolveRecurrence()
-    val rDates = parseIcalDateValues(values = rDates, propertyName = "RDATE", form = form)
-    val exDates = parseIcalDateValues(values = exDates, propertyName = "EXDATE", form = form)
-    val resolved = ResolvedRecurrence(rule = rule, rDates = rDates, exDates = exDates)
-
-    // RANGE=THISANDFUTURE redefines every later instance: expanding the master anyway would render
-    // them all wrong, so the whole series falls back to a single event.
-    if (resolved.hasRecurrence && overrides.any { it.isThisAndFuture }) {
-        throw RecurrenceDroppedException(RangeThisAndFutureUnsupported.name)
-    }
-
-    return resolved
+    return ResolvedRecurrence(
+        rule = resolveRecurrence(),
+        rDates = parseIcalDateValues(values = rDates, propertyName = "RDATE", form = form),
+        exDates = parseIcalDateValues(values = exDates, propertyName = "EXDATE", form = form),
+    )
 }
 
 internal class RecurrenceDroppedException(val reason: String) : Exception(reason)

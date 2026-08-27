@@ -242,6 +242,11 @@ internal class CalendarRepository(
             val recurrence = runCatching { event.resolveRecurrenceSet() }
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
                 .getOrElse { ResolvedRecurrence() }
+            // RANGE=THISANDFUTURE is kept as a plain single-instance override, like sabre/dav does:
+            // later instances stay at the master's position. Logged to size up how often it happens.
+            if (recurrence.hasRecurrence && event.overrides.any { it.isThisAndFuture }) {
+                logThisAndFutureOverride(event)
+            }
 
             runCatching {
                 val entity = event.toEntity(calendarId, recurrence = recurrence)
@@ -274,6 +279,14 @@ internal class CalendarRepository(
                 "rdateCount" to event.rDates.size.toString(),
                 "exdateCount" to event.exDates.size.toString(),
             ),
+            level = CrashReportLevel.Warning,
+        )
+    }
+
+    private fun logThisAndFutureOverride(event: RemoteDavEvent) {
+        crashReport.capture(
+            message = "Unsupported RANGE=THISANDFUTURE for event ${event.url}",
+            data = mapOf("rrule" to event.rrule.orEmpty()),
             level = CrashReportLevel.Warning,
         )
     }

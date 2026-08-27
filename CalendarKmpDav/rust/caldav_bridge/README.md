@@ -16,20 +16,21 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # 2. Add cross-compilation targets
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin \
-                  aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+                  aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 ```
 
 ## Build
 
-No manual build step required. The Gradle plugins `dev.gobley.cargo` and `dev.gobley.uniffi` handle everything:
+No manual build step required. The `ch.ubique.uniffi.plugin` Gradle plugin handles everything:
 
 ```bash
 # From the multiplatform-calendar root:
-./gradlew :kmpdav:assembleDebug          # Android
-./gradlew :kmpdav:compileKotlinIosArm64  # iOS
+./gradlew :CalendarKmpDav:assembleAndroidMain      # Android
+./gradlew :CalendarKmpDav:compileKotlinIosArm64    # iOS
 ```
 
-Gobley compiles the Rust crate for each KMP target and generates Kotlin/Swift bindings automatically.
+The plugin compiles the Rust crate for each KMP target (via the NDK for Android) and generates the Kotlin bindings
+automatically. `.cargo/config.toml` pins the iOS link deployment target — see the comment in that file.
 
 ## Architecture
 

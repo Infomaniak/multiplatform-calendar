@@ -1,0 +1,14 @@
+# Workaround for aws-lc-sys (pulled by fast-dav-rs → hyper-rustls → rustls → aws-lc-rs) under
+# Xcode 26: its C objects are compiled by the `cc` crate at the SDK default (iOS 16+) while rustc
+# links at its own default of iOS 10.0, which yields "built for newer 'iOS' version" warnings and
+# an undefined `___chkstk_darwin` (only available from iOS 12). Raising the link deployment target
+# aligns both sides.
+#
+# This is scoped per target on purpose: the equivalent `[env] IPHONEOS_DEPLOYMENT_TARGET` applies
+# to every cargo invocation, including the macOS host build of aws-lc-sys' memcmp probe, which then
+# builds a binary it cannot execute and panics.
+[target.aarch64-apple-ios]
+rustflags = ["-C", "link-arg=-target", "-C", "link-arg=arm64-apple-ios16.0"]
+
+[target.aarch64-apple-ios-sim]
+rustflags = ["-C", "link-arg=-target", "-C", "link-arg=arm64-apple-ios16.0-simulator"]

@@ -1,22 +1,21 @@
 [versions]
 # Keep this version synced with Core's agp version
-agp = "8.13.2" # Delete this to-do on agp 9+ after searching and checking the project for the following: TODO[AGP9
+agp = "9.3.2"
 coroutines = "1.11.0"
 coreKtx = "1.7.0"
 datetime = "0.8.0"
-gobley = "0.3.7"
-kotlin = "2.3.21"
-ksp = "2.3.9"
+kotlin = "2.4.10"
+ksp = "2.3.11"
 ktor = "3.5.0"
 materialKolor = "4.1.1"
-metro = "1.0.0" # See https://github.com/ZacSweers/metro/blob/main/docs/compatibility.md.
-room3 = "3.0.0"
-skie = "0.10.12"
+metro = "1.4.2" # See https://github.com/ZacSweers/metro/blob/main/docs/compatibility.md.
+room3 = "3.0.2"
+skie = "0.10.14"
 serialization = "1.9.0"
 sqlite = "2.6.2"
 robolectric = "4.16.1"
 # Rust
-atomicfu = "0.29.0"
+ubiqueUniffi = "1.2.1"
 
 [libraries]
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
@@ -41,9 +40,8 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 
 [plugins]
-android-library = { id = "com.android.library", version.ref = "agp" }
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidx-room = { id = "androidx.room3", version.ref = "room3" }
-ensureNdkVersion = { id = "ensure-ndk-version" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
@@ -52,9 +50,7 @@ metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
 publish = { id = "infomaniak.publishPlugin" }
 skie = { id = "co.touchlab.skie", version.ref = "skie" }
 # Rust
-kotlin-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "atomicfu" }
-gobley-cargo = { id = "dev.gobley.cargo", version.ref = "gobley" }
-gobley-uniffi = { id = "dev.gobley.uniffi", version.ref = "gobley" }
+ubique-uniffi = { id = "ch.ubique.uniffi.plugin", version.ref = "ubiqueUniffi" }
 
 
 [bundles]

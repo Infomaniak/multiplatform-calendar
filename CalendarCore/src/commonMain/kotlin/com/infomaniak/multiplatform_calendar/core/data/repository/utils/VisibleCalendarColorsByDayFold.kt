@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.comparePerDayDisplayOrder
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrenceOccurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.lastInclusiveDay
@@ -134,7 +135,7 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
                 firstDaySortKey = DayColorSortKey(
                     isAllDay = occurrence.isAllDay,
                     displayStart = startLocalDateTime,
-                    occurrenceSortId = "${row.eventId.url}#${occurrence.key.canonical}",
+                    occurrenceSortId = OccurrenceId.of(row.eventId, occurrence.key).value,
                 ),
             )
         }

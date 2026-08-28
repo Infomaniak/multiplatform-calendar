@@ -36,8 +36,8 @@ import kotlin.time.Instant
  * [EventTiming][com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming] forms
  * keeps the key faithful to the original value type.
  *
- * [canonical] yields a deterministic string suitable for building a synthetic instance id
- * (`masterId + "#" + key.canonical`).
+ * [canonical] yields a deterministic string suitable for building a synthetic instance id, which
+ * [OccurrenceId.of][com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId.of] does.
  */
 internal sealed class RecurrenceKey {
 

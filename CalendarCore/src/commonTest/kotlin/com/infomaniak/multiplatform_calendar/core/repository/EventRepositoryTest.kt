@@ -40,12 +40,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classificat
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -69,6 +71,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.AfterTest
@@ -194,6 +197,126 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
         assertTrue(occurrenceIds.all { it.startsWith("event://daily#") }, "ids must be masterId#key")
         assertEquals(5, slicesByDay.keys.size, "each occurrence lands on its own day")
+    }
+
+    /**
+     * End-to-end guard for the database-to-expander path: the Room relation, the override mapper and the
+     * recurrence-key lookup all sit between the DAO and the rendered occurrence, and none of them is
+     * exercised by the expander's own tests, which inject an already-built series.
+     */
+    @Test
+    fun observeVisibleDaySlices_rendersAStoredOverrideInPlaceOfItsOccurrence() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val master = dailyMasterEntity(EventId("event://daily-overridden"), calendarId)
+        val overriddenSlot = LocalDateTime(2026, 6, 17, 10, 0)
+        val override = overrideEntity(master.id, originalStart = overriddenSlot, movedTo = LocalDateTime(2026, 6, 17, 15, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val slicesByDay = repository.observeVisibleDaySlices(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val events = slicesByDay.values.flatten().map { it.event }
+        assertEquals(5, events.size, "the override replaces its occurrence, it does not add one")
+
+        val expectedId = "${master.id.url}#${RecurrenceKey.Utc(overriddenSlot.toInstant(TimeZone.UTC)).canonical}"
+        val rendered = events.single { it.occurrenceId.value == expectedId }
+        assertEquals("Moved instance", rendered.title, "the override's own content must reach the rendered occurrence")
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), rendered.timing.start, "and its own, moved timing")
+        assertEquals(
+            1,
+            events.count { it.timing.start.date == LocalDateTime(2026, 6, 17, 0, 0).date },
+            "the theoretical 10:00 slot must be gone, not doubled",
+        )
+    }
+
+    @Test
+    fun observeVisibleDaySlices_dropsAStoredCancelledOverride() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val master = dailyMasterEntity(EventId("event://daily-cancelled"), calendarId)
+        val override = overrideEntity(
+            master.id,
+            originalStart = LocalDateTime(2026, 6, 17, 10, 0),
+            status = EventStatus.CANCELLED,
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val slicesByDay = repository.observeVisibleDaySlices(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val days = slicesByDay.values.flatten().map { it.event.timing.start.date }
+        assertEquals(4, days.size, "a cancelled override deletes its occurrence")
+        assertTrue(LocalDateTime(2026, 6, 17, 0, 0).date !in days, "and it is the overridden day that disappears")
+    }
+
+    private fun dailyMasterEntity(eventId: EventId, calendarId: CalendarId): EventEntity {
+        val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
+        val dtEnd = LocalDateTime(2026, 6, 15, 11, 0)
+        return EventEntity(
+            id = eventId,
+            calendarId = calendarId,
+            content = EventContentEntity(
+                summary = "Daily 10-11",
+                timing = EventTimingEntity(
+                    dtStart = dtStart,
+                    dtEndEffective = dtEnd,
+                    startTimeZone = TimeZone.UTC.id,
+                    endTimeZone = TimeZone.UTC.id,
+                    dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                    dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                ),
+            ),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            hasRecurrence = true,
+            recurrenceBounds = RecurrenceBoundsEntity(
+                firstOccurrenceInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                recurrenceBoundKind = RecurrenceBoundKind.FiniteDeferred,
+            ),
+            etag = "1",
+        )
+    }
+
+    private fun overrideEntity(
+        masterId: EventId,
+        originalStart: LocalDateTime,
+        movedTo: LocalDateTime = originalStart,
+        status: EventStatus? = null,
+    ): EventOverrideEntity {
+        val originalEnd = LocalDateTime(originalStart.date, LocalTime(originalStart.hour + 1, originalStart.minute))
+        val movedEnd = LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute))
+        return EventOverrideEntity(
+            masterId = masterId,
+            recurrenceKey = RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC)),
+            originalStartInstantMs = originalStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            originalEndInstantMs = originalEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            originalStartLocalDateTime = originalStart,
+            originalEndLocalDateTime = originalEnd,
+            content = EventContentEntity(
+                summary = "Moved instance",
+                status = status,
+                timing = EventTimingEntity(
+                    dtStart = movedTo,
+                    dtEndEffective = movedEnd,
+                    startTimeZone = TimeZone.UTC.id,
+                    endTimeZone = TimeZone.UTC.id,
+                    dtStartInstantMs = movedTo.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                    dtEndInstantMs = movedEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                ),
+            ),
+        )
     }
 
     @Test

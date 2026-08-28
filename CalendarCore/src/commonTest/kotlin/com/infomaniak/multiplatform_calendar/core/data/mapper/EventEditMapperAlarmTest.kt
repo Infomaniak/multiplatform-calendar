@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -154,15 +155,17 @@ class EventEditMapperAlarmTest {
     private fun eventEntity(alarms: List<AlarmEntity>) = EventEntity(
         id = EventId("https://cal/tests/1.ics"),
         calendarId = calendarId,
-        summary = "Test",
-        timing = EventTimingEntity(
-            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
-            dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
-            dtStartInstantMs = null,
-            dtEndInstantMs = null,
+        content = EventContentEntity(
+            summary = "Test",
+            timing = EventTimingEntity(
+                dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+                dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
+                dtStartInstantMs = null,
+                dtEndInstantMs = null,
+            ),
+            alarms = alarms,
         ),
         etag = "etag-1",
-        alarms = alarms,
     )
 
     private companion object {

@@ -24,15 +24,16 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvents
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyCalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
@@ -66,12 +67,13 @@ internal class EventRepository(
     private val crashReport: CrashReport,
 ) {
 
-    fun observeVisibleEvents(
+    /** The visible masters of the window, each with the overrides redefining one of its instances. */
+    private fun observeVisibleEventsWithOverrides(
         accountIds: Set<AccountId>,
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<Event>> {
+    ): Flow<List<EventWithOverrides>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
         // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
         // - Wall-clock strings for floating events, re-interpreted in [zone] so a floating event
@@ -84,8 +86,16 @@ internal class EventRepository(
             endInstantMs = end.toEpochMilliseconds(),
             startLocalDateTime = start.toLocalDateTime(zone),
             endLocalDateTime = end.toLocalDateTime(zone),
-        ).map(List<EventWithCalendarEntity>::toDomainEvents)
+        ).map(List<EventWithCalendarEntity>::toDomainEventsWithOverrides)
     }
+
+    fun observeVisibleEvents(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        zone: TimeZone,
+    ): Flow<List<Event>> = observeVisibleEventsWithOverrides(accountIds, start, end, zone)
+        .map { events -> events.map(EventWithOverrides::master) }
 
     /**
      * Like [observeVisibleEvents], but recurring masters are first expanded into their occurrences
@@ -104,9 +114,9 @@ internal class EventRepository(
         end: Instant,
         timeZone: TimeZone,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
-        return observeVisibleEvents(accountIds, start, end, zone = timeZone)
-            .mapLatest { events ->
-                events
+        return observeVisibleEventsWithOverrides(accountIds, start, end, zone = timeZone)
+            .mapLatest { eventsWithOverrides ->
+                eventsWithOverrides
                     .expandRecurrencesInWindow(start, end, timeZone, onExpansionTruncated = ::logTruncatedExpansion)
                     .groupDaySlicesByDay(start, end, timeZone)
             }
@@ -189,7 +199,7 @@ internal class EventRepository(
         val now = Clock.System.now().toICalUtcDateTime()
         val built = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
-        eventDao.upsertEventWithRawIcs(built.toSyncedEntity(ref = ref, calendarId = data.calendarId), built.icsData)
+        eventDao.upsertEventWithRawIcs(built.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
     }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
@@ -201,7 +211,7 @@ internal class EventRepository(
         val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
         if (data.calendarId == entity.calendarId) {
             val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
-            eventDao.upsertEventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = entity.calendarId), patched.icsData)
+            eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
         } else {
             updateCrossCalendarEvent(credentials, eventId, data, patched)
         }
@@ -222,7 +232,7 @@ internal class EventRepository(
     ) {
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, patched.icsData)
         deleteEvent(credentials, eventId)
-        eventDao.upsertEventWithRawIcs(patched.toSyncedEntity(ref = ref, calendarId = data.calendarId), patched.icsData)
+        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
     }
 }
 

@@ -21,11 +21,19 @@ import androidx.room3.Embedded
 import androidx.room3.Relation
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 
-/** An event together with its parent calendar, fetched atomically via Room relation queries. */
+/**
+ * An event together with its parent calendar, fetched atomically via Room relation queries.
+ *
+ * [overrides] is empty for anything but a recurring master. Room resolves it with a single batched
+ * `IN (…)` query over every event of the outer result, so expanding N masters costs one query, not N.
+ */
 internal data class EventWithCalendarEntity(
     @Embedded val event: EventEntity,
     @Relation(parentColumns = ["calendarId"], entityColumns = ["id"])
     val calendar: CalendarEntity,
+    @Relation(parentColumns = ["id"], entityColumns = ["masterId"])
+    val overrides: List<EventOverrideEntity> = emptyList(),
 )
 

@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
@@ -83,4 +84,10 @@ internal class CalendarTypeConverters {
 
     @ColumnTypeConverter
     fun toStringList(value: String?): List<String>? = value?.let { Json.decodeFromString(it) }
+
+    @ColumnTypeConverter
+    fun fromRecurrenceKey(value: RecurrenceKey): String = value.canonical
+
+    @ColumnTypeConverter
+    fun toRecurrenceKey(value: String): RecurrenceKey = RecurrenceKey.parse(value)
 }

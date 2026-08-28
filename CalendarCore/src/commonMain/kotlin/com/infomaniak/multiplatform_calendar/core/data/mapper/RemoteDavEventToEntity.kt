@@ -18,7 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseCss3ColorName
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
@@ -42,6 +44,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
@@ -53,40 +56,46 @@ internal fun RemoteDavEvent.toEntity(
     calendarId: CalendarId,
     recurrence: ResolvedRecurrence = ResolvedRecurrence(),
 ): EventEntity {
-    val timing = toTimingEntity()
+    val contentEntity = content.toContentEntity(url)
     return EventEntity(
         id = EventId(url),
         calendarId = calendarId,
-        summary = summary ?: "",
-        description = description,
-        location = location,
-        timing = timing,
-        created = parseICalDateTime(created),
-        lastModified = parseICalDateTime(lastModified),
-        dtStamp = parseICalDateTime(dtstamp),
+        content = contentEntity,
         rrule = recurrence.rule,
         rDates = recurrence.rDates,
         exDates = recurrence.exDates,
         hasRecurrence = recurrence.hasRecurrence,
         recurrenceBounds = toRecurrenceBoundsEntity(
-            timing = timing,
+            timing = contentEntity.timing,
             recurrenceRule = recurrence.rule,
             rDates = recurrence.rDates,
         ),
-        status = EventStatus.fromIcalString(status),
-        transp = transp,
-        classification = Classification.fromIcalString(classification),
-        priority = priority?.toIntOrNull(),
-        sequence = sequence?.toIntOrNull(),
-        categories = parseICalCategories(categories),
-        attendees = attendees.map { it.toEntity() },
-        organizer = organizer?.toEntity(),
-        alarms = alarms.map { it.toEntity() },
         etag = etag,
-        colorArgb = resolveColorArgb(),
-        colorIcalName = colorIcalName,
     )
 }
+
+/** The VEVENT body, mapped identically for a master and for a `RECURRENCE-ID` override. */
+@Throws(CaldavParsingException::class)
+internal fun RemoteDavEventContent.toContentEntity(url: String) = EventContentEntity(
+    summary = summary ?: "",
+    description = description,
+    location = location,
+    timing = toTimingEntity(url),
+    created = parseICalDateTime(created),
+    lastModified = parseICalDateTime(lastModified),
+    dtStamp = parseICalDateTime(dtstamp),
+    status = EventStatus.fromIcalString(status),
+    transp = transp,
+    classification = Classification.fromIcalString(classification),
+    priority = priority?.toIntOrNull(),
+    sequence = sequence?.toIntOrNull(),
+    categories = parseICalCategories(categories),
+    attendees = attendees.map { it.toEntity() },
+    organizer = organizer?.toEntity(),
+    alarms = alarms.map { it.toEntity() },
+    colorArgb = resolveColorArgb(),
+    colorIcalName = colorIcalName,
+)
 
 internal data class ResolvedRecurrence(
     val rule: RecurrenceRule? = null,
@@ -97,7 +106,7 @@ internal data class ResolvedRecurrence(
 }
 
 /** Resolve the wire's color into a single ARGB: Apple hex wins over the RFC 7986 CSS3 name. */
-private fun RemoteDavEvent.resolveColorArgb(): Int? {
+private fun RemoteDavEventContent.resolveColorArgb(): Int? {
     return parseHexColor(colorHex) ?: parseCss3ColorName(colorIcalName)
 }
 
@@ -112,7 +121,7 @@ internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
     return when (val result = RecurrenceRuleParser.parse(raw)) {
         is Supported -> {
             val until = result.rule.until
-            if (until != null && !until.matchesDtStartForm(dtStartForm())) {
+            if (until != null && !until.matchesDtStartForm(content.dtStartForm())) {
                 throw RecurrenceDroppedException(UntilTypeMismatch.name)
             }
             result.rule
@@ -123,11 +132,12 @@ internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
 
 @Throws(RecurrenceDroppedException::class)
 internal fun RemoteDavEvent.resolveRecurrenceSet(): ResolvedRecurrence {
-    val form = dtStartForm()
-    val rule = resolveRecurrence()
-    val rDates = parseIcalDateValues(values = rDates, propertyName = "RDATE", form = form)
-    val exDates = parseIcalDateValues(values = exDates, propertyName = "EXDATE", form = form)
-    return ResolvedRecurrence(rule = rule, rDates = rDates, exDates = exDates)
+    val form = content.dtStartForm()
+    return ResolvedRecurrence(
+        rule = resolveRecurrence(),
+        rDates = parseIcalDateValues(values = rDates, propertyName = "RDATE", form = form),
+        exDates = parseIcalDateValues(values = exDates, propertyName = "EXDATE", form = form),
+    )
 }
 
 internal class RecurrenceDroppedException(val reason: String) : Exception(reason)
@@ -135,7 +145,7 @@ internal class RecurrenceDroppedException(val reason: String) : Exception(reason
 private enum class DtStartForm { Date, Utc, Floating }
 
 /** Classify DTSTART's value form (RFC 5545 §3.3.4/§3.3.5): bare date, UTC/zoned, or floating date-time. */
-private fun RemoteDavEvent.dtStartForm(): DtStartForm = when {
+private fun RemoteDavEventContent.dtStartForm(): DtStartForm = when {
     isICalDateOnly(dtstart) -> DtStartForm.Date
     dtstart?.endsWith("Z") == true || dtStartTzid != null -> DtStartForm.Utc
     else -> DtStartForm.Floating
@@ -218,16 +228,18 @@ private fun RemoteIcalDateValue.toDateTimeIcalValue(
 
 /**
  * Persist a freshly built/patched event (from [CalendarSyncRemoteSource.buildEventIcs] /
- * [CalendarSyncRemoteSource.patchEventIcs]) as a local row, binding it to the server-assigned
+ * [CalendarSyncRemoteSource.patchEventIcs]) as local rows, binding it to the server-assigned
  * [ref] (href + etag) and marking it synced. All parsed fields come straight from the ICS, so the
- * row mirrors exactly what was written to the server.
+ * rows mirror exactly what was written to the server, detached overrides included.
  */
 @Throws(CaldavParsingException::class)
-internal fun RemoteDavEvent.toSyncedEntity(ref: RemoteDavEventRef, calendarId: CalendarId): EventEntity {
+internal fun RemoteDavEvent.toSyncedUpsert(ref: RemoteDavEventRef, calendarId: CalendarId): EventWithRawIcs {
     val synced = copy(url = ref.url, etag = ref.etag)
     val recurrence = runCatching { synced.resolveRecurrenceSet() }.getOrDefault(ResolvedRecurrence())
-    return synced.toEntity(calendarId, recurrence = recurrence)
-        .copy(isSynced = true)
+    val entity = synced.toEntity(calendarId, recurrence = recurrence).copy(isSynced = true)
+    val overrides = if (recurrence.hasRecurrence) synced.toOverrideEntities(entity.content.timing) else emptyList()
+
+    return EventWithRawIcs(entity, synced.icsData, overrides)
 }
 
 
@@ -243,7 +255,7 @@ private val TEXT_ESCAPE = Regex("""\\[\\;,nN]""")
  * Each token is trimmed and blanks are dropped. Returns `null` when the property is absent or yields
  * no usable token, so "no categories" stays distinct from an empty list.
  */
-private fun parseICalCategories(raw: String?): List<String>? {
+internal fun parseICalCategories(raw: String?): List<String>? {
     if (raw == null) return null
     return CATEGORY_TOKEN.findAll(raw)
         .map { it.value.unescapeIcalText().trim() }

@@ -10,10 +10,12 @@ use crate::models::{
     AlarmsChange,
     AttendeeEntry,
     ColorChange,
+    EventContentEntry,
     DavAccount,
     EventChangeRef,
     EventEdit,
     EventEntry,
+    EventOverrideEntry,
     EventResourceRef,
     EventSyncDelta,
     IcalDateValueEntry,
@@ -88,49 +90,88 @@ fn prop_values_with_meta(event: &icalendar::Event, name: &str) -> Vec<IcalDateVa
 pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> {
     let parsed: Calendar = ics_data.parse().unwrap_or_default();
 
-    let vevent = master_vevent(&parsed);
+    // TODO: Support non-VEVENT components (e.g. VTODO / VJOURNAL) instead of skipping them.
+    master_vevent(&parsed).map(|ev| EventEntry {
+        url,
+        etag,
+        uid: prop(ev, "UID").unwrap_or_default(),
+        rrule: prop(ev, "RRULE"),
+        rdates: prop_values_with_meta(ev, "RDATE"),
+        exdates: prop_values_with_meta(ev, "EXDATE"),
+        content: parse_content(ev),
+        overrides: parse_overrides(&parsed),
+        ics_data,
+    })
+}
 
-    match vevent {
-        Some(ev) => {
-            let (dtstart, dtstart_tzid) = prop_with_tzid(ev, "DTSTART");
-            let (dtend, dtend_tzid) = prop_with_tzid(ev, "DTEND");
-            Some(EventEntry {
-                url,
-                etag,
-                uid: prop(ev, "UID").unwrap_or_default(),
-                summary: prop(ev, "SUMMARY"),
-                description: prop(ev, "DESCRIPTION"),
-                location: prop(ev, "LOCATION"),
-                dtstart,
-                dtstart_tzid,
-                dtend,
-                dtend_tzid,
-                duration: prop(ev, "DURATION"),
-                created: prop(ev, "CREATED"),
-                last_modified: prop(ev, "LAST-MODIFIED"),
-                dtstamp: prop(ev, "DTSTAMP"),
-                rrule: prop(ev, "RRULE"),
-                rdates: prop_values_with_meta(ev, "RDATE"),
-                exdates: prop_values_with_meta(ev, "EXDATE"),
-                status: prop(ev, "STATUS"),
-                transp: prop(ev, "TRANSP"),
-                classification: prop(ev, "CLASS"),
-                priority: prop(ev, "PRIORITY"),
-                sequence: prop(ev, "SEQUENCE"),
-                categories: prop(ev, "CATEGORIES"),
-                color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
-                color_ical_name: prop(ev, "COLOR"),
-                attendees: parse_attendees(ev),
-                organizer: parse_organizer(ev),
-                alarms: parse_alarms(ev),
-                ics_data,
-            })
-        }
-        None => {
-            // TODO: Support non-VEVENT components (e.g. VTODO / VJOURNAL) instead of skipping them.
-            None
-        },
+/// Read the properties a master and its overrides define alike, so neither can drift from the other.
+fn parse_content(ev: &icalendar::Event) -> EventContentEntry {
+    let (dtstart, dtstart_tzid) = prop_with_tzid(ev, "DTSTART");
+    let (dtend, dtend_tzid) = prop_with_tzid(ev, "DTEND");
+
+    EventContentEntry {
+        summary: prop(ev, "SUMMARY"),
+        description: prop(ev, "DESCRIPTION"),
+        location: prop(ev, "LOCATION"),
+        dtstart,
+        dtstart_tzid,
+        dtend,
+        dtend_tzid,
+        duration: prop(ev, "DURATION"),
+        created: prop(ev, "CREATED"),
+        last_modified: prop(ev, "LAST-MODIFIED"),
+        dtstamp: prop(ev, "DTSTAMP"),
+        status: prop(ev, "STATUS"),
+        transp: prop(ev, "TRANSP"),
+        classification: prop(ev, "CLASS"),
+        priority: prop(ev, "PRIORITY"),
+        sequence: prop(ev, "SEQUENCE"),
+        categories: prop(ev, "CATEGORIES"),
+        color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
+        color_ical_name: prop(ev, "COLOR"),
+        attendees: parse_attendees(ev),
+        organizer: parse_organizer(ev),
+        alarms: parse_alarms(ev),
     }
+}
+
+/// Collect every `VEVENT` carrying a `RECURRENCE-ID`, i.e. the detached overrides of the series.
+///
+/// A recurrence master has no `RECURRENCE-ID` and is dropped by [`parse_override`] itself, so a
+/// resource made only of detached instances keeps every one of them.
+fn parse_overrides(calendar: &Calendar) -> Vec<EventOverrideEntry> {
+    calendar
+        .components
+        .iter()
+        .filter_map(|component| match component {
+            CalendarComponent::Event(event) => parse_override(event),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Build an [`EventOverrideEntry`] from a `VEVENT`, or `None` when it has no `RECURRENCE-ID`.
+fn parse_override(ev: &icalendar::Event) -> Option<EventOverrideEntry> {
+    use icalendar::Component;
+
+    let recurrence_id_property = ev.properties().get("RECURRENCE-ID")?;
+    let param = |key: &str| {
+        recurrence_id_property
+            .params()
+            .get(key)
+            .map(|value| value.value().to_string())
+    };
+    Some(EventOverrideEntry {
+        recurrence_id: recurrence_id_property.value().to_string(),
+        recurrence_id_tzid: param("TZID"),
+        recurrence_id_value_type: match param("VALUE").as_deref().map(str::to_ascii_uppercase).as_deref() {
+            Some("DATE") => IcalDateValueKind::Date,
+            Some("PERIOD") => IcalDateValueKind::Period,
+            _ => IcalDateValueKind::DateTime,
+        },
+        recurrence_id_range: param("RANGE"),
+        content: parse_content(ev),
+    })
 }
 
 /// Collect every ATTENDEE of a VEVENT into a participant list. The ORGANIZER is parsed

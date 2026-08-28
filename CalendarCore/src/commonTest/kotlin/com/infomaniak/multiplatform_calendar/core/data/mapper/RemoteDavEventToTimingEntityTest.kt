@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingEx
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -187,28 +188,28 @@ class RemoteDavEventToTimingEntityTest {
 
     @Test
     fun classification_standardValue_isParsedCaseInsensitively() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "private").toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "private").toEntity(calendarId).content
 
         assertEquals(Classification.Private, entity.classification)
     }
 
     @Test
     fun classification_customValue_isKeptVerbatim() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "X-CUSTOM").toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "X-CUSTOM").toEntity(calendarId).content
 
         assertEquals(Classification.Custom("X-CUSTOM"), entity.classification)
     }
 
     @Test
     fun classification_absent_isNull() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = null).toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", classification = null).toEntity(calendarId).content
 
         assertNull(entity.classification)
     }
 
     @Test
     fun categories_areSplitTrimmedAndBlanksDropped() {
-        val entity = remoteEvent(dtstart = "20260615T100000Z", categories = " work , ,personal ").toEntity(calendarId)
+        val entity = remoteEvent(dtstart = "20260615T100000Z", categories = " work , ,personal ").toEntity(calendarId).content
 
         assertEquals(listOf("work", "personal"), entity.categories)
     }
@@ -219,15 +220,15 @@ class RemoteDavEventToTimingEntityTest {
         val entity = remoteEvent(
             dtstart = "20260615T100000Z",
             categories = """work\, ops,path\\to,semi\;colon,line\nbreak""",
-        ).toEntity(calendarId)
+        ).toEntity(calendarId).content
 
         assertEquals(listOf("work, ops", """path\to""", "semi;colon", "line\nbreak"), entity.categories)
     }
 
     @Test
     fun categories_absentOrBlank_isNull() {
-        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).categories)
-        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).categories)
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).content.categories)
+        assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).content.categories)
     }
 
     // ---- Helpers --------------------------------------------------------------------------------
@@ -245,28 +246,32 @@ class RemoteDavEventToTimingEntityTest {
         etag = "etag-1",
         icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
         uid = "uid-1",
-        summary = "Test",
-        description = null,
-        location = null,
-        dtstart = dtstart,
-        dtStartTzid = dtStartTzid,
-        dtend = dtend,
-        dtEndTzid = dtEndTzid,
-        duration = duration,
-        created = null,
-        lastModified = null,
-        dtstamp = null,
         rrule = null,
-        status = null,
-        transp = null,
-        classification = classification,
-        priority = null,
-        sequence = null,
-        categories = categories,
-        colorHex = null,
-        colorIcalName = null,
-        attendees = emptyList(),
+        content = RemoteDavEventContent(
+            summary = "Test",
+            description = null,
+            location = null,
+            dtstart = dtstart,
+            dtStartTzid = dtStartTzid,
+            dtend = dtend,
+            dtEndTzid = dtEndTzid,
+            duration = duration,
+            created = null,
+            lastModified = null,
+            dtstamp = null,
+            status = null,
+            transp = null,
+            classification = classification,
+            priority = null,
+            sequence = null,
+            categories = categories,
+            colorHex = null,
+            colorIcalName = null,
+            attendees = emptyList(),
+        ),
     )
 
     private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
 }
+
+private fun RemoteDavEvent.toTimingEntity() = content.toTimingEntity(url)

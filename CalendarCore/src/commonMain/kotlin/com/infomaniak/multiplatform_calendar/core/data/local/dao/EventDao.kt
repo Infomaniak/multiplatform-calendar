@@ -22,15 +22,20 @@ import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDateTime
 
@@ -62,6 +67,10 @@ internal abstract class EventDao {
      *   later materialises the actual occurrences and drops any that fall outside.
      * - **Floating series**: `dtStart` as low bound (first occurrence == `DTSTART` for RRULE-only) and
      *   `lastOccurrenceEndLocalDateTime` as high bound, both wall-clock.
+     *
+     * **Overridden instances** finally add a third pair of branches: a `RECURRENCE-ID` override that
+     * was *moved* can land outside the series bounds entirely, so the master is also returned when
+     * one of its overrides overlaps the window at its effective position.
      */
     @Transaction
     @Query(
@@ -75,6 +84,8 @@ internal abstract class EventDao {
             OR (event.hasRecurrence = 0 AND $FLOATING_TIMING)
             OR $RECURRING_ANCHORED
             OR $RECURRING_FLOATING
+            OR $OVERRIDE_ANCHORED
+            OR $OVERRIDE_FLOATING
           )
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
@@ -93,7 +104,11 @@ internal abstract class EventDao {
      * full event. Meant to feed a per-day calendar-color map (e.g. a month grid): no event body, attendees or
      * raw ICS is read, so large months stay cheap. Day placement is done in Kotlin from the wall-clock columns
      * (mirroring `EventTiming.startIn`/`endIn`) since day boundaries depend on the caller's display zone.
+     *
+     * Overrides ride along through the same batched relation as [observeVisibleInRange], projected down to
+     * [OverrideCalendarColorInRange], so a moved instance dots the day it landed on rather than the one it left.
      */
+    @Transaction
     @Query(
         """
         SELECT event.id AS eventId,
@@ -116,6 +131,8 @@ internal abstract class EventDao {
             OR (event.hasRecurrence = 0 AND $FLOATING_TIMING)
             OR $RECURRING_ANCHORED
             OR $RECURRING_FLOATING
+            OR $OVERRIDE_ANCHORED
+            OR $OVERRIDE_FLOATING
           )
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
@@ -129,16 +146,22 @@ internal abstract class EventDao {
     ): Flow<List<EventCalendarColorInRange>>
 
     @Transaction
-    open suspend fun upsertEventsWithRawIcs(events: List<EventEntity>, rawIcs: List<EventRawIcsEntity>) {
-        upsertEvents(events)
-        upsertRawIcs(rawIcs)
+    open suspend fun upsertEventsWithRawIcs(batch: EventUpsertBatch) {
+        upsertEvents(batch.events)
+        upsertRawIcs(batch.rawIcs)
+        upsertOverrides(batch.overrides)
+        // Overrides have no ETag of their own, so a server-side removal leaves no tombstone: the
+        // incoming list is authoritative for its master, and whatever is missing from it is stale.
+        val incomingKeys = batch.overrides.groupBy(EventOverrideEntity::masterId)
+        for (event in batch.events) {
+            deleteStaleOverridesOf(event.id, incomingKeys[event.id]?.map { it.recurrenceKey }.orEmpty())
+        }
     }
 
-    /** Single-event convenience for the edit paths, avoiding a list allocation + re-partition per event. */
+    /** Single-event convenience for the edit paths, which write one resource at a time. */
     @Transaction
-    open suspend fun upsertEventWithRawIcs(event: EventEntity, rawIcs: String) {
-        upsertEvents(listOf(event))
-        upsertRawIcs(listOf(EventRawIcsEntity(eventId = event.id, rawIcs = rawIcs)))
+    open suspend fun upsertEventWithRawIcs(event: EventWithRawIcs) {
+        upsertEventsWithRawIcs(listOf(event).toUpsertBatch())
     }
 
     @Upsert
@@ -146,6 +169,15 @@ internal abstract class EventDao {
 
     @Upsert
     protected abstract suspend fun upsertRawIcs(rawIcs: List<EventRawIcsEntity>)
+
+    @Upsert
+    protected abstract suspend fun upsertOverrides(overrides: List<EventOverrideEntity>)
+
+    @Query("DELETE FROM event_overrides WHERE masterId = :masterId AND recurrenceKey NOT IN (:keptKeys)")
+    protected abstract suspend fun deleteStaleOverridesOf(masterId: EventId, keptKeys: List<RecurrenceKey>)
+
+    @Query("SELECT * FROM event_overrides WHERE masterId = :masterId ORDER BY recurrenceKey")
+    abstract suspend fun getOverridesOf(masterId: EventId): List<EventOverrideEntity>
 
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     abstract suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>
@@ -194,6 +226,21 @@ internal abstract class EventDao {
 
     private companion object {
 
+        /**
+         * Widens all-day overrides by [MAX_UTC_OFFSET_MS]: an all-day instant is stored at UTC midnight,
+         * but the expander re-anchors it in the reader's zone, so the instant actually tested sits up to
+         * 14 h away.
+         *
+         * Series bounds carry that same widening pre-computed — they live in `RecurrenceBoundsEntity`,
+         * whose columns exist only to filter. An override can't: its instants come from
+         * `EventContentEntity`, shared as-is with the master row, so the widening happens here instead.
+         * [ANCHORED_TIMING] needs none at all — `hasRecurrence = 0` rows never reach the expander.
+         *
+         * `CASE` on `isAllDay` keeps zoned overrides exact — they already carry a true instant — while
+         * the surplus rows an all-day match lets through are discarded by the expander.
+         */
+        private const val ALL_DAY_PADDING = "(CASE WHEN override.isAllDay THEN $MAX_UTC_OFFSET_MS ELSE 0 END)"
+
         /** Non-recurring / master timing overlap on absolute UTC epoch ms (zoned / UTC / all-day rows). */
         private const val ANCHORED_TIMING = """(
             event.dtStartInstantMs IS NOT NULL
@@ -221,5 +268,32 @@ internal abstract class EventDao {
               AND event.dtStart < :endLocalDateTime
               AND (event.recurrenceBoundKind != 'Finite'
                 OR event.lastOccurrenceEndLocalDateTime >= :startLocalDateTime))"""
+
+        /**
+         * A moved override drags its master back in: the series bounds above only cover the
+         * *theoretical* slots, so an instance pushed past `UNTIL` would otherwise never be read.
+         * The reverse case needs no branch — a theoretical slot inside the window means the series
+         * itself overlaps it, so [RECURRING_ANCHORED]/[RECURRING_FLOATING] already match.
+         *
+         * Both branches mirror [ANCHORED_TIMING]/[FLOATING_TIMING], on the override's *effective*
+         * position: an all-day override is anchored, like any all-day row. It is padded like an
+         * all-day *series* though (see `RecurrenceRuleToBoundsEntity`): stored at UTC midnight but
+         * rendered in the reader's zone, an all-day instance must stay a safe superset across zones.
+         */
+        private const val OVERRIDE_ANCHORED = """(
+            event.hasRecurrence = 1
+              AND EXISTS(SELECT 1 FROM event_overrides override
+                WHERE override.masterId = event.id
+                  AND override.dtStartInstantMs IS NOT NULL
+                  AND override.dtStartInstantMs - $ALL_DAY_PADDING < :endInstantMs
+                  AND override.dtEndInstantMs + $ALL_DAY_PADDING >= :startInstantMs))"""
+
+        private const val OVERRIDE_FLOATING = """(
+            event.hasRecurrence = 1
+              AND EXISTS(SELECT 1 FROM event_overrides override
+                WHERE override.masterId = event.id
+                  AND override.dtStartInstantMs IS NULL
+                  AND override.dtStart < :endLocalDateTime
+                  AND override.dtEndEffective >= :startLocalDateTime))"""
     }
 }

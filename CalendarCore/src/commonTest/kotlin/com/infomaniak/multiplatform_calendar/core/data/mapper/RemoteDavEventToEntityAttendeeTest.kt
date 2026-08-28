@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,7 +35,7 @@ class RemoteDavEventToEntityAttendeeTest {
         val entity = remoteEvent(
             organizer = RemoteDavOrganizer(email = "boss@example.com", displayName = "Boss"),
             attendees = listOf(attendee("guest@example.com")),
-        ).toEntity(calendarId)
+        ).toEntity(calendarId).content
 
         assertEquals("boss@example.com", entity.organizer?.email)
         assertEquals("Boss", entity.organizer?.displayName)
@@ -43,7 +44,7 @@ class RemoteDavEventToEntityAttendeeTest {
 
     @Test
     fun absentOrganizer_yieldsNullColumn() {
-        val entity = remoteEvent(organizer = null, attendees = emptyList()).toEntity(calendarId)
+        val entity = remoteEvent(organizer = null, attendees = emptyList()).toEntity(calendarId).content
 
         assertNull(entity.organizer)
     }
@@ -53,7 +54,7 @@ class RemoteDavEventToEntityAttendeeTest {
         val entity = remoteEvent(
             organizer = RemoteDavOrganizer(email = "boss@example.com", displayName = "Boss"),
             attendees = listOf(attendee("boss@example.com")),
-        ).toEntity(calendarId)
+        ).toEntity(calendarId).content
 
         assertEquals("boss@example.com", entity.organizer?.email)
         assertEquals(1, entity.attendees.size)
@@ -76,27 +77,29 @@ class RemoteDavEventToEntityAttendeeTest {
         etag = "etag-1",
         icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
         uid = "uid-1",
-        summary = "Test",
-        description = null,
-        location = null,
-        dtstart = "20260615T100000Z",
-        dtStartTzid = null,
-        dtend = "20260615T110000Z",
-        dtEndTzid = null,
-        duration = null,
-        created = null,
-        lastModified = null,
-        dtstamp = null,
         rrule = null,
-        status = null,
-        transp = null,
-        classification = null,
-        priority = null,
-        sequence = null,
-        categories = null,
-        colorHex = null,
-        colorIcalName = null,
-        attendees = attendees,
-        organizer = organizer,
+        content = RemoteDavEventContent(
+            summary = "Test",
+            description = null,
+            location = null,
+            dtstart = "20260615T100000Z",
+            dtStartTzid = null,
+            dtend = "20260615T110000Z",
+            dtEndTzid = null,
+            duration = null,
+            created = null,
+            lastModified = null,
+            dtstamp = null,
+            status = null,
+            transp = null,
+            classification = null,
+            priority = null,
+            sequence = null,
+            categories = null,
+            colorHex = null,
+            colorIcalName = null,
+            attendees = attendees,
+            organizer = organizer,
+        ),
     )
 }

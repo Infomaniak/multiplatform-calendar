@@ -26,6 +26,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavA
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
@@ -41,13 +43,18 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTim
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import uniffi.caldav_bridge.AlarmEntry
+import uniffi.caldav_bridge.AttendeeEntry
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
+import uniffi.caldav_bridge.EventContentEntry
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
+import uniffi.caldav_bridge.EventOverrideEntry
 import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
+import uniffi.caldav_bridge.OrganizerEntry
 import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
@@ -276,71 +283,81 @@ private fun RemoteRecurrenceChange.toRust(): RecurrenceChange = when (this) {
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)
 
-private fun EventEntry.toRemoteEvent(): RemoteDavEvent {
-    return RemoteDavEvent(
-        url = this.url,
-        etag = this.etag,
-        icsData = this.icsData,
-        uid = this.uid,
-        summary = this.summary,
-        description = this.description,
-        location = this.location,
-        dtstart = this.dtstart,
-        dtStartTzid = this.dtstartTzid,
-        dtend = this.dtend,
-        dtEndTzid = this.dtendTzid,
-        duration = this.duration,
-        created = this.created,
-        lastModified = this.lastModified,
-        dtstamp = this.dtstamp,
-        rrule = this.rrule,
-        rDates = this.rdates.map(IcalDateValueEntry::toRemote),
-        exDates = this.exdates.map(IcalDateValueEntry::toRemote),
-        status = this.status,
-        transp = this.transp,
-        classification = this.classification,
-        priority = this.priority,
-        sequence = this.sequence,
-        categories = this.categories,
-        colorHex = this.colorHex,
-        colorIcalName = this.colorIcalName,
-        attendees = this.attendees.map { attendee ->
-            RemoteDavAttendee(
-                email = attendee.email,
-                displayName = attendee.displayName,
-                status = attendee.status,
-                role = attendee.role,
-                responseNeeded = attendee.responseNeeded,
-            )
-        },
-        organizer = this.organizer?.let { organizer ->
-            RemoteDavOrganizer(
-                email = organizer.email,
-                displayName = organizer.displayName,
-            )
-        },
-        alarms = this.alarms.map { alarm ->
-            RemoteDavAlarm(
-                action = alarm.action,
-                triggerDuration = alarm.triggerDuration,
-                triggerAbsolute = alarm.triggerAbsolute,
-                triggerRelatedTo = alarm.triggerRelatedTo,
-                description = alarm.description,
-                summary = alarm.summary,
-                attendees = alarm.attendees,
-                attach = alarm.attach,
-            )
-        },
-    )
-}
+private fun EventEntry.toRemoteEvent() = RemoteDavEvent(
+    url = url,
+    etag = etag,
+    icsData = icsData,
+    uid = uid,
+    rrule = rrule,
+    rDates = rdates.map(IcalDateValueEntry::toRemote),
+    exDates = exdates.map(IcalDateValueEntry::toRemote),
+    content = content.toRemote(),
+    overrides = overrides.map(EventOverrideEntry::toRemote),
+)
+
+private fun EventOverrideEntry.toRemote() = RemoteDavEventOverride(
+    recurrenceId = recurrenceId,
+    recurrenceIdTzid = recurrenceIdTzid,
+    recurrenceIdValueType = recurrenceIdValueType.toRemote(),
+    isThisAndFuture = recurrenceIdRange.equals("THISANDFUTURE", ignoreCase = true),
+    content = content.toRemote(),
+)
+
+private fun EventContentEntry.toRemote() = RemoteDavEventContent(
+    summary = summary,
+    description = description,
+    location = location,
+    dtstart = dtstart,
+    dtStartTzid = dtstartTzid,
+    dtend = dtend,
+    dtEndTzid = dtendTzid,
+    duration = duration,
+    created = created,
+    lastModified = lastModified,
+    dtstamp = dtstamp,
+    status = status,
+    transp = transp,
+    classification = classification,
+    priority = priority,
+    sequence = sequence,
+    categories = categories,
+    colorHex = colorHex,
+    colorIcalName = colorIcalName,
+    attendees = attendees.map(AttendeeEntry::toRemote),
+    organizer = organizer?.toRemote(),
+    alarms = alarms.map(AlarmEntry::toRemote),
+)
+
+private fun AttendeeEntry.toRemote() = RemoteDavAttendee(
+    email = email,
+    displayName = displayName,
+    status = status,
+    role = role,
+    responseNeeded = responseNeeded,
+)
+
+private fun OrganizerEntry.toRemote() = RemoteDavOrganizer(email = email, displayName = displayName)
+
+private fun AlarmEntry.toRemote() = RemoteDavAlarm(
+    action = action,
+    triggerDuration = triggerDuration,
+    triggerAbsolute = triggerAbsolute,
+    triggerRelatedTo = triggerRelatedTo,
+    description = description,
+    summary = summary,
+    attendees = attendees,
+    attach = attach,
+)
 
 private fun IcalDateValueEntry.toRemote() = RemoteIcalDateValue(
     value = value,
-    valueType = when (valueType) {
-        IcalDateValueKind.DATE -> RemoteIcalDateValueType.Date
-        IcalDateValueKind.DATE_TIME -> RemoteIcalDateValueType.DateTime
-        IcalDateValueKind.PERIOD -> RemoteIcalDateValueType.Period
-    },
+    valueType = valueType.toRemote(),
     tzid = tzid,
 )
+
+private fun IcalDateValueKind.toRemote() = when (this) {
+    IcalDateValueKind.DATE -> RemoteIcalDateValueType.Date
+    IcalDateValueKind.DATE_TIME -> RemoteIcalDateValueType.DateTime
+    IcalDateValueKind.PERIOD -> RemoteIcalDateValueType.Period
+}
 

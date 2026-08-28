@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Finite
@@ -239,8 +240,5 @@ class RecurrenceRuleToBoundsEntityTest {
 
     private companion object {
         val MIDNIGHT = kotlinx.datetime.LocalTime(0, 0)
-
-        // Mirrors the mapper's private padding (widest IANA UTC offset magnitude).
-        val MAX_UTC_OFFSET_MS = 14.hours.inWholeMilliseconds
     }
 }

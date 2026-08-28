@@ -36,8 +36,8 @@ import kotlin.time.Instant
  * [EventTiming][com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming] forms
  * keeps the key faithful to the original value type.
  *
- * [canonical] yields a deterministic string suitable for building a synthetic instance id
- * (`masterId + "#" + key.canonical`).
+ * [canonical] yields a deterministic string suitable for building a synthetic instance id, which
+ * [OccurrenceId.of][com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId.of] does.
  */
 internal sealed class RecurrenceKey {
 
@@ -48,28 +48,62 @@ internal sealed class RecurrenceKey {
 
     /** `DATE` (whole-day) master: identified by the local date only. */
     data class AllDay(val date: LocalDate) : RecurrenceKey() {
-        override val canonical: String get() = "D:$date"
+        override val canonical: String get() = "$ALL_DAY_TAG:$date"
     }
 
     /** `DATE-TIME` floating master (FORM #1): no zone, wall-clock only. */
     data class Floating(val localDateTime: LocalDateTime) : RecurrenceKey() {
-        override val canonical: String get() = "F:$localDateTime"
+        override val canonical: String get() = "$FLOATING_TAG:$localDateTime"
     }
 
     /** `DATE-TIME` with `TZID` master (FORM #3): wall-clock paired with its IANA zone. */
     data class Zoned(val localDateTime: LocalDateTime, val timeZoneId: String) : RecurrenceKey() {
-        override val canonical: String get() = "Z:$timeZoneId:$localDateTime"
+        override val canonical: String get() = "$ZONED_TAG:$timeZoneId:$localDateTime"
     }
 
     /** `DATE-TIME` UTC master (FORM #2): identified by the absolute instant. */
     data class Utc(val instant: Instant) : RecurrenceKey() {
-        override val canonical: String get() = "U:$instant"
+        override val canonical: String get() = "$UTC_TAG:$instant"
+    }
+
+    companion object {
+        /** Rebuild a key from its [canonical] form. */
+        fun parse(canonical: String): RecurrenceKey {
+            val payload = canonical.substringAfter(':')
+            return when (val tag = canonical.substringBefore(':')) {
+                ALL_DAY_TAG -> AllDay(LocalDate.parse(payload))
+                FLOATING_TAG -> Floating(LocalDateTime.parse(payload))
+                ZONED_TAG -> parseZoned(payload)
+                UTC_TAG -> Utc(Instant.parse(payload))
+                else -> error("Unknown RecurrenceKey tag '$tag'")
+            }
+        }
+
+        /**
+         * Split `<zone>:<wall-clock>` on the colon introducing the wall-clock's 4-digit year, since a
+         * fixed-offset id (`UTC+01:30`) holds colons of its own and the first one is then not the separator.
+         */
+        private fun parseZoned(payload: String): Zoned {
+            val separator = checkNotNull(WALL_CLOCK_SEPARATOR.find(payload)?.range?.first) {
+                "Unparsable zoned RecurrenceKey '$payload'"
+            }
+            return Zoned(LocalDateTime.parse(payload.drop(separator + 1)), payload.take(separator))
+        }
+
+        private val WALL_CLOCK_SEPARATOR = Regex(""":(?=\d{4}-)""")
+
+        private const val ALL_DAY_TAG = "AllDay"
+        private const val FLOATING_TAG = "Floating"
+        private const val ZONED_TAG = "Zoned"
+        private const val UTC_TAG = "Utc"
     }
 }
 
 /**
  * The [RecurrenceKey] identifying an instance of this master that starts at [localStart] (anchored
  * at [instantStart]), matching the master's `DTSTART` value type.
+ *
+ * Shared by the expander and the sync path: a stored override key must match the slot it replaces.
  */
 internal fun EventTiming.recurrenceKeyAt(localStart: LocalDateTime, instantStart: Instant): RecurrenceKey = when {
     isAllDay -> AllDay(localStart.date)

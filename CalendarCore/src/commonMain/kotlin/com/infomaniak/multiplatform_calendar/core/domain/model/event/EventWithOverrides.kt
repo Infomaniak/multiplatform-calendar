@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 /**
  * A stored event together with the instances that redefine it, i.e. everything the expander needs to
- * materialise a series.
+ * materialise its occurrences.
  *
  * Kept apart from [Event] so the public model never carries overrides: an [Event] is always a single
  * renderable thing, be it a plain event, a master or one materialised occurrence.
@@ -29,7 +29,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
  * the identity of the *theoretical* slot the override replaces, never the position it was moved to.
  * Each value is already a materialised occurrence, ready to be emitted as-is.
  */
-internal data class EventSeries(
+internal data class EventWithOverrides(
     val master: Event,
     val overridesByOccurrenceKey: Map<String, Event> = emptyMap(),
 )

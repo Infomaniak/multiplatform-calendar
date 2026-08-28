@@ -21,21 +21,21 @@ import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithC
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSeries
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 
-internal fun List<EventWithCalendarEntity>.toDomainSeries(): List<EventSeries> {
+internal fun List<EventWithCalendarEntity>.toDomainEventsWithOverrides(): List<EventWithOverrides> {
     val calendarsDomains = mutableMapOf<CalendarId, Calendar>()
-    return map { it.toDomainSeries(calendarsDomains) }
+    return map { it.toDomainEventWithOverrides(calendarsDomains) }
 }
 
-private fun EventWithCalendarEntity.toDomainSeries(
+private fun EventWithCalendarEntity.toDomainEventWithOverrides(
     calendarsDomains: MutableMap<CalendarId, Calendar>,
-): EventSeries {
+): EventWithOverrides {
     val calendar = with(calendar) {
         calendarsDomains.getOrPut(id) { toDomain() }
     }
 
-    return EventSeries(
+    return EventWithOverrides(
         master = event.toDomain(calendar),
         overridesByOccurrenceKey = overrides.associate { override ->
             override.recurrenceKey.canonical to override.toDomain(calendar)

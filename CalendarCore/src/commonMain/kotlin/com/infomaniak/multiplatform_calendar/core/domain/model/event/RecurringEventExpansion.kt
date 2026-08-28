@@ -58,7 +58,7 @@ import kotlin.time.Instant
  * (outcome other than [ExpansionOutcome.Completed]) so the caller can surface it (e.g. to Sentry); the
  * partial occurrences gathered so far are still returned.
  */
-internal suspend fun List<EventSeries>.expandRecurrencesInWindow(
+internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -67,9 +67,8 @@ internal suspend fun List<EventSeries>.expandRecurrencesInWindow(
 ): List<Event> {
     val expanded = ArrayList<Event>(size)
     val occurrences = ArrayList<Occurrence>()
-    for (series in this) {
+    for ((event, overrides) in this) {
         currentCoroutineContext().ensureActive()
-        val event = series.master
         occurrences.clear()
         val hasRecurringExpansion = event.timing.expandRecurrenceOccurrencesInWindow(
             masterId = event.masterEventId,
@@ -84,7 +83,6 @@ internal suspend fun List<EventSeries>.expandRecurrencesInWindow(
             expanded += event
             continue
         }
-        val overrides = series.overridesByOccurrenceKey
         expanded.addRuleOccurrences(event, occurrences, overrides)
         expanded.addOverriddenInstances(overrides, rangeStart, rangeEnd, timeZone)
     }

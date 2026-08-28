@@ -104,7 +104,11 @@ internal abstract class EventDao {
      * full event. Meant to feed a per-day calendar-color map (e.g. a month grid): no event body, attendees or
      * raw ICS is read, so large months stay cheap. Day placement is done in Kotlin from the wall-clock columns
      * (mirroring `EventTiming.startIn`/`endIn`) since day boundaries depend on the caller's display zone.
+     *
+     * Overrides ride along through the same batched relation as [observeVisibleInRange], projected down to
+     * [OverrideCalendarColorInRange], so a moved instance dots the day it landed on rather than the one it left.
      */
+    @Transaction
     @Query(
         """
         SELECT event.id AS eventId,
@@ -127,6 +131,8 @@ internal abstract class EventDao {
             OR (event.hasRecurrence = 0 AND $FLOATING_TIMING)
             OR $RECURRING_ANCHORED
             OR $RECURRING_FLOATING
+            OR $OVERRIDE_ANCHORED
+            OR $OVERRIDE_FLOATING
           )
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,

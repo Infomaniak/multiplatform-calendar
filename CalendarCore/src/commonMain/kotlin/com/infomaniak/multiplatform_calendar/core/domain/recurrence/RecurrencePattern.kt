@@ -106,5 +106,12 @@ public sealed interface RecurrencePattern {
     ) : RecurrencePattern
 }
 
-private fun RecurrenceRule.toRecurrenceEnd(): RecurrenceEnd = until?.let { RecurrenceEnd.Until(it) }
-    ?: occurrenceCount?.let { RecurrenceEnd.AfterOccurrences(it) } ?: RecurrenceEnd.Never
+        private fun RecurrenceRule.toRecurrenceEnd(): RecurrenceEnd {
+            return when {
+                until != null -> RecurrenceEnd.Until(until)
+                occurrenceCount != null -> RecurrenceEnd.AfterOccurrences(occurrenceCount)
+                else -> RecurrenceEnd.Never
+            }
+        }
+    }
+}

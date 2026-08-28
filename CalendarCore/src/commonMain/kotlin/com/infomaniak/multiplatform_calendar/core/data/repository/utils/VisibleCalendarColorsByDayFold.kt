@@ -76,8 +76,8 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     }
 
     val colorsBySourceColor = HashMap<Int?, CalendarColors>()
-    val colorOrderByDay = LinkedHashMap<LocalDate, MutableMap<CalendarId, DayCalendarColorSortData>>()
-    val timeZoneCache = HashMap<String, TimeZone>()
+    val colorOrderByDay: ColorOrderByDay = LinkedHashMap()
+    val zoneCache = HashMap<String, TimeZone>()
     val occurrences = ArrayList<Occurrence>() // Reused buffer for recurring expansion
     val visibleDays = fromDay..toDay
 
@@ -85,17 +85,7 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
         currentCoroutineContext().ensureActive()
 
         val colors = colorsBySourceColor.getOrPut(row.colorArgb) { CalendarColors.from(row.colorArgb) }
-
-        val startZone = row.startZoneId?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
-        val endZone = row.endZoneId?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
-        val timing = EventTiming(
-            start = row.dtStart,
-            end = row.dtEndEffective,
-            startTimeZone = startZone,
-            endTimeZone = endZone,
-            isAllDay = row.isAllDay,
-            recurrenceRule = row.rrule,
-        )
+        val timing = row.toTiming(zoneCache)
 
         occurrences.clear()
         val hasRecurringExpansion = timing.expandRecurrenceOccurrencesInWindow(
@@ -108,91 +98,130 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
             onExpansionTruncated = onExpansionTruncated,
         )
         if (!hasRecurringExpansion) {
-            val startLocalDateTime = row.dtStart.projectInto(startZone, timeZone)
-            val endLocalDateTime = row.dtEndEffective.projectInto(endZone, timeZone)
-            val firstDay = startLocalDateTime.date
-            val lastDay = endLocalDateTime.lastInclusiveDay(notBefore = firstDay)
-            colorOrderByDay.recordCalendarColorForCoveredDays(
-                firstDay = firstDay,
-                lastDay = lastDay,
-                visibleDays = visibleDays,
-                calendarId = row.calendarId,
-                color = colors,
-                firstDaySortKey = DayColorSortKey(
-                    isAllDay = row.isAllDay,
-                    displayStart = startLocalDateTime,
-                    occurrenceSortId = row.eventId.url,
-                ),
-            )
+            colorOrderByDay.recordPlainEvent(row, timing, colors, visibleDays, timeZone)
             continue
         }
 
-        val overridesByOccurrenceKey = row.overrides.associateBy { it.recurrenceKey.canonical }
-        occurrences.forEach { occurrence ->
-            if (occurrence.key.canonical in overridesByOccurrenceKey) return@forEach
-            val startLocalDateTime = occurrence.start.projectInto(occurrence.startTimeZone, timeZone)
-            val endLocalDateTime = occurrence.end.projectInto(occurrence.endTimeZone, timeZone)
-            val firstDay = startLocalDateTime.date
-            val lastDay = endLocalDateTime.lastInclusiveDay(notBefore = firstDay)
-            colorOrderByDay.recordCalendarColorForCoveredDays(
-                firstDay = firstDay,
-                lastDay = lastDay,
-                visibleDays = visibleDays,
-                calendarId = row.calendarId,
-                color = colors,
-                firstDaySortKey = DayColorSortKey(
-                    isAllDay = occurrence.isAllDay,
-                    displayStart = startLocalDateTime,
-                    occurrenceSortId = OccurrenceId.of(row.eventId, occurrence.key).value,
-                ),
-            )
-        }
-
-        row.overrides.forEach { override ->
-            if (override.status == EventStatus.CANCELLED) return@forEach
-            val startZone = override.startTimeZone?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
-            val endZone = override.endTimeZone?.let { id -> timeZoneCache.getOrPut(id) { TimeZone.of(id) } }
-            val startLocalDateTime = override.dtStart.projectInto(startZone, timeZone)
-            val endLocalDateTime = override.dtEndEffective.projectInto(endZone, timeZone)
-            // The relation carries *every* override of the master, and the range branches are a deliberate
-            // superset, so re-apply the `[rangeStart, rangeEnd[` overlap rule the planning flow uses.
-            if (startLocalDateTime.toInstant(timeZone) >= rangeEnd || endLocalDateTime.toInstant(timeZone) <= rangeStart) {
-                return@forEach
-            }
-            val firstDay = startLocalDateTime.date
-            val lastDay = endLocalDateTime.lastInclusiveDay(notBefore = firstDay)
-            colorOrderByDay.recordCalendarColorForCoveredDays(
-                firstDay = firstDay,
-                lastDay = lastDay,
-                visibleDays = visibleDays,
-                calendarId = row.calendarId,
-                color = colors,
-                firstDaySortKey = DayColorSortKey(
-                    isAllDay = override.isAllDay,
-                    displayStart = startLocalDateTime,
-                    occurrenceSortId = "${row.eventId.url}#${override.recurrenceKey.canonical}",
-                ),
-            )
-        }
+        val overriddenKeys = row.overrides.mapTo(HashSet()) { it.recurrenceKey.canonical }
+        colorOrderByDay.recordRuleOccurrences(row, occurrences, overriddenKeys, colors, visibleDays, timeZone)
+        colorOrderByDay.recordOverriddenInstances(row, colors, zoneCache, visibleDays, rangeStart, rangeEnd, timeZone)
     }
 
-    return colorOrderByDay.mapValues { (_, dataByCalendarId) ->
-        // Step 2 (final ordering): we now have one key per calendar for that day (the earliest event for
-        // that calendar). Sort entries by that key so output order mirrors planning's per-day event order.
+    return colorOrderByDay.toColorsByDay()
+}
+
+/** The [EventTiming] this row describes, resolving its zone ids through [zoneCache]. */
+private fun EventCalendarColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTiming(
+    start = dtStart,
+    end = dtEndEffective,
+    startTimeZone = startZoneId?.let { zoneCache.zoneOf(it) },
+    endTimeZone = endZoneId?.let { zoneCache.zoneOf(it) },
+    isAllDay = isAllDay,
+    recurrenceRule = rrule,
+)
+
+private fun MutableMap<String, TimeZone>.zoneOf(id: String): TimeZone = getOrPut(id) { TimeZone.of(id) }
+
+/** Record a non-recurring event, whose single span is [timing] itself. */
+private fun ColorOrderByDay.recordPlainEvent(
+    row: EventCalendarColorInRange,
+    timing: EventTiming,
+    color: CalendarColors,
+    visibleDays: ClosedRange<LocalDate>,
+    timeZone: TimeZone,
+) {
+    recordCoveredDays(
+        start = timing.start.projectInto(timing.startTimeZone, timeZone),
+        end = timing.end.projectInto(timing.endTimeZone, timeZone),
+        visibleDays = visibleDays,
+        calendarId = row.calendarId,
+        color = color,
+        isAllDay = row.isAllDay,
+        occurrenceSortId = row.eventId.url,
+    )
+}
+
+/**
+ * Record the occurrences the rule generated, skipping every slot whose key is in [overriddenKeys]:
+ * the override *is* that instance, and [recordOverriddenInstances] records it on its own days.
+ */
+private suspend fun ColorOrderByDay.recordRuleOccurrences(
+    row: EventCalendarColorInRange,
+    occurrences: List<Occurrence>,
+    overriddenKeys: Set<String>,
+    color: CalendarColors,
+    visibleDays: ClosedRange<LocalDate>,
+    timeZone: TimeZone,
+) {
+    for (occurrence in occurrences) {
+        currentCoroutineContext().ensureActive()
+        if (occurrence.key.canonical in overriddenKeys) continue
+        recordCoveredDays(
+            start = occurrence.start.projectInto(occurrence.startTimeZone, timeZone),
+            end = occurrence.end.projectInto(occurrence.endTimeZone, timeZone),
+            visibleDays = visibleDays,
+            calendarId = row.calendarId,
+            color = color,
+            isAllDay = occurrence.isAllDay,
+            occurrenceSortId = OccurrenceId.of(row.eventId, occurrence.key).value,
+        )
+    }
+}
+
+/**
+ * Record each override on the days it actually lands on, which may differ from the slot it replaces.
+ *
+ * A `STATUS:CANCELLED` override is dropped instead: [recordRuleOccurrences] already left its slot
+ * undotted, so dropping it here is what leaves that single occurrence deleted.
+ */
+private suspend fun ColorOrderByDay.recordOverriddenInstances(
+    row: EventCalendarColorInRange,
+    color: CalendarColors,
+    zoneCache: MutableMap<String, TimeZone>,
+    visibleDays: ClosedRange<LocalDate>,
+    rangeStart: Instant,
+    rangeEnd: Instant,
+    timeZone: TimeZone,
+) {
+    for (override in row.overrides) {
+        currentCoroutineContext().ensureActive()
+        if (override.status == EventStatus.CANCELLED) continue
+
+        val start = override.dtStart.projectInto(override.startTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)
+        val end = override.dtEndEffective.projectInto(override.endTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)
+        // The relation carries *every* override of the master, and the range branches are a deliberate
+        // superset, so re-apply the `[rangeStart, rangeEnd[` overlap rule the planning flow uses.
+        if (start.toInstant(timeZone) >= rangeEnd || end.toInstant(timeZone) <= rangeStart) continue
+
+        recordCoveredDays(
+            start = start,
+            end = end,
+            visibleDays = visibleDays,
+            calendarId = row.calendarId,
+            color = color,
+            isAllDay = override.isAllDay,
+            occurrenceSortId = OccurrenceId.of(row.eventId, override.recurrenceKey).value,
+        )
+    }
+}
+
+/**
+ * Step 2 (final ordering): each day now holds one key per calendar, the earliest event of that
+ * calendar. Sort on it so the output mirrors planning's per-day event order.
+ */
+private fun ColorOrderByDay.toColorsByDay(): Map<LocalDate, List<VisibleCalendarColor>> {
+    return mapValues { (_, dataByCalendarId) ->
         dataByCalendarId.entries
             .sortedWith(
                 compareBy<Map.Entry<CalendarId, DayCalendarColorSortData>>(
                     { it.value.sortKey },
                     { it.key.url },
                 ),
-            ).map { (calendarId, data) ->
-                VisibleCalendarColor(
-                    id = calendarId,
-                    colors = data.calendarColors,
-                )
-            }
+            ).map { (calendarId, data) -> VisibleCalendarColor(id = calendarId, colors = data.calendarColors) }
     }
 }
+
+private typealias ColorOrderByDay = MutableMap<LocalDate, MutableMap<CalendarId, DayCalendarColorSortData>>
 
 private data class DayCalendarColorSortData(
     val calendarColors: CalendarColors,
@@ -216,29 +245,29 @@ private data class DayColorSortKey(
     }
 }
 
-private fun MutableMap<LocalDate, MutableMap<CalendarId, DayCalendarColorSortData>>.recordCalendarColorForCoveredDays(
-    firstDay: LocalDate,
-    lastDay: LocalDate,
+/**
+ * Record [color] for [calendarId] on every visible day the `[start, end]` span covers, keying the
+ * first day on the event itself and the following ones on midnight.
+ */
+private fun ColorOrderByDay.recordCoveredDays(
+    start: LocalDateTime,
+    end: LocalDateTime,
     visibleDays: ClosedRange<LocalDate>,
     calendarId: CalendarId,
     color: CalendarColors,
-    firstDaySortKey: DayColorSortKey,
+    isAllDay: Boolean,
+    occurrenceSortId: String,
 ) {
+    val firstDay = start.date
+    val lastDay = end.lastInclusiveDay(notBefore = firstDay)
     val from = maxOf(firstDay, visibleDays.start)
     val to = minOf(lastDay, visibleDays.endInclusive)
     if (from > to) return
 
     var day = from
     while (day <= to) {
-        val sortKey = if (day == firstDay) {
-            firstDaySortKey
-        } else {
-            DayColorSortKey(
-                isAllDay = firstDaySortKey.isAllDay,
-                displayStart = LocalDateTime(day, MIDNIGHT),
-                occurrenceSortId = firstDaySortKey.occurrenceSortId,
-            )
-        }
+        val displayStart = if (day == firstDay) start else LocalDateTime(day, MIDNIGHT)
+        val sortKey = DayColorSortKey(isAllDay, displayStart, occurrenceSortId)
 
         val dataByCalendarId = getOrPut(day) { LinkedHashMap() }
         val previous = dataByCalendarId[calendarId]

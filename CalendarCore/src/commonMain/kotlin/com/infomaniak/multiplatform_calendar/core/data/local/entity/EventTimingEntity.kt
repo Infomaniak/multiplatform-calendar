@@ -21,6 +21,16 @@ import kotlinx.datetime.LocalDateTime
 import kotlin.time.Duration
 
 /**
+ * Widest IANA UTC offset magnitude (14 h), the most an all-day instant stored at UTC midnight can move
+ * once re-anchored in the reader's zone. Any absolute filter over [EventTimingEntity.dtStartInstantMs]
+ * has to widen by this much to stay a safe superset — pre-computed into the stored bounds by
+ * `RecurrenceRuleToBoundsEntity`, applied at query time by `EventDao.ALL_DAY_PADDING`.
+ *
+ * Spelled out rather than `14.hours.inWholeMilliseconds` because Room needs a compile-time constant.
+ */
+internal const val MAX_UTC_OFFSET_MS: Long = 14L * 60 * 60 * 1000
+
+/**
  * The full timing of an [EventEntity] (RFC 5545), grouped as a Room `@Embedded` sub-type.
  *
  * Embedding (rather than inlining these columns directly on [EventEntity]) keeps the ~10 tightly
@@ -59,6 +69,8 @@ internal data class EventTimingEntity(
      * *current* local zone at display time. Anchoring at insertion would go stale on device zone change
      * (travel, DST), so we don't. Range queries fall back to a wall-clock branch for these rows.
      * For `VALUE=DATE` (all-day) the start of the day is taken in UTC so the value is device-independent.
+     * Shared as-is by masters and overrides, so it always stores the *exact* instant: a filter that must
+     * tolerate the expander's reader-zone re-anchoring widens it itself by [MAX_UTC_OFFSET_MS].
      */
     val dtStartInstantMs: Long?,
     /** Absolute (UTC) end in epoch milliseconds, resolved from [dtEndEffective] + [endTimeZone]. See [dtStartInstantMs] (same `null` rule per end). */

@@ -101,10 +101,9 @@ public sealed interface RecurrencePattern {
      */
     public data class Custom(
         val recurrenceRule: RecurrenceRule,
-        override val interval: Int = recurrenceRule.interval,
-        override val end: RecurrenceEnd = recurrenceRule.toRecurrenceEnd(),
-    ) : RecurrencePattern
-}
+    ) : RecurrencePattern {
+        override val interval: Int get() = recurrenceRule.interval
+        override val end: RecurrenceEnd get() = recurrenceRule.toRecurrenceEnd()
 
         private fun RecurrenceRule.toRecurrenceEnd(): RecurrenceEnd {
             return when {

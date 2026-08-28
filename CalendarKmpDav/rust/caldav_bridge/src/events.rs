@@ -10,6 +10,8 @@ use crate::models::{
     AlarmsChange,
     AttendeeEntry,
     ColorChange,
+    DateListChange,
+    DateListLine,
     DavAccount,
     EventChangeRef,
     EventEdit,
@@ -225,6 +227,8 @@ fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
     apply_color_change(event, &edit.color_change);
     apply_recurrence_change(event, &edit.recurrence_change);
+    apply_date_list_change(event, "EXDATE", &edit.ex_date_change);
+    apply_date_list_change(event, "RDATE", &edit.r_date_change);
 
     event.remove_property("DTSTART");
     event.remove_property("DTEND");
@@ -430,6 +434,35 @@ fn apply_recurrence_change(event: &mut icalendar::Event, change: &RecurrenceChan
         RecurrenceChange::Set { rrule } => set_or_clear(event, "RRULE", Some(rrule)),
         RecurrenceChange::Cleared => set_or_clear(event, "RRULE", None),
     }
+}
+
+/// Apply an `EXDATE`/`RDATE` change to the recurrence master.
+///
+/// Both are multi-valued properties, so they live in `multi_properties` and need the `*_multi_*`
+/// accessors — [`set_or_clear`] would silently miss them. Empty lines (and lines with no value) are
+/// skipped so we never emit a valueless `EXDATE:`.
+fn apply_date_list_change(event: &mut icalendar::Event, key: &str, change: &DateListChange) {
+    let lines: &[DateListLine] = match change {
+        DateListChange::Unchanged => return,
+        DateListChange::Set { lines } => lines,
+        DateListChange::Cleared => &[],
+    };
+
+    event.remove_multi_property(key);
+    for line in lines.iter().filter(|line| !line.values.is_empty()) {
+        event.append_multi_property(date_list_property(key, line));
+    }
+}
+
+/// Build one `EXDATE`/`RDATE` line: comma-separated values, with `TZID` / `VALUE=DATE` as needed.
+fn date_list_property(key: &str, line: &DateListLine) -> Property {
+    let mut prop = Property::new(key, &line.values.join(","));
+    if line.is_date_only {
+        prop.add_parameter("VALUE", "DATE");
+    } else if let Some(tzid) = &line.tzid {
+        prop.add_parameter("TZID", tzid);
+    }
+    prop.done()
 }
 
 /// Apply a [`ColorChange`] onto the VEVENT (see [`ColorChange`] for the semantics of each variant).

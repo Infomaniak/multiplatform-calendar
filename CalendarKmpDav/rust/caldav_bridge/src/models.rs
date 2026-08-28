@@ -193,6 +193,27 @@ pub enum RecurrenceChange {
     Cleared,
 }
 
+/// Requested change to a recurrence master's `EXDATE` or `RDATE` set (RFC 5545 §3.8.5.1/§3.8.5.2).
+/// `Unchanged` leaves the existing lines untouched so unmodelled values survive a partial edit.
+#[derive(uniffi::Enum)]
+pub enum DateListChange {
+    Unchanged,
+    /// Replace every existing line with these ones (an empty `lines` is equivalent to `Cleared`).
+    Set { lines: Vec<DateListLine> },
+    Cleared,
+}
+
+/// One `EXDATE`/`RDATE` line. A line carries a single `TZID` and a single value type (RFC 5545
+/// §3.2.19), so values of differing forms or zones must be split across several lines.
+#[derive(uniffi::Record)]
+pub struct DateListLine {
+    /// IANA `TZID` for FORM #3 values; `None` for all-day, floating and UTC (`Z`-suffixed) values.
+    pub tzid: Option<String>,
+    /// Emit `VALUE=DATE`; `values` are then dates ("20260616") rather than date-times.
+    pub is_date_only: bool,
+    pub values: Vec<String>,
+}
+
 /// Requested change to a VEVENT's VALARM sub-components.
 /// `Unchanged` leaves source VALARM blocks untouched so `X-*` / exotic params survive partial edits.
 #[derive(uniffi::Enum)]
@@ -225,6 +246,8 @@ pub struct EventEdit {
     pub timezones: Vec<VTimeZoneSpec>,
     pub color_change: ColorChange,
     pub recurrence_change: RecurrenceChange,
+    pub ex_date_change: DateListChange,
+    pub r_date_change: DateListChange,
     pub alarms_change: AlarmsChange,
     pub stamp: String,
 }

@@ -21,12 +21,17 @@ import androidx.room3.Dao
 import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.ANCHORED_TIMING
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.FLOATING_TIMING
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_ANCHORED
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_FLOATING
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
@@ -226,6 +231,21 @@ internal abstract class EventDao {
 
     private companion object {
 
+        /**
+         * Widens all-day overrides by [MAX_UTC_OFFSET_MS]: an all-day instant is stored at UTC midnight,
+         * but the expander re-anchors it in the reader's zone, so the instant actually tested sits up to
+         * 14 h away.
+         *
+         * Series bounds carry that same widening pre-computed — they live in `RecurrenceBoundsEntity`,
+         * whose columns exist only to filter. An override can't: its instants come from
+         * `EventContentEntity`, shared as-is with the master row, so the widening happens here instead.
+         * [ANCHORED_TIMING] needs none at all — `hasRecurrence = 0` rows never reach the expander.
+         *
+         * `CASE` on `isAllDay` keeps zoned overrides exact — they already carry a true instant — while
+         * the surplus rows an all-day match lets through are discarded by the expander.
+         */
+        private const val ALL_DAY_PADDING = "(CASE WHEN override.isAllDay THEN $MAX_UTC_OFFSET_MS ELSE 0 END)"
+
         /** Non-recurring / master timing overlap on absolute UTC epoch ms (zoned / UTC rows). */
         private const val ANCHORED_TIMING = """(
             event.isAllDay = 0
@@ -278,8 +298,8 @@ internal abstract class EventDao {
                 WHERE override.masterId = event.id
                   AND override.isAllDay = 0
                   AND override.dtStartInstantMs IS NOT NULL
-                  AND override.dtStartInstantMs < :endInstantMs
-                  AND override.dtEndInstantMs >= :startInstantMs))"""
+                  AND override.dtStartInstantMs - $ALL_DAY_PADDING < :endInstantMs
+                  AND override.dtEndInstantMs + $ALL_DAY_PADDING >= :startInstantMs))"""
 
         private const val OVERRIDE_FLOATING = """(
             event.hasRecurrence = 1

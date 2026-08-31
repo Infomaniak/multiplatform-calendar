@@ -43,6 +43,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrid
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
@@ -888,7 +889,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             moved.rrule,
         )
         assertEquals(EventStatus.CONFIRMED, moved.content.status)
-        assertEquals("OPAQUE", moved.content.transp)
+        assertEquals(TimeBlocking.Blocks, moved.content.timeBlocking)
         assertEquals(Classification.Private, moved.content.classification)
         assertEquals(5, moved.content.priority)
         assertEquals(listOf("work", "urgent"), moved.content.categories)
@@ -1094,7 +1095,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             lastModified = LocalDateTime(2026, 1, 2, 9, 0),
             dtStamp = LocalDateTime(2026, 1, 2, 9, 0),
             status = EventStatus.CONFIRMED,
-            transp = "OPAQUE",
+            timeBlocking = TimeBlocking.Blocks,
             classification = Classification.Private,
             priority = 5,
             sequence = 3,
@@ -1212,6 +1213,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         ),
         location = null,
         description = null,
+        timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
         alarms = alarms,

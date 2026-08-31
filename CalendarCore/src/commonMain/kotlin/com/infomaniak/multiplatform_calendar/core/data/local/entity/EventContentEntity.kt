@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local.entity
 import androidx.room3.Embedded
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import kotlinx.datetime.LocalDateTime
 
 /**
@@ -37,7 +38,7 @@ internal data class EventContentEntity(
     val lastModified: LocalDateTime? = null,
     val dtStamp: LocalDateTime? = null,
     val status: EventStatus? = null,
-    val transp: String? = null,
+    val timeBlocking: TimeBlocking? = null,
     val classification: Classification? = null,
     val priority: Int? = null,
     val sequence: Int? = null,

@@ -40,6 +40,7 @@ public data class Event(
     val description: String? = null,
     val location: String? = null,
     val status: EventStatus? = null,
+    val timeBlocking: TimeBlocking? = null,
     val classification: Classification? = null,
     val categories: List<String> = emptyList(),
     val timing: EventTiming,

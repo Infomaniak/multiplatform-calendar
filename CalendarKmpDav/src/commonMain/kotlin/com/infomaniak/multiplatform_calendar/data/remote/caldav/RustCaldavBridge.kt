@@ -248,6 +248,7 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     allDay = allDay,
     location = location,
     description = description,
+    transp = transp,
     timezones = timeZones.map { it.toRust() },
     colorChange = colorChange.toRust(),
     recurrenceChange = recurrenceChange.toRust(),

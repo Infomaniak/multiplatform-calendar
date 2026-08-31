@@ -39,6 +39,7 @@ data class RemoteEventEdit(
     val allDay: Boolean,
     val location: String?,
     val description: String?,
+    val transp: String?,
     val timeZones: List<RemoteVTimeZone>,
     val colorChange: RemoteColorChange,
     val recurrenceChange: RemoteRecurrenceChange,

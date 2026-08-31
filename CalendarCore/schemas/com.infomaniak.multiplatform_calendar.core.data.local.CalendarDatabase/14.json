@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 14,
-    "identityHash": "e7a33d4c7530c9e29b393515e86054e7",
+    "identityHash": "7ab76db59a28123efbad4f4e83829250",
     "entities": [
       {
         "tableName": "accounts",
@@ -110,7 +110,7 @@
       },
       {
         "tableName": "events",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `calendarId` TEXT NOT NULL, `rrule` TEXT, `rDates` TEXT NOT NULL, `exDates` TEXT NOT NULL, `hasRecurrence` INTEGER NOT NULL, `etag` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `transp` TEXT, `classification` TEXT, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, `firstOccurrenceInstantMs` INTEGER, `lastPossibleOccurrenceEndInstantMs` INTEGER, `lastOccurrenceEndLocalDateTime` TEXT, `recurrenceBoundKind` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`calendarId`) REFERENCES `calendars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `calendarId` TEXT NOT NULL, `rrule` TEXT, `rDates` TEXT NOT NULL, `exDates` TEXT NOT NULL, `hasRecurrence` INTEGER NOT NULL, `etag` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `timeBlocking` TEXT, `classification` TEXT, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, `firstOccurrenceInstantMs` INTEGER, `lastPossibleOccurrenceEndInstantMs` INTEGER, `lastOccurrenceEndLocalDateTime` TEXT, `recurrenceBoundKind` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`calendarId`) REFERENCES `calendars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -196,8 +196,8 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "content.transp",
-            "columnName": "transp",
+            "fieldPath": "content.timeBlocking",
+            "columnName": "timeBlocking",
             "affinity": "TEXT"
           },
           {
@@ -367,7 +367,7 @@
       },
       {
         "tableName": "event_overrides",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`masterId` TEXT NOT NULL, `recurrenceKey` TEXT NOT NULL, `originalStartInstantMs` INTEGER, `originalEndInstantMs` INTEGER, `originalStartLocalDateTime` TEXT NOT NULL, `originalEndLocalDateTime` TEXT NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `transp` TEXT, `classification` TEXT, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, PRIMARY KEY(`masterId`, `recurrenceKey`), FOREIGN KEY(`masterId`) REFERENCES `events`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`masterId` TEXT NOT NULL, `recurrenceKey` TEXT NOT NULL, `originalStartInstantMs` INTEGER, `originalEndInstantMs` INTEGER, `originalStartLocalDateTime` TEXT NOT NULL, `originalEndLocalDateTime` TEXT NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `timeBlocking` TEXT, `classification` TEXT, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, PRIMARY KEY(`masterId`, `recurrenceKey`), FOREIGN KEY(`masterId`) REFERENCES `events`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "masterId",
@@ -440,8 +440,8 @@
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "content.transp",
-            "columnName": "transp",
+            "fieldPath": "content.timeBlocking",
+            "columnName": "timeBlocking",
             "affinity": "TEXT"
           },
           {
@@ -639,7 +639,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e7a33d4c7530c9e29b393515e86054e7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7ab76db59a28123efbad4f4e83829250')"
     ]
   }
 }

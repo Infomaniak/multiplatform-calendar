@@ -289,14 +289,14 @@ internal abstract class EventDao {
          * itself overlaps it, so [RECURRING_ANCHORED]/[RECURRING_FLOATING] already match.
          *
          * Both branches mirror [ANCHORED_TIMING]/[FLOATING_TIMING], on the override's *effective*
-         * position. As for non-recurring rows, all-day overrides match on wall-clock so filtering
-         * follows what the reader sees in their zone.
+         * position: an all-day override is anchored, like any all-day row. It is padded like an
+         * all-day *series* though (see `RecurrenceRuleToBoundsEntity`): stored at UTC midnight but
+         * rendered in the reader's zone, an all-day instance must stay a safe superset across zones.
          */
         private const val OVERRIDE_ANCHORED = """(
             event.hasRecurrence = 1
               AND EXISTS(SELECT 1 FROM event_overrides override
                 WHERE override.masterId = event.id
-                  AND override.isAllDay = 0
                   AND override.dtStartInstantMs IS NOT NULL
                   AND override.dtStartInstantMs - $ALL_DAY_PADDING < :endInstantMs
                   AND override.dtEndInstantMs + $ALL_DAY_PADDING >= :startInstantMs))"""
@@ -305,7 +305,7 @@ internal abstract class EventDao {
             event.hasRecurrence = 1
               AND EXISTS(SELECT 1 FROM event_overrides override
                 WHERE override.masterId = event.id
-                  AND (override.isAllDay = 1 OR override.dtStartInstantMs IS NULL)
+                  AND override.dtStartInstantMs IS NULL
                   AND override.dtStart < :endLocalDateTime
                   AND override.dtEndEffective >= :startLocalDateTime))"""
     }

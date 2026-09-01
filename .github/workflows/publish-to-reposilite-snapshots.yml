@@ -46,7 +46,7 @@ jobs:
       version: ${{ inputs.version }}
       commit-sha: ${{ inputs.commit-sha }}
       perform-a-gradle-clean: ${{ inputs.perform-a-gradle-clean }}
-      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       clean-paths: CalendarKmpDav/rust/caldav_bridge/target
       lib-name: "Android Calendar"
       artifact-line: 'implementation("com.infomaniak.multiplatform_calendar:CalendarCore:{VERSION}")'

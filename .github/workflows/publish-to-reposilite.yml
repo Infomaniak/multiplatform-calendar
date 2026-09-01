@@ -65,7 +65,7 @@ jobs:
     uses: Infomaniak/.github/.github/workflows/kmp-publish-reposilite-release.yml@v2
     with:
       version: ${{ inputs.version }}
-      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       clean-paths: CalendarKmpDav/rust/caldav_bridge/target
     secrets:
       REPOSILITE_USERNAME: ${{ secrets.REPOSILITE_USERNAME }}

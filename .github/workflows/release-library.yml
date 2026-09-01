@@ -30,7 +30,7 @@ jobs:
       xcframeworks: |
         [{"name":"MultiplatformCalendar","module":"CalendarCore","task":"assembleMultiplatformCalendarReleaseXCFramework"}]
       rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin
-      android-rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      android-rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       clean-paths: |
         CalendarKmpDav/build
         CalendarKmpDav/rust/caldav_bridge/target

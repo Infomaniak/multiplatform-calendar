@@ -20,14 +20,14 @@ package com.infomaniak.calendar.buildlogic.ndk
 import org.gradle.api.provider.Property
 
 /** DSL of [EnsureNdkVersionPlugin], registered under the `ensureNdkVersion` name. */
-abstract class EnsureNdkVersionExtension {
+interface EnsureNdkVersionExtension {
 
     /**
      * Minimum acceptable NDK version, e.g. `"30.0.14904198"`.
      *
      * It is a *minimum*, not a pin: a newer installed NDK satisfies it and is reused.
      */
-    abstract val minimumVersion: Property<String>
+    val minimumVersion: Property<String>
 
     /**
      * The NDK version that will actually be used, wired by [EnsureNdkVersionPlugin].
@@ -36,5 +36,5 @@ abstract class EnsureNdkVersionExtension {
      * [minimumVersion], so it must be plugged into whatever consumes the NDK — here
      * `cargo.ndkVersion` — rather than repeating [minimumVersion] there.
      */
-    abstract val resolvedVersion: Property<String>
+    val resolvedVersion: Property<String>
 }

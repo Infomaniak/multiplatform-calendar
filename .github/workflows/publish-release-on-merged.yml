@@ -15,7 +15,7 @@ jobs:
       merged: ${{ github.event.pull_request.merged }}
       head-ref: ${{ github.event.pull_request.head.ref }}
       merge-commit-sha: ${{ github.event.pull_request.merge_commit_sha }}
-      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       clean-paths: CalendarKmpDav/rust/caldav_bridge/target
       lib-name: "Calendar lib"
       spm-line: |

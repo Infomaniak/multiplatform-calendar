@@ -4,6 +4,10 @@ plugins {
 
 gradlePlugin {
     plugins {
+        register("ensureNdkVersion") {
+            id = "ensure-ndk-version"
+            implementationClass = "com.infomaniak.calendar.buildlogic.ndk.EnsureNdkVersionPlugin"
+        }
         register("infomaniak.publishPlugin") {
             id = "infomaniak.publishPlugin"
             implementationClass = "com.infomaniak.calendar.buildlogic.publish.PublishPlugin"

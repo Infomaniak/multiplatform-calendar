@@ -10,7 +10,11 @@ jobs:
   build-and-test:
     uses: Infomaniak/.github/.github/workflows/kmp-pr-build-check.yml@v2
     with:
-      rust-targets: aarch64-linux-android,aarch64-apple-ios-sim
+      # Android: `assembleAndroidMain` builds the Rust bridge for every shipped ABI (arm64-v8a,
+      # armeabi-v7a, x86_64), so those three targets must be installed. The self-hosted runner
+      # usually has them from previous runs, but a clean one would fail on the missing targets.
+      # Apple: the simulator target is the only one needed, for the two `link*Framework` tasks below.
+      rust-targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,aarch64-apple-ios-sim
       clean-paths: |
         CalendarCore/build
         CalendarKmpDav/build
@@ -18,3 +22,6 @@ jobs:
       # The Android KMP library plugin (com.android.kotlin.multiplatform.library) produces a
       # single variant, so there is one "assembleAndroidMain" task instead of debug/release ones.
       build-task: assembleAndroidMain linkDebugFrameworkIosSimulatorArm64 linkReleaseFrameworkIosSimulatorArm64
+      # Same reason: the single-variant plugin replaces "testDebugUnitTest" (the reusable
+      # workflow's default, which no longer exists here) with "testAndroidHostTest".
+      android-test-task: testAndroidHostTest

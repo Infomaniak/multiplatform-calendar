@@ -17,6 +17,7 @@
  */
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.ensureNdkVersion)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
@@ -36,11 +37,22 @@ uniffi {
     generateFromLibrary()
 }
 
+ensureNdkVersion {
+    // The 16 KB page size Android 15+ requires needs NDK r28 (30.x) or newer. Declared as a
+    // minimum: a newer installed NDK is reused instead of forcing this exact one to be downloaded.
+    minimumVersion = "30.0.14904198"
+}
+
 cargo {
     packageDirectory = layout.projectDirectory.dir("rust/caldav_bridge")
     // `com.android.kotlin.multiplatform.library` has no `ndkVersion` of its own, so the NDK the
-    // Android targets are cross-compiled with is pinned here instead.
-    ndkVersion = "30.0.14904198"
+    // Android targets are cross-compiled with is set here instead.
+    //
+    // It must come from `resolvedVersion` rather than be repeated as a literal: the UniFFI plugin
+    // silently falls back to the newest installed NDK when the requested one is missing, so a
+    // hardcoded version would produce a green build against an unintended toolchain. Reading the
+    // resolved value is also what triggers the install when nothing satisfies the minimum.
+    ndkVersion = ensureNdkVersion.resolvedVersion
 }
 
 kotlin {

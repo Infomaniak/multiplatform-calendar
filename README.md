@@ -67,9 +67,9 @@ Before you begin, ensure you have met the following requirements:
 - You are using a Linux, macOS, or Windows machine.
 - You have installed Java Development Kit (JDK) 21 or later.
 - You have Android Studio installed.
-- **NDK 30.0.14904198**: required for 16KB page size alignment support. `com.android.kotlin.multiplatform.library` has no
-  `ndkVersion` of its own, so the version is pinned in `CalendarKmpDav/build.gradle.kts` via `cargo { ndkVersion = "..." }`.
-  Install it from *Settings > Android SDK > SDK Tools > NDK (Side by side)*.
+- **NDK 30.0.14904198 or newer**: required for the 16 KB page size alignment Android 15+ mandates. Nothing to do manually:
+  the `ensure-ndk-version` convention plugin reuses any newer installed NDK and otherwise downloads this one through
+  `sdkmanager`. See [NDK handling](#ndk-handling).
 - You have [Rust](https://rustup.rs/) installed with cross-compilation targets:
   ```bash
   rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android \
@@ -97,6 +97,35 @@ plugin. No separate build step is required — just run `./gradlew assembleAndro
 
 > ℹ️ The Android ABIs shipped are `arm64-v8a`, `armeabi-v7a` and `x86_64`. The 32-bit `x86` ABI is **not** supported by the
 > plugin; it only concerns long-obsolete 32-bit emulators.
+
+### NDK handling
+
+Android 15+ requires shared libraries to be aligned on 16 KB pages, which needs NDK r28 (30.x) or newer.
+
+`com.android.kotlin.multiplatform.library` exposes no `ndkVersion` of its own — AGP 9 removed it from `CommonExtension` —
+so the NDK used to cross-compile Rust is the one given to `cargo { ndkVersion = ... }`. That plugin does **not** fail when
+the requested version is missing: it silently falls back to the newest installed NDK, so a machine without a 30.x NDK
+would build unaligned libraries and still report a successful build.
+
+The `ensure-ndk-version` convention plugin (`build-logic/plugins/.../ndk`) closes that hole:
+
+```kotlin
+ensureNdkVersion {
+    minimumVersion = "30.0.14904198"
+}
+
+cargo {
+    ndkVersion = ensureNdkVersion.resolvedVersion
+}
+```
+
+`minimumVersion` is a **minimum**, not a pin: a newer installed NDK satisfies it and is reused, and only when none
+qualifies is the declared version downloaded via `sdkmanager`. Wiring `resolvedVersion` into `cargo` is what makes the
+check effective — repeating the version as a literal there would reintroduce the silent fallback.
+
+Run `./gradlew :CalendarKmpDav:ensureNdkVersion` to check or provision the NDK on its own. Automatic installation needs
+the *Android SDK Command-line Tools* (*Settings > Android SDK > SDK Tools*); without them the build explains how to
+install the NDK manually.
 
 ### Async & cancellation
 

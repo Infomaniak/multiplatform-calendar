@@ -18,7 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.eventTimeRangeOf
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
@@ -26,7 +28,9 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.time.Instant
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
@@ -121,6 +125,19 @@ class EventTimingMappersTest {
         assertEquals(LocalDateTime(2026, 6, 15, 12, 30), entity.dtEnd)
     }
 
+    @Test
+    fun toEntity_dstOverlap_preservesSelectedInstantWithoutResolvingWallClockAgain() {
+        val secondOccurrence = Instant.parse("2026-10-25T01:30:00Z")
+        val entity = EventTimeRange(
+            start = EventTiming.Precised(secondOccurrence, paris),
+            end = EventTiming.Precised(Instant.parse("2026-10-25T02:30:00Z"), paris),
+            isAllDay = false,
+        ).toEntity()
+
+        assertEquals(LocalDateTime(2026, 10, 25, 2, 30), entity.dtStart)
+        assertEquals(secondOccurrence.toEpochMilliseconds(), entity.dtStartInstantMs)
+    }
+
     // ---- EventTimingEntity.toDomain() -----------------------------------------------------------
 
     @Test
@@ -132,15 +149,17 @@ class EventTimingMappersTest {
             dtEndEffective = LocalDateTime(2026, 6, 15, 15, 0),
             startTimeZone = "Europe/Paris",
             endTimeZone = "Europe/Paris",
-            dtStartInstantMs = 0L,
-            dtEndInstantMs = 0L,
+            dtStartInstantMs = LocalDateTime(2026, 6, 15, 14, 0).toInstant(paris).toEpochMilliseconds(),
+            dtEndInstantMs = LocalDateTime(2026, 6, 15, 15, 0).toInstant(paris).toEpochMilliseconds(),
             isAllDay = false,
         ).toDomain()
 
         assertEquals(paris, domain.startTimeZone)
         assertEquals(paris, domain.endTimeZone)
-        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), domain.start)
-        assertEquals(LocalDateTime(2026, 6, 15, 15, 0), domain.end)
+        assertIs<EventTiming.Precised>(domain.start)
+        assertIs<EventTiming.Precised>(domain.end)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), domain.startLocalDateTime)
+        assertEquals(LocalDateTime(2026, 6, 15, 15, 0), domain.endLocalDateTime)
         assertEquals(false, domain.isAllDay)
     }
 
@@ -153,13 +172,15 @@ class EventTimingMappersTest {
             dtEndEffective = LocalDateTime(2026, 6, 16, 0, 0),
             startTimeZone = null,
             endTimeZone = null,
-            dtStartInstantMs = 0L,
-            dtEndInstantMs = 0L,
+            dtStartInstantMs = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = LocalDateTime(2026, 6, 16, 0, 0).toInstant(TimeZone.UTC).toEpochMilliseconds(),
             isAllDay = true,
         ).toDomain()
 
         assertNull(domain.startTimeZone)
         assertNull(domain.endTimeZone)
+        assertIs<EventTiming.Floating>(domain.start)
+        assertIs<EventTiming.Floating>(domain.end)
         assertEquals(true, domain.isAllDay)
     }
 
@@ -174,12 +195,32 @@ class EventTimingMappersTest {
             dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),
             startTimeZone = "Europe/Paris",
             endTimeZone = "Europe/Paris",
-            dtStartInstantMs = 0L,
-            dtEndInstantMs = 0L,
+            dtStartInstantMs = LocalDateTime(2026, 6, 15, 10, 0).toInstant(paris).toEpochMilliseconds(),
+            dtEndInstantMs = LocalDateTime(2026, 6, 15, 11, 0).toInstant(paris).toEpochMilliseconds(),
             isAllDay = false,
         ).toDomain()
 
-        assertEquals(LocalDateTime(2026, 6, 15, 11, 0), domain.end)
+        assertEquals(LocalDateTime(2026, 6, 15, 11, 0), domain.endLocalDateTime)
+    }
+
+    @Test
+    fun toDomain_dstOverlap_usesPersistedInstantWithoutResolvingWallClockAgain() {
+        val firstOccurrence = Instant.parse("2026-10-25T00:30:00Z")
+        val domain = EventTimingEntity(
+            dtStart = LocalDateTime(2026, 10, 25, 2, 30),
+            dtEnd = LocalDateTime(2026, 10, 25, 3, 30),
+            duration = null,
+            dtEndEffective = LocalDateTime(2026, 10, 25, 3, 30),
+            startTimeZone = "Europe/Paris",
+            endTimeZone = "Europe/Paris",
+            dtStartInstantMs = firstOccurrence.toEpochMilliseconds(),
+            dtEndInstantMs = Instant.parse("2026-10-25T02:30:00Z").toEpochMilliseconds(),
+            isAllDay = false,
+        ).toDomain()
+
+        val start = assertIs<EventTiming.Precised>(domain.start)
+        assertEquals(firstOccurrence, start.instant)
+        assertEquals(paris, start.timeZone)
     }
 
     @Test
@@ -208,7 +249,7 @@ class EventTimingMappersTest {
         startTimeZone: TimeZone?,
         endTimeZone: TimeZone?,
         isAllDay: Boolean,
-    ) = EventTiming(
+    ) = eventTimeRangeOf(
         start = start,
         end = end,
         startTimeZone = startTimeZone,

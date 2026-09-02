@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleSerializer
@@ -49,8 +50,8 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 internal fun EventEditData.toRemoteEdit(stamp: String, previous: EventEntity?): RemoteEventEdit {
-    val startZone = timing.startTimeZone
-    val endZone = timing.endTimeZone
+    val startZone = timing.start.serializationZone()
+    val endZone = timing.end.serializationZone()
     return RemoteEventEdit(
         summary = title.ifBlank { null },
         dtStart = timing.start.toICal(timing.isAllDay, startZone),
@@ -90,12 +91,12 @@ private fun EventEditData.resolveRecurrenceChange(previousRule: RecurrenceRule?)
 }
 
 /**
- * This timing's [recurrenceRule][EventTiming.recurrenceRule] (or `null`) with its `UNTIL` coerced to the
+ * This timing's [recurrenceRule][EventTimeRange.recurrenceRule] (or `null`) with its `UNTIL` coerced to the
  * value type this timing's `DTSTART` requires (RFC 5545 §3.3.10): all-day → `DATE`, floating → local
  * `DATE-TIME`, otherwise UTC `DATE-TIME`. The calendar-face value is reinterpreted across forms (zone-free,
  * deterministic) rather than converted across zones.
  */
-private fun EventTiming.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
+private fun EventTimeRange.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
     val rule = recurrenceRule ?: return null
     val current = rule.until ?: return rule
     val normalized = when {
@@ -125,10 +126,10 @@ private fun RecurrenceUntil.calendarDateTime(): LocalDateTime = when (this) {
  * - `zone` set   → FORM #3 (no suffix; caller emits a `TZID` parameter alongside).
  * - `zone` null  → FORM #1 floating (no suffix, no `TZID`).
  */
-private fun LocalDateTime.toICal(isAllDay: Boolean, zone: TimeZone?): String = when {
-    isAllDay -> date.toICalDate()
-    zone == UTC -> toInstant(UTC).toICalUtcDateTime()
-    else -> toICalLocalDateTime()
+private fun EventTiming.toICal(isAllDay: Boolean, serializationZone: TimeZone?): String = when {
+    isAllDay -> localDateTime().date.toICalDate()
+    this is EventTiming.Precised && serializationZone == UTC -> instant.toICalUtcDateTime()
+    else -> localDateTime().toICalLocalDateTime()
 }
 
 /** The `TZID` parameter to emit alongside a `DATE-TIME` value, or `null` when none applies. */
@@ -144,10 +145,10 @@ private fun TimeZone?.tzidForIcal(isAllDay: Boolean): String? =
  * emitted when distinct. Each offset is sampled at its own wall-clock — a single-offset
  * approximation that resolves this event's wall-clocks correctly everywhere (see [RemoteVTimeZone]).
  */
-private fun EventTiming.vTimeZones(): List<RemoteVTimeZone> {
+private fun EventTimeRange.vTimeZones(): List<RemoteVTimeZone> {
     if (isAllDay) return emptyList()
-    val start = startTimeZone.vTimeZone(start)
-    val end = endTimeZone.vTimeZone(end)
+    val start = this.start.serializationZone().vTimeZone(startLocalDateTime)
+    val end = this.end.serializationZone().vTimeZone(endLocalDateTime)
     return when {
         start == null && end == null -> emptyList()
         start != null && end != null && start.tzid == end.tzid -> listOf(start)
@@ -170,6 +171,18 @@ private fun TimeZone?.vTimeZone(local: LocalDateTime): RemoteVTimeZone? {
  * DATE-TIME value **and** a matching `VTIMEZONE` block in the emitted iCalendar.
  */
 private fun TimeZone?.explicitInIcal(): TimeZone? = this?.takeUnless { it == UTC }
+
+/**
+ * TZID form cannot distinguish the two occurrences of a wall-clock inside a DST overlap. Use UTC
+ * when this value is not the occurrence selected by kotlinx-datetime's deterministic local resolver.
+ */
+private fun EventTiming.serializationZone(): TimeZone? = when (this) {
+    is EventTiming.Floating -> null
+    is EventTiming.Precised -> {
+        val local = instant.toLocalDateTime(timeZone)
+        if (local.toInstant(timeZone) == instant) timeZone else UTC
+    }
+}
 
 /**
  * Format the UTC offset valid at [local] in this zone as an RFC 5545 `TZOFFSETTO` value (e.g. "+0200").

@@ -127,7 +127,7 @@ private suspend fun MutableList<Event>.addOverriddenInstances(
 }
 
 /** Same `[rangeStart, rangeEnd[` overlap rule as [buildOccurrenceAt], for an already-positioned instance. */
-private fun EventTiming.overlaps(rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone): Boolean {
+private fun EventTimeRange.overlaps(rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone): Boolean {
     return startInstant(timeZone) < rangeEnd && endInstant(timeZone) > rangeStart
 }
 
@@ -139,7 +139,7 @@ private fun EventTiming.overlaps(rangeStart: Instant, rangeEnd: Instant, timeZon
  * Returns `true` when this timing is recurring (`recurrenceRule != null` or `rDates` non-empty) and occurrences have been appended
  * into [target], `false` otherwise (non-recurring timing, [target] left untouched).
  */
-internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
+internal suspend fun EventTimeRange.expandRecurrenceOccurrencesInWindow(
     masterId: EventId,
     rangeStart: Instant,
     rangeEnd: Instant,
@@ -193,9 +193,9 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
     return true
 }
 
-private fun EventTiming.hasRecurrenceSet(): Boolean = recurrenceRule != null || rDates.isNotEmpty()
+private fun EventTimeRange.hasRecurrenceSet(): Boolean = recurrenceRule != null || rDates.isNotEmpty()
 
-private suspend fun EventTiming.expandRRuleDirectlyInto(
+private suspend fun EventTimeRange.expandRRuleDirectlyInto(
     target: MutableList<Occurrence>,
     rangeStart: Instant,
     rangeEnd: Instant,
@@ -214,7 +214,7 @@ private suspend fun EventTiming.expandRRuleDirectlyInto(
     )
 }
 
-private suspend fun EventTiming.expandRRuleOccurrencesInWindow(
+private suspend fun EventTimeRange.expandRRuleOccurrencesInWindow(
     target: MutableMap<String, Occurrence>,
     rangeStart: Instant,
     rangeEnd: Instant,
@@ -236,7 +236,7 @@ private suspend fun EventTiming.expandRRuleOccurrencesInWindow(
     return outcome
 }
 
-private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
+private fun EventTimeRange.addMasterOccurrenceWhenRDateOnly(
     target: MutableMap<String, Occurrence>,
     masterTiming: MasterTiming,
     rangeStart: Instant,
@@ -245,7 +245,7 @@ private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
 ) {
     if (recurrenceRule != null) return
     buildOccurrenceAt(
-        key = recurrenceKeyAt(start, startInstant(timeZone)),
+        key = recurrenceKeyAt(startLocalDateTime, startInstant(timeZone)),
         masterTiming = masterTiming,
         defaultZone = timeZone,
         rangeStart = rangeStart,
@@ -253,7 +253,7 @@ private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
     )?.let { target[it.key.canonical] = it }
 }
 
-private fun EventTiming.addRDateOccurrences(
+private fun EventTimeRange.addRDateOccurrences(
     target: MutableMap<String, Occurrence>,
     masterTiming: MasterTiming,
     rangeStart: Instant,
@@ -272,7 +272,7 @@ private fun EventTiming.addRDateOccurrences(
     }
 }
 
-private fun EventTiming.removeExDateOccurrences(target: MutableMap<String, Occurrence>) {
+private fun EventTimeRange.removeExDateOccurrences(target: MutableMap<String, Occurrence>) {
     exDates.forEach { dateValue ->
         // Mapper-side validation keeps EXDATE value forms aligned with DTSTART. If a future change
         // breaks that invariant, `toRecurrenceKey` returns null and we keep this explicit no-op path.
@@ -281,7 +281,7 @@ private fun EventTiming.removeExDateOccurrences(target: MutableMap<String, Occur
     }
 }
 
-private fun EventTiming.buildOccurrenceAt(
+private fun EventTimeRange.buildOccurrenceAt(
     key: RecurrenceKey,
     masterTiming: MasterTiming,
     defaultZone: TimeZone,
@@ -302,30 +302,35 @@ private fun EventTiming.buildOccurrenceAt(
         key = key,
         start = localStart,
         end = localEnd,
+        startInstant = instantStart,
+        endInstant = instantEnd,
         startTimeZone = startTimeZone,
         endTimeZone = endTimeZone,
     )
 }
 
-private fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? = when {
-    master.isAllDay && this is IcalDateValue.AllDay -> AllDay(date)
-    !master.isAllDay && this is IcalDateValue.AllDay -> {
-        val local = LocalDateTime(date, master.start.time)
-        when (val zone = master.startTimeZone) {
-            null -> Floating(local)
-            TimeZone.UTC -> Utc(local.toInstant(TimeZone.UTC))
-            else -> Zoned(local, zone.id)
+private fun IcalDateValue.toRecurrenceKey(master: EventTimeRange): RecurrenceKey? {
+    val startZone = master.startTimeZone
+    return when {
+        master.isAllDay && this is IcalDateValue.AllDay -> AllDay(date)
+        !master.isAllDay && this is IcalDateValue.AllDay -> {
+            val local = LocalDateTime(date, master.startLocalDateTime.time)
+            when (val zone = startZone) {
+                null -> Floating(local)
+                TimeZone.UTC -> Utc(local.toInstant(TimeZone.UTC))
+                else -> Zoned(local, zone.id)
+            }
         }
+        !master.isAllDay && startZone == null && this is IcalDateValue.Floating -> Floating(localDateTime)
+        !master.isAllDay && startZone == TimeZone.UTC && this is IcalDateValue.Zoned -> Utc(instant)
+        !master.isAllDay && startZone != null && startZone != TimeZone.UTC && this is IcalDateValue.Zoned ->
+            Zoned(instant.toLocalDateTime(startZone), startZone.id)
+        else -> null
     }
-    !master.isAllDay && master.startTimeZone == null && this is IcalDateValue.Floating -> Floating(localDateTime)
-    !master.isAllDay && master.startTimeZone == TimeZone.UTC && this is IcalDateValue.Zoned -> Utc(instant)
-    !master.isAllDay && master.startTimeZone != null && master.startTimeZone != TimeZone.UTC && this is IcalDateValue.Zoned ->
-        Zoned(instant.toLocalDateTime(master.startTimeZone), master.startTimeZone.id)
-    else -> null
 }
 
-private fun RecurrenceKey.toLocalStart(master: EventTiming, defaultZone: TimeZone): LocalDateTime? = when (this) {
-    is AllDay -> LocalDateTime(date, master.start.time)
+private fun RecurrenceKey.toLocalStart(master: EventTimeRange, defaultZone: TimeZone): LocalDateTime? = when (this) {
+    is AllDay -> LocalDateTime(date, master.startLocalDateTime.time)
     is Floating -> localDateTime
     is Zoned -> if (master.startTimeZone != null) localDateTime else null
     is Utc -> instant.toLocalDateTime(master.startTimeZone ?: defaultZone)
@@ -337,10 +342,10 @@ private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
     return copy(
         occurrenceId = OccurrenceId.of(masterEventId, occurrence.key),
         timing = timing.copy(
-            start = occurrence.start,
-            end = occurrence.end,
-            startTimeZone = occurrence.startTimeZone,
-            endTimeZone = occurrence.endTimeZone,
+            start = occurrence.startTimeZone?.let { EventTiming.Precised(occurrence.startInstant, it) }
+                ?: EventTiming.Floating(occurrence.start),
+            end = occurrence.endTimeZone?.let { EventTiming.Precised(occurrence.endInstant, it) }
+                ?: EventTiming.Floating(occurrence.end),
             isAllDay = occurrence.isAllDay,
         ),
     )

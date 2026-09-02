@@ -23,7 +23,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.eventTimingOf
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.comparePerDayDisplayOrder
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrenceOccurrencesInWindow
@@ -110,12 +111,10 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     return colorOrderByDay.toColorsByDay()
 }
 
-/** The [EventTiming] this row describes, resolving its zone ids through [zoneCache]. */
-private fun EventCalendarColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTiming(
-    start = dtStart,
-    end = dtEndEffective,
-    startTimeZone = startZoneId?.let { zoneCache.zoneOf(it) },
-    endTimeZone = endZoneId?.let { zoneCache.zoneOf(it) },
+/** The [EventTimeRange] this row describes, resolving its zone ids through [zoneCache]. */
+private fun EventCalendarColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTimeRange(
+    start = eventTimingOf(dtStart, startZoneId?.let { zoneCache.zoneOf(it) }),
+    end = eventTimingOf(dtEndEffective, endZoneId?.let { zoneCache.zoneOf(it) }),
     isAllDay = isAllDay,
     recurrenceRule = rrule,
 )
@@ -125,14 +124,14 @@ private fun MutableMap<String, TimeZone>.zoneOf(id: String): TimeZone = getOrPut
 /** Record a non-recurring event, whose single span is [timing] itself. */
 private fun ColorOrderByDay.recordPlainEvent(
     row: EventCalendarColorInRange,
-    timing: EventTiming,
+    timing: EventTimeRange,
     color: CalendarColors,
     visibleDays: ClosedRange<LocalDate>,
     timeZone: TimeZone,
 ) {
     recordCoveredDays(
-        start = timing.start.projectInto(timing.startTimeZone, timeZone),
-        end = timing.end.projectInto(timing.endTimeZone, timeZone),
+        start = timing.startIn(timeZone),
+        end = timing.endIn(timeZone),
         visibleDays = visibleDays,
         calendarId = row.calendarId,
         color = color,
@@ -285,7 +284,7 @@ private fun ColorOrderByDay.recordCoveredDays(
 private val MIDNIGHT = LocalTime(0, 0)
 
 /**
- * Reproject a stored wall-clock into [targetZone], matching `EventTiming.startIn`/`endIn`:
+ * Reproject a stored wall-clock into [targetZone], matching `EventTimeRange.startIn`/`endIn`:
  * a `null` source zone (floating or all-day) is interpreted directly in [targetZone]; any other zone is
  * reprojected through an absolute instant.
  */
@@ -293,4 +292,3 @@ private fun LocalDateTime.projectInto(sourceZone: TimeZone?, targetZone: TimeZon
     if (sourceZone == null || sourceZone == targetZone) return this
     return toInstant(sourceZone).toLocalDateTime(targetZone)
 }
-

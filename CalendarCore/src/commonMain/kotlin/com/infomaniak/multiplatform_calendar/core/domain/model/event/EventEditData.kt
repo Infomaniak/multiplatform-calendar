@@ -28,7 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Event
  */
 public data class EventEditData(
     val title: String,
-    val timing: EventTiming,
+    val timing: EventTimeRange,
     val location: String?,
     val description: String?,
     val timeBlocking: TimeBlocking?,

@@ -31,8 +31,8 @@ import kotlinx.datetime.LocalDateTime
  * Lightweight Room projection: just what is needed to place an event's **calendar** color on each day
  * it covers, without materialising a full `EventEntity` (no title, attendees, raw ICS, …).
  *
- * The wall-clock columns plus their IANA time-zone ids mirror the domain `EventTiming.startIn` /
- * `EventTiming.endIn` reprojection so day placement matches the planning grid exactly:
+ * The wall-clock columns plus their IANA time-zone ids mirror the domain `EventTimeRange.startIn` /
+ * `EventTimeRange.endIn` reprojection so day placement matches the planning grid exactly:
  * - [startZoneId]/[endZoneId] `== null` (floating or all-day): the wall-clock is used as-is in the display zone.
  * - otherwise: the wall-clock is reprojected through an absolute instant into the display zone.
  *
@@ -73,5 +73,4 @@ internal data class OverrideCalendarColorInRange(
     val isAllDay: Boolean,
     val status: EventStatus?,
 )
-
 

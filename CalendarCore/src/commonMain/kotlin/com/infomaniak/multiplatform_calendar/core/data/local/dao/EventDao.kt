@@ -103,7 +103,7 @@ internal abstract class EventDao {
      * lightweight [EventCalendarColorInRange] projection (owning calendar color + wall-clock bounds), never a
      * full event. Meant to feed a per-day calendar-color map (e.g. a month grid): no event body, attendees or
      * raw ICS is read, so large months stay cheap. Day placement is done in Kotlin from the wall-clock columns
-     * (mirroring `EventTiming.startIn`/`endIn`) since day boundaries depend on the caller's display zone.
+     * (mirroring `EventTimeRange.startIn`/`endIn`) since day boundaries depend on the caller's display zone.
      *
      * Overrides ride along through the same batched relation as [observeVisibleInRange], projected down to
      * [OverrideCalendarColorInRange], so a moved instance dots the day it landed on rather than the one it left.

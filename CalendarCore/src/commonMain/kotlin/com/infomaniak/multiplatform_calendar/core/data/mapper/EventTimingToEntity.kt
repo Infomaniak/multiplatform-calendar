@@ -18,49 +18,44 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
 /**
- * Build the persisted [EventTimingEntity] from an edited domain [EventTiming].
+ * Build the persisted [EventTimingEntity] from an edited domain [EventTimeRange].
  *
  * The edited timing always carries an explicit end, so any pre-existing `DURATION` is dropped
  * (RFC 5545 §3.8.2.5: `DTEND` and `DURATION` are mutually exclusive) and [EventTimingEntity.dtEndEffective]
- * is simply [EventTiming.end]. Epoch-ms columns are anchored via [startStorageZone] / [endStorageZone]
- * (`null` for floating events — see [EventTimingEntity.dtStartInstantMs]).
+ * is simply [EventTimeRange.end]. Precise epoch-ms values are copied directly rather than resolved
+ * from their wall-clock again; floating events keep a `null` instant.
  */
-internal fun EventTiming.toEntity(): EventTimingEntity {
-    val startZone = startStorageZone()
-    val endZone = endStorageZone()
+internal fun EventTimeRange.toEntity(): EventTimingEntity {
+    val startLocal = startLocalDateTime
+    val endLocal = endLocalDateTime
     return EventTimingEntity(
-        dtStart = start,
-        dtEnd = end,
+        dtStart = startLocal,
+        dtEnd = endLocal,
         duration = null,
-        dtEndEffective = end,
+        dtEndEffective = endLocal,
         startTimeZone = startTimeZone?.id,
         endTimeZone = endTimeZone?.id,
-        dtStartInstantMs = startZone?.let { start.toInstant(it).toEpochMilliseconds() },
-        dtEndInstantMs = endZone?.let { end.toInstant(it).toEpochMilliseconds() },
+        dtStartInstantMs = start.storageInstant(isAllDay),
+        dtEndInstantMs = end.storageInstant(isAllDay),
         isAllDay = isAllDay,
     )
 }
 
 /**
- * Time-zone in which to resolve [EventTiming.start] for storage (epoch-ms columns), or `null` for
- * floating events (RFC 5545 FORM #1) which have no absolute instant by definition. See
- * [EventTimingEntity.dtStartInstantMs] for the DAO's wall-clock fallback branch on `null`.
- *
- * - All-day → `TimeZone.UTC` so the recorded epoch ms is device-independent.
- * - Zoned   → [EventTiming.startTimeZone].
- * - Floating (no `TZID`, no `Z`) → `null`.
+ * Preserve the already-resolved instant of a precise value. All-day floating values retain their
+ * UTC-midnight storage anchor for device-independent range indexing.
  */
-private fun EventTiming.startStorageZone(): TimeZone? = storageZoneFor(startTimeZone)
-
-/** See [startStorageZone]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-private fun EventTiming.endStorageZone(): TimeZone? = storageZoneFor(endTimeZone)
-
-private fun EventTiming.storageZoneFor(zone: TimeZone?): TimeZone? = when {
-    isAllDay -> TimeZone.UTC
-    else -> zone
+private fun EventTiming.storageInstant(isAllDay: Boolean): Long? = when (this) {
+    is EventTiming.Precised -> instant.toEpochMilliseconds()
+    is EventTiming.Floating -> if (isAllDay) {
+        localDateTime.toInstant(TimeZone.UTC).toEpochMilliseconds()
+    } else {
+        null
+    }
 }

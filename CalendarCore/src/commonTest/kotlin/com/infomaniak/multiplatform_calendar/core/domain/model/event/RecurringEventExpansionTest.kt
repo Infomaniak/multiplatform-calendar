@@ -124,7 +124,7 @@ class RecurringEventExpansionTest {
 
         suspend fun idsByStart(rangeStart: Instant): Map<LocalDateTime, String> = listOf(EventWithOverrides(master))
             .expandRecurrencesInWindow(rangeStart = rangeStart, rangeEnd = utc(2026, 1, 11), timeZone = TimeZone.UTC)
-            .associate { it.timing.start to it.occurrenceId.value }
+            .associate { it.timing.startLocalDateTime to it.occurrenceId.value }
 
         val wide = idsByStart(utc(2026, 1, 1))   // Jan 1..5
         val narrow = idsByStart(utc(2026, 1, 3)) // Jan 3..5 — same occurrences, later window start
@@ -208,7 +208,7 @@ class RecurringEventExpansionTest {
             timeZone = TimeZone.UTC,
         )
 
-        assertTrue(result.any { it.timing.start == LocalDateTime(2026, 1, 10, 10, 0) })
+        assertTrue(result.any { it.timing.startLocalDateTime == LocalDateTime(2026, 1, 10, 10, 0) })
     }
 
     @Test
@@ -217,7 +217,7 @@ class RecurringEventExpansionTest {
             id = "event://rdate-date",
             rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 1),
         ).copy(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 1, 1, 10, 0),
                 end = LocalDateTime(2026, 1, 1, 11, 0),
                 startTimeZone = TimeZone.of("Europe/Paris"),
@@ -234,7 +234,7 @@ class RecurringEventExpansionTest {
             timeZone = TimeZone.UTC,
         )
 
-        assertTrue(result.any { it.timing.start == LocalDateTime(2026, 1, 10, 10, 0) })
+        assertTrue(result.any { it.timing.startLocalDateTime == LocalDateTime(2026, 1, 10, 10, 0) })
     }
 
     @Test
@@ -253,7 +253,7 @@ class RecurringEventExpansionTest {
             timeZone = TimeZone.UTC,
         )
 
-        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertFalse(result.any { it.timing.startLocalDateTime == LocalDateTime(2026, 1, 2, 10, 0) })
         assertEquals(2, result.size)
     }
 
@@ -263,7 +263,7 @@ class RecurringEventExpansionTest {
             id = "event://exdate-date",
             rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         ).copy(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 1, 1, 10, 0),
                 end = LocalDateTime(2026, 1, 1, 11, 0),
                 startTimeZone = TimeZone.of("Europe/Paris"),
@@ -280,7 +280,7 @@ class RecurringEventExpansionTest {
             timeZone = TimeZone.UTC,
         )
 
-        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertFalse(result.any { it.timing.startLocalDateTime == LocalDateTime(2026, 1, 2, 10, 0) })
         assertEquals(2, result.size)
     }
 
@@ -291,7 +291,7 @@ class RecurringEventExpansionTest {
             id = "event://exdate-zoned",
             rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         ).copy(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 1, 1, 10, 0),
                 end = LocalDateTime(2026, 1, 1, 11, 0),
                 startTimeZone = paris,
@@ -308,7 +308,7 @@ class RecurringEventExpansionTest {
             timeZone = TimeZone.UTC,
         )
 
-        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertFalse(result.any { it.timing.startLocalDateTime == LocalDateTime(2026, 1, 2, 10, 0) })
         assertEquals(2, result.size)
     }
 
@@ -331,7 +331,7 @@ class RecurringEventExpansionTest {
             timeZone = TimeZone.UTC,
         )
 
-        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertFalse(result.any { it.timing.startLocalDateTime == LocalDateTime(2026, 1, 2, 10, 0) })
         assertEquals(2, result.size)
     }
 
@@ -341,7 +341,7 @@ class RecurringEventExpansionTest {
             id = "event://exdate-floating",
             rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         ).copy(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 1, 1, 10, 0),
                 end = LocalDateTime(2026, 1, 1, 11, 0),
                 startTimeZone = null,
@@ -358,7 +358,7 @@ class RecurringEventExpansionTest {
             timeZone = TimeZone.UTC,
         )
 
-        assertFalse(result.any { it.timing.start == LocalDateTime(2026, 1, 2, 10, 0) })
+        assertFalse(result.any { it.timing.startLocalDateTime == LocalDateTime(2026, 1, 2, 10, 0) })
         assertEquals(2, result.size)
     }
 
@@ -371,7 +371,7 @@ class RecurringEventExpansionTest {
             calendarId = CalendarId("calendar://test"),
             accountId = AccountId(1L),
             title = "DST spring",
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 3, 28, 10, 0),
                 end = LocalDateTime(2026, 3, 28, 11, 0),
                 startTimeZone = paris,
@@ -395,7 +395,7 @@ class RecurringEventExpansionTest {
                 LocalDateTime(2026, 3, 29, 10, 0),
                 LocalDateTime(2026, 3, 30, 10, 0),
             ),
-            result.map { it.timing.start },
+            result.map { it.timing.startLocalDateTime },
             "daily zoned expansion must keep all occurrences across DST spring-forward",
         )
     }
@@ -409,7 +409,7 @@ class RecurringEventExpansionTest {
             calendarId = CalendarId("calendar://test"),
             accountId = AccountId(1L),
             title = "DST fall",
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 10, 24, 10, 0),
                 end = LocalDateTime(2026, 10, 24, 11, 0),
                 startTimeZone = paris,
@@ -433,9 +433,38 @@ class RecurringEventExpansionTest {
                 LocalDateTime(2026, 10, 24, 10, 0),
                 LocalDateTime(2026, 10, 26, 10, 0),
             ),
-            result.map { it.timing.start },
+            result.map { it.timing.startLocalDateTime },
             "EXDATE must still match and exclude the fallback-day occurrence across DST changes",
         )
+    }
+
+    @Test
+    fun recurrenceExpansion_preservesPreciseMasterOccurrenceInsideDstOverlap() = runTest {
+        val paris = TimeZone.of("Europe/Paris")
+        val selectedInstant = Instant.parse("2026-10-25T01:30:00Z")
+        val master = Event(
+            masterEventId = EventId("event://dst-overlap"),
+            occurrenceId = OccurrenceId("event://dst-overlap"),
+            calendarId = CalendarId("calendar://test"),
+            accountId = AccountId(1L),
+            title = "DST overlap",
+            timing = EventTimeRange(
+                start = EventTiming.Precised(selectedInstant, paris),
+                end = EventTiming.Precised(Instant.parse("2026-10-25T02:30:00Z"), paris),
+                isAllDay = false,
+                recurrenceRule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 1),
+            ),
+            colors = EventColors.from(eventSourceColor = null, calendarSourceColor = 0xFF2196F3.toInt()),
+            canEdit = true,
+        )
+
+        val occurrence = listOf(EventWithOverrides(master)).expandRecurrencesInWindow(
+            rangeStart = Instant.parse("2026-10-25T00:00:00Z"),
+            rangeEnd = Instant.parse("2026-10-26T00:00:00Z"),
+            timeZone = TimeZone.UTC,
+        ).single()
+
+        assertEquals(selectedInstant, (occurrence.timing.start as EventTiming.Precised).instant)
     }
 
     @Test
@@ -452,7 +481,7 @@ class RecurringEventExpansionTest {
         assertEquals(3, result.size, "the overridden slot is replaced, not added to")
         val overridden = result.single { it.occurrenceId == override.second.occurrenceId }
         assertEquals("Moved instance", overridden.title, "the server's content wins over the master's")
-        assertEquals(LocalDateTime(2026, 1, 2, 15, 0), overridden.timing.start)
+        assertEquals(LocalDateTime(2026, 1, 2, 15, 0), overridden.timing.startLocalDateTime)
     }
 
     @Test
@@ -469,7 +498,7 @@ class RecurringEventExpansionTest {
 
         assertEquals(
             listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 3, 10, 0), LocalDateTime(2026, 1, 3, 9, 0)),
-            result.map { it.timing.start },
+            result.map { it.timing.startLocalDateTime },
             "01-02 is vacated, 01-03 keeps its own occurrence, and the moved one lands next to it",
         )
     }
@@ -487,7 +516,7 @@ class RecurringEventExpansionTest {
 
         assertEquals(
             listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 3, 10, 0)),
-            result.map { it.timing.start },
+            result.map { it.timing.startLocalDateTime },
         )
     }
 
@@ -518,7 +547,7 @@ class RecurringEventExpansionTest {
 
         assertEquals(
             listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 3, 10, 0)),
-            result.map { it.timing.start },
+            result.map { it.timing.startLocalDateTime },
             "STATUS:CANCELLED on an override deletes that single occurrence",
         )
     }
@@ -535,8 +564,11 @@ class RecurringEventExpansionTest {
             title = "Moved instance",
             status = status,
             timing = timing.copy(
-                start = movedTo,
-                end = LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute)),
+                start = eventTimingOf(movedTo, timing.startTimeZone),
+                end = eventTimingOf(
+                    LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute)),
+                    timing.endTimeZone,
+                ),
                 recurrenceRule = null,
             ),
         )
@@ -548,7 +580,7 @@ class RecurringEventExpansionTest {
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",
-        timing = EventTiming(
+        timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 1, 1, 10, 0),
             end = LocalDateTime(2026, 1, 1, 11, 0),
             startTimeZone = TimeZone.UTC,

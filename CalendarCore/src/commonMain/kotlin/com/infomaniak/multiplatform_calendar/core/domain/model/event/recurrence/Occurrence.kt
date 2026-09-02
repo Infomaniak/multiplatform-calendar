@@ -19,15 +19,16 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlin.time.Instant
 
 /**
  * A single materialised recurrence instance produced by
  * [RecurrenceExpander][com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceExpander].
  *
- * The timing fields mirror
- * [EventTiming][com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming] exactly
- * (same four value-type forms, [end] exclusive, wall-clock preserved across DST) so an occurrence
- * can be turned into a concrete `Event` without re-deriving its shape. [key] is the occurrence's
+ * The timing fields are the internal wall-clock form of
+ * [EventTimeRange][com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange]
+ * ([end] exclusive, wall-clock preserved across DST), so an occurrence can be turned into a
+ * concrete `Event` without re-deriving its shape. [key] is the occurrence's
  * stable identity, faithful to the master `DTSTART` value type; [isAllDay] is read straight from it
  * since an all-day identity is the only all-day form.
  */
@@ -35,6 +36,8 @@ internal data class Occurrence(
     val key: RecurrenceKey,
     val start: LocalDateTime,
     val end: LocalDateTime,
+    val startInstant: Instant,
+    val endInstant: Instant,
     val startTimeZone: TimeZone?,
     val endTimeZone: TimeZone?,
 ) {

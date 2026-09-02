@@ -24,7 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.eventTimeRangeOf
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
@@ -138,7 +138,7 @@ class EventEditMapperAlarmTest {
 
     private fun editData(alarms: List<EventAlarm>) = EventEditData(
         title = "Test",
-        timing = EventTiming(
+        timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 10, 0),
             end = LocalDateTime(2026, 6, 15, 11, 0),
             startTimeZone = TimeZone.UTC,

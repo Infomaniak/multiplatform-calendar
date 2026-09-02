@@ -41,7 +41,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.eventTimeRangeOf
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -230,10 +230,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val expectedId = "${master.id.url}#${RecurrenceKey.Utc(overriddenSlot.toInstant(TimeZone.UTC)).canonical}"
         val rendered = events.single { it.occurrenceId.value == expectedId }
         assertEquals("Moved instance", rendered.title, "the override's own content must reach the rendered occurrence")
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), rendered.timing.start, "and its own, moved timing")
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), rendered.timing.startLocalDateTime, "and its own, moved timing")
         assertEquals(
             1,
-            events.count { it.timing.start.date == LocalDateTime(2026, 6, 17, 0, 0).date },
+            events.count { it.timing.startLocalDateTime.date == LocalDateTime(2026, 6, 17, 0, 0).date },
             "the theoretical 10:00 slot must be gone, not doubled",
         )
     }
@@ -259,7 +259,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             timeZone = TimeZone.UTC,
         ).first()
 
-        val days = slicesByDay.values.flatten().map { it.event.timing.start.date }
+        val days = slicesByDay.values.flatten().map { it.event.timing.startLocalDateTime.date }
         assertEquals(4, days.size, "a cancelled override deletes its occurrence")
         assertTrue(LocalDateTime(2026, 6, 17, 0, 0).date !in days, "and it is the overridden day that disappears")
     }
@@ -1203,7 +1203,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         alarms: List<EventAlarm> = emptyList(),
     ) = EventEditData(
         title = title,
-        timing = EventTiming(
+        timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 10, 0),
             end = LocalDateTime(2026, 6, 15, 11, 0),
             startTimeZone = TimeZone.UTC,

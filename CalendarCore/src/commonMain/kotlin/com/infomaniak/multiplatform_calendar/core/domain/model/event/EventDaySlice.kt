@@ -140,7 +140,7 @@ internal suspend fun List<Event>.groupDaySlicesByDay(
  * Expand this event into one [EventDaySlice] per day it covers within [visibleDays] (inclusive),
  * expressed in [timeZone], writing each slice straight into its per-day [buckets] entry.
  *
- * The event is reprojected into [timeZone] via [EventTiming.startIn] / [EventTiming.endIn] so
+ * The event is reprojected into [timeZone] via [EventTimeRange.startIn] / [EventTimeRange.endIn] so
  * cross-zone "flights" and floating events land on the grid the user sees; `dayIndex` / `dayCount`
  * stay absolute to the event's own span, even when clamped to a smaller window.
  *

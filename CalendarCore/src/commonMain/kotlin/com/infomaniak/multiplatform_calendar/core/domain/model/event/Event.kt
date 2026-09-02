@@ -43,7 +43,7 @@ public data class Event(
     val timeBlocking: TimeBlocking? = null,
     val classification: Classification? = null,
     val categories: List<String> = emptyList(),
-    val timing: EventTiming,
+    val timing: EventTimeRange,
     val lastModified: Instant? = null,
     val attendees: List<Attendee> = emptyList(),
     val organizer: Organizer? = null,

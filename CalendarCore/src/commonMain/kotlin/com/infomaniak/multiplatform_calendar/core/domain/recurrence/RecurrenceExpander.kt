@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -44,7 +44,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
- * Expands a parsed [RecurrenceRule] against its master [EventTiming] into concrete [Occurrence]s.
+ * Expands a parsed [RecurrenceRule] against its master [EventTimeRange] into concrete [Occurrence]s.
  *
  * Stateless: the only mutation is appending to the caller-owned `target` buffer (mirroring the
  * `expandDaySlicesInto` convention), so no intermediate `List`/`Sequence`/`Flow` is allocated. The
@@ -73,7 +73,7 @@ internal object RecurrenceExpander {
      */
     suspend fun expandInto(
         target: MutableList<Occurrence>,
-        master: EventTiming,
+        master: EventTimeRange,
         rrule: RecurrenceRule,
         inputStart: Instant,
         inputEnd: Instant,
@@ -81,7 +81,7 @@ internal object RecurrenceExpander {
         limits: ExpansionLimits = ExpansionLimits(),
     ): ExpansionOutcome {
         val masterTiming = MasterTiming.of(master, defaultZone)
-        val dtStart = master.start
+        val dtStart = master.startLocalDateTime
 
         var count = 0
         var generated = 0
@@ -141,7 +141,7 @@ internal object RecurrenceExpander {
      */
     private fun appendOccurrenceIfWithinWindow(
         target: MutableList<Occurrence>,
-        master: EventTiming,
+        master: EventTimeRange,
         masterTiming: MasterTiming,
         occurrenceStartLocal: LocalDateTime,
         occurrenceStartInstant: Instant,
@@ -155,6 +155,8 @@ internal object RecurrenceExpander {
             key = master.recurrenceKeyAt(occurrenceStartLocal, occurrenceStartInstant),
             start = occurrenceStartLocal,
             end = occurrenceEndLocal,
+            startInstant = occurrenceStartInstant,
+            endInstant = occurrenceEndInstant,
             startTimeZone = master.startTimeZone,
             endTimeZone = master.endTimeZone,
         )

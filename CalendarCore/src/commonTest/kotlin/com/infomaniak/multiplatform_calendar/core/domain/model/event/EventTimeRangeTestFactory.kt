@@ -15,35 +15,27 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.mapper
+package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlin.time.Instant
 
-internal fun EventTimingEntity.toDomain(
+internal fun eventTimeRangeOf(
+    start: LocalDateTime,
+    end: LocalDateTime,
+    startTimeZone: TimeZone?,
+    endTimeZone: TimeZone?,
+    isAllDay: Boolean,
     recurrenceRule: RecurrenceRule? = null,
     rDates: List<IcalDateValue> = emptyList(),
     exDates: List<IcalDateValue> = emptyList(),
 ): EventTimeRange = EventTimeRange(
-    start = dtStart.toDomainTiming(startTimeZone, dtStartInstantMs),
-    end = dtEndEffective.toDomainTiming(endTimeZone, dtEndInstantMs),
+    start = eventTimingOf(start, startTimeZone),
+    end = eventTimingOf(end, endTimeZone),
     isAllDay = isAllDay,
     recurrenceRule = recurrenceRule,
     rDates = rDates,
     exDates = exDates,
 )
-
-private fun kotlinx.datetime.LocalDateTime.toDomainTiming(zoneId: String?, epochMs: Long?): EventTiming =
-    if (zoneId == null) {
-        EventTiming.Floating(this)
-    } else {
-        EventTiming.Precised(
-            instant = Instant.fromEpochMilliseconds(checkNotNull(epochMs) { "Precise event timing requires an instant" }),
-            timeZone = TimeZone.of(zoneId),
-        )
-    }

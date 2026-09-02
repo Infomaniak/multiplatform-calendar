@@ -23,9 +23,11 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.eventTimeRangeOf
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -39,6 +41,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 class EventEditMapperTest {
 
@@ -51,7 +54,7 @@ class EventEditMapperTest {
     @Test
     fun allDayEdit_emitsDateForms_andDropsTzids() {
         val edit = editData(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 6, 15, 0, 0),
                 end = LocalDateTime(2026, 6, 16, 0, 0),
                 startTimeZone = null,
@@ -71,7 +74,7 @@ class EventEditMapperTest {
     @Test
     fun utcEdit_emitsForm2_withZSuffix_andNoTzid() {
         val edit = editData(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 6, 15, 10, 0),
                 end = LocalDateTime(2026, 6, 15, 11, 0),
                 startTimeZone = TimeZone.UTC,
@@ -91,7 +94,7 @@ class EventEditMapperTest {
     @Test
     fun zonedEdit_emitsForm3_withLocalDateTime_andTzid_andSingleVTimeZone() {
         val edit = editData(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 6, 15, 14, 0),
                 end = LocalDateTime(2026, 6, 15, 15, 0),
                 startTimeZone = paris,
@@ -112,9 +115,24 @@ class EventEditMapperTest {
     }
 
     @Test
+    fun ambiguousPreciseEdit_emitsUtcToPreserveSelectedInstant() {
+        val timing = EventTimeRange(
+            start = EventTiming.Precised(Instant.parse("2026-10-25T01:30:00Z"), paris),
+            end = EventTiming.Precised(Instant.parse("2026-10-25T02:30:00Z"), paris),
+            isAllDay = false,
+        )
+
+        val edit = editData(timing).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals("20261025T013000Z", edit.dtStart)
+        assertNull(edit.dtStartTzid)
+        assertEquals(listOf("Europe/Paris"), edit.timeZones.map { it.tzid })
+    }
+
+    @Test
     fun floatingEdit_emitsForm1_noZ_noTzid_noVTimeZone() {
         val edit = editData(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 6, 15, 10, 0),
                 end = LocalDateTime(2026, 6, 15, 11, 0),
                 startTimeZone = null,
@@ -135,7 +153,7 @@ class EventEditMapperTest {
     @Test
     fun crossZoneFlight_emitsTwoTzids_andTwoVTimeZones() {
         val edit = editData(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 6, 15, 9, 0),
                 end = LocalDateTime(2026, 6, 15, 21, 0),
                 startTimeZone = newYork,
@@ -160,7 +178,7 @@ class EventEditMapperTest {
     fun winterEvent_emitsWinterOffset_notSummerOffset() {
         // February in Paris = UTC+1 (winter time). Offset must be sampled at the event's own wall-clock.
         val edit = editData(
-            timing = EventTiming(
+            timing = eventTimeRangeOf(
                 start = LocalDateTime(2026, 2, 15, 14, 0),
                 end = LocalDateTime(2026, 2, 15, 15, 0),
                 startTimeZone = paris,
@@ -328,7 +346,7 @@ class EventEditMapperTest {
 
     private fun editData(timeBlocking: TimeBlocking?) = EventEditData(
         title = "Test",
-        timing = EventTiming(
+        timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 10, 0),
             end = LocalDateTime(2026, 6, 15, 11, 0),
             startTimeZone = TimeZone.UTC,
@@ -345,7 +363,7 @@ class EventEditMapperTest {
 
     private fun editData(recurrence: RecurrenceRule?, isAllDay: Boolean, zone: TimeZone?) = EventEditData(
         title = "Test",
-        timing = EventTiming(
+        timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 10, 0),
             end = LocalDateTime(2026, 6, 15, 11, 0),
             startTimeZone = zone,
@@ -363,7 +381,7 @@ class EventEditMapperTest {
 
     private fun editData(recurrence: RecurrenceRule?) = EventEditData(
         title = "Test",
-        timing = EventTiming(
+        timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 10, 0),
             end = LocalDateTime(2026, 6, 15, 11, 0),
             startTimeZone = TimeZone.UTC,
@@ -379,7 +397,7 @@ class EventEditMapperTest {
         alarms = emptyList(),
     )
 
-    private fun editData(timing: EventTiming) = EventEditData(
+    private fun editData(timing: EventTimeRange) = EventEditData(
         title = "Test",
         timing = timing,
         location = null,
@@ -392,7 +410,7 @@ class EventEditMapperTest {
 
     private fun editData(eventColor: Int?) = EventEditData(
         title = "Test",
-        timing = EventTiming(
+        timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 10, 0),
             end = LocalDateTime(2026, 6, 15, 11, 0),
             startTimeZone = TimeZone.UTC,

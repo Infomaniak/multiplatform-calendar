@@ -17,7 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.eventTimeRangeOf
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -59,7 +60,7 @@ class RecurrenceExpanderTest {
         start: String,
         end: String,
         zone: TimeZone? = utc,
-    ) = EventTiming(
+    ) = eventTimeRangeOf(
         start = ldt(start),
         end = ldt(end),
         startTimeZone = zone,
@@ -67,7 +68,7 @@ class RecurrenceExpanderTest {
         isAllDay = false,
     )
 
-    private fun allDayMaster(startDate: String, spanDays: Int = 1) = EventTiming(
+    private fun allDayMaster(startDate: String, spanDays: Int = 1) = eventTimeRangeOf(
         start = LocalDateTime(LocalDate.parse(startDate), LocalDateTime.parse("2000-01-01T00:00").time),
         end = LocalDateTime(LocalDate.parse(startDate).plus(spanDaysPeriod(spanDays)), LocalDateTime.parse("2000-01-01T00:00").time),
         startTimeZone = null,
@@ -78,7 +79,7 @@ class RecurrenceExpanderTest {
     private fun spanDaysPeriod(days: Int) = kotlinx.datetime.DatePeriod(days = days)
 
     private suspend fun expand(
-        master: EventTiming,
+        master: EventTimeRange,
         rule: RecurrenceRule,
         windowStart: Instant,
         windowEnd: Instant,
@@ -991,9 +992,9 @@ class RecurrenceExpanderTest {
     }
 
     @Test
-    fun boundedSeriesWhoseEveryInstanceIsADstGapCompletesInsteadOfScanningToTheCap() = runTest {
-        // Every last Sunday of March at 02:30 in Europe/Paris is a spring-forward gap. Bounds must be
-        // evaluated before the gap is skipped, otherwise UNTIL is never reached and expansion runs to the cap.
+    fun preciseMasterInsideDstGap_isNormalizedBeforeRecurrenceExpansion() = runTest {
+        // Precised stores only an instant and zone, so the invalid 02:30 master is normalized to 03:30
+        // when it crosses the public API boundary. Subsequent yearly occurrences preserve that wall-clock.
         val master = timedMaster("2020-03-29T02:30", "2020-03-29T03:30", zone = paris)
         val (occ, outcome) = expand(
             master,
@@ -1008,7 +1009,8 @@ class RecurrenceExpanderTest {
             limits = ExpansionLimits(maxScannedPeriods = 50),
         )
         assertEquals(Completed, outcome)
-        assertEquals(emptyList<LocalDateTime>(), occ.map { it.start })
+        assertEquals(15, occ.size)
+        assertTrue(occ.all { it.start.hour == 3 && it.start.minute == 30 })
     }
 
     @Test
@@ -1099,7 +1101,7 @@ class RecurrenceExpanderTest {
 
     private fun ny(start: String) = timedMaster(start, start, zone = newYork)
 
-    private suspend fun starts(master: EventTiming, rule: RecurrenceRule): List<LocalDateTime> =
+    private suspend fun starts(master: EventTimeRange, rule: RecurrenceRule): List<LocalDateTime> =
         expand(master, rule, instant("1996-01-01T00:00", newYork), instant("2010-01-01T00:00", newYork)).first.map { it.start }
 
     private fun weekDay(ordinal: Int, dayOfWeek: DayOfWeek) = WeekDayNum(ordinal = ordinal, dayOfWeek = dayOfWeek)

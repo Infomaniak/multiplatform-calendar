@@ -31,6 +31,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
 class RemoteDavEventToTimingEntityTest {
@@ -85,6 +86,18 @@ class RemoteDavEventToTimingEntityTest {
         assertEquals("Europe/Paris", timing.endTimeZone)
         assertEquals(LocalDateTime(2026, 6, 15, 14, 0).toEpochMs(paris), timing.dtStartInstantMs)
         assertEquals(LocalDateTime(2026, 6, 15, 15, 0).toEpochMs(paris), timing.dtEndInstantMs)
+    }
+
+    @Test
+    fun zonedEvent_dstOverlap_collapsesToKotlinxDatetimeChosenInstant() {
+        val timing = remoteEvent(
+            dtstart = "20261025T023000",
+            dtStartTzid = "Europe/Paris",
+            dtend = "20261025T033000",
+            dtEndTzid = "Europe/Paris",
+        ).toTimingEntity()
+
+        assertEquals(Instant.parse("2026-10-25T00:30:00Z").toEpochMilliseconds(), timing.dtStartInstantMs)
     }
 
     // ---- Cross-zone (RFC 5545 §3.8.2.2) ---------------------------------------------------------

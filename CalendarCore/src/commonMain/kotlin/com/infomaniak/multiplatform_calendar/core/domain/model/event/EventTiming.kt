@@ -17,8 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -26,84 +24,39 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
- * When an event happens.
+ * One iCalendar date-time value.
  *
- * RFC 5545 distinguishes two value types on `DTSTART`: `DATE` (whole-day, no time / timezone) and
- * `DATE-TIME` (anchored instant), and a `DATE-TIME` itself has three forms:
- * - FORM #1 "floating" — no `TZID`, no `Z`. The wall-clock is interpreted in the recipient's local time.
- * - FORM #2 UTC — `Z` suffix.
- * - FORM #3 "with timezone reference" — local wall-clock paired with an IANA `TZID`.
+ * A precise value has already been collapsed to one absolute [Instant] by the KMP layer. This is
+ * particularly important for a local time inside a DST overlap, which could otherwise map to two
+ * instants. [Precised.timeZone] preserves the value's original display/serialization zone.
  *
- * The four cases are encoded here as follows (applied independently to start and end):
- * | Case                       | [start]/[end]                  | [startTimeZone]/[endTimeZone] | [isAllDay] |
- * |----------------------------|--------------------------------|-------------------------------|------------|
- * | `DATE` (whole-day)         | wall-clock midnight (time=0)   | `null`                        | `true`     |
- * | `DATE-TIME` UTC            | wall-clock in UTC              | `TimeZone.UTC`                | `false`    |
- * | `DATE-TIME` with `TZID`    | wall-clock in that zone        | the IANA zone                 | `false`    |
- * | `DATE-TIME` floating       | wall-clock                     | `null`                        | `false`    |
- *
- * RFC 5545 §3.8.2.2 allows `DTEND` to carry a `TZID` different from `DTSTART` (e.g. a flight
- * "9:00 America/New_York → 16:00 Europe/Paris"), hence the two zones are kept independent. For
- * all-day events both zones are `null`.
- *
- * When [isAllDay] is `true`, consumers should read [start] / [end] as dates only; the time
- * component is meaningless. [end] is exclusive (a single-day event has `end = start + 1d`),
- * matching iCal `DTEND;VALUE=DATE` semantics.
- *
- * Use [startInstant] / [endInstant] when you need an absolute point in time (display, comparisons).
+ * A floating value has no absolute instant by RFC 5545 FORM #1 and is interpreted in the
+ * recipient's current zone. All-day values also use [Floating], with [EventTimeRange.isAllDay]
+ * carrying their date-only semantics.
  */
-public data class EventTiming(
-    val start: LocalDateTime,
-    val end: LocalDateTime,
-    val startTimeZone: TimeZone?,
-    val endTimeZone: TimeZone?,
-    val isAllDay: Boolean,
-    val recurrenceRule: RecurrenceRule? = null,
-    val rDates: List<IcalDateValue> = emptyList(),
-    val exDates: List<IcalDateValue> = emptyList(),
-) {
-    /**
-     * Resolve [EventTiming.start] to an absolute [Instant].
-     *
-     * - When [EventTiming.startTimeZone] is set, the wall-clock is anchored in that zone.
-     * - Otherwise (floating or all-day) it is anchored in [defaultZone] (recipient's local time per
-     *   RFC 5545 FORM #1; the call-site supplies the device/user zone).
-     */
-    public fun startInstant(defaultZone: TimeZone): Instant =
-        start.toInstant(startTimeZone ?: defaultZone)
+public sealed class EventTiming {
 
-    /** See [startInstant]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-    public fun endInstant(defaultZone: TimeZone): Instant =
-        end.toInstant(endTimeZone ?: defaultZone)
+    public data class Precised(
+        val instant: Instant,
+        val timeZone: TimeZone,
+    ) : EventTiming()
 
-    /**
-     * Return [EventTiming.start] as a wall-clock in [targetZone].
-     *
-     * - Floating / all-day ([EventTiming.startTimeZone] `== null`): returned as-is (per RFC 5545
-     *   FORM #1, a floating wall-clock is interpreted in the recipient's zone).
-     * - Same zone as [targetZone]: returned as-is (no-op conversion).
-     * - Different zone: reprojected via an absolute [Instant].
-     */
-    public fun startIn(targetZone: TimeZone): LocalDateTime = when (startTimeZone) {
-        null, targetZone -> start
-        else -> start.toInstant(startTimeZone).toLocalDateTime(targetZone)
+    public data class Floating(
+        val localDateTime: LocalDateTime,
+    ) : EventTiming()
+
+    internal fun localDateTime(): LocalDateTime = when (this) {
+        is Precised -> instant.toLocalDateTime(timeZone)
+        is Floating -> localDateTime
     }
 
-    /** See [startIn]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-    public fun endIn(targetZone: TimeZone): LocalDateTime = when (endTimeZone) {
-        null, targetZone -> end
-        else -> end.toInstant(endTimeZone).toLocalDateTime(targetZone)
+    internal fun instant(defaultZone: TimeZone): Instant = when (this) {
+        is Precised -> instant
+        is Floating -> localDateTime.toInstant(defaultZone)
     }
 
-    /** Shortcut for [startInstant] with the device's current system zone. */
-    public fun startInstantLocal(): Instant = startInstant(TimeZone.currentSystemDefault())
-
-    /** Shortcut for [endInstant] with the device's current system zone. */
-    public fun endInstantLocal(): Instant = endInstant(TimeZone.currentSystemDefault())
-
-    /** Shortcut for [startIn] with the device's current system zone. */
-    public fun startInLocal(): LocalDateTime = startIn(TimeZone.currentSystemDefault())
-
-    /** Shortcut for [endIn] with the device's current system zone. */
-    public fun endInLocal(): LocalDateTime = endIn(TimeZone.currentSystemDefault())
+    internal fun inTimeZone(targetZone: TimeZone): LocalDateTime = when (this) {
+        is Precised -> if (timeZone == targetZone) localDateTime() else instant.toLocalDateTime(targetZone)
+        is Floating -> localDateTime
+    }
 }

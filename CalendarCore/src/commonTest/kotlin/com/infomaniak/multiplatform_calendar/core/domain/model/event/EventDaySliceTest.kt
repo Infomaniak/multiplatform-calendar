@@ -164,7 +164,7 @@ class EventDaySliceTest {
     @Test
     fun floatingMultiDay_isExpandedOnItsWallClock_regardlessOfGridZone() = runTest {
         // Floating (no zone): wall-clock is taken as-is in the grid, per RFC 5545 FORM #1.
-        val slices = EventTiming(
+        val slices = eventTimeRangeOf(
             start = LocalDateTime(2026, 1, 5, 22, 0),
             end = LocalDateTime(2026, 1, 6, 2, 0),
             startTimeZone = null,
@@ -182,7 +182,7 @@ class EventDaySliceTest {
     @Test
     fun crossZoneFlight_usesPerSideZonesWhenReprojecting() = runTest {
         // 09:00 New York (UTC-5) → 21:00 Paris (UTC+1), both in January.
-        val slices = EventTiming(
+        val slices = eventTimeRangeOf(
             start = LocalDateTime(2026, 1, 5, 9, 0),
             end = LocalDateTime(2026, 1, 5, 21, 0),
             startTimeZone = newYork,
@@ -412,12 +412,12 @@ class EventDaySliceTest {
         LocalDateTime(year, month, day, hour, minute).toInstant(paris)
 
     private fun timed(start: LocalDateTime, end: LocalDateTime, zone: TimeZone, id: String = "event://test") = eventOf(
-        EventTiming(start = start, end = end, startTimeZone = zone, endTimeZone = zone, isAllDay = false),
+        eventTimeRangeOf(start = start, end = end, startTimeZone = zone, endTimeZone = zone, isAllDay = false),
         id = id,
     )
 
     private fun allDay(start: LocalDate, endExclusive: LocalDate, id: String = "event://test") = eventOf(
-        EventTiming(
+        eventTimeRangeOf(
             start = LocalDateTime(start, LocalTime(0, 0)),
             end = LocalDateTime(endExclusive, LocalTime(0, 0)),
             startTimeZone = null,
@@ -427,7 +427,7 @@ class EventDaySliceTest {
         id = id,
     )
 
-    private fun eventOf(timing: EventTiming, id: String = "event://test"): Event = Event(
+    private fun eventOf(timing: EventTimeRange, id: String = "event://test"): Event = Event(
         masterEventId = EventId(id),
         occurrenceId = OccurrenceId(id),
         calendarId = CalendarId("calendar://test"),

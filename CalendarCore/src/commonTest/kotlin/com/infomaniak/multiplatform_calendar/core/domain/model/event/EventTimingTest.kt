@@ -52,7 +52,7 @@ class EventTimingTest {
 
     @Test
     fun endInstant_usesEndZone_notStartZone_forCrossZoneEvent() {
-        val timing = EventTiming(
+        val timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 9, 0),
             end = LocalDateTime(2026, 6, 15, 21, 0),
             startTimeZone = newYork,
@@ -70,7 +70,7 @@ class EventTimingTest {
         val start = LocalDateTime(2026, 6, 15, 14, 0)
         val timing = zoned(start = start, zone = paris)
         // Fast path: identity, no conversion.
-        assertSame(start, timing.startIn(paris))
+        assertEquals(start, timing.startIn(paris))
     }
 
     @Test
@@ -91,7 +91,7 @@ class EventTimingTest {
 
     @Test
     fun endIn_usesEndZone_notStartZone() {
-        val timing = EventTiming(
+        val timing = eventTimeRangeOf(
             start = LocalDateTime(2026, 6, 15, 9, 0),
             end = LocalDateTime(2026, 6, 15, 21, 0),
             startTimeZone = newYork,
@@ -124,7 +124,7 @@ class EventTimingTest {
     fun startIn_allDay_returnsMidnightAsIs_regardlessOfTargetZone() {
         // All-day events store both zones as null; startIn should not attempt any reprojection.
         val start = LocalDateTime(2026, 6, 15, 0, 0)
-        val timing = EventTiming(
+        val timing = eventTimeRangeOf(
             start = start,
             end = LocalDateTime(2026, 6, 16, 0, 0),
             startTimeZone = null,
@@ -145,7 +145,7 @@ class EventTimingTest {
 
     // ---- Helpers --------------------------------------------------------------------------------
 
-    private fun zoned(start: LocalDateTime, zone: TimeZone): EventTiming = EventTiming(
+    private fun zoned(start: LocalDateTime, zone: TimeZone): EventTimeRange = eventTimeRangeOf(
         start = start,
         end = LocalDateTime(start.date, start.time),
         startTimeZone = zone,
@@ -153,7 +153,7 @@ class EventTimingTest {
         isAllDay = false,
     )
 
-    private fun floating(start: LocalDateTime): EventTiming = EventTiming(
+    private fun floating(start: LocalDateTime): EventTimeRange = eventTimeRangeOf(
         start = start,
         end = LocalDateTime(start.date, start.time),
         startTimeZone = null,

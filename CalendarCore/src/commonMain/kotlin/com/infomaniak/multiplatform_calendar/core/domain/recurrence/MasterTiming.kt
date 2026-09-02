@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTimeRange
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -37,6 +37,8 @@ import kotlin.time.Instant
 internal class MasterTiming private constructor(
     val startZone: TimeZone,
     private val endZone: TimeZone,
+    private val masterStartLocal: LocalDateTime,
+    private val masterStartInstant: Instant,
     private val isAllDay: Boolean,
     private val nominalDuration: Duration,
     private val allDaySpanDays: Int,
@@ -49,7 +51,8 @@ internal class MasterTiming private constructor(
      * gap (which resolves forward). Never `null`, so COUNT/UNTIL/window bounds can be evaluated before a
      * gap instance is discarded.
      */
-    fun resolvedStartInstant(startLocal: LocalDateTime): Instant = startLocal.toInstant(startZone)
+    fun resolvedStartInstant(startLocal: LocalDateTime): Instant =
+        if (startLocal == masterStartLocal) masterStartInstant else startLocal.toInstant(startZone)
 
     /**
      * Whether [startLocal] (already resolved to [resolvedInstant]) is a real wall-clock in [startZone].
@@ -69,12 +72,18 @@ internal class MasterTiming private constructor(
     }
 
     companion object {
-        fun of(master: EventTiming, defaultZone: TimeZone) = MasterTiming(
+        fun of(master: EventTimeRange, defaultZone: TimeZone) = MasterTiming(
             startZone = if (master.isAllDay) defaultZone else (master.startTimeZone ?: defaultZone),
             endZone = if (master.isAllDay) defaultZone else (master.endTimeZone ?: defaultZone),
+            masterStartLocal = master.startLocalDateTime,
+            masterStartInstant = master.startInstant(defaultZone),
             isAllDay = master.isAllDay,
             nominalDuration = master.endInstant(defaultZone) - master.startInstant(defaultZone),
-            allDaySpanDays = if (master.isAllDay) master.start.date.daysUntil(master.end.date) else 0,
+            allDaySpanDays = if (master.isAllDay) {
+                master.startLocalDateTime.date.daysUntil(master.endLocalDateTime.date)
+            } else {
+                0
+            },
         )
     }
 }

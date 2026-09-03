@@ -75,11 +75,11 @@ internal class EventRepository(
         zone: TimeZone,
     ): Flow<List<EventWithOverrides>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
-        // - Absolute epoch ms for anchored events (zoned / UTC / all-day).
-        // - Wall-clock strings for floating events, re-interpreted in [zone] so a floating event
-        //   stays visible at "10:00 local" wherever the user travels. Callers that also expand or
-        //   group events by day (e.g. [observeVisibleDaySlices]) must pass the *same* zone here so
-        //   the SQL filter and the downstream day split agree on which floating events are visible.
+        // - Absolute epoch ms for anchored events (zoned / UTC).
+        // - Wall-clock strings for floating and all-day events, re-interpreted in [zone] so they stay
+        //   visible at "10:00 local" (resp. on their own date) wherever the user travels. Callers that
+        //   also expand or group events by day (e.g. [observeVisibleDaySlices]) must pass the *same* zone
+        //   here so the SQL filter and the downstream day split agree on which events are visible.
         return eventDao.observeVisibleInRange(
             accountIds = accountIds,
             startInstantMs = start.toEpochMilliseconds(),

@@ -1051,6 +1051,76 @@ class EventDaoTest : RobolectricTestsBase() {
         assertEquals(listOf(moved), observed.single().overrides)
     }
 
+    @Test
+    fun observeVisibleInRange_allDayEvent_matchedOnWallClockInAWesternZone() = runTest {
+        val account = AccountId(91)
+        val calendarId = CalendarId("calendar://all-day")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+        seedEvents(listOf(allDayEvent(calendarId)))
+
+        // All-day rows are stored at UTC midnight but render as a plain wall-clock date, so in UTC-10 this
+        // event occupies 08-20T10:00Z..08-21T10:00Z. Matching it on the stored instants would end it at
+        // 08-21T00:00Z and miss an evening window that it visibly covers.
+        val zone = TimeZone.of("Pacific/Honolulu")
+        val observed = observeVisibleIn(account, LocalDateTime(2026, 8, 20, 20, 0), LocalDateTime(2026, 8, 20, 23, 0), zone)
+
+        assertEquals(listOf(EventId("event://all-day")), observed)
+    }
+
+    @Test
+    fun observeVisibleInRange_allDayEvent_notWidenedIntoNeighbouringDays() = runTest {
+        val account = AccountId(92)
+        val calendarId = CalendarId("calendar://all-day")
+        seedCalendar(accountId = account, calendarId = calendarId, isVisible = true)
+        seedEvents(listOf(allDayEvent(calendarId)))
+
+        // The mirror case: widening the stored instants by the maximum UTC offset instead of comparing
+        // wall-clocks would drag this 08-20 event into a window that ends the previous evening.
+        val observed = observeVisibleIn(account, LocalDateTime(2026, 8, 19, 12, 0), LocalDateTime(2026, 8, 19, 18, 0), TimeZone.UTC)
+
+        assertTrue(observed.isEmpty(), "an all-day event must not leak into a day it does not cover")
+    }
+
+    private fun allDayEvent(calendarId: CalendarId): EventEntity {
+        val dtStart = LocalDateTime(2026, 8, 20, 0, 0)
+        val dtEnd = LocalDateTime(2026, 8, 21, 0, 0)
+        return EventEntity(
+            id = EventId("event://all-day"),
+            calendarId = calendarId,
+            content = EventContentEntity(
+                summary = "All-day",
+                timing = EventTimingEntity(
+                    dtStart = dtStart,
+                    dtEnd = dtEnd,
+                    dtEndEffective = dtEnd,
+                    startTimeZone = null,
+                    endTimeZone = null,
+                    dtStartInstantMs = dtStart.toEpochMs(TimeZone.UTC),
+                    dtEndInstantMs = dtEnd.toEpochMs(TimeZone.UTC),
+                    isAllDay = true,
+                ),
+            ),
+            etag = "1",
+        )
+    }
+
+    private suspend fun observeVisibleIn(
+        account: AccountId,
+        from: LocalDateTime,
+        to: LocalDateTime,
+        zone: TimeZone,
+    ): List<EventId> {
+        val start = from.toInstant(zone)
+        val end = to.toInstant(zone)
+        return eventDao.observeVisibleInRange(
+            accountIds = setOf(account),
+            startInstantMs = start.toEpochMilliseconds(),
+            endInstantMs = end.toEpochMilliseconds(),
+            startLocalDateTime = from,
+            endLocalDateTime = to,
+        ).first().map { it.event.id }
+    }
+
     private fun createEvent(
         eventId: EventId,
         calendarId: CalendarId,

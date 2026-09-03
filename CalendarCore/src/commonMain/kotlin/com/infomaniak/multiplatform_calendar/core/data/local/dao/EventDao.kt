@@ -21,6 +21,10 @@ import androidx.room3.Dao
 import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.ANCHORED_TIMING
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.FLOATING_TIMING
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_ANCHORED
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_FLOATING
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
@@ -52,12 +56,13 @@ internal abstract class EventDao {
      * is at/after [startInstantMs].
      *
      * Non-recurring events use two branches, unioned:
-     * - **Anchored events** (zoned / UTC / all-day): comparison on absolute UTC epoch milliseconds.
+     * - **Anchored events** (zoned / UTC): comparison on absolute UTC epoch milliseconds.
      *   Correct across mixed time-zones since bounds are absolute.
-     * - **Floating events** (RFC 5545 FORM #1, [EventTimingEntity.dtStartInstantMs] `IS NULL`): comparison
-     *   on wall-clock strings, using [startLocalDateTime]/[endLocalDateTime] which are the range bounds re-interpreted
-     *   in the recipient's *current* zone. This branch re-anchors automatically on device zone
-     *   change (travel, DST) — a floating event has no fixed absolute instant by definition.
+     * - **Wall-clock events**: comparison on wall-clock strings, using [startLocalDateTime]/[endLocalDateTime]
+     *   which are the range bounds re-interpreted in the recipient's *current* zone. This branch re-anchors
+     *   automatically on device zone change (travel, DST). It covers **floating** events (RFC 5545 FORM #1,
+     *   [EventTimingEntity.dtStartInstantMs] `IS NULL`), which have no fixed absolute instant by definition,
+     *   and **all-day** events, which are stored at UTC midnight but rendered as-is in the reader's zone.
      *
      * **Recurring masters** (`hasRecurrence = 1`) match on the *whole series* bounds populated at sync
      * (see `recurrenceBounds`), not just their first occurrence. Two symmetric branches:
@@ -241,15 +246,23 @@ internal abstract class EventDao {
          */
         private const val ALL_DAY_PADDING = "(CASE WHEN override.isAllDay THEN $MAX_UTC_OFFSET_MS ELSE 0 END)"
 
-        /** Non-recurring / master timing overlap on absolute UTC epoch ms (zoned / UTC / all-day rows). */
+        /** Non-recurring / master timing overlap on absolute UTC epoch ms (zoned / UTC rows). */
         private const val ANCHORED_TIMING = """(
-            event.dtStartInstantMs IS NOT NULL
+            event.isAllDay = 0
+              AND event.dtStartInstantMs IS NOT NULL
               AND event.dtStartInstantMs < :endInstantMs
               AND event.dtEndInstantMs >= :startInstantMs)"""
 
-        /** Non-recurring / master timing overlap on wall-clock strings (floating DATE-TIME rows). */
+        /**
+         * Non-recurring / master timing overlap on wall-clock strings.
+         *
+         * Covers floating DATE-TIME rows **and all-day rows**: both render zone-independently
+         * (`EventTiming.startIn` returns their wall-clock as-is when `startTimeZone` is null), so
+         * matching them on the UTC-midnight instants they are stored at would disagree with what the
+         * caller ends up displaying.
+         */
         private const val FLOATING_TIMING = """(
-            event.dtStartInstantMs IS NULL
+            (event.isAllDay = 1 OR event.dtStartInstantMs IS NULL)
               AND event.dtStart < :endLocalDateTime
               AND event.dtEndEffective >= :startLocalDateTime)"""
 

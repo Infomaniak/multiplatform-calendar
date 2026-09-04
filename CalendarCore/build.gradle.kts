@@ -17,12 +17,13 @@
  */
 
 import co.touchlab.skie.configuration.DefaultArgumentInterop
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 
 plugins {
-    alias(kmpCalendar.plugins.android.library)
+    alias(kmpCalendar.plugins.android.kmp.library)
     alias(kmpCalendar.plugins.androidx.room)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
@@ -33,8 +34,20 @@ plugins {
 }
 
 kotlin {
-    androidTarget {
-        publishLibraryVariants("release")
+    android {
+        namespace = "com.infomaniak.multiplatform_calendar.core"
+        compileSdk = property("kmp.compileSdk").toString().toInt()
+        minSdk = property("kmp.minSdk").toString().toInt()
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_21)
+        }
+
+        // Robolectric tests run on the host. Android resources (res/, AndroidManifest) are left
+        // out to avoid unnecessary test setup overhead; enable only if a test needs them.
+        withHostTest {
+            isIncludeAndroidResources = false
+        }
     }
 
     val xcFrameworkName = "MultiplatformCalendar"
@@ -70,7 +83,7 @@ kotlin {
             implementation(kmpCalendar.ktor.client.mock)
         }
 
-        androidUnitTest.dependencies {
+        getByName("androidHostTest").dependencies {
             implementation(kmpCalendar.android.test)
             implementation(kmpCalendar.robolectric)
         }
@@ -88,30 +101,6 @@ kotlin {
     }
 
     explicitApi()
-}
-
-android {
-    namespace = "com.infomaniak.multiplatform_calendar.core"
-    compileSdk = property("kmp.compileSdk").toString().toInt()
-    defaultConfig {
-        minSdk = property("kmp.minSdk").toString().toInt()
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-    testOptions {
-        // Enable only for Robolectric tests that need access to Android resources (res/, AndroidManifest).
-        // Keep disabled otherwise to avoid unnecessary test setup overhead.
-        unitTests.isIncludeAndroidResources = false
-    }
-}
-
-// Provide a consumable variant matching the "dev.gobley.kind = UNIFFI" attribute
-// so that the parent module's uniFfiConfiguration can resolve this project dependency.
-val kindAttribute = Attribute.of("dev.gobley.kind", String::class.java)
-configurations.consumable("uniFfiConfigurationConsumable") {
-    attributes.attribute(kindAttribute, "UNIFFI")
 }
 
 room3 {

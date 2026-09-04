@@ -49,27 +49,34 @@ function release_ios {
     echo "Deletes all old caches"
     ./gradlew clean
     rm -rf build # We delete to avoid caching problems
-    rm -rf Core/build # We delete to avoid caching problems
-    rm -rf kmpdav/build # We delete to avoid caching problems
+    rm -rf CalendarCore/build # We delete to avoid caching problems
+    rm -rf CalendarKmpDav/build # We delete to avoid caching problems
     rm -rf .gradle # We delete to avoid caching problems
     rm -rf release # The release folder contains the old archives
 
     # Build
     echo "Build all Modules for XCFrameworks"
-    # `-PrustNativeRelease=true` forces the native Rust static lib to be compiled
-    # in release (~14 MB) instead of Gobley's default debug (~140 MB), which would
-    # otherwise bloat the "release" XCFramework (see kmpdav/build.gradle.kts).
-    ./gradlew :CalendarCore:assembleMultiplatformCalendarReleaseXCFramework -PrustNativeRelease=true
+    # `-PreleaseBuild=true` forces the native Rust static lib to be compiled in release
+    # (~14 MB) instead of debug (~140 MB), which would otherwise bloat the "release"
+    # XCFramework. It is the project default (gradle.properties) but is repeated here so the
+    # release build never depends on a local override.
+    ./gradlew :CalendarCore:assembleMultiplatformCalendarReleaseXCFramework -PreleaseBuild=true
 
-    # Strip debug info (DWARF) from each XCFramework slice.
-    # The framework is *dynamic* (a linked Mach-O binary), so both the Kotlin and
-    # Rust objects keep their DWARF (~30% of the size) that no released app needs.
-    # `strip -S` removes debug sections while keeping the global symbols required
-    # for linking.
-    echo "Strip debug symbols from XCFramework slices"
-    find "$XCFRAMEWORK_RELEASE_DIR/MultiplatformCalendar.xcframework" -type f -name 'MultiplatformCalendar' | while read -r slice; do
+    # Strip local symbols from each XCFramework slice.
+    # The framework is a linked Mach-O binary and Kotlin/Native already moved the DWARF into the
+    # companion dSYM, but the full symbol table stays behind: the Rust static library alone
+    # contributes ~34k local symbols, inflating __LINKEDIT to ~5 MB. `strip -x` drops them and
+    # takes a slice from ~19 MB to ~15 MB. Global symbols are preserved, so linking still works,
+    # and the dSYM UUIDs still match for symbolication.
+    # (`-S` is deliberately not used: with the DWARF already sequestered it is a no-op here.)
+    #
+    # The `-path` filter is required: the dSYM bundles contain a file with the same name, and
+    # a dSYM *is* the debug info, so stripping it makes no sense and `strip` errors out with
+    # "string table not at the end of the file".
+    echo "Strip local symbols from XCFramework slices"
+    find "$XCFRAMEWORK_RELEASE_DIR/MultiplatformCalendar.xcframework" -type f -name 'MultiplatformCalendar' -not -path '*/dSYMs/*' | while read -r slice; do
         echo "  stripping $slice"
-        strip -S "$slice"
+        strip -x "$slice"
     done
 
     # Archive
@@ -77,7 +84,11 @@ function release_ios {
     mkdir -p release
     (
         cd "$XCFRAMEWORK_RELEASE_DIR" || exit 1
-        zip -r ../../../../release/MultiplatformCalendar.xcframework.zip MultiplatformCalendar.xcframework
+        # `--symlinks` stores symlinks as symlinks. Without it `zip` follows them and writes a
+        # full copy of the target, which triples the macOS slice: a macOS framework bundle
+        # exposes its binary as `Versions/A/<name>` plus two symlinks (`Versions/Current` and
+        # the top-level one), so the 14 MB binary would be archived three times.
+        zip -r --symlinks ../../../../release/MultiplatformCalendar.xcframework.zip MultiplatformCalendar.xcframework
     )
 
     # Calculate checksums

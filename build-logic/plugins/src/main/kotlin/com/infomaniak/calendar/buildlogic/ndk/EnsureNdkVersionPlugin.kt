@@ -17,87 +17,89 @@
  */
 package com.infomaniak.calendar.buildlogic.ndk
 
-import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.file.Directory
+import org.gradle.api.logging.Logging
 import org.gradle.api.provider.Provider
+import org.gradle.api.provider.ProviderFactory
 import org.gradle.kotlin.dsl.register
 import java.io.File
 
 /**
- * Convention plugin that makes sure an NDK at least as recent as `android.ndkVersion` is
- * available before the build proceeds.
+ * Convention plugin that makes sure an NDK at least as recent as `ensureNdkVersion.minimumVersion`
+ * is available, installing it through `sdkmanager` when it is not.
  *
- * `android.ndkVersion` is treated as a **minimum**: if a newer (or equal) NDK is already
- * installed it is reused (and `android.ndkVersion` is repointed to it so AGP/Gobley use the
- * installed one); only when every installed NDK is older — or none is installed — is the
- * declared version downloaded via `sdkmanager`.
+ * The declared version is a **minimum**: a newer installed NDK satisfies it and is reused, and
+ * [EnsureNdkVersionExtension.resolvedVersion] then points at that one. Only when no installed NDK
+ * qualifies is the declared version downloaded.
  *
- * The check runs during configuration (before the Gobley Cargo plugin reads the NDK
- * directories), so a fresh machine — including an IDE Gradle sync — builds without any
- * manual setup.
+ * Unlike its pre-AGP-9 ancestor, this plugin no longer reads `android.ndkVersion`: the
+ * `com.android.kotlin.multiplatform.library` extension does not expose one, and AGP 9 removed it
+ * from `CommonExtension`. The version is therefore declared here and forwarded explicitly to the
+ * component that cross-compiles the Rust code:
  *
- * Usage in build.gradle.kts:
  * ```kotlin
- * plugins {
- *     id("ensure-ndk-version")
+ * ensureNdkVersion {
+ *     minimumVersion = "30.0.14904198"
+ * }
+ *
+ * cargo {
+ *     ndkVersion = ensureNdkVersion.resolvedVersion
  * }
  * ```
+ *
+ * Wiring `resolvedVersion` is what makes the check effective: `ch.ubique.uniffi.plugin` silently
+ * falls back to the newest installed NDK when the requested one is missing, so a missing NDK would
+ * otherwise produce a green build against an unintended — possibly pre-16 KB-page — toolchain.
  */
 class EnsureNdkVersionPlugin : Plugin<Project> {
 
+    private val logger = Logging.getLogger(EnsureNdkVersionPlugin::class.java)
+
     override fun apply(target: Project) {
-        target.plugins.withId(ANDROID_LIBRARY_PLUGIN_ID) {
-            target.afterEvaluate(::configureNdkVersion)
+        val extension = target.extensions.create(
+            EnsureNdkVersionExtension::class.java,
+            EXTENSION_NAME,
+            EnsureNdkVersionExtensionImpl::class.java,
+        ) as EnsureNdkVersionExtensionImpl
+
+        val providers = target.providers
+        val sdkDirectory = target.androidSdkDirectory()
+
+        // Lazy on purpose: resolution (and the potential install) only happens once something
+        // actually queries the NDK version, not on every configuration phase.
+        extension.setResolvedVersion(
+            extension.minimumVersion.map { minimum -> resolve(minimum, sdkDirectory.get(), providers) }
+        )
+
+        target.tasks.register<EnsureNdkVersionTask>(TASK_NAME) {
+            ndkVersion.set(extension.resolvedVersion)
+            sdkDirectoryPath.set(sdkDirectory.map(File::getAbsolutePath))
         }
     }
 
-    private fun configureNdkVersion(project: Project) {
-        val android = project.extensions.getByName(ANDROID_EXTENSION_NAME) as CommonExtension<*, *, *, *, *, *>
-        val minVersion = android.ndkVersion.takeIf { it.isNotEmpty() } ?: return
-        val sdkDirectory = android.resolveSdkDirectory()
-            ?: throw GradleException("Unable to resolve Android SDK directory from AGP. Configure the SDK location (e.g., ANDROID_SDK_ROOT or local.properties sdk.dir) and re-run the build.")
-
-        // Treat the declared version as a minimum: reuse the newest installed NDK that is
-        // >= it, and only install when none qualifies.
+    private fun resolve(minimum: String, sdkDirectory: File, providers: ProviderFactory): String {
         val newestSatisfying = installedNdkVersions(sdkDirectory)
-            .filter { compareNdkVersions(it, minVersion) >= 0 }
+            .filter { compareNdkVersions(it, minimum) >= 0 }
             .maxWithOrNull(::compareNdkVersions)
 
-        val effectiveVersion = when {
-            newestSatisfying == null -> {
-                installNdk(project, minVersion, sdkDirectory)
-                minVersion
+        return when (newestSatisfying) {
+            null -> {
+                installNdk(minimum, sdkDirectory, providers)
+                minimum
             }
-            newestSatisfying == minVersion -> {
-                project.logger.quiet("✓ NDK $minVersion is configured")
-                minVersion
-            }
-            else -> {
-                project.logger.quiet("✓ NDK $newestSatisfying is installed and satisfies the required minimum $minVersion")
-                newestSatisfying
-            }
-        }
-
-        // AGP and the Gobley Cargo plugin read android.ndkVersion, so point them at the NDK we
-        // actually resolved (otherwise they would look for the exact declared version).
-        if (effectiveVersion != minVersion) android.ndkVersion = effectiveVersion
-
-        project.tasks.register<EnsureNdkVersionTask>(TASK_NAME) {
-            ndkVersion.set(effectiveVersion)
-            sdkDirectoryPath.set(sdkDirectory.absolutePath)
+            minimum -> minimum
+            else -> newestSatisfying
         }
     }
 
-    private fun installNdk(project: Project, version: String, sdkDirectory: File) {
-        val sdkManager = findSdkManager(sdkDirectory)
-            ?: throw GradleException(sdkManagerNotFoundMessage(version))
+    private fun installNdk(version: String, sdkDirectory: File, providers: ProviderFactory) {
+        val sdkManager = findSdkManager(sdkDirectory) ?: throw GradleException(sdkManagerNotFoundMessage(version))
 
-        project.logger.lifecycle("⚠️ NDK $version not found. Installing via sdkmanager (this may take a few minutes)...")
+        logger.lifecycle("⚠️ NDK $version not found. Installing via sdkmanager (this may take a few minutes)...")
 
-        val exitCode = project.providers.of(NdkInstallValueSource::class.java) {
+        val exitCode = providers.of(NdkInstallValueSource::class.java) {
             parameters.sdkManagerPath.set(sdkManager.absolutePath)
             parameters.sdkRoot.set(sdkDirectory.absolutePath)
             parameters.ndkVersion.set(version)
@@ -105,7 +107,43 @@ class EnsureNdkVersionPlugin : Plugin<Project> {
 
         if (exitCode != 0) throw GradleException("Failed to install NDK $version (exit code: $exitCode)")
 
-        project.logger.lifecycle("✓ NDK $version installed successfully")
+        // The exit code alone cannot be trusted: the `android` CLI that now backs the deprecated
+        // `sdkmanager` reports a success even for a package that does not exist. Only the presence
+        // of the directory proves the install went through.
+        if (version !in installedNdkVersions(sdkDirectory)) {
+            throw GradleException(
+                "sdkmanager reported a success but NDK $version is still not installed. " +
+                    "Check that this version exists in the SDK repository."
+            )
+        }
+
+        logger.lifecycle("✓ NDK $version installed successfully")
+    }
+
+    /**
+     * AGP used to expose the SDK location through its extension, which AGP 9 no longer does for
+     * KMP library modules, so resolve it the same way the Android tooling does.
+     */
+    private fun Project.androidSdkDirectory(): Provider<File> {
+        val localProperties = rootProject.layout.projectDirectory.file(LOCAL_PROPERTIES)
+        return providers.environmentVariable("ANDROID_HOME")
+            .orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
+            .orElse(
+                providers.fileContents(localProperties).asText.map { text ->
+                    text.lineSequence()
+                        .map(String::trim)
+                        .firstOrNull { it.startsWith("$SDK_DIR_KEY=") }
+                        ?.substringAfter('=')
+                        // local.properties is a Java properties file: ':' and '\' are escaped.
+                        ?.replace("\\:", ":")
+                        ?.replace("\\\\", "\\")
+                        ?: ""
+                }
+            )
+            .map { path ->
+                if (path.isEmpty()) throw GradleException(sdkNotFoundMessage())
+                File(path)
+            }
     }
 
     /** Lists the fully installed (side-by-side) NDK versions under `<sdk>/ndk`. */
@@ -128,48 +166,35 @@ class EnsureNdkVersionPlugin : Plugin<Project> {
         return 0
     }
 
-    /**
-     * [CommonExtension] exposes `ndkVersion` but not `sdkDirectory`, so we read the latter
-     * reflectively from the concrete Android extension implementation.
-     */
-    private fun CommonExtension<*, *, *, *, *, *>.resolveSdkDirectory(): File? {
-        return when (val value = javaClass.getMethod("getSdkDirectory").invoke(this)) {
-            is File -> value
-            is Directory -> value.asFile
-            is Provider<*> -> (value.get() as? Directory)?.asFile
-            else -> null
-        }
-    }
-
     private fun findSdkManager(sdkDirectory: File): File? = listOf(
         "cmdline-tools/latest/bin/sdkmanager",
         "cmdline-tools/bin/sdkmanager",
         "tools/bin/sdkmanager",
     ).map { File(sdkDirectory, it) }.firstOrNull { it.exists() }
 
+    private fun sdkNotFoundMessage(): String = """
+        Unable to resolve the Android SDK directory.
+        Set ANDROID_HOME (or ANDROID_SDK_ROOT), or add "$SDK_DIR_KEY" to $LOCAL_PROPERTIES.
+    """.trimIndent()
+
     private fun sdkManagerNotFoundMessage(version: String): String = """
-        
+
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         ⚠️  NDK $version is missing and 'sdkmanager' was not found, so it cannot
         be installed automatically.
-        
+
         Install the Android SDK Command-line Tools via Android Studio:
            Settings > Android SDK > SDK Tools > Android SDK Command-line Tools
-        
+
         (Or install NDK $version directly from the SDK Manager.)
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        
+
     """.trimIndent()
 
     private companion object {
-        const val ANDROID_LIBRARY_PLUGIN_ID = "com.android.library"
-        const val ANDROID_EXTENSION_NAME = "android"
+        const val EXTENSION_NAME = "ensureNdkVersion"
         const val TASK_NAME = "ensureNdkVersion"
+        const val LOCAL_PROPERTIES = "local.properties"
+        const val SDK_DIR_KEY = "sdk.dir"
     }
 }
-
-
-
-
-
-

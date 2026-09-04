@@ -20,6 +20,7 @@ package com.infomaniak.calendar.buildlogic.ndk
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.logging.Logging
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.kotlin.dsl.register
@@ -53,6 +54,8 @@ import java.io.File
  * otherwise produce a green build against an unintended — possibly pre-16 KB-page — toolchain.
  */
 class EnsureNdkVersionPlugin : Plugin<Project> {
+
+    private val logger = Logging.getLogger(EnsureNdkVersionPlugin::class.java)
 
     override fun apply(target: Project) {
         val extension = target.extensions.create(
@@ -94,7 +97,7 @@ class EnsureNdkVersionPlugin : Plugin<Project> {
     private fun installNdk(version: String, sdkDirectory: File, providers: ProviderFactory) {
         val sdkManager = findSdkManager(sdkDirectory) ?: throw GradleException(sdkManagerNotFoundMessage(version))
 
-        println("⚠️ NDK $version not found. Installing via sdkmanager (this may take a few minutes)...")
+        logger.lifecycle("⚠️ NDK $version not found. Installing via sdkmanager (this may take a few minutes)...")
 
         val exitCode = providers.of(NdkInstallValueSource::class.java) {
             parameters.sdkManagerPath.set(sdkManager.absolutePath)
@@ -114,7 +117,7 @@ class EnsureNdkVersionPlugin : Plugin<Project> {
             )
         }
 
-        println("✓ NDK $version installed successfully")
+        logger.lifecycle("✓ NDK $version installed successfully")
     }
 
     /**

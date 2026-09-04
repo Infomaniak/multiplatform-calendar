@@ -55,17 +55,20 @@ import java.io.File
 class EnsureNdkVersionPlugin : Plugin<Project> {
 
     override fun apply(target: Project) {
-        val extension = target.extensions.create(EXTENSION_NAME, EnsureNdkVersionExtension::class.java)
+        val extension = target.extensions.create(
+            EnsureNdkVersionExtension::class.java,
+            EXTENSION_NAME,
+            EnsureNdkVersionExtensionImpl::class.java,
+        ) as EnsureNdkVersionExtensionImpl
 
         val providers = target.providers
         val sdkDirectory = target.androidSdkDirectory()
 
         // Lazy on purpose: resolution (and the potential install) only happens once something
         // actually queries the NDK version, not on every configuration phase.
-        extension.resolvedVersion.set(
+        extension.setResolvedVersion(
             extension.minimumVersion.map { minimum -> resolve(minimum, sdkDirectory.get(), providers) }
         )
-        extension.resolvedVersion.disallowChanges()
 
         target.tasks.register<EnsureNdkVersionTask>(TASK_NAME) {
             ndkVersion.set(extension.resolvedVersion)

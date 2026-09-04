@@ -18,8 +18,15 @@
 package com.infomaniak.calendar.buildlogic.ndk
 
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 
-/** DSL of [EnsureNdkVersionPlugin], registered under the `ensureNdkVersion` name. */
+/**
+ * DSL of [EnsureNdkVersionPlugin], registered under the `ensureNdkVersion` name.
+ *
+ * The public contract only exposes [resolvedVersion] as a read-only [Provider]: build scripts
+ * can depend on it but cannot overwrite it. [EnsureNdkVersionExtensionImpl] is the only class
+ * allowed to set its value.
+ */
 interface EnsureNdkVersionExtension {
 
     /**
@@ -36,5 +43,5 @@ interface EnsureNdkVersionExtension {
      * [minimumVersion], so it must be plugged into whatever consumes the NDK — here
      * `cargo.ndkVersion` — rather than repeating [minimumVersion] there.
      */
-    val resolvedVersion: Property<String>
+    val resolvedVersion: Provider<String>
 }

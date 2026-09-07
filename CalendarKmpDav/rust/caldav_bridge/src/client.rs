@@ -6,13 +6,16 @@
 use fast_dav_rs::CalDavClient;
 use http::Response;
 
-use crate::error::{bridge_error, CaldavError};
+use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::DavAccount;
 
 /// Build a [`CalDavClient`] authenticated with [`account`].
 pub(crate) fn client(account: &DavAccount) -> Result<CalDavClient, CaldavError> {
-    CalDavClient::new(&account.base_url, Some(&account.username), Some(&account.password))
-        .map_err(|e| bridge_error("Client", e))
+    CalDavClient::new(
+        &account.base_url,
+        Some(&account.username),
+        Some(&account.password),
+    ).map_err(|error| map_fast_dav_error("Client", error))
 }
 
 /// Fail unless the CalDAV response carries a 2xx status. The lib returns the response on any
@@ -24,4 +27,3 @@ pub(crate) fn ensure_success<T>(context: &str, resp: &Response<T>) -> Result<(),
         Err(bridge_error(context, format!("HTTP {}", resp.status())))
     }
 }
-

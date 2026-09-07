@@ -7,8 +7,7 @@ edition = "2021"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-fast-dav-rs = "0.7.0"
-hyper-util = "0.1"
+fast-dav-rs = "0.8.0"
 bytes = "1"
 http = "1"
 uuid = { version = "1", features = ["v4"] }

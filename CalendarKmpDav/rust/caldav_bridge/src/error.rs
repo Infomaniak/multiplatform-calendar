@@ -1,7 +1,8 @@
 //! Error type exposed to Kotlin via UniFFI.
 
-use std::error::Error;
 use std::io;
+
+use fast_dav_rs::Error as FastDavError;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CaldavError {
@@ -13,52 +14,51 @@ pub enum CaldavError {
 }
 
 /// Build a [`CaldavError::Bridge`] with a context-prefixed message.
-pub(crate) fn bridge_error(context: &str, e: impl std::fmt::Display) -> CaldavError {
-    CaldavError::Bridge { msg: format!("{context}: {e}") }
+pub(crate) fn bridge_error(context: &str, error: impl std::fmt::Display) -> CaldavError {
+    CaldavError::Bridge {
+        msg: format!("{context}: {error}"),
+    }
 }
 
 /// Build a [`CaldavError::RustNetworkException`] with a context-prefixed message.
-pub(crate) fn rust_network_error(context: &str, e: impl std::fmt::Display) -> CaldavError {
-    CaldavError::RustNetworkException { msg: format!("{context}: {e}") }
+fn rust_network_error(context: &str, error: impl std::fmt::Display) -> CaldavError {
+    CaldavError::RustNetworkException {
+        msg: format!("{context}: {error}"),
+    }
 }
 
-/// Map an error to either [`CaldavError::RustNetworkException`] (connectivity failure) or a
-/// generic [`CaldavError::Bridge`].
+/// Maps a typed `fast-dav-rs` error to the stable error domain exposed through UniFFI.
 ///
-/// Connectivity detection walks the [`Error::source`] chain and downcasts each cause to
-/// [`io::Error`], matching against a fixed set of [`io::ErrorKind`] variants. This is robust
-/// against upstream wording/locale changes and does not rely on string sniffing.
-///
-/// Callers typically obtain the reference from an `anyhow::Error` via `err.as_ref()`.
-pub(crate) fn network_or_bridge_error(context: &str, err: &(dyn Error + 'static)) -> CaldavError {
-    if is_network_error(err) {
-        rust_network_error(context, err)
+/// Keep `fast-dav-rs::Error` internal to the Rust bridge so changes in the DAV
+/// implementation don't leak into the public Kotlin/Swift API.
+pub(crate) fn map_fast_dav_error(context: &str, error: FastDavError) -> CaldavError {
+    if is_network_error(&error) {
+        rust_network_error(context, &error)
     } else {
-        bridge_error(context, err)
+        bridge_error(context, &error)
     }
 }
 
-fn is_network_error(err: &(dyn Error + 'static)) -> bool {
-    let mut current: Option<&(dyn Error + 'static)> = Some(err);
-    while let Some(cause) = current {
-        // hyper-util's connect failures (DNS, TCP connect) are the primary signal from the
-        // fast-dav-rs stack. Its Display is "client error (Connect)"
-        if let Some(hyper_err) = cause.downcast_ref::<hyper_util::client::legacy::Error>() {
-            if hyper_err.is_connect() {
-                return true;
-            }
-        }
-        // Fallback: any io::Error deeper in the chain with a well-known connectivity kind.
-        // Note: `getaddrinfo` failures currently surface as `Uncategorized`, which is why the
-        // hyper-util check above is the main path for DNS/Connect errors on Android.
-        if let Some(io_err) = cause.downcast_ref::<io::Error>() {
-            if is_network_io_kind(io_err.kind()) {
-                return true;
-            }
-        }
-        current = cause.source();
+/// Whether the DAV failure belongs to the network/transport domain.
+///
+/// `fast-dav-rs >= 0.8` already classifies Hyper client failures into
+/// `Connection` and `Transport`, so we don't need to walk `Error::source()`
+/// or downcast Hyper internals anymore.
+fn is_network_error(error: &FastDavError) -> bool {
+    match error {
+        FastDavError::Connection(_)
+        | FastDavError::Transport(_)
+        | FastDavError::Hyper(_)
+        | FastDavError::Timeout { .. } => true,
+
+        // Defensive fallback for network-related std::io errors which might
+        // surface directly rather than through Connection/Transport.
+        FastDavError::Io(error) => is_network_io_kind(error.kind()),
+
+        // `Error` is #[non_exhaustive], so this wildcard is intentionally
+        // required and makes us forward-compatible with future variants.
+        _ => false,
     }
-    false
 }
 
 fn is_network_io_kind(kind: io::ErrorKind) -> bool {
@@ -71,6 +71,6 @@ fn is_network_io_kind(kind: io::ErrorKind) -> bool {
             | io::ErrorKind::NetworkUnreachable
             | io::ErrorKind::HostUnreachable
             | io::ErrorKind::TimedOut
-            | io::ErrorKind::AddrNotAvailable,
+            | io::ErrorKind::AddrNotAvailable
     )
 }

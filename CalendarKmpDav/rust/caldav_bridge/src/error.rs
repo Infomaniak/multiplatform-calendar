@@ -3,6 +3,7 @@
 use std::io;
 
 use fast_dav_rs::Error as FastDavError;
+use http::StatusCode;
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum CaldavError {
@@ -30,15 +31,39 @@ fn rust_network_error(context: &str, error: impl std::fmt::Display) -> CaldavErr
     }
 }
 
+/// Build a [`CaldavError::RustHttpException`] from an HTTP response status.
+///
+/// This is also used by [`map_fast_dav_error`] for
+/// [`FastDavError::UnexpectedStatus`] so both:
+///
+/// - high-level `fast-dav-rs` operations returning `UnexpectedStatus`, and
+/// - low-level operations returning an HTTP response checked by `ensure_success`
+///
+/// expose the same error representation through UniFFI.
+pub(crate) fn http_status_error(operation: impl Into<String>, status: StatusCode) -> CaldavError {
+    let operation = operation.into();
+    let status_code = status.as_u16();
+
+    CaldavError::RustHttpException {
+        status_code,
+        msg: format!("{operation} failed with HTTP {status}"),
+        operation,
+    }
+}
+
 /// Maps a typed `fast-dav-rs` error to the stable error domain exposed through UniFFI.
 ///
 /// Keep `fast-dav-rs::Error` internal to the Rust bridge so changes in the DAV
 /// implementation don't leak into the public Kotlin/Swift API.
 pub(crate) fn map_fast_dav_error(context: &str, error: FastDavError) -> CaldavError {
-    if is_network_error(&error) {
-        rust_network_error(context, &error)
-    } else {
-        bridge_error(context, &error)
+    match error {
+        FastDavError::UnexpectedStatus { operation, status, .. } => {
+            http_status_error(operation.to_string(), status)
+        }
+        error if is_network_error(&error) => {
+            rust_network_error(context, error)
+        }
+        error => bridge_error(context, error),
     }
 }
 

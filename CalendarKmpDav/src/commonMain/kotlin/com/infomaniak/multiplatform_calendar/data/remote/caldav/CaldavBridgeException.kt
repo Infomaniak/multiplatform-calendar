@@ -29,8 +29,15 @@ open class CaldavBridgeException(
             val resolvedMessage = message ?: "Unknown error: $methodName"
             return when (this) {
                 is CaldavException.RustNetworkException -> RustNetworkException(message = resolvedMessage, cause = this)
+                is CaldavException.RustHttpException -> toCaldavHttpException(message = resolvedMessage)
                 else -> CaldavBridgeException(message = resolvedMessage, cause = this)
             }
+        }
+
+        private fun CaldavException.RustHttpException.toCaldavHttpException(
+            message: String,
+        ): CaldavHttpException {
+            return CaldavHttpException(statusCode = statusCode.toInt(), operation = operation, message = message, cause = this)
         }
     }
 }
@@ -40,3 +47,19 @@ class RustNetworkException(
     override val message: String,
     override val cause: Throwable?,
 ) : CaldavBridgeException(message = message, cause = cause)
+
+/**
+ * Base exception for an HTTP status returned by the CalDAV server.
+ *
+ * @property statusCode Raw HTTP status code returned by the server.
+ * @property operation DAV operation that produced the response.
+ */
+class CaldavHttpException(
+    val statusCode: Int,
+    val operation: String,
+    override val message: String,
+    override val cause: Throwable?,
+) : CaldavBridgeException(
+    message = message,
+    cause = cause,
+)

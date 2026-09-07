@@ -11,6 +11,9 @@ pub enum CaldavError {
 
     #[error("{msg}")]
     RustNetworkException { msg: String },
+
+    #[error("{msg}")]
+    RustHttpException { status_code: u16, operation: String, msg: String },
 }
 
 /// Build a [`CaldavError::Bridge`] with a context-prefixed message.

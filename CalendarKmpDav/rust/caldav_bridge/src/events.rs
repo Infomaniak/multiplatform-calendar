@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use fast_dav_rs::CalDavClient;
 use crate::alarms::{parse_alarms, splice_alarms_into_vevent, strip_valarms_in_vevent};
 use crate::client::{client, ensure_success};
-use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
+use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::{
     AlarmsChange,
     AttendeeEntry,
@@ -496,7 +496,7 @@ pub async fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec
     let cli = client(&account)?;
 
     let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
-        .await.map_err(|error| network_or_bridge_error("Query", error.as_ref()))?;
+        .await.map_err(|error| map_fast_dav_error("Query", error))?;
 
     Ok(objects
         .into_iter()
@@ -521,7 +521,7 @@ pub async fn calendar_query_timerange(
     let objects = cli
         .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), true)
         .await
-        .map_err(|e| bridge_error("CalendarQueryTimeRange", e))?;
+        .map_err(|e| map_fast_dav_error("CalendarQueryTimeRange", e))?;
 
     Ok(objects
         .into_iter()
@@ -545,7 +545,7 @@ pub async fn calendar_query_timerange_refs(
     let objects = cli
         .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), false)
         .await
-        .map_err(|e| bridge_error("CalendarQueryTimeRangeRefs", e))?;
+        .map_err(|e| map_fast_dav_error("CalendarQueryTimeRangeRefs", e))?;
 
     Ok(objects
         .into_iter()
@@ -568,7 +568,7 @@ pub async fn sync_collection(
     let result = cli
         .sync_collection(calendar_url, sync_token.as_deref(), None, false)
         .await
-        .map_err(|e| bridge_error("SyncCollection", e))?;
+        .map_err(|e| map_fast_dav_error("SyncCollection", e))?;
 
     Ok(EventSyncDelta {
         sync_token: result.sync_token,
@@ -599,7 +599,7 @@ pub async fn calendar_multiget(
     let objects = cli
         .calendar_multiget(calendar_url, hrefs.iter().map(String::as_str), true)
         .await
-        .map_err(|e| bridge_error("CalendarMultiGet", e))?;
+        .map_err(|e| map_fast_dav_error("CalendarMultiGet", e))?;
 
     Ok(objects
         .into_iter()
@@ -620,7 +620,7 @@ pub async fn create_event(account: DavAccount, calendar_url: &str, ics_data: &st
     let uid = uuid::Uuid::new_v4();
     let path = format!("{}/{uid}.ics", calendar_url.trim_end_matches('/'));
     let resp = cli.put_if_none_match(&path, body)
-        .await.map_err(|error| network_or_bridge_error("Create", error.as_ref()))?;
+        .await.map_err(|error| map_fast_dav_error("Create", error))?;
     ensure_success("Create", &resp)?;
     let etag = resp.headers()
         .get("etag")
@@ -638,7 +638,7 @@ pub async fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_
     let body = bytes::Bytes::from(ics_data.as_bytes().to_vec());
 
     let resp = cli.put_if_match(event_url, body, etag)
-        .await.map_err(|error| network_or_bridge_error("Update", error.as_ref()))?;
+        .await.map_err(|error| map_fast_dav_error("Update", error))?;
     ensure_success("Update", &resp)?;
     let new_etag = resp.headers()
         .get("etag")
@@ -654,6 +654,7 @@ pub async fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_
 pub async fn delete_event(account: DavAccount, event_url: &str, etag: &str) -> Result<(), CaldavError> {
     let cli = client(&account)?;
 
-    let resp = cli.delete_if_match(event_url, etag).await.map_err(|error| network_or_bridge_error("Delete", error.as_ref()))?;
+    let resp = cli.delete_if_match(event_url, etag).await
+        .map_err(|error| map_fast_dav_error("Delete", error))?;
     ensure_success("Delete", &resp)
 }

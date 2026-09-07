@@ -1,7 +1,7 @@
 //! Calendar discovery operations.
 
 use crate::client::{client, ensure_success};
-use crate::error::{bridge_error, network_or_bridge_error, CaldavError};
+use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount};
 use crate::props::{access_level, collection_props, normalize_href};
 use roxmltree::Document;
@@ -12,16 +12,19 @@ pub async fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavE
     let cli = client(&account)?;
 
     let principal = cli.discover_current_user_principal().await
-        .map_err(|error| network_or_bridge_error("Principal", error.as_ref()))?
+        .map_err(|error| map_fast_dav_error("Principal", error))?
         .ok_or_else(|| bridge_error("Principal", "no current-user-principal"))?;
 
     let homes = cli.discover_calendar_home_set(&principal).await
-        .map_err(|error| network_or_bridge_error("HomeSet", error.as_ref()))?;
+        .map_err(|error| map_fast_dav_error("HomeSet", error))?;
 
     let mut calendars = Vec::new();
     for home in &homes {
         let props = collection_props(&cli, home).await;
-        for cal in cli.list_calendars(home).await.map_err(|error| network_or_bridge_error("ListCalendars", error.as_ref()))? {
+        let fetched_calendars = cli.list_calendars(home).await
+            .map_err(|error| map_fast_dav_error("ListCalendars", error))?;
+
+        for cal in fetched_calendars {
             let entry_props = props.get(normalize_href(&cal.href).as_str());
             let access_level = entry_props
                 .map(access_level)
@@ -64,7 +67,8 @@ pub async fn update_calendar(
     let cli = client(&account)?;
     let body = build_proppatch_body(&edit);
 
-    let resp = cli.proppatch(calendar_url, &body).await.map_err(|error| network_or_bridge_error("Proppatch", error.as_ref()))?;
+    let resp = cli.proppatch(calendar_url, &body).await
+        .map_err(|error| map_fast_dav_error("Proppatch", error))?;
     ensure_success("PROPPATCH", &resp)?;
     check_propstat_success(resp.body().as_ref())
 }

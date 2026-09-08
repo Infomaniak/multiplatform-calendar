@@ -6,7 +6,7 @@
 use fast_dav_rs::CalDavClient;
 use http::Response;
 
-use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
+use crate::error::{CaldavError, http_status_error, map_fast_dav_error};
 use crate::models::DavAccount;
 
 /// Build a [`CalDavClient`] authenticated with [`account`].
@@ -18,12 +18,18 @@ pub(crate) fn client(account: &DavAccount) -> Result<CalDavClient, CaldavError> 
     ).map_err(|error| map_fast_dav_error("Client", error))
 }
 
-/// Fail unless the CalDAV response carries a 2xx status. The lib returns the response on any
-/// status, so a server-side rejection (4xx/5xx) would otherwise pass as success.
+/// Fail unless the CalDAV response carries a 2xx status.
+///
+/// Some low-level `fast-dav-rs` methods return the HTTP response regardless
+/// of its status instead of returning [`fast_dav_rs::Error::UnexpectedStatus`].
+///
+/// Convert these responses to the same [`CaldavError::RustHttpException`] domain
+/// used by [`map_fast_dav_error`] so callers get consistent HTTP error
+/// handling regardless of which `fast-dav-rs` API produced the response.
 pub(crate) fn ensure_success<T>(context: &str, resp: &Response<T>) -> Result<(), CaldavError> {
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(bridge_error(context, format!("HTTP {}", resp.status())))
+        Err(http_status_error(context, resp.status()))
     }
 }

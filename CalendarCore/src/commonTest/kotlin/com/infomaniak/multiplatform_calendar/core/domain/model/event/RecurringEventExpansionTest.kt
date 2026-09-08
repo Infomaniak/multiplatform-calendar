@@ -586,6 +586,26 @@ class RecurringEventExpansionTest {
         )
     }
 
+    @Test
+    fun overrideOnAnExDatedSlotIsStillEmitted() = runTest {
+        val slot = LocalDateTime(2026, 1, 2, 10, 0)
+        val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+            .let { it.copy(timing = it.timing.copy(exDates = listOf(IcalDateValue.Zoned(slot.toInstant(TimeZone.UTC), "UTC")))) }
+        val override = master.overrideAt(originalStart = slot)
+
+        val result = listOf(EventWithOverrides(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 11),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(
+            listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 3, 10, 0), slot),
+            result.map { it.timing.start },
+            "an override outlives the EXDATE on its slot: it is a redefinition, not a rule occurrence",
+        )
+    }
+
     /** Mirrors what the mapper builds from an `EventOverrideEntity`: a ready-to-emit occurrence. */
     private fun Event.overrideAt(
         originalStart: LocalDateTime,

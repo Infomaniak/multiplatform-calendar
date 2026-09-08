@@ -367,7 +367,7 @@ class RecurringEventExpansionTest {
         val paris = TimeZone.of("Europe/Paris")
         val master = Event(
             masterEventId = EventId("event://dst-spring"),
-            occurrenceId = OccurrenceId("event://dst-spring"),
+            occurrenceId = OccurrenceId.Master(EventId("event://dst-spring")),
             calendarId = CalendarId("calendar://test"),
             accountId = AccountId(1L),
             title = "DST spring",
@@ -405,7 +405,7 @@ class RecurringEventExpansionTest {
         val paris = TimeZone.of("Europe/Paris")
         val master = Event(
             masterEventId = EventId("event://dst-fall"),
-            occurrenceId = OccurrenceId("event://dst-fall"),
+            occurrenceId = OccurrenceId.Master(EventId("event://dst-fall")),
             calendarId = CalendarId("calendar://test"),
             accountId = AccountId(1L),
             title = "DST fall",
@@ -531,7 +531,7 @@ class RecurringEventExpansionTest {
     ): Pair<String, Event> {
         val key = RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC))
         return key.canonical to copy(
-            occurrenceId = OccurrenceId("${masterEventId.url}#${key.canonical}"),
+            occurrenceId = OccurrenceId.Recurrence(masterEventId, key),
             title = "Moved instance",
             status = status,
             timing = timing.copy(
@@ -544,7 +544,7 @@ class RecurringEventExpansionTest {
 
     private fun dailyMaster(id: String, rule: RecurrenceRule): Event = Event(
         masterEventId = EventId(id),
-        occurrenceId = OccurrenceId(id),
+        occurrenceId = OccurrenceId.Master(EventId(id)),
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",

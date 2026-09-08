@@ -429,7 +429,7 @@ class EventDaySliceTest {
 
     private fun eventOf(timing: EventTiming, id: String = "event://test"): Event = Event(
         masterEventId = EventId(id),
-        occurrenceId = OccurrenceId(id),
+        occurrenceId = OccurrenceId.Master(EventId(id)),
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",

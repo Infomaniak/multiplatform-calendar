@@ -31,6 +31,6 @@ internal fun EventOverrideEntity.toDomain(
     calendar: Calendar,
 ): Event = content.toDomain(
     masterEventId = masterId,
-    occurrenceId = OccurrenceId.of(masterId, recurrenceKey),
+    occurrenceId = OccurrenceId.Recurrence(masterId, recurrenceKey),
     calendar = calendar,
 )

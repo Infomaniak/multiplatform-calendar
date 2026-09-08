@@ -34,7 +34,7 @@ internal fun EventEntity.toDomain(
     calendar: Calendar,
 ): Event = content.toDomain(
     masterEventId = id,
-    occurrenceId = OccurrenceId(id.url),
+    occurrenceId = OccurrenceId.Master(id),
     calendar = calendar,
     recurrenceRule = rrule,
     rDates = rDates,

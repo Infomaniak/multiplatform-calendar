@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use fast_dav_rs::{CalDavClient, CalDavClientBuilder};
 
-use crate::error::{bridge_error, CaldavError};
+use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::DavAccount;
 
 /// Tunables applied to every CalDAV client built by the bridge. An all-default value reproduces the
@@ -121,7 +121,7 @@ fn build_client(
 
     builder = apply_debug_interception(builder, config)?;
 
-    builder.build().map_err(|e| bridge_error("Client", e))
+    builder.build().map_err(|e| map_fast_dav_error("Client", e))
 }
 
 fn apply_debug_interception(

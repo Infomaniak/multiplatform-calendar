@@ -2,7 +2,7 @@
 
 use icalendar::{Calendar, CalendarComponent, Component, Property};
 use std::collections::HashSet;
-use fast_dav_rs::CalDavClient;
+use fast_dav_rs::webdav::normalize_etag;
 use crate::alarms::{parse_alarms, splice_alarms_into_vevent, strip_valarms_in_vevent};
 use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
@@ -627,7 +627,7 @@ pub async fn create_event(account: DavAccount, calendar_url: &str, ics_data: &st
         .and_then(|v| v.to_str().ok())
         .unwrap_or_default()
         .to_string();
-    let normalized_etag = CalDavClient::normalize_etag(&etag);
+    let normalized_etag = normalize_etag(&etag);
     Ok(EventResourceRef { href: path, etag: normalized_etag })
 }
 
@@ -645,7 +645,7 @@ pub async fn update_event(account: DavAccount, event_url: &str, etag: &str, ics_
         .and_then(|v| v.to_str().ok())
         .unwrap_or_default()
         .to_string();
-    let normalized_etag = CalDavClient::normalize_etag(&new_etag);
+    let normalized_etag = normalize_etag(&new_etag);
     Ok(EventResourceRef { href: event_url.to_string(), etag: normalized_etag })
 }
 

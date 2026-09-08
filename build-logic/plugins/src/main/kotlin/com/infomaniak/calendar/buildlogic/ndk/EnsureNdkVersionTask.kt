@@ -25,11 +25,11 @@ import org.gradle.api.tasks.TaskAction
 import java.io.File
 
 /**
- * Verifies that the required NDK version is installed.
+ * Verifies that the resolved NDK version is installed.
  *
- * The actual installation is handled by [EnsureNdkVersionPlugin] at configuration time;
- * this task offers a manual `./gradlew ensureNdkVersion` entry point and an execution-time
- * safety net.
+ * The resolution (and the install when nothing satisfies the declared minimum) is driven by
+ * [EnsureNdkVersionExtension.resolvedVersion]; this task offers a manual
+ * `./gradlew ensureNdkVersion` entry point and an execution-time safety net.
  */
 abstract class EnsureNdkVersionTask : DefaultTask() {
 

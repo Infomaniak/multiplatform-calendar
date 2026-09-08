@@ -37,6 +37,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOv
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
@@ -117,7 +118,13 @@ internal class EventRepository(
         return observeVisibleEventsWithOverrides(accountIds, start, end, zone = timeZone)
             .mapLatest { eventsWithOverrides ->
                 eventsWithOverrides
-                    .expandRecurrencesInWindow(start, end, timeZone, onExpansionTruncated = ::logTruncatedExpansion)
+                    .expandRecurrencesInWindow(
+                        rangeStart = start,
+                        rangeEnd = end,
+                        timeZone = timeZone,
+                        onExpansionTruncated = ::logTruncatedExpansion,
+                        onOrphanOverrideDropped = ::logOrphanOverride,
+                    )
                     .groupDaySlicesByDay(start, end, timeZone)
             }
             .flowOn(Dispatchers.Default)
@@ -163,6 +170,14 @@ internal class EventRepository(
         crashReport.capture(
             message = "Recurrence expansion hit a safety cap for event ${masterId.url}",
             data = mapOf("masterId" to masterId.url, "outcome" to outcome.name),
+            level = CrashReportLevel.Warning,
+        )
+    }
+
+    private fun logOrphanOverride(masterId: EventId, slot: RecurrenceKey) {
+        crashReport.capture(
+            message = "Override outside the recurrence range for event ${masterId.url}",
+            data = mapOf("masterId" to masterId.url, "recurrenceKey" to slot.canonical),
             level = CrashReportLevel.Warning,
         )
     }

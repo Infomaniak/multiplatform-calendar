@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
@@ -523,14 +524,76 @@ class RecurringEventExpansionTest {
         )
     }
 
+    @Test
+    fun overrideBeyondUntilIsDroppedAndReported() = runTest {
+        val master = boundedMaster(untilDay = 3)
+        // The series was shortened to 01-03 without this now out-of-range override being cleaned up.
+        val orphan = master.overrideAt(originalStart = LocalDateTime(2026, 1, 10, 10, 0))
+        val orphans = mutableListOf<Pair<EventId, RecurrenceKey>>()
+
+        val result = listOf(EventWithOverrides(master, mapOf(orphan))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 20),
+            timeZone = TimeZone.UTC,
+            onOrphanOverrideDropped = { masterId, slot -> orphans += masterId to slot },
+        )
+
+        assertEquals(
+            listOf(LocalDateTime(2026, 1, 1, 10, 0), LocalDateTime(2026, 1, 2, 10, 0), LocalDateTime(2026, 1, 3, 10, 0)),
+            result.map { it.timing.start },
+            "a RECURRENCE-ID past UNTIL stands for an occurrence the rule no longer produces",
+        )
+        assertEquals(listOf(master.masterEventId to orphan.first), orphans, "the dropped orphan is reported")
+    }
+
+    @Test
+    fun overrideBeyondUntilIsKeptWhenAnRDateReAddsItsSlot() = runTest {
+        val slot = LocalDateTime(2026, 1, 10, 10, 0)
+        val master = boundedMaster(untilDay = 3, rDates = listOf(IcalDateValue.Zoned(slot.toInstant(TimeZone.UTC), "UTC")))
+        val override = master.overrideAt(originalStart = slot)
+        val orphans = mutableListOf<Pair<EventId, RecurrenceKey>>()
+
+        val result = listOf(EventWithOverrides(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 1, 1),
+            rangeEnd = utc(2026, 1, 20),
+            timeZone = TimeZone.UTC,
+            onOrphanOverrideDropped = { masterId, slot -> orphans += masterId to slot },
+        )
+
+        assertEquals(slot, result.last().timing.start, "an RDATE is not bounded by UNTIL, so its slot is no orphan")
+        assertTrue(orphans.isEmpty(), "a slot listed in RDATE is never reported as an orphan")
+    }
+
+    @Test
+    fun overrideMovedPastUntilIsKeptWhenItsSlotIsWithinBounds() = runTest {
+        val master = boundedMaster(untilDay = 3)
+        // A legitimate move: the slot stays in range, only the position the user dragged it to is past UNTIL.
+        val override = master.overrideAt(
+            originalStart = LocalDateTime(2026, 1, 2, 10, 0),
+            movedTo = LocalDateTime(2026, 3, 1, 10, 0),
+        )
+
+        val result = listOf(EventWithOverrides(master, mapOf(override))).expandRecurrencesInWindow(
+            rangeStart = utc(2026, 3, 1),
+            rangeEnd = utc(2026, 3, 2),
+            timeZone = TimeZone.UTC,
+        )
+
+        assertEquals(
+            listOf(override.second.occurrenceId),
+            result.map { it.occurrenceId },
+            "filtering must test the RECURRENCE-ID, never the override's own DTSTART",
+        )
+    }
+
     /** Mirrors what the mapper builds from an `EventOverrideEntity`: a ready-to-emit occurrence. */
     private fun Event.overrideAt(
         originalStart: LocalDateTime,
         movedTo: LocalDateTime = originalStart,
         status: EventStatus? = null,
-    ): Pair<String, Event> {
+    ): Pair<RecurrenceKey, Event> {
         val key = RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC))
-        return key.canonical to copy(
+        val event = copy(
             occurrenceId = OccurrenceId.Recurrence(masterEventId, key),
             title = "Moved instance",
             status = status,
@@ -540,6 +603,19 @@ class RecurringEventExpansionTest {
                 recurrenceRule = null,
             ),
         )
+        return key to event
+    }
+
+    /** A daily master ending on `2026-01-<untilDay>`, the shape a shortened series has. */
+    private fun boundedMaster(untilDay: Int, rDates: List<IcalDateValue> = emptyList()): Event {
+        val master = dailyMaster(
+            id = "event://bounded",
+            rule = RecurrenceRule(
+                freq = Frequency.Daily,
+                until = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 1, untilDay, 23, 59, 59).toInstant(TimeZone.UTC)),
+            ),
+        )
+        return master.copy(timing = master.timing.copy(rDates = rDates))
     }
 
     private fun dailyMaster(id: String, rule: RecurrenceRule): Event = Event(

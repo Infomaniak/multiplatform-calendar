@@ -495,7 +495,7 @@ fn apply_color_change(event: &mut icalendar::Event, change: &ColorChange) {
 pub async fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<EventEntry>, CaldavError> {
     let cli = client(&account)?;
 
-    let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true)
+    let objects = cli.calendar_query_timerange(calendar_url, "VEVENT", None, None, true, None)
         .await.map_err(|error| map_fast_dav_error("Query", error))?;
 
     Ok(objects
@@ -519,7 +519,7 @@ pub async fn calendar_query_timerange(
     let cli = client(&account)?;
 
     let objects = cli
-        .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), true)
+        .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), true, None)
         .await
         .map_err(|e| map_fast_dav_error("CalendarQueryTimeRange", e))?;
 
@@ -543,7 +543,7 @@ pub async fn calendar_query_timerange_refs(
     let cli = client(&account)?;
 
     let objects = cli
-        .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), false)
+        .calendar_query_timerange(calendar_url, "VEVENT", Some(start), Some(end), false, None)
         .await
         .map_err(|e| map_fast_dav_error("CalendarQueryTimeRangeRefs", e))?;
 
@@ -566,7 +566,7 @@ pub async fn sync_collection(
     let cli = client(&account)?;
 
     let result = cli
-        .sync_collection(calendar_url, sync_token.as_deref(), None, false)
+        .sync_collection(calendar_url, sync_token.as_deref(), None, false, None)
         .await
         .map_err(|e| map_fast_dav_error("SyncCollection", e))?;
 
@@ -597,7 +597,7 @@ pub async fn calendar_multiget(
     let cli = client(&account)?;
 
     let objects = cli
-        .calendar_multiget(calendar_url, hrefs.iter().map(String::as_str), true)
+        .calendar_multiget(calendar_url, hrefs.iter().map(String::as_str), true, None)
         .await
         .map_err(|e| map_fast_dav_error("CalendarMultiGet", e))?;
 

@@ -28,7 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import kotlinx.datetime.LocalDateTime
 
 /**
- * Lightweight Room projection: just what is needed to place an event's **calendar** color on each day
+ * Lightweight Room projection: just what is needed to place an event's **dot color** on each day
  * it covers, without materialising a full `EventEntity` (no title, attendees, raw ICS, …).
  *
  * The wall-clock columns plus their IANA time-zone ids mirror the domain `EventTiming.startIn` /
@@ -36,15 +36,15 @@ import kotlinx.datetime.LocalDateTime
  * - [startZoneId]/[endZoneId] `== null` (floating or all-day): the wall-clock is used as-is in the display zone.
  * - otherwise: the wall-clock is reprojected through an absolute instant into the display zone.
  *
- * [colorArgb] is the owning calendar's source color (`calendars.color`), fed to `CalendarColors.from` to derive the
- * full `CalendarColors`; `null` means "use the default color". [rrule] carries recurring masters so callers can
- * expand occurrences without materialising full event objects, and [overrides] the instances that redefine their own
- * placement — same batched Room relation as the planning flow, projected down to the columns that move a day dot.
+ * [calendarColorArgb] is the owning calendar's source color (`calendars.color`); `null` means "use the default
+ * color". [rrule] carries recurring masters so callers can expand occurrences without materialising full event
+ * objects, and [overrides] the instances that redefine their own placement — same batched Room relation as the
+ * planning flow, projected down to the columns that move a day dot.
  */
-internal data class EventCalendarColorInRange(
+internal data class EventDotColorInRange(
     val eventId: EventId,
     val calendarId: CalendarId,
-    val colorArgb: Int?,
+    val calendarColorArgb: Int?,
     val dtStart: LocalDateTime,
     val dtEndEffective: LocalDateTime,
     val startZoneId: String?,
@@ -54,17 +54,16 @@ internal data class EventCalendarColorInRange(
     val rDates: List<IcalDateValue>,
     val exDates: List<IcalDateValue>,
     @Relation(entity = EventOverrideEntity::class, parentColumns = ["eventId"], entityColumns = ["masterId"])
-    val overrides: List<OverrideCalendarColorInRange> = emptyList(),
+    val overrides: List<OverrideDotColorInRange> = emptyList(),
 )
 
 /**
- * The override pendant of [EventCalendarColorInRange]: only what decides *which day* gets a dot.
+ * The override pendant of [EventDotColorInRange]: only what decides *which day* gets a dot.
  *
- * No color of its own — a day dot always uses the owning calendar's color, and an override cannot
- * change calendars — so this carries placement and [status] only, the latter because a `CANCELLED`
- * override deletes its occurrence instead of moving it.
+ * It carries placement and [status] only, the latter because a `CANCELLED` override deletes its occurrence
+ * instead of moving it.
  */
-internal data class OverrideCalendarColorInRange(
+internal data class OverrideDotColorInRange(
     val recurrenceKey: RecurrenceKey,
     val dtStart: LocalDateTime,
     val dtEndEffective: LocalDateTime,
@@ -73,5 +72,4 @@ internal data class OverrideCalendarColorInRange(
     val isAllDay: Boolean,
     val status: EventStatus?,
 )
-
 

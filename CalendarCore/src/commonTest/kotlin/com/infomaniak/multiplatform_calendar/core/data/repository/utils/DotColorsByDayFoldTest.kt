@@ -17,16 +17,19 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
-import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.OverrideDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
-import com.infomaniak.multiplatform_calendar.core.data.local.projection.OverrideCalendarColorInRange
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -34,123 +37,125 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class VisibleCalendarColorsByDayFoldTest {
+class DotColorsByDayFoldTest {
 
     private val utc = TimeZone.UTC
     private val dayStart = LocalDateTime(2026, 6, 15, 0, 0)
     private val dayEnd = LocalDateTime(2026, 6, 16, 0, 0)
 
-    @Test
-    fun foldToDailyCalendarColors_ordersColorsByPerDayEventSort_notInputOrder() = runTest {
-        val red = 0xFFE53935.toInt()
-        val blue = 0xFF1E88E5.toInt()
+    private val red = 0xFFE53935.toInt()
+    private val blue = 0xFF1E88E5.toInt()
 
+    @Test
+    fun foldToDailyDotColors_ordersColorsByPerDayEventSort_notInputOrder() = runTest {
         val rows = listOf(
-            row(eventId = "event://blue-09", calendarId = "calendar://blue", color = blue, startHour = 9, endHour = 10),
-            row(eventId = "event://red-08", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9),
+            row(eventId = "event://blue-09", calendarId = "calendar://blue", calendarColor = blue, startHour = 9, endHour = 10),
+            row(eventId = "event://red-08", calendarId = "calendar://red", calendarColor = red, startHour = 8, endHour = 9),
         )
 
-        val result = rows.foldToDailyCalendarColors(
+        val result = rows.foldToDailyDotColors(
             rangeStart = dayStart.toInstant(utc),
             rangeEnd = dayEnd.toInstant(utc),
             timeZone = utc,
         )
 
-        assertEquals(
-            listOf(red, blue),
-            result.getValue(dayStart.date).map { it.colors.sourceColor },
-        )
-        assertEquals(
-            listOf(CalendarId("calendar://red"), CalendarId("calendar://blue")),
-            result.getValue(dayStart.date).map { it.id },
-        )
+        assertEquals(listOf(red, blue), result.sourceColorsOn(dayStart))
     }
 
     @Test
-    fun foldToDailyCalendarColors_keepsEarliestKeyPerColor_beforeFinalColorSort() = runTest {
-        val red = 0xFFE53935.toInt()
-        val blue = 0xFF1E88E5.toInt()
-
+    fun foldToDailyDotColors_keepsEarliestKeyPerColor_beforeFinalColorSort() = runTest {
         val rows = listOf(
-            row(eventId = "event://red-15", calendarId = "calendar://red", color = red, startHour = 15, endHour = 16),
-            row(eventId = "event://blue-10", calendarId = "calendar://blue", color = blue, startHour = 10, endHour = 11),
-            row(eventId = "event://red-08", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9),
+            row(eventId = "event://red-15", calendarId = "calendar://red", calendarColor = red, startHour = 15, endHour = 16),
+            row(eventId = "event://blue-10", calendarId = "calendar://blue", calendarColor = blue, startHour = 10, endHour = 11),
+            row(eventId = "event://red-08", calendarId = "calendar://red", calendarColor = red, startHour = 8, endHour = 9),
         )
 
-        val result = rows.foldToDailyCalendarColors(
+        val result = rows.foldToDailyDotColors(
             rangeStart = dayStart.toInstant(utc),
             rangeEnd = dayEnd.toInstant(utc),
             timeZone = utc,
         )
 
-        assertEquals(
-            listOf(red, blue),
-            result.getValue(dayStart.date).map { it.colors.sourceColor },
-        )
+        assertEquals(listOf(red, blue), result.sourceColorsOn(dayStart))
     }
 
     @Test
-    fun foldToDailyCalendarColors_keepsBothCalendarIds_whenTwoCalendarsShareSameColor() = runTest {
-        val red = 0xFFE53935.toInt()
-
+    fun foldToDailyDotColors_keepsOneDotPerCalendar_whenTwoCalendarsShareSameColor() = runTest {
         val rows = listOf(
-            row(eventId = "event://red1-08", calendarId = "calendar://red1", color = red, startHour = 8, endHour = 9),
-            row(eventId = "event://red2-10", calendarId = "calendar://red2", color = red, startHour = 10, endHour = 11),
+            row(eventId = "event://red1-08", calendarId = "calendar://red1", calendarColor = red, startHour = 8, endHour = 9),
+            row(eventId = "event://red2-10", calendarId = "calendar://red2", calendarColor = red, startHour = 10, endHour = 11),
         )
 
-        val result = rows.foldToDailyCalendarColors(
+        val result = rows.foldToDailyDotColors(
             rangeStart = dayStart.toInstant(utc),
             rangeEnd = dayEnd.toInstant(utc),
             timeZone = utc,
         )
 
-        val dayEntries = result.getValue(dayStart.date)
-        assertEquals(2, dayEntries.size)
-        assertEquals(
-            listOf(CalendarId("calendar://red1"), CalendarId("calendar://red2")),
-            dayEntries.map { it.id },
-        )
         assertEquals(
             listOf(red, red),
-            dayEntries.map { it.colors.sourceColor },
+            result.sourceColorsOn(dayStart),
+            "each calendar owns its dot, even when both dots end up the same color",
         )
     }
 
     @Test
-    fun foldToDailyCalendarColors_ordersAllDayBeforeTimed() = runTest {
-        val red = 0xFFE53935.toInt()
-        val blue = 0xFF1E88E5.toInt()
-
+    fun foldToDailyDotColors_collapsesToOneDot_whenOneCalendarRepeatsItsColor() = runTest {
         val rows = listOf(
-            row(eventId = "event://timed", calendarId = "calendar://blue", color = blue, startHour = 8, endHour = 9),
-            allDayRow(eventId = "event://all-day", calendarId = "calendar://red", color = red),
+            row(eventId = "event://red-08", calendarColor = red, startHour = 8, endHour = 9),
+            row(eventId = "event://red-10", calendarColor = red, startHour = 10, endHour = 11),
         )
 
-        val result = rows.foldToDailyCalendarColors(
+        val result = rows.foldToDailyDotColors(
             rangeStart = dayStart.toInstant(utc),
             rangeEnd = dayEnd.toInstant(utc),
             timeZone = utc,
         )
 
-        assertEquals(
-            listOf(red, blue),
-            result.getValue(dayStart.date).map { it.colors.sourceColor },
-        )
+        assertEquals(listOf(red), result.sourceColorsOn(dayStart))
     }
 
     @Test
-    fun foldToDailyCalendarColors_orphanOverrideMovedIntoRange_doesNotDotItsDay() = runTest {
-        val red = 0xFFE53935.toInt()
+    fun foldToDailyDotColors_usesDefaultColor_whenNeitherEventNorCalendarDeclaresOne() = runTest {
+        val rows = listOf(row(eventId = "event://colorless", calendarColor = null, startHour = 8, endHour = 9))
+
+        val result = rows.foldToDailyDotColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = dayEnd.toInstant(utc),
+            timeZone = utc,
+        )
+
+        assertEquals(listOf(CalendarColors.DEFAULT_SOURCE_COLOR), result.sourceColorsOn(dayStart))
+    }
+
+    @Test
+    fun foldToDailyDotColors_ordersAllDayBeforeTimed() = runTest {
+        val rows = listOf(
+            row(eventId = "event://timed", calendarId = "calendar://blue", calendarColor = blue, startHour = 8, endHour = 9),
+            allDayRow(eventId = "event://all-day", calendarId = "calendar://red", calendarColor = red),
+        )
+
+        val result = rows.foldToDailyDotColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = dayEnd.toInstant(utc),
+            timeZone = utc,
+        )
+
+        assertEquals(listOf(red, blue), result.sourceColorsOn(dayStart))
+    }
+
+    @Test
+    fun foldToDailyDotColors_orphanOverrideMovedIntoRange_doesNotDotItsDay() = runTest {
         val orphanDay = LocalDateTime(2026, 6, 16, 10, 0)
 
-        val master = row(eventId = "event://bounded", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9)
+        val master = row(eventId = "event://bounded", calendarColor = red, startHour = 8, endHour = 9)
             .copy(
                 rrule = RecurrenceRule(
                     freq = Frequency.Daily,
                     until = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 6, 15, 23, 59, 59).toInstant(utc)),
                 ),
                 overrides = listOf(
-                    OverrideCalendarColorInRange(
+                    OverrideDotColorInRange(
                         recurrenceKey = RecurrenceKey.Zoned(LocalDateTime(2026, 6, 20, 8, 0), utc.id),
                         dtStart = orphanDay,
                         dtEndEffective = orphanDay,
@@ -162,66 +167,68 @@ class VisibleCalendarColorsByDayFoldTest {
                 ),
             )
 
-        val result = listOf(master).foldToDailyCalendarColors(
+        val result = listOf(master).foldToDailyDotColors(
             rangeStart = dayStart.toInstant(utc),
             rangeEnd = LocalDateTime(2026, 6, 17, 0, 0).toInstant(utc),
             timeZone = utc,
         )
 
-        assertEquals(listOf(red), result.getValue(dayStart.date).map { it.colors.sourceColor })
+        assertEquals(listOf(red), result.sourceColorsOn(dayStart))
         assertNull(result[orphanDay.date])
     }
 
     @Test
-    fun foldToDailyCalendarColors_exDatedOccurrence_isNotDotted() = runTest {
-        val red = 0xFFE53935.toInt()
+    fun foldToDailyDotColors_exDatedOccurrence_isNotDotted() = runTest {
         val excluded = LocalDateTime(2026, 6, 16, 8, 0)
 
-        val master = row(eventId = "event://daily", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9)
+        val master = row(eventId = "event://daily", calendarColor = red, startHour = 8, endHour = 9)
             .copy(
                 rrule = RecurrenceRule(freq = Frequency.Daily),
                 exDates = listOf(IcalDateValue.Zoned(excluded.toInstant(utc), utc.id)),
             )
 
-        val result = listOf(master).foldToDailyCalendarColors(
+        val result = listOf(master).foldToDailyDotColors(
             rangeStart = dayStart.toInstant(utc),
             rangeEnd = LocalDateTime(2026, 6, 17, 0, 0).toInstant(utc),
             timeZone = utc,
         )
 
-        assertEquals(listOf(red), result.getValue(dayStart.date).map { it.colors.sourceColor })
+        assertEquals(listOf(red), result.sourceColorsOn(dayStart))
         assertNull(result[excluded.date])
     }
 
     @Test
-    fun foldToDailyCalendarColors_rDatedOccurrence_isDotted() = runTest {
-        val red = 0xFFE53935.toInt()
+    fun foldToDailyDotColors_rDatedOccurrence_isDotted() = runTest {
         val added = LocalDateTime(2026, 6, 16, 8, 0)
 
-        val master = row(eventId = "event://rdated", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9)
+        val master = row(eventId = "event://rdated", calendarColor = red, startHour = 8, endHour = 9)
             .copy(rDates = listOf(IcalDateValue.Zoned(added.toInstant(utc), utc.id)))
 
-        val result = listOf(master).foldToDailyCalendarColors(
+        val result = listOf(master).foldToDailyDotColors(
             rangeStart = dayStart.toInstant(utc),
             rangeEnd = LocalDateTime(2026, 6, 17, 0, 0).toInstant(utc),
             timeZone = utc,
         )
 
-        assertEquals(listOf(red), result.getValue(dayStart.date).map { it.colors.sourceColor })
-        assertEquals(listOf(red), result.getValue(added.date).map { it.colors.sourceColor })
+        assertEquals(listOf(red), result.sourceColorsOn(dayStart))
+        assertEquals(listOf(red), result.sourceColorsOn(added))
+    }
+
+    private fun Map<LocalDate, List<DotColor>>.sourceColorsOn(dateTime: LocalDateTime): List<Int> {
+        return getValue(dateTime.date).map { it.sourceColor }
     }
 
     private fun row(
         eventId: String,
-        calendarId: String,
-        color: Int,
+        calendarId: String = "calendar://default",
+        calendarColor: Int?,
         startHour: Int,
         endHour: Int,
-    ): EventCalendarColorInRange {
-        return EventCalendarColorInRange(
+    ): EventDotColorInRange {
+        return EventDotColorInRange(
             eventId = EventId(eventId),
             calendarId = CalendarId(calendarId),
-            colorArgb = color,
+            calendarColorArgb = calendarColor,
             dtStart = LocalDateTime(2026, 6, 15, startHour, 0),
             dtEndEffective = LocalDateTime(2026, 6, 15, endHour, 0),
             startZoneId = utc.id,
@@ -233,11 +240,11 @@ class VisibleCalendarColorsByDayFoldTest {
         )
     }
 
-    private fun allDayRow(eventId: String, calendarId: String, color: Int): EventCalendarColorInRange {
-        return EventCalendarColorInRange(
+    private fun allDayRow(eventId: String, calendarId: String, calendarColor: Int?): EventDotColorInRange {
+        return EventDotColorInRange(
             eventId = EventId(eventId),
             calendarId = CalendarId(calendarId),
-            colorArgb = color,
+            calendarColorArgb = calendarColor,
             dtStart = LocalDateTime(2026, 6, 15, 0, 0),
             dtEndEffective = LocalDateTime(2026, 6, 16, 0, 0),
             startZoneId = null,

@@ -17,18 +17,19 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
-
 /**
- * Calendar color entry used in per-day visibility maps.
- *
- * [id] is the stable owning calendar id. [colors] carries the full precomputed palette for that calendar.
+ * One dot of a day cell: the color of a calendar owning at least one event that day. Two calendars sharing
+ * a color get a dot each, so a day list may hold equal values and cannot serve as a set of stable keys.
  */
-@OptIn(ExperimentalObjCRefinement::class)
-public data class VisibleCalendarColor(
-    @HiddenFromObjC
-    val id: CalendarId,
-    val colors: CalendarColors,
-)
+public data class DotColor(
+    val sourceColor: Int,
+) {
+    public companion object {
+
+        /** The calendar's color, or [CalendarColors.DEFAULT_SOURCE_COLOR] when it declares none. */
+        public fun from(calendarColorArgb: Int?): DotColor {
+            return DotColor(calendarColorArgb ?: CalendarColors.DEFAULT_SOURCE_COLOR)
+        }
+    }
+}
 

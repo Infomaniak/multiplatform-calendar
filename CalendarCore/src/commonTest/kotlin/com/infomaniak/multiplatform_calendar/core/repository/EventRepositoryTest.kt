@@ -381,7 +381,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_groupsByDay_andDeduplicatesPerCalendar() = runTest {
+    fun observeVisibleDotColorsByDay_groupsByDay_andDeduplicatesPerCalendarAndColor() = runTest {
         val account = AccountId(1)
         val calendarA = CalendarId("calendar://a")
         val calendarB = CalendarId("calendar://b")
@@ -405,7 +405,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             },
         )
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(TimeZone.UTC),
@@ -419,24 +419,19 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(setOf(day15, day16), colorsByDay.keys)
         assertEquals(
             setOf(red.argb, blue.argb),
-            colorsByDay.getValue(day15).map { it.colors.sourceColor }.toSet(),
-            "day 15 must expose one color per calendar with at least one event",
-        )
-        assertEquals(
-            setOf(calendarA, calendarB),
-            colorsByDay.getValue(day15).map { it.id }.toSet(),
-            "day 15 entries must expose stable calendar ids",
+            colorsByDay.getValue(day15).map { it.sourceColor }.toSet(),
+            "day 15 must expose one dot per calendar+color pair of its events",
         )
         assertEquals(
             setOf(red.argb),
-            colorsByDay.getValue(day16).map { it.colors.sourceColor }.toSet(),
+            colorsByDay.getValue(day16).map { it.sourceColor }.toSet(),
             "day 16 must only expose calendar A color",
         )
         assertNull(colorsByDay[day17], "days without events must be omitted")
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_expandsRecurringMasterIntoOccurrenceDays() = runTest {
+    fun observeVisibleDotColorsByDay_expandsRecurringMasterIntoOccurrenceDays() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://rrule")
         val green = CalendarSourceColor(0xFF43A047.toInt())
@@ -472,7 +467,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
@@ -488,14 +483,14 @@ class EventRepositoryTest : RobolectricTestsBase() {
         expectedDays.forEach { day ->
             assertEquals(
                 setOf(green.argb),
-                colorsByDay.getValue(day).map { it.colors.sourceColor }.toSet(),
+                colorsByDay.getValue(day).map { it.sourceColor }.toSet(),
                 "each occurrence day must include the recurring calendar color",
             )
         }
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_movedOverrideDotsTheDayItLandedOn() = runTest {
+    fun observeVisibleDotColorsByDay_movedOverrideDotsTheDayItLandedOn() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
@@ -512,7 +507,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0), movedTo = LocalDateTime(2026, 6, 19, 10, 0))
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
@@ -530,7 +525,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_overrideMovedPastTheSeriesEndStillDotsItsDay() = runTest {
+    fun observeVisibleDotColorsByDay_overrideMovedPastTheSeriesEndStillDotsItsDay() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
@@ -547,7 +542,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0), movedTo = LocalDateTime(2026, 8, 20, 10, 0))
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 8, 17, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 8, 24, 0, 0).toInstant(TimeZone.UTC),
@@ -557,12 +552,12 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(setOf(LocalDateTime(2026, 8, 20, 0, 0).date), colorsByDay.keys)
         assertEquals(
             setOf(green.argb),
-            colorsByDay.getValue(LocalDateTime(2026, 8, 20, 0, 0).date).map { it.colors.sourceColor }.toSet(),
+            colorsByDay.getValue(LocalDateTime(2026, 8, 20, 0, 0).date).map { it.sourceColor }.toSet(),
         )
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_cancelledOverrideClearsItsDay() = runTest {
+    fun observeVisibleDotColorsByDay_cancelledOverrideClearsItsDay() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
@@ -581,7 +576,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
@@ -596,7 +591,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_movedFloatingOverrideDotsItsWallClockDayInAnyZone() = runTest {
+    fun observeVisibleDotColorsByDay_movedFloatingOverrideDotsItsWallClockDayInAnyZone() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
@@ -620,7 +615,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val zone = TimeZone.of("Pacific/Honolulu") // UTC-10, no DST
-        val movedDayColors = repository.observeVisibleCalendarColorsByDay(
+        val movedDayColors = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 8, 17, 0, 0).toInstant(zone),
             end = LocalDateTime(2026, 8, 24, 0, 0).toInstant(zone),
@@ -630,10 +625,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(setOf(LocalDateTime(2026, 8, 20, 0, 0).date), movedDayColors.keys)
         assertEquals(
             setOf(green.argb),
-            movedDayColors.getValue(LocalDateTime(2026, 8, 20, 0, 0).date).map { it.colors.sourceColor }.toSet(),
+            movedDayColors.getValue(LocalDateTime(2026, 8, 20, 0, 0).date).map { it.sourceColor }.toSet(),
         )
 
-        val vacatedDayColors = repository.observeVisibleCalendarColorsByDay(
+        val vacatedDayColors = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 16, 0, 0).toInstant(zone),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(zone),
@@ -644,7 +639,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_overrideOutsideAPartialDayWindowIsNotDotted() = runTest {
+    fun observeVisibleDotColorsByDay_overrideOutsideAPartialDayWindowIsNotDotted() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         seedCalendar(account, calendarId, CalendarSourceColor(0xFF43A047.toInt()))
@@ -664,7 +659,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 19, 12, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 19, 13, 0).toInstant(TimeZone.UTC),
@@ -705,7 +700,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_reprojectsAnchoredEventAcrossDateBoundary() = runTest {
+    fun observeVisibleDotColorsByDay_reprojectsAnchoredEventAcrossDateBoundary() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://tz")
         val purple = CalendarSourceColor(0xFF8E24AA.toInt())
@@ -726,7 +721,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             ),
         )
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(TimeZone.UTC),
@@ -735,11 +730,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
         assertEquals(setOf(day16), colorsByDay.keys, "UTC late event must land on day 16 in Europe/Paris")
-        assertEquals(setOf(purple.argb), colorsByDay.getValue(day16).map { it.colors.sourceColor }.toSet())
+        assertEquals(setOf(purple.argb), colorsByDay.getValue(day16).map { it.sourceColor }.toSet())
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_keepsFloatingWallClockPlacementInDisplayZone() = runTest {
+    fun observeVisibleDotColorsByDay_keepsFloatingWallClockPlacementInDisplayZone() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://floating")
         val amber = CalendarSourceColor(0xFFFFB300.toInt())
@@ -760,7 +755,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             ),
         )
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(displayZone),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(displayZone),
@@ -770,12 +765,12 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
         val day16 = LocalDateTime(2026, 6, 16, 0, 0).date
         assertEquals(setOf(day15, day16), colorsByDay.keys)
-        assertEquals(setOf(amber.argb), colorsByDay.getValue(day15).map { it.colors.sourceColor }.toSet())
-        assertEquals(setOf(amber.argb), colorsByDay.getValue(day16).map { it.colors.sourceColor }.toSet())
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day15).map { it.sourceColor }.toSet())
+        assertEquals(setOf(amber.argb), colorsByDay.getValue(day16).map { it.sourceColor }.toSet())
     }
 
     @Test
-    fun observeVisibleCalendarColorsByDay_ordersColorsLikePerDayEventSlices() = runTest {
+    fun observeVisibleDotColorsByDay_ordersColorsLikePerDayEventSlices() = runTest {
         val account = AccountId(1)
         val floatingCalendarId = CalendarId("calendar://floating-08")
         val anchoredCalendarId = CalendarId("calendar://anchored-09")
@@ -807,7 +802,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             ),
         )
 
-        val colorsByDay = repository.observeVisibleCalendarColorsByDay(
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
             accountIds = setOf(account),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 16, 0, 0).toInstant(TimeZone.UTC),
@@ -817,7 +812,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val day15 = LocalDateTime(2026, 6, 15, 0, 0).date
         assertEquals(
             listOf(floatingColor.argb, anchoredColor.argb),
-            colorsByDay.getValue(day15).map { it.colors.sourceColor },
+            colorsByDay.getValue(day15).map { it.sourceColor },
             "per-day color order must follow event slice ordering (displayStart), not anchored-first SQL ordering",
         )
     }

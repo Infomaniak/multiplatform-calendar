@@ -25,10 +25,11 @@ public data class CalendarColors(
     val onSourceColor: ThemedColor,
 ) {
     public companion object {
-        private const val DEFAULT_COLOR = 0xFF2196F3.toInt() // Material Blue
+        /** Color used by a calendar that declares none, and the last fallback of any event color. */
+        public const val DEFAULT_SOURCE_COLOR: Int = 0xFF2196F3.toInt() // Material Blue
 
         public fun from(calendarColor: Int?): CalendarColors {
-            val sourceColor = calendarColor ?: DEFAULT_COLOR
+            val sourceColor = calendarColor ?: DEFAULT_SOURCE_COLOR
             return CalendarColors(
                 sourceColor = sourceColor,
                 onSourceColor = ColorComputation.from(sourceColor).onSourceColor,

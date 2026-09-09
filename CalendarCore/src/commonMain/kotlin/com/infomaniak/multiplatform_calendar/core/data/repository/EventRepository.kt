@@ -162,6 +162,7 @@ internal class EventRepository(
                 timeZone = timeZone,
                 onExpansionTruncated = ::logTruncatedExpansion,
                 onInvalidRange = ::logInvalidCalendarColorsRange,
+                onOrphanOverrideDropped = ::logOrphanOverride,
             )
         }.flowOn(Dispatchers.Default)
     }

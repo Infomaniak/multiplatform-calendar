@@ -20,12 +20,18 @@ package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.OverrideCalendarColorInRange
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class VisibleCalendarColorsByDayFoldTest {
 
@@ -129,6 +135,40 @@ class VisibleCalendarColorsByDayFoldTest {
             listOf(red, blue),
             result.getValue(dayStart.date).map { it.colors.sourceColor },
         )
+    }
+
+    @Test
+    fun foldToDailyCalendarColors_orphanOverrideMovedIntoRange_doesNotDotItsDay() = runTest {
+        val red = 0xFFE53935.toInt()
+        val orphanDay = LocalDateTime(2026, 6, 16, 10, 0)
+
+        val master = row(eventId = "event://bounded", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9)
+            .copy(
+                rrule = RecurrenceRule(
+                    freq = Frequency.Daily,
+                    until = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 6, 15, 23, 59, 59).toInstant(utc)),
+                ),
+                overrides = listOf(
+                    OverrideCalendarColorInRange(
+                        recurrenceKey = RecurrenceKey.Zoned(LocalDateTime(2026, 6, 20, 8, 0), utc.id),
+                        dtStart = orphanDay,
+                        dtEndEffective = orphanDay,
+                        startTimeZone = utc.id,
+                        endTimeZone = utc.id,
+                        isAllDay = false,
+                        status = null,
+                    ),
+                ),
+            )
+
+        val result = listOf(master).foldToDailyCalendarColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = LocalDateTime(2026, 6, 17, 0, 0).toInstant(utc),
+            timeZone = utc,
+        )
+
+        assertEquals(listOf(red), result.getValue(dayStart.date).map { it.colors.sourceColor })
+        assertNull(result[orphanDay.date])
     }
 
     private fun row(

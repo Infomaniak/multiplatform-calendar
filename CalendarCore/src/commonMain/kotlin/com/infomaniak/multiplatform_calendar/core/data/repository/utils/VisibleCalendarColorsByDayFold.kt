@@ -25,6 +25,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesEndFilter
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.comparePerDayDisplayOrder
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrenceOccurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.lastInclusiveDay
@@ -67,6 +69,7 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     limits: ExpansionLimits = ExpansionLimits(),
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
     onInvalidRange: (rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone, fromDay: LocalDate, toDay: LocalDate) -> Unit = { _, _, _, _, _ -> },
+    onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit = { _, _ -> },
 ): Map<LocalDate, List<VisibleCalendarColor>> {
     val fromDay = rangeStart.toLocalDateTime(timeZone).date
     val toDay = rangeEnd.toLocalDateTime(timeZone).lastInclusiveDay(notBefore = fromDay)
@@ -104,7 +107,17 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
 
         val overriddenKeys = row.overrides.mapTo(HashSet()) { it.recurrenceKey.canonical }
         colorOrderByDay.recordRuleOccurrences(row, occurrences, overriddenKeys, colors, visibleDays, timeZone)
-        colorOrderByDay.recordOverriddenInstances(row, colors, zoneCache, visibleDays, rangeStart, rangeEnd, timeZone)
+        colorOrderByDay.recordOverriddenInstances(
+            row = row,
+            seriesEnd = SeriesEndFilter.of(timing, timeZone),
+            color = colors,
+            zoneCache = zoneCache,
+            visibleDays = visibleDays,
+            rangeStart = rangeStart,
+            rangeEnd = rangeEnd,
+            timeZone = timeZone,
+            onOrphanOverrideDropped = onOrphanOverrideDropped,
+        )
     }
 
     return colorOrderByDay.toColorsByDay()
@@ -172,20 +185,27 @@ private suspend fun ColorOrderByDay.recordRuleOccurrences(
  * Record each override on the days it actually lands on, which may differ from the slot it replaces.
  *
  * A `STATUS:CANCELLED` override is dropped instead: [recordRuleOccurrences] already left its slot
- * undotted, so dropping it here is what leaves that single occurrence deleted.
+ * undotted, so dropping it here is what leaves that single occurrence deleted. An override whose slot the
+ * series no longer holds is dropped too, so a day never gets a dot planning would not show.
  */
 private suspend fun ColorOrderByDay.recordOverriddenInstances(
     row: EventCalendarColorInRange,
+    seriesEnd: SeriesEndFilter?,
     color: CalendarColors,
     zoneCache: MutableMap<String, TimeZone>,
     visibleDays: ClosedRange<LocalDate>,
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
+    onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
 ) {
     for (override in row.overrides) {
         currentCoroutineContext().ensureActive()
         if (override.status == EventStatus.CANCELLED) continue
+        if (seriesEnd?.isOrphan(override.recurrenceKey) == true) {
+            onOrphanOverrideDropped(row.eventId, override.recurrenceKey)
+            continue
+        }
 
         val start = override.dtStart.projectInto(override.startTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)
         val end = override.dtEndEffective.projectInto(override.endTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)

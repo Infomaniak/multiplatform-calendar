@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -169,6 +170,45 @@ class VisibleCalendarColorsByDayFoldTest {
 
         assertEquals(listOf(red), result.getValue(dayStart.date).map { it.colors.sourceColor })
         assertNull(result[orphanDay.date])
+    }
+
+    @Test
+    fun foldToDailyCalendarColors_exDatedOccurrence_isNotDotted() = runTest {
+        val red = 0xFFE53935.toInt()
+        val excluded = LocalDateTime(2026, 6, 16, 8, 0)
+
+        val master = row(eventId = "event://daily", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9)
+            .copy(
+                rrule = RecurrenceRule(freq = Frequency.Daily),
+                exDates = listOf(IcalDateValue.Zoned(excluded.toInstant(utc), utc.id)),
+            )
+
+        val result = listOf(master).foldToDailyCalendarColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = LocalDateTime(2026, 6, 17, 0, 0).toInstant(utc),
+            timeZone = utc,
+        )
+
+        assertEquals(listOf(red), result.getValue(dayStart.date).map { it.colors.sourceColor })
+        assertNull(result[excluded.date])
+    }
+
+    @Test
+    fun foldToDailyCalendarColors_rDatedOccurrence_isDotted() = runTest {
+        val red = 0xFFE53935.toInt()
+        val added = LocalDateTime(2026, 6, 16, 8, 0)
+
+        val master = row(eventId = "event://rdated", calendarId = "calendar://red", color = red, startHour = 8, endHour = 9)
+            .copy(rDates = listOf(IcalDateValue.Zoned(added.toInstant(utc), utc.id)))
+
+        val result = listOf(master).foldToDailyCalendarColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = LocalDateTime(2026, 6, 17, 0, 0).toInstant(utc),
+            timeZone = utc,
+        )
+
+        assertEquals(listOf(red), result.getValue(dayStart.date).map { it.colors.sourceColor })
+        assertEquals(listOf(red), result.getValue(added.date).map { it.colors.sourceColor })
     }
 
     private fun row(

@@ -25,7 +25,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey.Utc
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey.Zoned
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.isExceededBy
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
@@ -118,7 +117,7 @@ private suspend fun MutableList<Event>.addRuleOccurrences(
  * A `STATUS:CANCELLED` override is dropped instead: [addRuleOccurrences] already left its slot empty,
  * so dropping it here is what leaves that single occurrence deleted, the iCalendar way of removing one.
  *
- * An override whose slot is no longer part of the series is dropped too, see [isBeyondSeriesEnd].
+ * An override whose slot is no longer part of the series is dropped too, see [SeriesEndFilter].
  */
 private suspend fun MutableList<Event>.addOverriddenInstances(
     master: Event,
@@ -129,48 +128,17 @@ private suspend fun MutableList<Event>.addOverriddenInstances(
     onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
 ) {
     if (overrides.isEmpty()) return
-    val masterTiming = MasterTiming.of(master.timing, timeZone)
-    val rDateKeys = master.timing.rDateKeys()
+    val seriesEnd = SeriesEndFilter.of(master.timing, timeZone)
 
     for ((slot, override) in overrides) {
         currentCoroutineContext().ensureActive()
         if (override.status == EventStatus.CANCELLED) continue
-        if (slot.isBeyondSeriesEnd(master.timing, masterTiming, rDateKeys, timeZone)) {
+        if (seriesEnd?.isOrphan(slot) == true) {
             onOrphanOverrideDropped(master.masterEventId, slot)
             continue
         }
         if (override.timing.overlaps(rangeStart, rangeEnd, timeZone)) this += override
     }
-}
-
-/**
- * Whether this `RECURRENCE-ID` stands for a slot the series no longer holds, as left behind by a shortening
- * that did not clean up its out-of-range overrides.
- *
- * Tested on the slot, never on the override's own `DTSTART`: an instance legitimately moved past `UNTIL` keeps
- * an in-range slot. An `RDATE` slot is never an orphan, `UNTIL` not bounding it (RFC 5545 §3.8.5.2).
- *
- * Only `UNTIL` is checked: a `COUNT` series has no bound here without replaying the rule, and a shortening
- * rewrites `UNTIL` anyway.
- */
-private fun RecurrenceKey.isBeyondSeriesEnd(
-    master: EventTiming,
-    masterTiming: MasterTiming,
-    rDateKeys: Set<RecurrenceKey>,
-    timeZone: TimeZone,
-): Boolean {
-    val until = master.recurrenceRule?.until ?: return false
-    if (this in rDateKeys) return false
-
-    // A key whose value type contradicts the master's is unreadable here: keep it, erring on the safe side.
-    val localStart = toLocalStart(master, timeZone) ?: return false
-    val instantStart = if (this is Utc) instant else masterTiming.resolvedStartInstant(localStart)
-
-    return until.isExceededBy(localStart, instantStart)
-}
-
-private fun EventTiming.rDateKeys(): Set<RecurrenceKey> {
-    return if (rDates.isEmpty()) emptySet() else rDates.mapNotNullTo(HashSet()) { it.toRecurrenceKey(this) }
 }
 
 /** Same `[rangeStart, rangeEnd[` overlap rule as [buildOccurrenceAt], for an already-positioned instance. */

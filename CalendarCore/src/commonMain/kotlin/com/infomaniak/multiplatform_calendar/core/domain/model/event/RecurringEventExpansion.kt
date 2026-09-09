@@ -210,7 +210,7 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
     }
 
     val masterTiming = MasterTiming.of(this, timeZone)
-    val occurrencesByKey = LinkedHashMap<String, Occurrence>()
+    val occurrencesByKey = LinkedHashMap<RecurrenceKey, Occurrence>()
     val outcome = expandRRuleOccurrencesInWindow(
         target = occurrencesByKey,
         rangeStart = rangeStart,
@@ -262,7 +262,7 @@ private suspend fun EventTiming.expandRRuleDirectlyInto(
 }
 
 private suspend fun EventTiming.expandRRuleOccurrencesInWindow(
-    target: MutableMap<String, Occurrence>,
+    target: MutableMap<RecurrenceKey, Occurrence>,
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -279,12 +279,12 @@ private suspend fun EventTiming.expandRRuleOccurrencesInWindow(
         defaultZone = timeZone,
         limits = limits,
     )
-    generatedByRRule.forEach { occurrence -> target[occurrence.key.canonical] = occurrence }
+    generatedByRRule.forEach { occurrence -> target[occurrence.key] = occurrence }
     return outcome
 }
 
 private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
-    target: MutableMap<String, Occurrence>,
+    target: MutableMap<RecurrenceKey, Occurrence>,
     masterTiming: MasterTiming,
     rangeStart: Instant,
     rangeEnd: Instant,
@@ -297,11 +297,11 @@ private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
         defaultZone = timeZone,
         rangeStart = rangeStart,
         rangeEnd = rangeEnd,
-    )?.let { target[it.key.canonical] = it }
+    )?.let { target[it.key] = it }
 }
 
 private fun EventTiming.addRDateOccurrences(
-    target: MutableMap<String, Occurrence>,
+    target: MutableMap<RecurrenceKey, Occurrence>,
     masterTiming: MasterTiming,
     rangeStart: Instant,
     rangeEnd: Instant,
@@ -315,16 +315,16 @@ private fun EventTiming.addRDateOccurrences(
             defaultZone = timeZone,
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
-        )?.let { target[key.canonical] = it }
+        )?.let { target[key] = it }
     }
 }
 
-private fun EventTiming.removeExDateOccurrences(target: MutableMap<String, Occurrence>) {
+private fun EventTiming.removeExDateOccurrences(target: MutableMap<RecurrenceKey, Occurrence>) {
     exDates.forEach { dateValue ->
         // Mapper-side validation keeps EXDATE value forms aligned with DTSTART. If a future change
         // breaks that invariant, `toRecurrenceKey` returns null and we keep this explicit no-op path.
         val key = dateValue.toRecurrenceKey(this) ?: return@forEach
-        target.remove(key.canonical)
+        target.remove(key)
     }
 }
 

@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleSerializer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -37,6 +38,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
@@ -199,6 +201,25 @@ private fun IcalDateValue.calendarDateTime(): LocalDateTime = when (this) {
     is IcalDateValue.AllDay -> date.atTime(0, 0)
     is IcalDateValue.Floating -> localDateTime
     is IcalDateValue.Zoned -> instant.toLocalDateTime(TimeZone.of(timeZoneId))
+}
+
+/**
+ * The `RECURRENCE-ID` designating this occurrence of [master].
+ *
+ * RFC 5545 §3.8.4.4 ties the value type to the master's `DTSTART`, so the key is re-expressed in that
+ * form rather than in its own: the server pairs an override with the instance it replaces on that
+ * exact value, and a mismatched form would detach it into a second, orphan instance.
+ *
+ * Returns `null` when the key designates no occurrence of [master] — a zoned key against a floating
+ * master, say — since there would be nothing to override.
+ */
+internal fun RecurrenceKey.toRemoteRecurrenceId(master: EventTiming): RemoteRecurrenceId? {
+    val localStart = toLocalStart(master, defaultZone = UTC) ?: return null
+    return RemoteRecurrenceId(
+        tzid = master.startTimeZone.tzidForIcal(master.isAllDay),
+        isDateOnly = master.isAllDay,
+        value = localStart.toICal(master.isAllDay, master.startTimeZone),
+    )
 }
 
 /**

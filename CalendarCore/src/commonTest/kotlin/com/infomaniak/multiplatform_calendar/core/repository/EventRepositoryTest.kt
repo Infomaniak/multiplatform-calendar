@@ -69,6 +69,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -1618,6 +1619,9 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
         applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
 
     override suspend fun buildEventIcs(edit: RemoteEventEdit) =
+        applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+
+    override suspend fun upsertOverrideIcs(icsData: String, recurrenceId: RemoteRecurrenceId, edit: RemoteEventEdit) =
         applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
 
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {

@@ -431,6 +431,52 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun observeVisibleDotColorsByDay_dotsEventOwnColor_besideItsCalendarColoredSibling() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://mixed-colors")
+        val calendarColor = CalendarSourceColor(0xFF1E88E5.toInt())
+        val eventColor = 0xFFE53935.toInt()
+        seedCalendar(account, calendarId, calendarColor)
+
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    timedEvent(
+                        id = EventId("event://inherits-calendar-color"),
+                        calendarId = calendarId,
+                        start = LocalDateTime(2026, 6, 15, 8, 0),
+                        end = LocalDateTime(2026, 6, 15, 9, 0),
+                    ),
+                    "",
+                ),
+                EventWithRawIcs(
+                    timedEvent(
+                        id = EventId("event://declares-its-own-color"),
+                        calendarId = calendarId,
+                        start = LocalDateTime(2026, 6, 15, 10, 0),
+                        end = LocalDateTime(2026, 6, 15, 11, 0),
+                        colorArgb = eventColor,
+                    ),
+                    "",
+                ),
+            ),
+        )
+
+        val colorsByDay = repository.observeVisibleDotColorsByDay(
+            accountIds = setOf(account),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 16, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(
+            listOf(calendarColor.argb, eventColor),
+            colorsByDay.getValue(LocalDateTime(2026, 6, 15, 0, 0).date).map { it.sourceColor },
+            "an event redefining its color must get its own dot, next to its calendar-colored sibling",
+        )
+    }
+
+    @Test
     fun observeVisibleDotColorsByDay_expandsRecurringMasterIntoOccurrenceDays() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://rrule")
@@ -1131,6 +1177,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         calendarId: CalendarId,
         start: LocalDateTime,
         end: LocalDateTime,
+        colorArgb: Int? = null,
     ): EventEntity = EventEntity(
         id = id,
         calendarId = calendarId,
@@ -1144,6 +1191,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 dtStartInstantMs = start.toInstant(TimeZone.UTC).toEpochMilliseconds(),
                 dtEndInstantMs = end.toInstant(TimeZone.UTC).toEpochMilliseconds(),
             ),
+            colorArgb = colorArgb,
         ),
         etag = "1",
     )

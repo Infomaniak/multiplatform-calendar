@@ -105,7 +105,7 @@ internal abstract class EventDao {
 
     /**
      * Same *visible calendars* + *range overlap* filter as [observeVisibleInRange], but returns only the
-     * lightweight [EventDotColorInRange] projection (owning calendar color + wall-clock bounds), never a
+     * lightweight [EventDotColorInRange] projection (event + calendar colors and wall-clock bounds), never a
      * full event. Meant to feed a per-day dot-color map (e.g. a month grid): no event body, attendees or
      * raw ICS is read, so large months stay cheap. Day placement is done in Kotlin from the wall-clock columns
      * (mirroring `EventTiming.startIn`/`endIn`) since day boundaries depend on the caller's display zone.
@@ -119,6 +119,7 @@ internal abstract class EventDao {
         SELECT event.id AS eventId,
                event.calendarId AS calendarId,
                calendar.color AS calendarColorArgb,
+               event.colorArgb AS eventColorArgb,
                event.dtStart AS dtStart,
                event.dtEndEffective AS dtEndEffective,
                event.startTimeZone AS startZoneId,

@@ -86,7 +86,7 @@ internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
     for (row in this@foldToDailyDotColors) {
         currentCoroutineContext().ensureActive()
 
-        val dotKey = DotKey(row.calendarId, DotColor.from(row.calendarColorArgb))
+        val dotKey = DotKey(row.calendarId, DotColor.from(row.eventColorArgb, row.calendarColorArgb))
         val timing = row.toTiming(zoneCache)
 
         occurrences.clear()
@@ -109,7 +109,6 @@ internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
         dotOrderByDay.recordOverriddenInstances(
             row = row,
             seriesEnd = SeriesEndFilter.of(timing, timeZone),
-            dotKey = dotKey,
             zoneCache = zoneCache,
             visibleDays = visibleDays,
             rangeStart = rangeStart,
@@ -181,7 +180,8 @@ private suspend fun DotOrderByDay.recordRuleOccurrences(
 }
 
 /**
- * Record each override on the days it actually lands on, which may differ from the slot it replaces.
+ * Record each override on the days it actually lands on, which may differ from the slot it replaces, and with
+ * its own color.
  *
  * A `STATUS:CANCELLED` override is dropped instead: [recordRuleOccurrences] already left its slot
  * undotted, so dropping it here is what leaves that single occurrence deleted. An override whose slot the
@@ -190,7 +190,6 @@ private suspend fun DotOrderByDay.recordRuleOccurrences(
 private suspend fun DotOrderByDay.recordOverriddenInstances(
     row: EventDotColorInRange,
     seriesEnd: SeriesEndFilter?,
-    dotKey: DotKey,
     zoneCache: MutableMap<String, TimeZone>,
     visibleDays: ClosedRange<LocalDate>,
     rangeStart: Instant,
@@ -216,7 +215,7 @@ private suspend fun DotOrderByDay.recordOverriddenInstances(
             start = start,
             end = end,
             visibleDays = visibleDays,
-            dotKey = dotKey,
+            dotKey = DotKey(row.calendarId, DotColor.from(override.colorArgb, row.calendarColorArgb)),
             isAllDay = override.isAllDay,
             occurrenceSortId = OccurrenceId.Recurrence(row.eventId, override.recurrenceKey).value,
         )

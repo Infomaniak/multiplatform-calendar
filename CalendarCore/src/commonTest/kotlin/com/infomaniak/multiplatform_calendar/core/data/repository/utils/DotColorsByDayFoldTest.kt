@@ -45,6 +45,7 @@ class DotColorsByDayFoldTest {
 
     private val red = 0xFFE53935.toInt()
     private val blue = 0xFF1E88E5.toInt()
+    private val green = 0xFF43A047.toInt()
 
     @Test
     fun foldToDailyDotColors_ordersColorsByPerDayEventSort_notInputOrder() = runTest {
@@ -77,6 +78,24 @@ class DotColorsByDayFoldTest {
         )
 
         assertEquals(listOf(red, blue), result.sourceColorsOn(dayStart))
+    }
+
+    @Test
+    fun foldToDailyDotColors_dotsEventColor_whenItOverridesItsCalendarColor() = runTest {
+        val rows = listOf(
+            row(eventId = "event://inherited-08", calendarColor = blue, startHour = 8, endHour = 9),
+            row(eventId = "event://recolored-10", calendarColor = blue, eventColor = red, startHour = 10, endHour = 11),
+            row(eventId = "event://inherited-12", calendarColor = blue, startHour = 12, endHour = 13),
+        )
+
+        val result = rows.foldToDailyDotColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = dayEnd.toInstant(utc),
+            timeZone = utc,
+        )
+
+        // Two effective colors for one calendar: two dots, and the third event joins the first one's dot.
+        assertEquals(listOf(blue, red), result.sourceColorsOn(dayStart))
     }
 
     @Test
@@ -162,6 +181,7 @@ class DotColorsByDayFoldTest {
                         startTimeZone = utc.id,
                         endTimeZone = utc.id,
                         isAllDay = false,
+                        colorArgb = null,
                         status = null,
                     ),
                 ),
@@ -214,6 +234,35 @@ class DotColorsByDayFoldTest {
         assertEquals(listOf(red), result.sourceColorsOn(added))
     }
 
+    @Test
+    fun foldToDailyDotColors_dotsOverrideOwnColor_onTheDayItLandsOn() = runTest {
+        val overriddenSlot = LocalDateTime(2026, 6, 16, 8, 0)
+        val movedTo = LocalDateTime(2026, 6, 17, 14, 0)
+
+        val master = row(eventId = "event://daily", calendarColor = blue, startHour = 8, endHour = 9)
+            .copy(
+                rrule = RecurrenceRule(freq = Frequency.Daily),
+                overrides = listOf(
+                    override(
+                        recurrenceKey = RecurrenceKey.Utc(overriddenSlot.toInstant(utc)),
+                        start = movedTo,
+                        end = LocalDateTime(2026, 6, 17, 15, 0),
+                        colorArgb = green,
+                    ),
+                ),
+            )
+
+        val result = listOf(master).foldToDailyDotColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = LocalDateTime(2026, 6, 18, 0, 0).toInstant(utc),
+            timeZone = utc,
+        )
+
+        assertEquals(listOf(blue), result.sourceColorsOn(dayStart))
+        assertNull(result[overriddenSlot.date]) // The slot it left is undotted
+        assertEquals(listOf(blue, green), result.sourceColorsOn(movedTo))
+    }
+
     private fun Map<LocalDate, List<DotColor>>.sourceColorsOn(dateTime: LocalDateTime): List<Int> {
         return getValue(dateTime.date).map { it.sourceColor }
     }
@@ -222,6 +271,7 @@ class DotColorsByDayFoldTest {
         eventId: String,
         calendarId: String = "calendar://default",
         calendarColor: Int?,
+        eventColor: Int? = null,
         startHour: Int,
         endHour: Int,
     ): EventDotColorInRange {
@@ -229,6 +279,7 @@ class DotColorsByDayFoldTest {
             eventId = EventId(eventId),
             calendarId = CalendarId(calendarId),
             calendarColorArgb = calendarColor,
+            eventColorArgb = eventColor,
             dtStart = LocalDateTime(2026, 6, 15, startHour, 0),
             dtEndEffective = LocalDateTime(2026, 6, 15, endHour, 0),
             startZoneId = utc.id,
@@ -245,6 +296,7 @@ class DotColorsByDayFoldTest {
             eventId = EventId(eventId),
             calendarId = CalendarId(calendarId),
             calendarColorArgb = calendarColor,
+            eventColorArgb = null,
             dtStart = LocalDateTime(2026, 6, 15, 0, 0),
             dtEndEffective = LocalDateTime(2026, 6, 16, 0, 0),
             startZoneId = null,
@@ -253,6 +305,24 @@ class DotColorsByDayFoldTest {
             rrule = null,
             rDates = emptyList(),
             exDates = emptyList(),
+        )
+    }
+
+    private fun override(
+        recurrenceKey: RecurrenceKey,
+        start: LocalDateTime,
+        end: LocalDateTime,
+        colorArgb: Int?,
+    ): OverrideDotColorInRange {
+        return OverrideDotColorInRange(
+            recurrenceKey = recurrenceKey,
+            dtStart = start,
+            dtEndEffective = end,
+            startTimeZone = utc.id,
+            endTimeZone = utc.id,
+            isAllDay = false,
+            colorArgb = colorArgb,
+            status = null,
         )
     }
 }

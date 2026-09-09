@@ -36,15 +36,17 @@ import kotlinx.datetime.LocalDateTime
  * - [startZoneId]/[endZoneId] `== null` (floating or all-day): the wall-clock is used as-is in the display zone.
  * - otherwise: the wall-clock is reprojected through an absolute instant into the display zone.
  *
- * [calendarColorArgb] is the owning calendar's source color (`calendars.color`); `null` means "use the default
- * color". [rrule] carries recurring masters so callers can expand occurrences without materialising full event
- * objects, and [overrides] the instances that redefine their own placement — same batched Room relation as the
- * planning flow, projected down to the columns that move a day dot.
+ * [eventColorArgb] (`events.colorArgb`) wins over [calendarColorArgb] (`calendars.color`); both `null` means
+ * "use the default color". [calendarId] rides along because dots are reduced per calendar *and* per color.
+ * [rrule] carries recurring masters so callers can expand occurrences without materialising full event objects,
+ * and [overrides] the instances that redefine their own placement — same batched Room relation as the planning
+ * flow, projected down to the columns that move or recolor a day dot.
  */
 internal data class EventDotColorInRange(
     val eventId: EventId,
     val calendarId: CalendarId,
     val calendarColorArgb: Int?,
+    val eventColorArgb: Int?,
     val dtStart: LocalDateTime,
     val dtEndEffective: LocalDateTime,
     val startZoneId: String?,
@@ -58,10 +60,10 @@ internal data class EventDotColorInRange(
 )
 
 /**
- * The override pendant of [EventDotColorInRange]: only what decides *which day* gets a dot.
+ * The override pendant of [EventDotColorInRange]: what decides *which day* gets a dot, and *which color* it takes.
  *
- * It carries placement and [status] only, the latter because a `CANCELLED` override deletes its occurrence
- * instead of moving it.
+ * An override redefines its instance wholesale, color included, hence its own [colorArgb]. [status] rides along
+ * because a `CANCELLED` override deletes its occurrence instead of moving it.
  */
 internal data class OverrideDotColorInRange(
     val recurrenceKey: RecurrenceKey,
@@ -70,6 +72,7 @@ internal data class OverrideDotColorInRange(
     val startTimeZone: String?,
     val endTimeZone: String?,
     val isAllDay: Boolean,
+    val colorArgb: Int?,
     val status: EventStatus?,
 )
 

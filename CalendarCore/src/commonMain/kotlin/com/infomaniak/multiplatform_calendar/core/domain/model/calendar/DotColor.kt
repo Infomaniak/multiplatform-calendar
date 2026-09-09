@@ -18,17 +18,18 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 /**
- * One dot of a day cell: the color of a calendar owning at least one event that day. Two calendars sharing
- * a color get a dot each, so a day list may hold equal values and cannot serve as a set of stable keys.
+ * One dot of a day cell, reduced per calendar **and** per color: an event redefining its color (RFC 7986
+ * `COLOR`) gets its own dot, and two calendars sharing a color get a dot each. A day list may therefore
+ * hold equal values, so it cannot serve as a set of stable keys.
  */
 public data class DotColor(
     val sourceColor: Int,
 ) {
     public companion object {
 
-        /** The calendar's color, or [CalendarColors.DEFAULT_SOURCE_COLOR] when it declares none. */
-        public fun from(calendarColorArgb: Int?): DotColor {
-            return DotColor(calendarColorArgb ?: CalendarColors.DEFAULT_SOURCE_COLOR)
+        /** The event's own color when it declares one, its calendar's otherwise. */
+        public fun from(eventColorArgb: Int?, calendarColorArgb: Int?): DotColor {
+            return DotColor(eventColorArgb ?: calendarColorArgb ?: CalendarColors.DEFAULT_SOURCE_COLOR)
         }
     }
 }

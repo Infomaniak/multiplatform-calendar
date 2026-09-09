@@ -163,7 +163,7 @@ private suspend fun ColorOrderByDay.recordRuleOccurrences(
             calendarId = row.calendarId,
             color = color,
             isAllDay = occurrence.isAllDay,
-            occurrenceSortId = OccurrenceId.of(row.eventId, occurrence.key).value,
+            occurrenceSortId = OccurrenceId.Recurrence(row.eventId, occurrence.key).value,
         )
     }
 }
@@ -200,7 +200,7 @@ private suspend fun ColorOrderByDay.recordOverriddenInstances(
             calendarId = row.calendarId,
             color = color,
             isAllDay = override.isAllDay,
-            occurrenceSortId = OccurrenceId.of(row.eventId, override.recurrenceKey).value,
+            occurrenceSortId = OccurrenceId.Recurrence(row.eventId, override.recurrenceKey).value,
         )
     }
 }

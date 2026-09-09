@@ -18,25 +18,30 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
-import kotlinx.serialization.Serializable
-import kotlin.jvm.JvmInline
 
-/**
- * Identifier of a displayed event occurrence.
- *
- * Non-recurring events: same value as [EventId.url].
- * Recurring occurrences: `"<eventId>#<canonicalOccurrenceKey>"`, built by [OccurrenceId.of].
- */
-@Serializable
-@JvmInline
-public value class OccurrenceId(public val value: String) {
+/** Identifier of a displayed event occurrence. */
+public sealed class OccurrenceId {
 
-    internal companion object {
-        /**
-         * The id of the instance of [masterId] identified by [key], whether it comes from the rule or
-         * from a `RECURRENCE-ID` override. Sole producer of the format, since values built apart — such
-         * as a sort key — have to compare equal to the [Event.occurrenceId] they stand for.
-         */
-        fun of(masterId: EventId, key: RecurrenceKey): OccurrenceId = OccurrenceId("${masterId.url}#${key.canonical}")
+    internal abstract val masterId: EventId
+
+    /** [Master]: same value as [EventId.url]. [Recurrence]: `"<eventId>#<canonicalRecurrenceKey>"`. */
+    public abstract val value: String
+
+    final override fun toString(): String = value
+
+    /** The event resource itself: a non-recurring event, or the master of a series. */
+    internal data class Master(override val masterId: EventId) : OccurrenceId() {
+        override val value: String = masterId.url
+    }
+
+    /** One instance of [masterId], whether it comes from the rule or from a `RECURRENCE-ID` override. */
+    internal data class Recurrence(
+        override val masterId: EventId,
+        val recurrenceKey: RecurrenceKey,
+    ) : OccurrenceId() {
+        override val value: String = "${masterId.url}$SEPARATOR${recurrenceKey.canonical}"
     }
 }
+
+/** Kept out of the class so it stays an implementation detail of [OccurrenceId.Recurrence]. */
+private const val SEPARATOR = '#'

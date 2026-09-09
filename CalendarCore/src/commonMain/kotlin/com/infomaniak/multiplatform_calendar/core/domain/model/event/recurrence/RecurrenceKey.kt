@@ -37,7 +37,7 @@ import kotlin.time.Instant
  * keeps the key faithful to the original value type.
  *
  * [canonical] yields a deterministic string suitable for building a synthetic instance id, which
- * [OccurrenceId.of][com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId.of] does.
+ * [OccurrenceId.Recurrence][com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId.Recurrence] does.
  */
 internal sealed class RecurrenceKey {
 
@@ -48,22 +48,22 @@ internal sealed class RecurrenceKey {
 
     /** `DATE` (whole-day) master: identified by the local date only. */
     data class AllDay(val date: LocalDate) : RecurrenceKey() {
-        override val canonical: String get() = "$ALL_DAY_TAG:$date"
+        override val canonical: String = "$ALL_DAY_TAG:$date"
     }
 
     /** `DATE-TIME` floating master (FORM #1): no zone, wall-clock only. */
     data class Floating(val localDateTime: LocalDateTime) : RecurrenceKey() {
-        override val canonical: String get() = "$FLOATING_TAG:$localDateTime"
+        override val canonical: String = "$FLOATING_TAG:$localDateTime"
     }
 
     /** `DATE-TIME` with `TZID` master (FORM #3): wall-clock paired with its IANA zone. */
     data class Zoned(val localDateTime: LocalDateTime, val timeZoneId: String) : RecurrenceKey() {
-        override val canonical: String get() = "$ZONED_TAG:$timeZoneId:$localDateTime"
+        override val canonical: String = "$ZONED_TAG:$timeZoneId:$localDateTime"
     }
 
     /** `DATE-TIME` UTC master (FORM #2): identified by the absolute instant. */
     data class Utc(val instant: Instant) : RecurrenceKey() {
-        override val canonical: String get() = "$UTC_TAG:$instant"
+        override val canonical: String = "$UTC_TAG:$instant"
     }
 
     companion object {

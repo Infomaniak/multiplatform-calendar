@@ -29,6 +29,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
@@ -48,6 +50,8 @@ import uniffi.caldav_bridge.AttendeeEntry
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
+import uniffi.caldav_bridge.DateListChange
+import uniffi.caldav_bridge.DateListLine
 import uniffi.caldav_bridge.EventContentEntry
 import uniffi.caldav_bridge.EventEdit
 import uniffi.caldav_bridge.EventEntry
@@ -252,6 +256,8 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     timezones = timeZones.map { it.toRust() },
     colorChange = colorChange.toRust(),
     recurrenceChange = recurrenceChange.toRust(),
+    exDateChange = exDateChange.toRust(),
+    rDateChange = rDateChange.toRust(),
     alarmsChange = alarms.toRustAlarmsChange(),
     stamp = stamp,
 )
@@ -281,6 +287,14 @@ private fun RemoteRecurrenceChange.toRust(): RecurrenceChange = when (this) {
     is Set -> RecurrenceChange.Set(value)
     Cleared -> RecurrenceChange.Cleared
 }
+
+private fun RemoteDateListChange.toRust(): DateListChange = when (this) {
+    RemoteDateListChange.Unchanged -> DateListChange.Unchanged
+    is RemoteDateListChange.Set -> DateListChange.Set(lines.map { it.toRust() })
+    RemoteDateListChange.Cleared -> DateListChange.Cleared
+}
+
+private fun RemoteDateListLine.toRust() = DateListLine(tzid = tzid, isDateOnly = isDateOnly, values = values)
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)
 

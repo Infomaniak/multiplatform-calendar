@@ -235,6 +235,20 @@ pub struct DateListLine {
     pub values: Vec<String>,
 }
 
+/// The `RECURRENCE-ID` of the instance an override stands for (RFC 5545 §3.8.4.4).
+///
+/// Its value type must match the master's `DTSTART`, so it is described exactly like one
+/// [`DateListLine`] value: two overrides are the same instance only when both the value and the
+/// `TZID` match.
+#[derive(uniffi::Record)]
+pub struct RecurrenceIdSpec {
+    /// IANA `TZID` for FORM #3 values; `None` for all-day, floating and UTC (`Z`-suffixed) values.
+    pub tzid: Option<String>,
+    /// Emit `VALUE=DATE`; `value` is then a date ("20260616") rather than a date-time.
+    pub is_date_only: bool,
+    pub value: String,
+}
+
 /// Requested change to a VEVENT's VALARM sub-components.
 /// `Unchanged` leaves source VALARM blocks untouched so `X-*` / exotic params survive partial edits.
 #[derive(uniffi::Enum)]

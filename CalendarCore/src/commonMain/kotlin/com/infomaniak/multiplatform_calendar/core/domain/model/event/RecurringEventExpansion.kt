@@ -352,6 +352,23 @@ internal fun RecurrenceKey.toLocalStart(master: EventTiming, defaultZone: TimeZo
     is Utc -> instant.toLocalDateTime(master.startTimeZone ?: defaultZone)
 }
 
+/**
+ * The `EXDATE`/`RDATE` value designating this occurrence of [master], the reverse of [toRecurrenceKey].
+ *
+ * The value takes the form of the master's `DTSTART` whatever form the key carries, since that is the
+ * only form [toRecurrenceKey] reads back — writing the key's own form would exclude nothing.
+ * `null` when the key designates no occurrence of [master].
+ */
+internal fun RecurrenceKey.toIcalDateValue(master: EventTiming): IcalDateValue? {
+    val localStart = toLocalStart(master, defaultZone = TimeZone.UTC) ?: return null
+    val zone = master.startTimeZone
+    return when {
+        master.isAllDay -> IcalDateValue.AllDay(localStart.date)
+        zone == null -> IcalDateValue.Floating(localStart)
+        else -> IcalDateValue.Zoned(localStart.toInstant(zone), zone.id)
+    }
+}
+
 /** Materialise one [occurrence] of this recurring master into a concrete synthetic [Event]. */
 private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
     // Copying keeps all master fields (title, colors, attendees, …) while overriding identity and timing.

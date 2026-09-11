@@ -45,6 +45,8 @@ data class RemoteEventEdit(
     val recurrenceChange: RemoteRecurrenceChange,
     val exDateChange: RemoteDateListChange,
     val rDateChange: RemoteDateListChange,
+    /** Honoured by `patchEventIcs` only: building or overriding a VEVENT never drops one. */
+    val overrideRemoval: RemoteOverrideRemoval = RemoteOverrideRemoval.Unchanged,
     val alarms: List<RemoteAlarmEdit>?,
     val stamp: String,
 )

@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -70,6 +71,7 @@ internal fun EventEditData.toRemoteEdit(
     exDates: DateListEdit = DateListEdit.Preserve,
     rDates: DateListEdit = DateListEdit.Preserve,
     droppedOverrides: List<RecurrenceKey> = emptyList(),
+    knownOverrides: List<EventOverrideEntity> = emptyList(),
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -88,20 +90,35 @@ internal fun EventEditData.toRemoteEdit(
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
         exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
         rDateChange = timing.resolveDateListChange(rDates, previous, previous?.rDates),
-        overrideRemoval = droppedOverrides.toOverrideRemoval(timing),
+        overrideRemoval = droppedOverrides.toOverrideRemoval(timing, knownOverrides),
         alarms = resolveAlarmEdits(alarms, previous?.content?.alarms.orEmpty()),
         stamp = stamp,
     )
 }
 
 /**
- * The overrides to drop, expressed against [timing] like [toRemoteRecurrenceId] requires. A key that
- * designates no occurrence of the master is left out: it can match no override either.
+ * The overrides to drop, addressed the way the resource names them: a recorded override lends its own
+ * `RECURRENCE-ID`, and a key claimed by none falls back on [toRemoteRecurrenceId]'s master form. A key
+ * designating no occurrence of the master is left out: it can match no override either.
  */
-private fun List<RecurrenceKey>.toOverrideRemoval(timing: EventTiming): RemoteOverrideRemoval = when {
-    isEmpty() -> RemoteOverrideRemoval.Unchanged
-    else -> RemoteOverrideRemoval.Instances(mapNotNull { it.toRemoteRecurrenceId(timing) })
+private fun List<RecurrenceKey>.toOverrideRemoval(
+    timing: EventTiming,
+    knownOverrides: List<EventOverrideEntity>,
+): RemoteOverrideRemoval {
+    if (isEmpty()) return RemoteOverrideRemoval.Unchanged
+
+    val recordedByKey = knownOverrides.associateBy(EventOverrideEntity::recurrenceKey)
+    return RemoteOverrideRemoval.Instances(
+        mapNotNull { key -> recordedByKey[key]?.toRemoteRecurrenceId(timing) ?: key.toRemoteRecurrenceId(timing) },
+    )
 }
+
+/** The `RECURRENCE-ID` this override carries in its resource, kept verbatim (see [EventOverrideEntity]). */
+private fun EventOverrideEntity.toRemoteRecurrenceId(master: EventTiming) = RemoteRecurrenceId(
+    tzid = recurrenceIdTzid,
+    isDateOnly = master.isAllDay,
+    value = recurrenceIdValue,
+)
 
 private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteColorChange = when {
     eventColor?.argb == previousColorArgb -> RemoteColorChange.Unchanged
@@ -224,6 +241,9 @@ private fun IcalDateValue.calendarDateTime(): LocalDateTime = when (this) {
  * RFC 5545 §3.8.4.4 ties the value type to the master's `DTSTART`, so the key is re-expressed in that
  * form rather than in its own: the server pairs an override with the instance it replaces on that
  * exact value, and a mismatched form would detach it into a second, orphan instance.
+ *
+ * Only a *fallback*, for an instance no override claims yet: the zone stays free, so an existing
+ * override must be addressed with [EventOverrideEntity.recurrenceIdValue], the very text it carries.
  *
  * Returns `null` when the key designates no occurrence of [master] — a zoned key against a floating
  * master, say — since there would be nothing to override.

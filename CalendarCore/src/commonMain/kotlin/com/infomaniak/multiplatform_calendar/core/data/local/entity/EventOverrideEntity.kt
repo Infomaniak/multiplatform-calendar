@@ -55,6 +55,16 @@ internal data class EventOverrideEntity(
     val masterId: EventId,
     /** Identity of the overridden instance, never the override's own (possibly moved) `DTSTART`. */
     val recurrenceKey: RecurrenceKey,
+    /**
+     * The `RECURRENCE-ID` verbatim, as the server wrote it.
+     *
+     * [recurrenceKey] normalises the instance into the master's form, which is what identifies it; this
+     * keeps the exact text that names it *inside the resource*. RFC 5545 §3.8.4.4 pins the value type to
+     * `DTSTART` but leaves the zone free, so an edit must address the override with the very form it
+     * carries — a re-derived one would detach a duplicate instead of replacing it.
+     */
+    val recurrenceIdValue: String,
+    val recurrenceIdTzid: String?,
     /** `null` for floating masters, see [EventTimingEntity.dtStartInstantMs]. */
     val originalStartInstantMs: Long?,
     val originalEndInstantMs: Long?,

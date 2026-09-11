@@ -341,9 +341,10 @@ pub fn upsert_override_vevent(
 
 /// Index of the VEVENT whose `RECURRENCE-ID` designates the same instance as `spec`.
 ///
-/// Both the value and the `TZID` have to match: the same wall-clock read in two zones is two
-/// different instants, hence two different instances (RFC 5545 §3.8.4.4 ties the value type to
-/// `DTSTART`).
+/// Matched on the raw value **and** its `TZID`: RFC 5545 §3.8.4.4 ties the value type to `DTSTART` but
+/// leaves the zone free, so the same instance can be written in several forms and no comparison here
+/// could tell them apart without a time-zone database. The caller therefore owns that normalisation and
+/// passes the verbatim `RECURRENCE-ID` of the override it targets, which Kotlin records alongside it.
 fn override_vevent_index(calendar: &Calendar, spec: &RecurrenceIdSpec) -> Option<usize> {
     calendar.components.iter().position(|component| match component {
         CalendarComponent::Event(event) => {

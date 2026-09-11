@@ -54,6 +54,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -308,6 +310,12 @@ class EventRepositoryTest : RobolectricTestsBase() {
             } else {
                 RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC))
             },
+            recurrenceIdValue = if (floating) {
+                originalStart.toICalLocalDateTime()
+            } else {
+                originalStart.toInstant(TimeZone.UTC).toICalUtcDateTime()
+            },
+            recurrenceIdTzid = null,
             originalStartInstantMs = originalStart.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
             originalEndInstantMs = originalEnd.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
             originalStartLocalDateTime = originalStart,

@@ -57,6 +57,9 @@ import kotlin.time.Instant
  * [onExpansionTruncated] is invoked with the master's [EventId] whenever the expander stops on a safety cap
  * (outcome other than [ExpansionOutcome.Completed]) so the caller can surface it (e.g. to Sentry); the
  * partial occurrences gathered so far are still returned.
+ *
+ * [onOrphanOverrideDropped] reports each override [addOverriddenInstances] rejected, so corrupt server
+ * data surfaces instead of being silently hidden.
  */
 internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
     rangeStart: Instant,
@@ -64,6 +67,7 @@ internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
     timeZone: TimeZone,
     limits: ExpansionLimits = ExpansionLimits(),
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
+    onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit = { _, _ -> },
 ): List<Event> {
     val expanded = ArrayList<Event>(size)
     val occurrences = ArrayList<Occurrence>()
@@ -84,7 +88,7 @@ internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
             continue
         }
         expanded.addRuleOccurrences(event, occurrences, overrides)
-        expanded.addOverriddenInstances(overrides, rangeStart, rangeEnd, timeZone)
+        expanded.addOverriddenInstances(event, overrides, rangeStart, rangeEnd, timeZone, onOrphanOverrideDropped)
     }
     return expanded
 }
@@ -96,11 +100,11 @@ internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
 private suspend fun MutableList<Event>.addRuleOccurrences(
     master: Event,
     occurrences: List<Occurrence>,
-    overrides: Map<String, Event>,
+    overrides: Map<RecurrenceKey, Event>,
 ) {
     for (occurrence in occurrences) {
         currentCoroutineContext().ensureActive()
-        if (occurrence.key.canonical in overrides) continue
+        if (occurrence.key in overrides) continue
         this += master.toOccurrenceEvent(occurrence)
     }
 }
@@ -112,16 +116,27 @@ private suspend fun MutableList<Event>.addRuleOccurrences(
  *
  * A `STATUS:CANCELLED` override is dropped instead: [addRuleOccurrences] already left its slot empty,
  * so dropping it here is what leaves that single occurrence deleted, the iCalendar way of removing one.
+ *
+ * An override whose slot is no longer part of the series is dropped too, see [SeriesEndFilter].
  */
 private suspend fun MutableList<Event>.addOverriddenInstances(
-    overrides: Map<String, Event>,
+    master: Event,
+    overrides: Map<RecurrenceKey, Event>,
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
+    onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
 ) {
-    for (override in overrides.values) {
+    if (overrides.isEmpty()) return
+    val seriesEnd = SeriesEndFilter.of(master.timing, timeZone)
+
+    for ((slot, override) in overrides) {
         currentCoroutineContext().ensureActive()
         if (override.status == EventStatus.CANCELLED) continue
+        if (seriesEnd?.isOrphan(slot) == true) {
+            onOrphanOverrideDropped(master.masterEventId, slot)
+            continue
+        }
         if (override.timing.overlaps(rangeStart, rangeEnd, timeZone)) this += override
     }
 }
@@ -163,7 +178,7 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
     }
 
     val masterTiming = MasterTiming.of(this, timeZone)
-    val occurrencesByKey = LinkedHashMap<String, Occurrence>()
+    val occurrencesByKey = LinkedHashMap<RecurrenceKey, Occurrence>()
     val outcome = expandRRuleOccurrencesInWindow(
         target = occurrencesByKey,
         rangeStart = rangeStart,
@@ -215,7 +230,7 @@ private suspend fun EventTiming.expandRRuleDirectlyInto(
 }
 
 private suspend fun EventTiming.expandRRuleOccurrencesInWindow(
-    target: MutableMap<String, Occurrence>,
+    target: MutableMap<RecurrenceKey, Occurrence>,
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -232,12 +247,12 @@ private suspend fun EventTiming.expandRRuleOccurrencesInWindow(
         defaultZone = timeZone,
         limits = limits,
     )
-    generatedByRRule.forEach { occurrence -> target[occurrence.key.canonical] = occurrence }
+    generatedByRRule.forEach { occurrence -> target[occurrence.key] = occurrence }
     return outcome
 }
 
 private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
-    target: MutableMap<String, Occurrence>,
+    target: MutableMap<RecurrenceKey, Occurrence>,
     masterTiming: MasterTiming,
     rangeStart: Instant,
     rangeEnd: Instant,
@@ -250,11 +265,11 @@ private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
         defaultZone = timeZone,
         rangeStart = rangeStart,
         rangeEnd = rangeEnd,
-    )?.let { target[it.key.canonical] = it }
+    )?.let { target[it.key] = it }
 }
 
 private fun EventTiming.addRDateOccurrences(
-    target: MutableMap<String, Occurrence>,
+    target: MutableMap<RecurrenceKey, Occurrence>,
     masterTiming: MasterTiming,
     rangeStart: Instant,
     rangeEnd: Instant,
@@ -268,16 +283,16 @@ private fun EventTiming.addRDateOccurrences(
             defaultZone = timeZone,
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
-        )?.let { target[key.canonical] = it }
+        )?.let { target[key] = it }
     }
 }
 
-private fun EventTiming.removeExDateOccurrences(target: MutableMap<String, Occurrence>) {
+private fun EventTiming.removeExDateOccurrences(target: MutableMap<RecurrenceKey, Occurrence>) {
     exDates.forEach { dateValue ->
         // Mapper-side validation keeps EXDATE value forms aligned with DTSTART. If a future change
         // breaks that invariant, `toRecurrenceKey` returns null and we keep this explicit no-op path.
         val key = dateValue.toRecurrenceKey(this) ?: return@forEach
-        target.remove(key.canonical)
+        target.remove(key)
     }
 }
 

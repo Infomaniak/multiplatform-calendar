@@ -38,7 +38,7 @@ private fun EventWithCalendarEntity.toDomainEventWithOverrides(
     return EventWithOverrides(
         master = event.toDomain(calendar),
         overridesByOccurrenceKey = overrides.associate { override ->
-            override.recurrenceKey.canonical to override.toDomain(calendar)
+            override.recurrenceKey to override.toDomain(calendar)
         },
     )
 }

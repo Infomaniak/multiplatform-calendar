@@ -71,6 +71,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -794,6 +795,116 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
     }
+
+    @Test
+    fun deleteEvent_thisAndFollowing_boundsACountedRuleOnThePrecedingInstance() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // A counted rule stays counted: the 4th instance is the pivot, so 3 survive.
+        val change = assertIs<RemoteRecurrenceChange.Set>(fakeCaldav.patches.single().recurrenceChange)
+        assertEquals("FREQ=DAILY;COUNT=3", change.value)
+        assertEquals(emptyList(), fakeCaldav.deletes, "the resource itself must survive")
+    }
+
+    @Test
+    fun deleteEvent_thisAndFollowing_boundsAnEndlessRuleWithUntil() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // UNTIL is inclusive, so it lands on the last instance kept, not on the pivot.
+        val change = assertIs<RemoteRecurrenceChange.Set>(fakeCaldav.patches.single().recurrenceChange)
+        assertEquals("FREQ=DAILY;UNTIL=20260617T100000Z", change.value)
+    }
+
+    @Test
+    fun deleteEvent_thisAndFollowing_dropsWhatTheCutTailCarried() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 10),
+        ).copy(
+            exDates = listOf(icalUtc(2026, 6, 16), icalUtc(2026, 6, 19)),
+            rDates = listOf(icalUtc(2026, 6, 17), icalUtc(2026, 6, 20)),
+        )
+        val overrides = listOf(
+            overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0)),
+            overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 19, 10, 0)),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", overrides)))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // Only what applied to a surviving instance is kept; the rest would outlive its target.
+        val edit = fakeCaldav.patches.single()
+        assertEquals(listOf("20260616T100000Z"), assertIs<RemoteDateListChange.Set>(edit.exDateChange).lines.flatMap { it.values })
+        assertEquals(listOf("20260617T100000Z"), assertIs<RemoteDateListChange.Set>(edit.rDateChange).lines.flatMap { it.values })
+        val removal = assertIs<RemoteOverrideRemoval.Instances>(edit.overrideRemoval)
+        assertEquals(listOf("20260619T100000Z"), removal.recurrenceIds.map { it.value })
+    }
+
+    @Test
+    fun deleteEvent_thisAndFollowing_onTheFirstInstance_deletesTheWholeResource() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        // Cutting at DTSTART leaves no instance, and no rule can express an empty series.
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
+        assertEquals(emptyList(), fakeCaldav.patches)
+    }
+
+    private fun icalUtc(year: Int, month: Int, day: Int) =
+        IcalDateValue.Zoned(LocalDateTime(year, month, day, 10, 0).toInstant(TimeZone.UTC), TimeZone.UTC.id)
 
     private fun occurrenceOf(masterId: EventId, start: LocalDateTime) = OccurrenceId.Recurrence(
         masterId = masterId,

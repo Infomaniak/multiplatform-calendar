@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
@@ -52,6 +53,7 @@ import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
 import uniffi.caldav_bridge.DateListChange
+import uniffi.caldav_bridge.OverrideRemoval
 import uniffi.caldav_bridge.DateListLine
 import uniffi.caldav_bridge.EventContentEntry
 import uniffi.caldav_bridge.EventEdit
@@ -277,6 +279,7 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     recurrenceChange = recurrenceChange.toRust(),
     exDateChange = exDateChange.toRust(),
     rDateChange = rDateChange.toRust(),
+    overrideRemoval = overrideRemoval.toRust(),
     alarmsChange = alarms.toRustAlarmsChange(),
     stamp = stamp,
 )
@@ -311,6 +314,11 @@ private fun RemoteDateListChange.toRust(): DateListChange = when (this) {
     RemoteDateListChange.Unchanged -> DateListChange.Unchanged
     is RemoteDateListChange.Set -> DateListChange.Set(lines.map { it.toRust() })
     RemoteDateListChange.Cleared -> DateListChange.Cleared
+}
+
+private fun RemoteOverrideRemoval.toRust(): OverrideRemoval = when (this) {
+    RemoteOverrideRemoval.Unchanged -> OverrideRemoval.Unchanged
+    is RemoteOverrideRemoval.Instances -> OverrideRemoval.Instances(recurrenceIds.map { it.toRust() })
 }
 
 private fun RemoteDateListLine.toRust() = DateListLine(tzid = tzid, isDateOnly = isDateOnly, values = values)

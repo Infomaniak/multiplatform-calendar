@@ -249,6 +249,20 @@ pub struct RecurrenceIdSpec {
     pub value: String,
 }
 
+/// Overrides to drop from the resource while its master is patched (RFC 5545 §3.8.4.4).
+///
+/// Deleting an instance that carries an override means dropping its VEVENT too, otherwise the
+/// resource keeps an occurrence no rule generates any more. Which instances those are is decided by
+/// the caller, who alone compares recurrence keys with their value types; here they are matched
+/// exactly on value and `TZID`, as an upsert targets one.
+#[derive(uniffi::Enum)]
+pub enum OverrideRemoval {
+    /// Leave every override in place.
+    Unchanged,
+    /// Drop the override of each of these instances. Instances with no override are ignored.
+    Instances { recurrence_ids: Vec<RecurrenceIdSpec> },
+}
+
 /// Requested change to a VEVENT's VALARM sub-components.
 /// `Unchanged` leaves source VALARM blocks untouched so `X-*` / exotic params survive partial edits.
 #[derive(uniffi::Enum)]
@@ -284,6 +298,7 @@ pub struct EventEdit {
     pub recurrence_change: RecurrenceChange,
     pub ex_date_change: DateListChange,
     pub r_date_change: DateListChange,
+    pub override_removal: OverrideRemoval,
     pub alarms_change: AlarmsChange,
     pub stamp: String,
 }

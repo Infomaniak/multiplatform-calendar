@@ -6,6 +6,7 @@ use fast_dav_rs::webdav::normalize_etag;
 use crate::alarms::{parse_alarms, splice_alarms_into_vevent, strip_valarms_in_vevent};
 use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
+use crate::ical_components::{is_begin_marker, is_end_marker, VEVENT};
 use crate::models::{
     AlarmsChange,
     AttendeeEntry,
@@ -23,6 +24,7 @@ use crate::models::{
     IcalDateValueEntry,
     IcalDateValueKind,
     OrganizerEntry,
+    OverrideRemoval,
     RecurrenceChange,
     RecurrenceIdSpec,
     VTimeZoneSpec,
@@ -255,10 +257,13 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<EventEntry, Ca
     bump_revision(event, &edit.stamp);
 
     let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
-    let final_ics = match new_alarms {
+    let spliced = match new_alarms {
         Some(alarms) => splice_alarms_into_vevent(&serialised, master_ordinal, alarms),
         None => serialised,
     };
+    // Dropped last: removing a VEVENT shifts the ordinals the alarm helpers address, and `probe`
+    // still describes the layout they were computed against.
+    let final_ics = remove_override_vevents(&spliced, &probe, &edit.override_removal);
     reparse_edited(final_ics, "Patch")
 }
 
@@ -347,6 +352,50 @@ fn override_vevent_index(calendar: &Calendar, spec: &RecurrenceIdSpec) -> Option
         }
         _ => false,
     })
+}
+
+/// Drop the VEVENT of each designated override, textually: a VEVENT is removed whole, and the ones
+/// left keep the bytes they were serialized with, including alarms spliced in beforehand.
+///
+/// `layout` describes the object the ordinals are read from, which must be the one `ics` was
+/// serialized from. Designating an instance with no override is a no-op: the caller works from what
+/// it knows of the series, which may be wider than what the resource actually holds.
+fn remove_override_vevents(ics: &str, layout: &Calendar, removal: &OverrideRemoval) -> String {
+    let recurrence_ids = match removal {
+        OverrideRemoval::Unchanged => return ics.to_string(),
+        OverrideRemoval::Instances { recurrence_ids } => recurrence_ids,
+    };
+    let targets: HashSet<usize> = recurrence_ids
+        .iter()
+        .filter_map(|spec| override_vevent_index(layout, spec))
+        .map(|index| vevent_ordinal(layout, index))
+        .collect();
+    if targets.is_empty() {
+        return ics.to_string();
+    }
+
+    let mut out = String::with_capacity(ics.len());
+    let mut vevent_seen = 0usize;
+    let mut dropping = false;
+    for line in ics.split_inclusive('\n') {
+        let marker = line.trim_end_matches(['\r', '\n']);
+        if !dropping && is_begin_marker(marker, VEVENT) {
+            let ordinal = vevent_seen;
+            vevent_seen += 1;
+            if targets.contains(&ordinal) {
+                dropping = true;
+                continue;
+            }
+        } else if dropping {
+            // VALARMs end on END:VALARM, so the first END:VEVENT is this VEVENT's own.
+            if is_end_marker(marker, VEVENT) {
+                dropping = false;
+            }
+            continue;
+        }
+        out.push_str(line);
+    }
+    out
 }
 
 /// Number of VEVENTs in the object, i.e. the ordinal a VEVENT pushed now would get.

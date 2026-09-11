@@ -18,8 +18,10 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import kotlinx.serialization.Serializable
 
 /** Identifier of a displayed event occurrence. */
+@Serializable
 public sealed class OccurrenceId {
 
     internal abstract val masterId: EventId
@@ -30,11 +32,13 @@ public sealed class OccurrenceId {
     final override fun toString(): String = value
 
     /** The event resource itself: a non-recurring event, or the master of a series. */
-    internal data class Master(override val masterId: EventId) : OccurrenceId() {
+    @Serializable
+    public data class Master(override val masterId: EventId) : OccurrenceId() {
         override val value: String = masterId.url
     }
 
     /** One instance of [masterId], whether it comes from the rule or from a `RECURRENCE-ID` override. */
+    @Serializable
     internal data class Recurrence(
         override val masterId: EventId,
         val recurrenceKey: RecurrenceKey,

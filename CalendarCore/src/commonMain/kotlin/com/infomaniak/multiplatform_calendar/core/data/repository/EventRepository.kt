@@ -21,29 +21,33 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyCalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateRuleBefore
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -258,7 +262,7 @@ internal class EventRepository(
             occurrenceId !is OccurrenceId.Recurrence -> deleteEvent(credentials, occurrenceId.masterId)
             scope == RecurrenceEditScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
             scope == RecurrenceEditScope.ThisOccurrence -> excludeOccurrence(credentials, occurrenceId)
-            else -> error("Scope $scope is not supported yet")
+            else -> truncateSeriesFrom(credentials, occurrenceId)
         }
     }
 
@@ -281,6 +285,42 @@ internal class EventRepository(
                 previous = entity,
                 exDates = DateListEdit.Set(entity.exDates + excluded),
                 droppedOverrides = listOf(occurrenceId.recurrenceKey),
+            ),
+        )
+        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+    }
+
+    /**
+     * End the series right before [occurrenceId]: the rule is bounded on the preceding instance and
+     * everything the dropped tail carried — its `EXDATE`/`RDATE` values and its overrides — goes in
+     * the very same PUT, so no exception outlives the instances it applied to.
+     *
+     * When the rule keeps nothing the pivot is `DTSTART`, which no truncation can preserve, so the
+     * whole resource is deleted instead.
+     */
+    private suspend fun truncateSeriesFrom(credentials: DavAccount, occurrenceId: OccurrenceId.Recurrence) {
+        val masterId = occurrenceId.masterId
+        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val editData = entity.toEditData()
+        val timing = editData.timing
+        val zone = TimeZone.currentSystemDefault()
+        val pivotStart = occurrenceId.recurrenceKey.toLocalStart(timing, zone) ?: return
+
+        val truncatedRule = timing.truncateRuleBefore(pivotStart, zone)
+        if (truncatedRule == null && timing.recurrenceRule != null) return deleteEvent(credentials, masterId)
+
+        val now = Clock.System.now().toICalUtcDateTime()
+        val patched = caldavClient.patchEventIcs(
+            previousIcs,
+            editData.copy(timing = timing.copy(recurrenceRule = truncatedRule)).toRemoteEdit(
+                stamp = now,
+                previous = entity,
+                exDates = DateListEdit.Set(timing.exDates.filter { it.startsBefore(pivotStart, timing) }),
+                rDates = DateListEdit.Set(timing.rDates.filter { it.startsBefore(pivotStart, timing) }),
+                droppedOverrides = eventDao.getOverridesOf(masterId)
+                    .map(EventOverrideEntity::recurrenceKey)
+                    .filterNot { it.startsBefore(pivotStart, timing) },
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)

@@ -17,10 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
-import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
@@ -46,23 +44,24 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
- * Fold the lightweight [EventCalendarColorInRange] rows into `day -> visible calendar colors` over
- * `[rangeStart, rangeEnd[` (in [timeZone]).
+ * Fold the lightweight [EventDotColorInRange] rows into `day -> dot colors` over `[rangeStart, rangeEnd[`
+ * (in [timeZone]).
  *
- * Only days that actually own events are kept; each maps to the [VisibleCalendarColor] entries of the calendars having
- * at least one event that day. Non-recurring rows are handled as direct spans; recurring masters are expanded into
- * occurrences (same expander as planning) and then each occurrence span is folded by day. This keeps RRULE parity with
- * the planning day-slice flow while staying lightweight (projection rows only, no full domain event graph).
+ * Only days that actually own events are kept; each maps to the [DotColor] entries of that day, reduced per
+ * calendar **and** per color (see [DotColor]). Non-recurring rows are handled as direct spans; recurring masters
+ * are expanded into occurrences (same expander as planning) and then each occurrence span is folded by day.
+ * This keeps RRULE parity with the planning day-slice flow while staying lightweight (projection rows only, no
+ * full domain event graph).
  *
  * Overrides are substituted exactly as in the planning flow, and for the same reason: the two views must agree on
- * which day owns an instance. A slot carrying an override is skipped, and the override dots its own days instead,
- * unless it is `STATUS:CANCELLED`. A master whose recurrence was suspended never reaches that step, so its stale
- * overrides stay hidden.
+ * which day owns an instance. A slot carrying an override is skipped, and the override dots its own days — with
+ * its own color — instead, unless it is `STATUS:CANCELLED`. A master whose recurrence was suspended never
+ * reaches that step, so its stale overrides stay hidden.
  *
- * Per-day color order mirrors planning's event order: all-day first, then by slice display start time, then by a stable
- * occurrence id. For each day+calendar, the earliest event for that calendar defines its position.
+ * Per-day dot order mirrors planning's event order: all-day first, then by slice display start time, then by a
+ * stable occurrence id. For each day+calendar+color, the earliest event of that pair defines its position.
  */
-internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
+internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -70,7 +69,7 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
     onInvalidRange: (rangeStart: Instant, rangeEnd: Instant, timeZone: TimeZone, fromDay: LocalDate, toDay: LocalDate) -> Unit = { _, _, _, _, _ -> },
     onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit = { _, _ -> },
-): Map<LocalDate, List<VisibleCalendarColor>> {
+): Map<LocalDate, List<DotColor>> {
     val fromDay = rangeStart.toLocalDateTime(timeZone).date
     val toDay = rangeEnd.toLocalDateTime(timeZone).lastInclusiveDay(notBefore = fromDay)
     if (fromDay > toDay) {
@@ -78,16 +77,15 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
         return emptyMap()
     }
 
-    val colorsBySourceColor = HashMap<Int?, CalendarColors>()
-    val colorOrderByDay: ColorOrderByDay = LinkedHashMap()
+    val dotOrderByDay: DotOrderByDay = LinkedHashMap()
     val zoneCache = HashMap<String, TimeZone>()
     val occurrences = ArrayList<Occurrence>() // Reused buffer for recurring expansion
     val visibleDays = fromDay..toDay
 
-    for (row in this@foldToDailyCalendarColors) {
+    for (row in this@foldToDailyDotColors) {
         currentCoroutineContext().ensureActive()
 
-        val colors = colorsBySourceColor.getOrPut(row.colorArgb) { CalendarColors.from(row.colorArgb) }
+        val dotColor = DotColor.of(row.calendarId, row.eventColorArgb, row.calendarColorArgb)
         val timing = row.toTiming(zoneCache)
 
         occurrences.clear()
@@ -101,16 +99,15 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
             onExpansionTruncated = onExpansionTruncated,
         )
         if (!hasRecurringExpansion) {
-            colorOrderByDay.recordPlainEvent(row, timing, colors, visibleDays, timeZone)
+            dotOrderByDay.recordPlainEvent(row, timing, dotColor, visibleDays, timeZone)
             continue
         }
 
         val overriddenKeys = row.overrides.mapTo(HashSet()) { it.recurrenceKey.canonical }
-        colorOrderByDay.recordRuleOccurrences(row, occurrences, overriddenKeys, colors, visibleDays, timeZone)
-        colorOrderByDay.recordOverriddenInstances(
+        dotOrderByDay.recordRuleOccurrences(row, occurrences, overriddenKeys, dotColor, visibleDays, timeZone)
+        dotOrderByDay.recordOverriddenInstances(
             row = row,
             seriesEnd = SeriesEndFilter.of(timing, timeZone),
-            color = colors,
             zoneCache = zoneCache,
             visibleDays = visibleDays,
             rangeStart = rangeStart,
@@ -120,11 +117,11 @@ internal suspend fun List<EventCalendarColorInRange>.foldToDailyCalendarColors(
         )
     }
 
-    return colorOrderByDay.toColorsByDay()
+    return dotOrderByDay.toDotColorsByDay()
 }
 
 /** The [EventTiming] this row describes, resolving its zone ids through [zoneCache]. */
-private fun EventCalendarColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTiming(
+private fun EventDotColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTiming(
     start = dtStart,
     end = dtEndEffective,
     startTimeZone = startZoneId?.let { zoneCache.zoneOf(it) },
@@ -138,10 +135,10 @@ private fun EventCalendarColorInRange.toTiming(zoneCache: MutableMap<String, Tim
 private fun MutableMap<String, TimeZone>.zoneOf(id: String): TimeZone = getOrPut(id) { TimeZone.of(id) }
 
 /** Record a non-recurring event, whose single span is [timing] itself. */
-private fun ColorOrderByDay.recordPlainEvent(
-    row: EventCalendarColorInRange,
+private fun DotOrderByDay.recordPlainEvent(
+    row: EventDotColorInRange,
     timing: EventTiming,
-    color: CalendarColors,
+    dotColor: DotColor,
     visibleDays: ClosedRange<LocalDate>,
     timeZone: TimeZone,
 ) {
@@ -149,8 +146,7 @@ private fun ColorOrderByDay.recordPlainEvent(
         start = timing.start.projectInto(timing.startTimeZone, timeZone),
         end = timing.end.projectInto(timing.endTimeZone, timeZone),
         visibleDays = visibleDays,
-        calendarId = row.calendarId,
-        color = color,
+        dotColor = dotColor,
         isAllDay = row.isAllDay,
         occurrenceSortId = row.eventId.url,
     )
@@ -160,11 +156,11 @@ private fun ColorOrderByDay.recordPlainEvent(
  * Record the occurrences the rule generated, skipping every slot whose key is in [overriddenKeys]:
  * the override *is* that instance, and [recordOverriddenInstances] records it on its own days.
  */
-private suspend fun ColorOrderByDay.recordRuleOccurrences(
-    row: EventCalendarColorInRange,
+private suspend fun DotOrderByDay.recordRuleOccurrences(
+    row: EventDotColorInRange,
     occurrences: List<Occurrence>,
     overriddenKeys: Set<String>,
-    color: CalendarColors,
+    dotColor: DotColor,
     visibleDays: ClosedRange<LocalDate>,
     timeZone: TimeZone,
 ) {
@@ -175,8 +171,7 @@ private suspend fun ColorOrderByDay.recordRuleOccurrences(
             start = occurrence.start.projectInto(occurrence.startTimeZone, timeZone),
             end = occurrence.end.projectInto(occurrence.endTimeZone, timeZone),
             visibleDays = visibleDays,
-            calendarId = row.calendarId,
-            color = color,
+            dotColor = dotColor,
             isAllDay = occurrence.isAllDay,
             occurrenceSortId = OccurrenceId.Recurrence(row.eventId, occurrence.key).value,
         )
@@ -184,16 +179,16 @@ private suspend fun ColorOrderByDay.recordRuleOccurrences(
 }
 
 /**
- * Record each override on the days it actually lands on, which may differ from the slot it replaces.
+ * Record each override on the days it actually lands on, which may differ from the slot it replaces, and with
+ * its own color.
  *
  * A `STATUS:CANCELLED` override is dropped instead: [recordRuleOccurrences] already left its slot
  * undotted, so dropping it here is what leaves that single occurrence deleted. An override whose slot the
  * series no longer holds is dropped too, so a day never gets a dot planning would not show.
  */
-private suspend fun ColorOrderByDay.recordOverriddenInstances(
-    row: EventCalendarColorInRange,
+private suspend fun DotOrderByDay.recordOverriddenInstances(
+    row: EventDotColorInRange,
     seriesEnd: SeriesEndFilter?,
-    color: CalendarColors,
     zoneCache: MutableMap<String, TimeZone>,
     visibleDays: ClosedRange<LocalDate>,
     rangeStart: Instant,
@@ -219,8 +214,7 @@ private suspend fun ColorOrderByDay.recordOverriddenInstances(
             start = start,
             end = end,
             visibleDays = visibleDays,
-            calendarId = row.calendarId,
-            color = color,
+            dotColor = DotColor.of(row.calendarId, override.colorArgb, row.calendarColorArgb),
             isAllDay = override.isAllDay,
             occurrenceSortId = OccurrenceId.Recurrence(row.eventId, override.recurrenceKey).value,
         )
@@ -228,27 +222,18 @@ private suspend fun ColorOrderByDay.recordOverriddenInstances(
 }
 
 /**
- * Step 2 (final ordering): each day now holds one key per calendar, the earliest event of that
- * calendar. Sort on it so the output mirrors planning's per-day event order.
+ * Step 2 (final ordering): each day now holds one key per dot, the earliest event carrying it. Sort on it
+ * so the output mirrors planning's per-day event order, [DotColor.id] breaking the ties.
  */
-private fun ColorOrderByDay.toColorsByDay(): Map<LocalDate, List<VisibleCalendarColor>> {
-    return mapValues { (_, dataByCalendarId) ->
-        dataByCalendarId.entries
-            .sortedWith(
-                compareBy<Map.Entry<CalendarId, DayCalendarColorSortData>>(
-                    { it.value.sortKey },
-                    { it.key.url },
-                ),
-            ).map { (calendarId, data) -> VisibleCalendarColor(id = calendarId, colors = data.calendarColors) }
+private fun DotOrderByDay.toDotColorsByDay(): Map<LocalDate, List<DotColor>> {
+    return mapValues { (_, sortKeyByDot) ->
+        sortKeyByDot.entries
+            .sortedWith(compareBy({ it.value }, { it.key.id }))
+            .map { (dotColor, _) -> dotColor }
     }
 }
 
-private typealias ColorOrderByDay = MutableMap<LocalDate, MutableMap<CalendarId, DayCalendarColorSortData>>
-
-private data class DayCalendarColorSortData(
-    val calendarColors: CalendarColors,
-    val sortKey: DayColorSortKey,
-)
+private typealias DotOrderByDay = MutableMap<LocalDate, MutableMap<DotColor, DayColorSortKey>>
 
 private data class DayColorSortKey(
     val isAllDay: Boolean,
@@ -268,15 +253,14 @@ private data class DayColorSortKey(
 }
 
 /**
- * Record [color] for [calendarId] on every visible day the `[start, end]` span covers, keying the
- * first day on the event itself and the following ones on midnight.
+ * Record [dotColor] on every visible day the `[start, end]` span covers, keying the first day on the
+ * event itself and the following ones on midnight.
  */
-private fun ColorOrderByDay.recordCoveredDays(
+private fun DotOrderByDay.recordCoveredDays(
     start: LocalDateTime,
     end: LocalDateTime,
     visibleDays: ClosedRange<LocalDate>,
-    calendarId: CalendarId,
-    color: CalendarColors,
+    dotColor: DotColor,
     isAllDay: Boolean,
     occurrenceSortId: String,
 ) {
@@ -291,14 +275,12 @@ private fun ColorOrderByDay.recordCoveredDays(
         val displayStart = if (day == firstDay) start else LocalDateTime(day, MIDNIGHT)
         val sortKey = DayColorSortKey(isAllDay, displayStart, occurrenceSortId)
 
-        val dataByCalendarId = getOrPut(day) { LinkedHashMap() }
-        val previous = dataByCalendarId[calendarId]
-        // Step 1 (per-calendar reduction): a day can contain multiple events from the same calendar.
-        // Keep only the earliest event key for that calendar (min sort key), because this key drives
+        val sortKeyByDot = getOrPut(day) { LinkedHashMap() }
+        val previous = sortKeyByDot[dotColor]
+        // Step 1 (per-calendar+color reduction): a day can contain multiple events sharing a dot.
+        // Keep only the earliest event key for that dot (min sort key), because this key drives
         // the final per-day ordering once all events have been folded.
-        if (previous == null || sortKey < previous.sortKey) {
-            dataByCalendarId[calendarId] = DayCalendarColorSortData(calendarColors = color, sortKey = sortKey)
-        }
+        if (previous == null || sortKey < previous) sortKeyByDot[dotColor] = sortKey
 
         day = day.plus(1, DateTimeUnit.DAY)
     }
@@ -315,4 +297,3 @@ private fun LocalDateTime.projectInto(sourceZone: TimeZone?, targetZone: TimeZon
     if (sourceZone == null || sourceZone == targetZone) return this
     return toInstant(sourceZone).toLocalDateTime(targetZone)
 }
-

@@ -33,7 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventUpsertB
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
-import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -105,20 +105,21 @@ internal abstract class EventDao {
 
     /**
      * Same *visible calendars* + *range overlap* filter as [observeVisibleInRange], but returns only the
-     * lightweight [EventCalendarColorInRange] projection (owning calendar color + wall-clock bounds), never a
-     * full event. Meant to feed a per-day calendar-color map (e.g. a month grid): no event body, attendees or
+     * lightweight [EventDotColorInRange] projection (event + calendar colors and wall-clock bounds), never a
+     * full event. Meant to feed a per-day dot-color map (e.g. a month grid): no event body, attendees or
      * raw ICS is read, so large months stay cheap. Day placement is done in Kotlin from the wall-clock columns
      * (mirroring `EventTiming.startIn`/`endIn`) since day boundaries depend on the caller's display zone.
      *
      * Overrides ride along through the same batched relation as [observeVisibleInRange], projected down to
-     * [OverrideCalendarColorInRange], so a moved instance dots the day it landed on rather than the one it left.
+     * [OverrideDotColorInRange], so a moved instance dots the day it landed on rather than the one it left.
      */
     @Transaction
     @Query(
         """
         SELECT event.id AS eventId,
                event.calendarId AS calendarId,
-               calendar.color AS colorArgb,
+               calendar.color AS calendarColorArgb,
+               event.colorArgb AS eventColorArgb,
                event.dtStart AS dtStart,
                event.dtEndEffective AS dtEndEffective,
                event.startTimeZone AS startZoneId,
@@ -142,13 +143,13 @@ internal abstract class EventDao {
         ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
         """,
     )
-    abstract fun observeVisibleCalendarColorsInRange(
+    abstract fun observeVisibleDotColorsInRange(
         accountIds: Set<AccountId>,
         startInstantMs: Long,
         endInstantMs: Long,
         startLocalDateTime: LocalDateTime,
         endLocalDateTime: LocalDateTime,
-    ): Flow<List<EventCalendarColorInRange>>
+    ): Flow<List<EventDotColorInRange>>
 
     @Transaction
     open suspend fun upsertEventsWithRawIcs(batch: EventUpsertBatch) {

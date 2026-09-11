@@ -23,7 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepositor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -96,28 +96,29 @@ public class CalendarManager internal constructor(
     }
 
     /**
-     * Observe per-day calendar colors for months from [startMonth] to [endMonth] (inclusive).
+     * Observe per-day dot colors for months from [startMonth] to [endMonth] (inclusive).
      *
      * The result contains one entry per day having at least one event from a visible calendar,
-     * mapped to the [VisibleCalendarColor] entries used on that day.
+     * mapped to the [DotColor] entries of that day, reduced per calendar and per color: an event redefining
+     * its color gets a dot of its own color, and two calendars sharing a color get a dot each.
      *
      * [timeZone] defines day boundaries for the returned map.
      *
      * [startMonth] must be less than or equal to [endMonth].
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    public fun observeMonthlyCalendarColors(
+    public fun observeMonthlyDotColors(
         startMonth: YearMonth,
         endMonth: YearMonth,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
-    ): Flow<Map<LocalDate, List<VisibleCalendarColor>>> {
+    ): Flow<Map<LocalDate, List<DotColor>>> {
         val start = startMonth.firstDay.atStartOfDayIn(timeZone)
         val end = endMonth.lastDay.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone) // Exclusive end: start of the next month
 
-        return sdkCaller.flow(operation = "observe monthly calendar colors for $startMonth to $endMonth in $timeZone") {
+        return sdkCaller.flow(operation = "observe monthly dot colors for $startMonth to $endMonth in $timeZone") {
             require(start < end) { "Start month $startMonth must not be after end month $endMonth" }
             nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
-                eventRepository.observeVisibleCalendarColorsByDay(accountIds, start, end, timeZone)
+                eventRepository.observeVisibleDotColorsByDay(accountIds, start, end, timeZone)
             }
         }
     }

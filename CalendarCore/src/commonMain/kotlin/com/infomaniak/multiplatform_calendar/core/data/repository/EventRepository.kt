@@ -21,16 +21,15 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
-import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
-import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyCalendarColors
+import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyDotColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
@@ -132,36 +131,32 @@ internal class EventRepository(
 
     /**
      * For each day of `[start, end[` (in [timeZone]) that has at least one event from a *visible* calendar of
-     * [accountIds], the per-calendar [VisibleCalendarColor] entries of calendars owning those events; days with no event
-     * are omitted.
+     * [accountIds], the [DotColor] entries of those events; days with no event are omitted.
      *
-     * Returning [VisibleCalendarColor] (stable calendar id + full [CalendarColors]) lets clients keep stable keys while
-     * still picking whatever color variant they need (e.g. `datavizContainerVariant` for month-grid dots). Unlike
-     * [observeVisibleDaySlices]
-     * this never builds domain events nor [EventDaySlice]s: only the [EventCalendarColorInRange] projection is read and
-     * folded, each recurring master is expanded into its RRULE occurrences, and each source color's palette is computed
-     * once (cached) instead of once per event. Multi-day events/occurrences still mark every covered day.
+     * Unlike [observeVisibleDaySlices] this never builds domain events nor [EventDaySlice]s: only the
+     * [EventDotColorInRange] projection is read and folded, and each recurring master is expanded into its
+     * RRULE occurrences. Multi-day events/occurrences still mark every covered day.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun observeVisibleCalendarColorsByDay(
+    fun observeVisibleDotColorsByDay(
         accountIds: Set<AccountId>,
         start: Instant,
         end: Instant,
         timeZone: TimeZone,
-    ): Flow<Map<LocalDate, List<VisibleCalendarColor>>> {
-        return eventDao.observeVisibleCalendarColorsInRange(
+    ): Flow<Map<LocalDate, List<DotColor>>> {
+        return eventDao.observeVisibleDotColorsInRange(
             accountIds = accountIds,
             startInstantMs = start.toEpochMilliseconds(),
             endInstantMs = end.toEpochMilliseconds(),
             startLocalDateTime = start.toLocalDateTime(timeZone),
             endLocalDateTime = end.toLocalDateTime(timeZone),
         ).mapLatest { rows ->
-            rows.foldToDailyCalendarColors(
+            rows.foldToDailyDotColors(
                 rangeStart = start,
                 rangeEnd = end,
                 timeZone = timeZone,
                 onExpansionTruncated = ::logTruncatedExpansion,
-                onInvalidRange = ::logInvalidCalendarColorsRange,
+                onInvalidRange = ::logInvalidDotColorsRange,
                 onOrphanOverrideDropped = ::logOrphanOverride,
             )
         }.flowOn(Dispatchers.Default)
@@ -183,7 +178,7 @@ internal class EventRepository(
         )
     }
 
-    private fun logInvalidCalendarColorsRange(
+    private fun logInvalidDotColorsRange(
         rangeStart: Instant,
         rangeEnd: Instant,
         timeZone: TimeZone,
@@ -191,7 +186,7 @@ internal class EventRepository(
         toDay: LocalDate,
     ) {
         crashReport.capture(
-            message = "Invalid day range computed while building calendar colors by day",
+            message = "Invalid day range computed while building dot colors by day",
             data = mapOf(
                 "rangeStart" to rangeStart.toString(),
                 "rangeEnd" to rangeEnd.toString(),

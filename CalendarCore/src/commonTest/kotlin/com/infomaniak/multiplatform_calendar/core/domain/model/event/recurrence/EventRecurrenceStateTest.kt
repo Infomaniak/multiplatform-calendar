@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
@@ -123,6 +124,31 @@ class EventRecurrenceStateTest {
         val master = eventEntity(rrule = RecurrenceRule(freq = Frequency.Daily)).toDomain(calendar)
 
         assertEquals(EventRecurrenceState.Master, master.recurrence)
+    }
+
+    @Test
+    fun deleteScopes_areOfferedOnAnOverride() {
+        val override = overrideEntity().toDomain(calendar)
+
+        assertEquals(
+            setOf(RecurrenceEditScope.ThisOccurrence, RecurrenceEditScope.ThisAndFollowing, RecurrenceEditScope.AllOccurrences),
+            override.deleteScopes,
+        )
+    }
+
+    @Test
+    fun deleteScopes_areEmptyOnAPlainEvent() {
+        val event = eventEntity().toDomain(calendar)
+
+        assertEquals(emptySet(), event.deleteScopes)
+    }
+
+    @Test
+    fun deleteScopes_areEmptyOnAReadOnlyCalendar() {
+        val override = overrideEntity().toDomain(calendar.copy(accessLevel = CalendarAccessLevel.READ))
+
+        assertEquals(EventRecurrenceState.Occurrence, override.recurrence)
+        assertEquals(emptySet(), override.deleteScopes)
     }
 
     private suspend fun expand(master: Event): List<Event> = listOf(EventWithOverrides(master)).expandRecurrencesInWindow(

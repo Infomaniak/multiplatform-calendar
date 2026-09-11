@@ -15,14 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.mapper
+package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+/** How far along a series an edit or a delete reaches, as offered to the user before acting. */
+public enum class RecurrenceEditScope {
+    /** The picked occurrence alone. The rest of the series is left untouched. */
+    ThisOccurrence,
 
-/** Single source of truth for when recurrence must be persisted/queryable as recurring. */
-internal fun hasPersistedRecurrence(
-    recurrenceRule: RecurrenceRule?,
-    rDates: List<IcalDateValue>,
-): Boolean = recurrenceRule != null || rDates.isNotEmpty()
+    /** The picked occurrence and every later one. Earlier occurrences are left untouched. */
+    ThisAndFollowing,
 
+    /** The whole series, whichever occurrence was picked. */
+    AllOccurrences,
+}

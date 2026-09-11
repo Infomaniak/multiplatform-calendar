@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.AllDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Zoned
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Finite
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.FiniteDeferred
@@ -60,7 +61,7 @@ internal fun toRecurrenceBoundsEntity(
     recurrenceRule: RecurrenceRule?,
     rDates: List<IcalDateValue>,
 ): RecurrenceBoundsEntity? {
-    if (!hasPersistedRecurrence(recurrenceRule, rDates)) return null
+    if (!hasRecurrenceSet(recurrenceRule, rDates)) return null
 
     val base = recurrenceRule?.baseRecurrenceBoundsEntity(timing)
     val durationMs = timing.anchoredDurationMs() + timing.allDayUpperBoundPaddingMs()

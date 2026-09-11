@@ -15,14 +15,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.mapper
+package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 
-/** Single source of truth for when recurrence must be persisted/queryable as recurring. */
-internal fun hasPersistedRecurrence(
+/**
+ * Single source of truth for what makes an event a series: a rule, dates listed one by one, or both.
+ *
+ * `EXDATE` is deliberately absent. It only removes occurrences from a set the other two produce, so an
+ * event carrying nothing but exception dates stays a plain event.
+ */
+internal fun hasRecurrenceSet(
     recurrenceRule: RecurrenceRule?,
     rDates: List<IcalDateValue>,
 ): Boolean = recurrenceRule != null || rDates.isNotEmpty()
 
+/** The [hasRecurrenceSet] test applied to an already assembled [EventTiming]. */
+internal fun EventTiming.hasRecurrenceSet(): Boolean = hasRecurrenceSet(recurrenceRule, rDates)

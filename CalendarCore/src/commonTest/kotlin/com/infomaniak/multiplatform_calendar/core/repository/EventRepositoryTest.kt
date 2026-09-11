@@ -54,6 +54,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -68,6 +70,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -307,6 +310,12 @@ class EventRepositoryTest : RobolectricTestsBase() {
             } else {
                 RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC))
             },
+            recurrenceIdValue = if (floating) {
+                originalStart.toICalLocalDateTime()
+            } else {
+                originalStart.toInstant(TimeZone.UTC).toICalUtcDateTime()
+            },
+            recurrenceIdTzid = null,
             originalStartInstantMs = originalStart.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
             originalEndInstantMs = originalEnd.toInstant(TimeZone.UTC).toEpochMilliseconds().takeUnless { floating },
             originalStartLocalDateTime = originalStart,
@@ -1327,6 +1336,9 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
         applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
 
     override suspend fun buildEventIcs(edit: RemoteEventEdit) =
+        applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+
+    override suspend fun upsertOverrideIcs(icsData: String, recurrenceId: RemoteRecurrenceId, edit: RemoteEventEdit) =
         applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
 
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {

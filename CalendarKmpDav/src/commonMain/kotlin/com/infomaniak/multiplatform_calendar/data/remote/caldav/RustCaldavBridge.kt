@@ -30,7 +30,9 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
@@ -51,6 +53,7 @@ import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
 import uniffi.caldav_bridge.DateListChange
+import uniffi.caldav_bridge.OverrideRemoval
 import uniffi.caldav_bridge.DateListLine
 import uniffi.caldav_bridge.EventContentEntry
 import uniffi.caldav_bridge.EventEdit
@@ -60,6 +63,7 @@ import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
 import uniffi.caldav_bridge.OrganizerEntry
 import uniffi.caldav_bridge.RecurrenceChange
+import uniffi.caldav_bridge.RecurrenceIdSpec
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
@@ -75,6 +79,7 @@ import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
 import uniffi.caldav_bridge.syncCollection as rustSyncCollection
 import uniffi.caldav_bridge.updateCalendar as rustUpdateCalendar
 import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
+import uniffi.caldav_bridge.upsertOverrideVevent as rustUpsertOverrideVevent
 
 /**
  * Typed CalDAV client backed by Rust — lives entirely in commonMain.
@@ -235,6 +240,22 @@ internal class RustCaldavBridge(
             throw e.toCaldavBridgeException("buildEventIcs")
         }
     }
+
+    override suspend fun upsertOverrideIcs(
+        icsData: String,
+        recurrenceId: RemoteRecurrenceId,
+        edit: RemoteEventEdit,
+    ): RemoteDavEvent = withContext(cpuDispatcher) {
+        try {
+            rustUpsertOverrideVevent(
+                icsData = icsData,
+                recurrenceId = recurrenceId.toRust(),
+                edit = edit.toRust(),
+            ).toRemoteEvent()
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("upsertOverrideIcs")
+        }
+    }
 }
 
 private fun DavAccount.toRust() = RustDavAccount(
@@ -258,6 +279,7 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     recurrenceChange = recurrenceChange.toRust(),
     exDateChange = exDateChange.toRust(),
     rDateChange = rDateChange.toRust(),
+    overrideRemoval = overrideRemoval.toRust(),
     alarmsChange = alarms.toRustAlarmsChange(),
     stamp = stamp,
 )
@@ -294,7 +316,14 @@ private fun RemoteDateListChange.toRust(): DateListChange = when (this) {
     RemoteDateListChange.Cleared -> DateListChange.Cleared
 }
 
+private fun RemoteOverrideRemoval.toRust(): OverrideRemoval = when (this) {
+    RemoteOverrideRemoval.Unchanged -> OverrideRemoval.Unchanged
+    is RemoteOverrideRemoval.Instances -> OverrideRemoval.Instances(recurrenceIds.map { it.toRust() })
+}
+
 private fun RemoteDateListLine.toRust() = DateListLine(tzid = tzid, isDateOnly = isDateOnly, values = values)
+
+private fun RemoteRecurrenceId.toRust() = RecurrenceIdSpec(tzid = tzid, isDateOnly = isDateOnly, value = value)
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)
 

@@ -235,6 +235,34 @@ pub struct DateListLine {
     pub values: Vec<String>,
 }
 
+/// The `RECURRENCE-ID` of the instance an override stands for (RFC 5545 §3.8.4.4).
+///
+/// Its value type must match the master's `DTSTART`, so it is described exactly like one
+/// [`DateListLine`] value: two overrides are the same instance only when both the value and the
+/// `TZID` match.
+#[derive(uniffi::Record)]
+pub struct RecurrenceIdSpec {
+    /// IANA `TZID` for FORM #3 values; `None` for all-day, floating and UTC (`Z`-suffixed) values.
+    pub tzid: Option<String>,
+    /// Emit `VALUE=DATE`; `value` is then a date ("20260616") rather than a date-time.
+    pub is_date_only: bool,
+    pub value: String,
+}
+
+/// Overrides to drop from the resource while its master is patched (RFC 5545 §3.8.4.4).
+///
+/// Deleting an instance that carries an override means dropping its VEVENT too, otherwise the
+/// resource keeps an occurrence no rule generates any more. Which instances those are is decided by
+/// the caller, who alone compares recurrence keys with their value types; here they are matched
+/// exactly on value and `TZID`, as an upsert targets one.
+#[derive(uniffi::Enum)]
+pub enum OverrideRemoval {
+    /// Leave every override in place.
+    Unchanged,
+    /// Drop the override of each of these instances. Instances with no override are ignored.
+    Instances { recurrence_ids: Vec<RecurrenceIdSpec> },
+}
+
 /// Requested change to a VEVENT's VALARM sub-components.
 /// `Unchanged` leaves source VALARM blocks untouched so `X-*` / exotic params survive partial edits.
 #[derive(uniffi::Enum)]
@@ -270,6 +298,7 @@ pub struct EventEdit {
     pub recurrence_change: RecurrenceChange,
     pub ex_date_change: DateListChange,
     pub r_date_change: DateListChange,
+    pub override_removal: OverrideRemoval,
     pub alarms_change: AlarmsChange,
     pub stamp: String,
 }

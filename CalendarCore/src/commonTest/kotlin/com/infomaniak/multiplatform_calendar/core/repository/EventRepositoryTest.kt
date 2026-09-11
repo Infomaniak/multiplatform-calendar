@@ -719,6 +719,36 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun deleteEvent_thisOccurrence_dropsTheOverrideUnderTheFormItWasWrittenIn() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        // The server wrote that RECURRENCE-ID in a zone of its own: the same instant, another spelling.
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0)).copy(
+            recurrenceIdValue = "20260616T120000",
+            recurrenceIdTzid = "Europe/Zurich",
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            scope = RecurrenceEditScope.ThisOccurrence,
+        )
+
+        // Addressing it in the master's form would match no VEVENT and leave the override behind.
+        val removal = assertIs<RemoteOverrideRemoval.Instances>(fakeCaldav.patches.single().overrideRemoval)
+        assertEquals(listOf("20260616T120000"), removal.recurrenceIds.map { it.value })
+        assertEquals(listOf("Europe/Zurich"), removal.recurrenceIds.map { it.tzid })
+    }
+
+    @Test
     fun deleteEvent_thisOccurrence_keepsTheRestOfTheSeriesUntouched() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://main")

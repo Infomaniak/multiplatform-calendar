@@ -131,6 +131,8 @@ private fun EventCalendarColorInRange.toTiming(zoneCache: MutableMap<String, Tim
     endTimeZone = endZoneId?.let { zoneCache.zoneOf(it) },
     isAllDay = isAllDay,
     recurrenceRule = rrule,
+    rDates = rDates,
+    exDates = exDates,
 )
 
 private fun MutableMap<String, TimeZone>.zoneOf(id: String): TimeZone = getOrPut(id) { TimeZone.of(id) }

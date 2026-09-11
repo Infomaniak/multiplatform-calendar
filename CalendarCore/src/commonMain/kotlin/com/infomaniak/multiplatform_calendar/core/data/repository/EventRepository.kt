@@ -35,6 +35,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -238,6 +243,48 @@ internal class EventRepository(
             caldavClient.deleteEvent(credentials, eventId.url, event.etag)
             eventDao.deleteEvent(eventId)
         }
+    }
+
+    /**
+     * Delete what [scope] designates of the series [occurrenceId] belongs to, the whole resource by
+     * default — which is also what a plain event, and a master reached by its id, can only mean.
+     */
+    suspend fun deleteEvent(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId,
+        scope: RecurrenceEditScope = RecurrenceEditScope.AllOccurrences,
+    ) {
+        when {
+            occurrenceId !is OccurrenceId.Recurrence -> deleteEvent(credentials, occurrenceId.masterId)
+            scope == RecurrenceEditScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
+            scope == RecurrenceEditScope.ThisOccurrence -> excludeOccurrence(credentials, occurrenceId)
+            else -> error("Scope $scope is not supported yet")
+        }
+    }
+
+    /**
+     * Exclude one occurrence from its series: its date joins the master's `EXDATE`, and the override
+     * redefining it — if any — is dropped in the very same PUT, so the resource never holds an
+     * instance the rule no longer generates.
+     */
+    private suspend fun excludeOccurrence(credentials: DavAccount, occurrenceId: OccurrenceId.Recurrence) {
+        val masterId = occurrenceId.masterId
+        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val editData = entity.toEditData()
+        val excluded = occurrenceId.recurrenceKey.toIcalDateValue(editData.timing) ?: return
+
+        val now = Clock.System.now().toICalUtcDateTime()
+        val patched = caldavClient.patchEventIcs(
+            previousIcs,
+            editData.toRemoteEdit(
+                stamp = now,
+                previous = entity,
+                exDates = DateListEdit.Set(entity.exDates + excluded),
+                droppedOverrides = listOf(occurrenceId.recurrenceKey),
+            ),
+        )
+        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
     }
 
     private suspend fun updateCrossCalendarEvent(

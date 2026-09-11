@@ -81,6 +81,11 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import kotlin.test.assertIs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -682,6 +687,118 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         assertEquals(emptySet(), colorsByDay.keys)
     }
+
+    @Test
+    fun deleteEvent_thisOccurrence_excludesTheDateAndDropsItsOverride() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0), movedTo = LocalDateTime(2026, 6, 19, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            scope = RecurrenceEditScope.ThisOccurrence,
+        )
+
+        val edit = fakeCaldav.patches.single()
+        val exDates = assertIs<RemoteDateListChange.Set>(edit.exDateChange)
+        assertEquals(listOf("20260616T100000Z"), exDates.lines.flatMap { it.values })
+        // The override redefining that instance goes in the same patch, or it would outlive its slot.
+        val removal = assertIs<RemoteOverrideRemoval.Instances>(edit.overrideRemoval)
+        assertEquals(listOf("20260616T100000Z"), removal.recurrenceIds.map { it.value })
+        assertEquals(emptyList(), fakeCaldav.deletes, "the resource itself must survive")
+    }
+
+    @Test
+    fun deleteEvent_thisOccurrence_keepsTheRestOfTheSeriesUntouched() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = rrule,
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            scope = RecurrenceEditScope.ThisOccurrence,
+        )
+
+        // Excluding a date must read as an edit that changes nothing else: the rule above all, which a
+        // rebuilt edit would otherwise clear.
+        val edit = fakeCaldav.patches.single()
+        assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange)
+        assertEquals("Daily recurring", edit.summary)
+        // The removal is asked for even with no override on record: another client may have written one
+        // this device has not synced yet, and dropping nothing is free.
+        val removal = assertIs<RemoteOverrideRemoval.Instances>(edit.overrideRemoval)
+        assertEquals(listOf("20260616T100000Z"), removal.recurrenceIds.map { it.value })
+    }
+
+    @Test
+    fun deleteEvent_allOccurrences_deletesTheWholeResource() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            scope = RecurrenceEditScope.AllOccurrences,
+        )
+
+        assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
+        assertEquals(emptyList(), fakeCaldav.patches)
+        assertNull(database.eventDao().getEvent(master.id))
+    }
+
+    @Test
+    fun deleteEvent_onAMasterId_deletesTheWholeResourceWhateverTheScope() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        // A master designates no instance, so there is nothing to exclude: only the series as a whole.
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = OccurrenceId.Master(master.id),
+            scope = RecurrenceEditScope.ThisOccurrence,
+        )
+
+        assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
+    }
+
+    private fun occurrenceOf(masterId: EventId, start: LocalDateTime) = OccurrenceId.Recurrence(
+        masterId = masterId,
+        recurrenceKey = RecurrenceKey.Utc(start.toInstant(TimeZone.UTC)),
+    )
 
     private fun recurringColorMaster(
         eventId: EventId,
@@ -1317,6 +1434,7 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
     var applyEdit: ((base: RemoteDavEvent, edit: RemoteEventEdit) -> RemoteDavEvent)? = null
     val creates = mutableListOf<Pair<String, String>>()
     val deletes = mutableListOf<Pair<String, String>>()
+    val patches = mutableListOf<RemoteEventEdit>()
 
     override suspend fun discoverCalendars(credentials: DavAccount) = emptyList<RemoteDavCalendar>()
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
@@ -1332,8 +1450,10 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
     override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
         emptyList<RemoteDavEvent>()
 
-    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) =
-        applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+    override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): RemoteDavEvent {
+        patches += edit
+        return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+    }
 
     override suspend fun buildEventIcs(edit: RemoteEventEdit) =
         applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent

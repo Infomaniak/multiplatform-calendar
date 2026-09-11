@@ -284,10 +284,17 @@ internal class EventRepository(
         master: Event,
         recurrenceKey: RecurrenceKey,
         timeZone: TimeZone,
-    ): Event {
-        if (master.timing.recurrenceRule == null && master.timing.rDates.isEmpty()) return master
+    ): Event? {
+        if (master.timing.recurrenceRule == null && master.timing.rDates.isEmpty()) {
+            crashReport.capture(
+                message = "Asked to resolve a rule occurrence for a non-recurring event ${master.masterEventId.url}",
+                data = mapOf("masterId" to master.masterEventId.url, "recurrenceKey" to recurrenceKey.canonical),
+                level = CrashReportLevel.Fatal,
+            )
+            return null
+        }
 
-        val startLocal = recurrenceKey.toLocalStart(master.timing, timeZone) ?: return master
+        val startLocal = recurrenceKey.toLocalStart(master.timing, timeZone) ?: return null
         val masterTiming = MasterTiming.of(master.timing, timeZone)
         val startInstant = when (recurrenceKey) {
             is RecurrenceKey.Utc -> recurrenceKey.instant
@@ -301,7 +308,6 @@ internal class EventRepository(
                 rangeEnd = startInstant + 1.seconds,
                 timeZone = timeZone,
             ).firstOrNull { it.occurrenceId == matchingOccurrenceId }
-            ?: master
     }
 }
 

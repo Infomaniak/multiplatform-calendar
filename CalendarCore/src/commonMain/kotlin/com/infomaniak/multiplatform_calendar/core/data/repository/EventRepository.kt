@@ -296,6 +296,7 @@ internal class EventRepository(
         val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
         val editData = entity.toEditData()
         val excluded = occurrenceId.recurrenceKey.toIcalDateValue(editData.timing) ?: return
+        val overrides = eventDao.getOverridesOf(masterId)
 
         val now = Clock.System.now().toICalUtcDateTime()
         val patched = caldavClient.patchEventIcs(
@@ -305,6 +306,7 @@ internal class EventRepository(
                 previous = entity,
                 exDates = DateListEdit.Set(entity.exDates + excluded),
                 droppedOverrides = listOf(occurrenceId.recurrenceKey),
+                knownOverrides = overrides,
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
@@ -327,6 +329,7 @@ internal class EventRepository(
         val zone = TimeZone.currentSystemDefault()
         val pivotStart = occurrenceId.recurrenceKey.toLocalStart(timing, zone) ?: return
 
+        val overrides = eventDao.getOverridesOf(masterId)
         val truncatedRule = timing.truncateRuleBefore(pivotStart, zone)
         if (truncatedRule == null && timing.recurrenceRule != null) return deleteEvent(credentials, masterId)
 
@@ -338,9 +341,10 @@ internal class EventRepository(
                 previous = entity,
                 exDates = DateListEdit.Set(timing.exDates.filter { it.startsBefore(pivotStart, timing) }),
                 rDates = DateListEdit.Set(timing.rDates.filter { it.startsBefore(pivotStart, timing) }),
-                droppedOverrides = eventDao.getOverridesOf(masterId)
+                droppedOverrides = overrides
                     .map(EventOverrideEntity::recurrenceKey)
                     .filterNot { it.startsBefore(pivotStart, timing) },
+                knownOverrides = overrides,
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)

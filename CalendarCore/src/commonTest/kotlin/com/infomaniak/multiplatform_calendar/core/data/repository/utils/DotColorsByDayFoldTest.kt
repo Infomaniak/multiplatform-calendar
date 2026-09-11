@@ -263,6 +263,34 @@ class DotColorsByDayFoldTest {
         assertEquals(listOf(blue, green), result.sourceColorsOn(movedTo))
     }
 
+    @Test
+    fun foldToDailyDotColors_identifiesEachDotByItsCalendarAndColor() = runTest {
+        val rows = listOf(
+            row(eventId = "event://inherited-08", calendarId = "calendar://a", calendarColor = blue, startHour = 8, endHour = 9),
+            row(
+                eventId = "event://recolored-10",
+                calendarId = "calendar://a",
+                calendarColor = blue,
+                eventColor = red,
+                startHour = 10,
+                endHour = 11,
+            ),
+            row(eventId = "event://other-12", calendarId = "calendar://b", calendarColor = blue, startHour = 12, endHour = 13),
+        )
+
+        val result = rows.foldToDailyDotColors(
+            rangeStart = dayStart.toInstant(utc),
+            rangeEnd = dayEnd.toInstant(utc),
+            timeZone = utc,
+        )
+
+        // Two dots of the same color are told apart by their calendar, two colors of one calendar by their color.
+        assertEquals(
+            listOf("calendar://a#$blue", "calendar://a#$red", "calendar://b#$blue"),
+            result.getValue(dayStart.date).map { it.id }.sorted(),
+        )
+    }
+
     private fun Map<LocalDate, List<DotColor>>.sourceColorsOn(dateTime: LocalDateTime): List<Int> {
         return getValue(dateTime.date).map { it.sourceColor }
     }

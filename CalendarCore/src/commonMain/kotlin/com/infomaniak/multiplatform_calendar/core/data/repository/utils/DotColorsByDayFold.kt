@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
@@ -49,7 +48,7 @@ import kotlin.time.Instant
  * (in [timeZone]).
  *
  * Only days that actually own events are kept; each maps to the [DotColor] entries of that day, reduced per
- * calendar **and** per color (see [DotKey]). Non-recurring rows are handled as direct spans; recurring masters
+ * calendar **and** per color (see [DotColor]). Non-recurring rows are handled as direct spans; recurring masters
  * are expanded into occurrences (same expander as planning) and then each occurrence span is folded by day.
  * This keeps RRULE parity with the planning day-slice flow while staying lightweight (projection rows only, no
  * full domain event graph).
@@ -86,7 +85,7 @@ internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
     for (row in this@foldToDailyDotColors) {
         currentCoroutineContext().ensureActive()
 
-        val dotKey = DotKey(row.calendarId, DotColor.from(row.eventColorArgb, row.calendarColorArgb))
+        val dotColor = DotColor.of(row.calendarId, row.eventColorArgb, row.calendarColorArgb)
         val timing = row.toTiming(zoneCache)
 
         occurrences.clear()
@@ -100,12 +99,12 @@ internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
             onExpansionTruncated = onExpansionTruncated,
         )
         if (!hasRecurringExpansion) {
-            dotOrderByDay.recordPlainEvent(row, timing, dotKey, visibleDays, timeZone)
+            dotOrderByDay.recordPlainEvent(row, timing, dotColor, visibleDays, timeZone)
             continue
         }
 
         val overriddenKeys = row.overrides.mapTo(HashSet()) { it.recurrenceKey.canonical }
-        dotOrderByDay.recordRuleOccurrences(row, occurrences, overriddenKeys, dotKey, visibleDays, timeZone)
+        dotOrderByDay.recordRuleOccurrences(row, occurrences, overriddenKeys, dotColor, visibleDays, timeZone)
         dotOrderByDay.recordOverriddenInstances(
             row = row,
             seriesEnd = SeriesEndFilter.of(timing, timeZone),
@@ -139,7 +138,7 @@ private fun MutableMap<String, TimeZone>.zoneOf(id: String): TimeZone = getOrPut
 private fun DotOrderByDay.recordPlainEvent(
     row: EventDotColorInRange,
     timing: EventTiming,
-    dotKey: DotKey,
+    dotColor: DotColor,
     visibleDays: ClosedRange<LocalDate>,
     timeZone: TimeZone,
 ) {
@@ -147,7 +146,7 @@ private fun DotOrderByDay.recordPlainEvent(
         start = timing.start.projectInto(timing.startTimeZone, timeZone),
         end = timing.end.projectInto(timing.endTimeZone, timeZone),
         visibleDays = visibleDays,
-        dotKey = dotKey,
+        dotColor = dotColor,
         isAllDay = row.isAllDay,
         occurrenceSortId = row.eventId.url,
     )
@@ -161,7 +160,7 @@ private suspend fun DotOrderByDay.recordRuleOccurrences(
     row: EventDotColorInRange,
     occurrences: List<Occurrence>,
     overriddenKeys: Set<String>,
-    dotKey: DotKey,
+    dotColor: DotColor,
     visibleDays: ClosedRange<LocalDate>,
     timeZone: TimeZone,
 ) {
@@ -172,7 +171,7 @@ private suspend fun DotOrderByDay.recordRuleOccurrences(
             start = occurrence.start.projectInto(occurrence.startTimeZone, timeZone),
             end = occurrence.end.projectInto(occurrence.endTimeZone, timeZone),
             visibleDays = visibleDays,
-            dotKey = dotKey,
+            dotColor = dotColor,
             isAllDay = occurrence.isAllDay,
             occurrenceSortId = OccurrenceId.Recurrence(row.eventId, occurrence.key).value,
         )
@@ -215,7 +214,7 @@ private suspend fun DotOrderByDay.recordOverriddenInstances(
             start = start,
             end = end,
             visibleDays = visibleDays,
-            dotKey = DotKey(row.calendarId, DotColor.from(override.colorArgb, row.calendarColorArgb)),
+            dotColor = DotColor.of(row.calendarId, override.colorArgb, row.calendarColorArgb),
             isAllDay = override.isAllDay,
             occurrenceSortId = OccurrenceId.Recurrence(row.eventId, override.recurrenceKey).value,
         )
@@ -223,26 +222,18 @@ private suspend fun DotOrderByDay.recordOverriddenInstances(
 }
 
 /**
- * Step 2 (final ordering): each day now holds one key per calendar+color pair, the earliest event carrying
- * that pair. Sort on it so the output mirrors planning's per-day event order.
+ * Step 2 (final ordering): each day now holds one key per dot, the earliest event carrying it. Sort on it
+ * so the output mirrors planning's per-day event order, [DotColor.id] breaking the ties.
  */
 private fun DotOrderByDay.toDotColorsByDay(): Map<LocalDate, List<DotColor>> {
-    return mapValues { (_, sortKeyByDotKey) ->
-        sortKeyByDotKey.entries
-            .sortedWith(
-                compareBy<Map.Entry<DotKey, DayColorSortKey>>(
-                    { it.value },
-                    { it.key.calendarId.url },
-                    { it.key.dotColor.sourceColor },
-                ),
-            ).map { (dotKey, _) -> dotKey.dotColor }
+    return mapValues { (_, sortKeyByDot) ->
+        sortKeyByDot.entries
+            .sortedWith(compareBy({ it.value }, { it.key.id }))
+            .map { (dotColor, _) -> dotColor }
     }
 }
 
-private typealias DotOrderByDay = MutableMap<LocalDate, MutableMap<DotKey, DayColorSortKey>>
-
-/** What a single dot stands for: one color *of one calendar*, so equal colors of two calendars are two dots. */
-private data class DotKey(val calendarId: CalendarId, val dotColor: DotColor)
+private typealias DotOrderByDay = MutableMap<LocalDate, MutableMap<DotColor, DayColorSortKey>>
 
 private data class DayColorSortKey(
     val isAllDay: Boolean,
@@ -262,14 +253,14 @@ private data class DayColorSortKey(
 }
 
 /**
- * Record [dotKey] on every visible day the `[start, end]` span covers, keying the first day on the
+ * Record [dotColor] on every visible day the `[start, end]` span covers, keying the first day on the
  * event itself and the following ones on midnight.
  */
 private fun DotOrderByDay.recordCoveredDays(
     start: LocalDateTime,
     end: LocalDateTime,
     visibleDays: ClosedRange<LocalDate>,
-    dotKey: DotKey,
+    dotColor: DotColor,
     isAllDay: Boolean,
     occurrenceSortId: String,
 ) {
@@ -284,12 +275,12 @@ private fun DotOrderByDay.recordCoveredDays(
         val displayStart = if (day == firstDay) start else LocalDateTime(day, MIDNIGHT)
         val sortKey = DayColorSortKey(isAllDay, displayStart, occurrenceSortId)
 
-        val sortKeyByDotKey = getOrPut(day) { LinkedHashMap() }
-        val previous = sortKeyByDotKey[dotKey]
+        val sortKeyByDot = getOrPut(day) { LinkedHashMap() }
+        val previous = sortKeyByDot[dotColor]
         // Step 1 (per-calendar+color reduction): a day can contain multiple events sharing a dot.
         // Keep only the earliest event key for that dot (min sort key), because this key drives
         // the final per-day ordering once all events have been folded.
-        if (previous == null || sortKey < previous) sortKeyByDotKey[dotKey] = sortKey
+        if (previous == null || sortKey < previous) sortKeyByDot[dotColor] = sortKey
 
         day = day.plus(1, DateTimeUnit.DAY)
     }

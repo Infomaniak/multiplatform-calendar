@@ -21,6 +21,8 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.EventRecurrenceState
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 import kotlin.time.ExperimentalTime
@@ -50,4 +52,18 @@ public data class Event(
     val colors: EventColors,
     val canEdit: Boolean,
     val alarms: List<EventAlarm> = emptyList(),
-)
+) {
+    /**
+     * Derived rather than stored, because an occurrence is built by copying its master and swapping
+     * [occurrenceId] and [timing]: a stored value would keep saying `Master` on every occurrence.
+     *
+     * [timing] alone cannot answer this. An occurrence keeps the rule it was generated from, and an
+     * override carries none at all, so both would be misread. [occurrenceId] is what actually knows.
+     */
+    val recurrence: EventRecurrenceState
+        get() = when {
+            occurrenceId is OccurrenceId.Recurrence -> EventRecurrenceState.Occurrence
+            timing.hasRecurrenceSet() -> EventRecurrenceState.Master
+            else -> EventRecurrenceState.None
+        }
+}

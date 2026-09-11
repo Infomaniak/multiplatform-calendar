@@ -38,6 +38,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
@@ -57,14 +58,18 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 /**
- * [exDates]/[rDates] stay out of [EventEditData] on purpose — only occurrence-level operations touch a
- * series' recurrence set, so a plain edit leaves it alone (see [DateListEdit]).
+ * [exDates]/[rDates]/[droppedOverrides] stay out of [EventEditData] on purpose — only occurrence-level
+ * operations touch a series' recurrence set, so a plain edit leaves it alone (see [DateListEdit]).
+ *
+ * [droppedOverrides] travels with the patch rather than in a call of its own so a series is never
+ * left, between two requests, with overrides its rule no longer generates.
  */
 internal fun EventEditData.toRemoteEdit(
     stamp: String,
     previous: EventEntity?,
     exDates: DateListEdit = DateListEdit.Preserve,
     rDates: DateListEdit = DateListEdit.Preserve,
+    droppedOverrides: List<RecurrenceKey> = emptyList(),
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -83,9 +88,19 @@ internal fun EventEditData.toRemoteEdit(
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
         exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
         rDateChange = timing.resolveDateListChange(rDates, previous, previous?.rDates),
+        overrideRemoval = droppedOverrides.toOverrideRemoval(timing),
         alarms = resolveAlarmEdits(alarms, previous?.content?.alarms.orEmpty()),
         stamp = stamp,
     )
+}
+
+/**
+ * The overrides to drop, expressed against [timing] like [toRemoteRecurrenceId] requires. A key that
+ * designates no occurrence of the master is left out: it can match no override either.
+ */
+private fun List<RecurrenceKey>.toOverrideRemoval(timing: EventTiming): RemoteOverrideRemoval = when {
+    isEmpty() -> RemoteOverrideRemoval.Unchanged
+    else -> RemoteOverrideRemoval.Instances(mapNotNull { it.toRemoteRecurrenceId(timing) })
 }
 
 private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteColorChange = when {

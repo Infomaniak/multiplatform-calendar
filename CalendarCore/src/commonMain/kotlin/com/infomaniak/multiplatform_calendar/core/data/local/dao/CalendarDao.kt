@@ -26,6 +26,7 @@ import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.SyncErrorReason
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -51,6 +52,18 @@ internal interface CalendarDao {
 
     @Query("UPDATE calendars SET syncToken = :syncToken WHERE id = :calendarId")
     suspend fun updateSyncToken(calendarId: CalendarId, syncToken: String?)
+
+    @Query(
+        "UPDATE calendars SET lastSyncedAtMs = :syncedAtMs, lastSyncAttemptAtMs = :syncedAtMs, " +
+            "lastSyncError = NULL WHERE id = :calendarId"
+    )
+    suspend fun updateSyncSuccess(calendarId: CalendarId, syncedAtMs: Long)
+
+    @Query(
+        "UPDATE calendars SET lastSyncAttemptAtMs = :attemptedAtMs, lastSyncError = :reason " +
+            "WHERE id = :calendarId"
+    )
+    suspend fun updateSyncFailure(calendarId: CalendarId, attemptedAtMs: Long, reason: SyncErrorReason)
 
     @Upsert
     suspend fun upsert(calendars: List<CalendarEntity>)

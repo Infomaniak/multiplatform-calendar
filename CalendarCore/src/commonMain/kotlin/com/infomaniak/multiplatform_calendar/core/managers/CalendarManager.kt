@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
@@ -229,6 +230,22 @@ public class CalendarManager internal constructor(
             val accountId = eventRepository.getAccountIdByEventId(eventId)
             val credentials = accountRepository.getCredentials(accountId)
             eventRepository.deleteEvent(credentials, eventId)
+        }
+    }
+
+    /**
+     * Delete what [scope] designates of the occurrence [occurrenceId] identifies, as offered by
+     * [recurrenceScopes][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.recurrenceScopes].
+     */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun deleteEvent(
+        occurrenceId: OccurrenceId,
+        scope: RecurrenceEditScope = RecurrenceEditScope.AllOccurrences,
+    ): Unit = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "delete $scope of event $occurrenceId") {
+            val accountId = eventRepository.getAccountIdByEventId(occurrenceId.masterId)
+            val credentials = accountRepository.getCredentials(accountId)
+            eventRepository.deleteEvent(credentials, occurrenceId, scope)
         }
     }
 

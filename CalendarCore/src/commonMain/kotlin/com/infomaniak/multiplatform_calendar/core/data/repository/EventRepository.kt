@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
@@ -33,13 +34,16 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -57,6 +61,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -203,6 +208,26 @@ internal class EventRepository(
         )
     }
 
+    fun observeEvent(
+        occurrenceId: OccurrenceId,
+        timeZone: TimeZone,
+    ): Flow<Event?> {
+        return observeEventWithOverrides(occurrenceId.masterId).map { eventWithOverrides ->
+            val master = eventWithOverrides?.master ?: return@map null
+            when (occurrenceId) {
+                is OccurrenceId.Master -> master
+                is OccurrenceId.Recurrence -> {
+                    val override = eventWithOverrides.overridesByOccurrenceKey[occurrenceId.recurrenceKey]
+                    override ?: resolveRuleOccurrence(
+                        master = master,
+                        recurrenceKey = occurrenceId.recurrenceKey,
+                        timeZone = timeZone,
+                    )
+                }
+            }
+        }
+    }
+
     fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventDao.observeEventWithCalendar(eventId).map(EventWithCalendarEntity?::toDomainEvent)
     }
@@ -249,6 +274,34 @@ internal class EventRepository(
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, patched.icsData)
         deleteEvent(credentials, eventId)
         eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
+    }
+
+    private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides?> {
+        return eventDao.observeEventWithCalendar(eventId).map { relation -> relation?.toDomainEventWithOverrides() }
+    }
+
+    private suspend fun resolveRuleOccurrence(
+        master: Event,
+        recurrenceKey: RecurrenceKey,
+        timeZone: TimeZone,
+    ): Event {
+        if (master.timing.recurrenceRule == null && master.timing.rDates.isEmpty()) return master
+
+        val startLocal = recurrenceKey.toLocalStart(master.timing, timeZone) ?: return master
+        val masterTiming = MasterTiming.of(master.timing, timeZone)
+        val startInstant = when (recurrenceKey) {
+            is RecurrenceKey.Utc -> recurrenceKey.instant
+            else -> masterTiming.resolvedStartInstant(startLocal)
+        }
+
+        val matchingOccurrenceId = OccurrenceId.Recurrence(master.masterEventId, recurrenceKey)
+        return listOf(EventWithOverrides(master = master))
+            .expandRecurrencesInWindow(
+                rangeStart = startInstant,
+                rangeEnd = startInstant + 1.seconds,
+                timeZone = timeZone,
+            ).firstOrNull { it.occurrenceId == matchingOccurrenceId }
+            ?: master
     }
 }
 

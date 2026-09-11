@@ -28,6 +28,10 @@ internal fun List<EventWithCalendarEntity>.toDomainEventsWithOverrides(): List<E
     return map { it.toDomainEventWithOverrides(calendarsDomains) }
 }
 
+internal fun EventWithCalendarEntity.toDomainEventWithOverrides(): EventWithOverrides {
+    return toDomainEventWithOverrides(mutableMapOf())
+}
+
 private fun EventWithCalendarEntity.toDomainEventWithOverrides(
     calendarsDomains: MutableMap<CalendarId, Calendar>,
 ): EventWithOverrides {

@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
@@ -122,6 +123,15 @@ public class CalendarManager internal constructor(
         }
     }
 
+    public fun observeEvent(
+        occurrenceId: OccurrenceId,
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<Event?> {
+        return sdkCaller.flow(operation = "observe event $occurrenceId") {
+            eventRepository.observeEvent(occurrenceId, timeZone)
+        }
+    }
+
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "sync events for all accounts") {
@@ -181,12 +191,6 @@ public class CalendarManager internal constructor(
             val accountId = eventRepository.getAccountIdByEventId(eventId)
             val credentials = accountRepository.getCredentials(accountId)
             eventRepository.deleteEvent(credentials, eventId)
-        }
-    }
-
-    public fun observeEvent(eventId: EventId): Flow<Event?> {
-        return sdkCaller.flow(operation = "observe event $eventId") {
-            eventRepository.observeEvent(eventId)
         }
     }
 

@@ -38,3 +38,9 @@ internal fun recurrenceScopesFor(
     !isOccurrence -> emptySet()
     else -> setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences)
 }
+
+/** [recurrenceScopesFor] minus [ThisAndFollowing], which no edit honours until a split exists. */
+internal fun editScopesFor(
+    isOccurrence: Boolean,
+    canEdit: Boolean,
+): Set<RecurrenceScope> = recurrenceScopesFor(isOccurrence, canEdit) - ThisAndFollowing

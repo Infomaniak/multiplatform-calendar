@@ -48,4 +48,18 @@ class RecurrenceScopesTest {
             )
         }
     }
+
+    @Test
+    fun editScopes_dropThisAndFollowing() {
+        assertEquals(
+            setOf(ThisOccurrence, AllOccurrences),
+            editScopesFor(isOccurrence = true, canEdit = true),
+        )
+    }
+
+    @Test
+    fun editScopes_areEmptyWhereTheGeneralOnesAre() {
+        assertEquals(emptySet(), editScopesFor(isOccurrence = false, canEdit = true))
+        assertEquals(emptySet(), editScopesFor(isOccurrence = true, canEdit = false))
+    }
 }

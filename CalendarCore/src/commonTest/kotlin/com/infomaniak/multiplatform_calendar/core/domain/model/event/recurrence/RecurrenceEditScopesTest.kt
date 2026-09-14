@@ -53,4 +53,25 @@ class RecurrenceEditScopesTest {
         // A new state must be given a row above, not fall into the "not an occurrence" branch.
         assertEquals(setOf(None, Master, Occurrence), EventRecurrenceState.entries.toSet())
     }
+
+    @Test
+    fun editScopes_matchTheirState() {
+        val cases = mapOf(
+            None to emptySet(),
+            Master to emptySet(),
+            // No ThisAndFollowing: splitting a series in two is not implemented yet.
+            Occurrence to setOf(ThisOccurrence, AllOccurrences),
+        )
+
+        cases.forEach { (recurrence, expected) ->
+            assertEquals(expected, editScopesFor(recurrence, canEdit = true), "for $recurrence")
+        }
+    }
+
+    @Test
+    fun editScopes_areEmptyOnAReadOnlyCalendar() {
+        EventRecurrenceState.entries.forEach { recurrence ->
+            assertEquals(emptySet(), editScopesFor(recurrence, canEdit = false), "for $recurrence")
+        }
+    }
 }

@@ -39,3 +39,17 @@ internal fun deleteScopesFor(
     recurrence != Occurrence -> emptySet()
     else -> setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences)
 }
+
+/**
+ * Which scopes a user may pick from before editing. Reads like [deleteScopesFor], minus
+ * [ThisAndFollowing]: splitting a series in two is not implemented yet, so offering it would let a
+ * user pick a scope no operation honours.
+ */
+internal fun editScopesFor(
+    recurrence: EventRecurrenceState,
+    canEdit: Boolean,
+): Set<RecurrenceEditScope> = when {
+    !canEdit -> emptySet()
+    recurrence != Occurrence -> emptySet()
+    else -> setOf(ThisOccurrence, AllOccurrences)
+}

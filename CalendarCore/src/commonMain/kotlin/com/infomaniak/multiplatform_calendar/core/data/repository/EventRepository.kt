@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventCalendarColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
@@ -33,12 +34,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleCalendarColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -203,6 +206,24 @@ internal class EventRepository(
         )
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeOccurrence(
+        occurrenceId: OccurrenceId,
+        timeZone: TimeZone,
+    ): Flow<Event?> {
+        return when (occurrenceId) {
+            is OccurrenceId.Master -> observeEvent(occurrenceId.masterId)
+            is OccurrenceId.Recurrence -> observeEventWithOverrides(occurrenceId.masterId).mapLatest { eventWithOverrides ->
+                eventWithOverrides?.resolveOccurrence(
+                    occurrenceId = occurrenceId,
+                    timeZone = timeZone,
+                    onExpansionTruncated = ::logTruncatedExpansion,
+                    onOrphanOverrideDropped = ::logOrphanOverride,
+                )
+            }.flowOn(Dispatchers.Default)
+        }
+    }
+
     fun observeEvent(eventId: EventId): Flow<Event?> {
         return eventDao.observeEventWithCalendar(eventId).map(EventWithCalendarEntity?::toDomainEvent)
     }
@@ -250,5 +271,8 @@ internal class EventRepository(
         deleteEvent(credentials, eventId)
         eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
     }
-}
 
+    private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides?> {
+        return eventDao.observeEventWithCalendar(eventId).map { relation -> relation?.toDomainEventWithOverrides() }
+    }
+}

@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
@@ -39,9 +40,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRol
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -69,7 +70,9 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
@@ -262,6 +265,237 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val days = slicesByDay.values.flatten().map { it.event.timing.start.date }
         assertEquals(4, days.size, "a cancelled override deletes its occurrence")
         assertTrue(LocalDateTime(2026, 6, 17, 0, 0).date !in days, "and it is the overridden day that disappears")
+    }
+
+    @Test
+    fun observeOccurrence_withMasterIdReturnsMaster() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = dailyMasterEntity(EventId("event://master-occurrence"), calendarId)
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val observed = repository.observeOccurrence(
+            occurrenceId = OccurrenceId.Master(master.id),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(OccurrenceId.Master(master.id), observed?.occurrenceId)
+        assertEquals(master.content.summary, observed?.title)
+    }
+
+    @Test
+    fun observeOccurrence_emitsNullWhenSeriesBecomesNonRecurring() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = dailyMasterEntity(EventId("event://series-to-plain"), calendarId)
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val requested = OccurrenceId.Recurrence(
+            masterId = master.id,
+            recurrenceKey = RecurrenceKey.Utc(LocalDateTime(2026, 6, 17, 10, 0).toInstant(TimeZone.UTC)),
+        )
+
+        val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
+        val job = backgroundScope.launch {
+            repository.observeOccurrence(requested, TimeZone.UTC).collect { event ->
+                emissions += event
+                if (emissions.size == 1) {
+                    eventDao().upsert(
+                        listOf(
+                            EventWithRawIcs(master.copy(rrule = null, hasRecurrence = false, recurrenceBounds = null), ""),
+                        ),
+                    )
+                } else if (emissions.size == 2) {
+                    cancel()
+                }
+            }
+        }
+        job.join()
+
+        assertEquals(requested, emissions.first()?.occurrenceId)
+        assertNull(emissions[1], "a stale recurrence id must resolve to null, never to the master")
+    }
+
+    @Test
+    fun observeOccurrence_emitsNullWhenRuleNoLongerContainsOccurrence() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val initial = dailyMasterEntity(EventId("event://rule-shrinks"), calendarId).copy(
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 10),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(initial, "")))
+
+        val requested = OccurrenceId.Recurrence(
+            masterId = initial.id,
+            recurrenceKey = RecurrenceKey.Utc(LocalDateTime(2026, 6, 22, 10, 0).toInstant(TimeZone.UTC)),
+        )
+
+        val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
+        val job = backgroundScope.launch {
+            repository.observeOccurrence(requested, TimeZone.UTC).collect { event ->
+                emissions += event
+                if (emissions.size == 1) {
+                    val eventCopy = initial.copy(rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+                    eventDao().upsert(listOf(EventWithRawIcs(eventCopy, "")))
+                } else if (emissions.size == 2) {
+                    cancel()
+                }
+            }
+        }
+        job.join()
+
+        assertEquals(requested, emissions.first()?.occurrenceId)
+        assertNull(emissions[1], "when the slot disappears from RRULE, observeOccurrence must emit null")
+    }
+
+    @Test
+    fun observeOccurrence_switchesFromGeneratedOccurrenceToOverride() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = dailyMasterEntity(EventId("event://override-add"), calendarId)
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val keyStart = LocalDateTime(2026, 6, 17, 10, 0)
+        val requested = OccurrenceId.Recurrence(master.id, RecurrenceKey.Utc(keyStart.toInstant(TimeZone.UTC)))
+
+        val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
+        val job = backgroundScope.launch {
+            repository.observeOccurrence(requested, TimeZone.UTC).collect { event ->
+                emissions += event
+                if (emissions.size == 1) {
+                    val override =
+                        overrideEntity(master.id, originalStart = keyStart, movedTo = LocalDateTime(2026, 6, 17, 15, 0))
+                    eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+                } else if (emissions.size == 2) {
+                    cancel()
+                }
+            }
+        }
+        job.join()
+
+        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[0]?.timing?.start)
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[1]?.timing?.start)
+        assertEquals(requested, emissions[1]?.occurrenceId)
+    }
+
+    @Test
+    fun observeOccurrence_emitsNullWhenOverrideBecomesCancelled() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = dailyMasterEntity(EventId("event://override-cancel"), calendarId)
+        val slot = LocalDateTime(2026, 6, 17, 10, 0)
+        val initialOverride = overrideEntity(master.id, originalStart = slot)
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(initialOverride))))
+
+        val requested = OccurrenceId.Recurrence(master.id, RecurrenceKey.Utc(slot.toInstant(TimeZone.UTC)))
+
+        val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
+        val job = backgroundScope.launch {
+            repository.observeOccurrence(requested, TimeZone.UTC).collect { event ->
+                emissions += event
+                if (emissions.size == 1) {
+                    val cancelled = overrideEntity(master.id, originalStart = slot, status = EventStatus.CANCELLED)
+                    eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(cancelled))))
+                } else if (emissions.size == 2) {
+                    cancel()
+                }
+            }
+        }
+        job.join()
+
+        assertEquals(requested, emissions[0]?.occurrenceId)
+        assertNull(emissions[1])
+    }
+
+    @Test
+    fun observeOccurrence_fallsBackToGeneratedOccurrenceWhenOverrideIsRemoved() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = dailyMasterEntity(EventId("event://override-removed"), calendarId)
+        val slot = LocalDateTime(2026, 6, 17, 10, 0)
+        val initialOverride = overrideEntity(master.id, originalStart = slot, movedTo = LocalDateTime(2026, 6, 17, 15, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(initialOverride))))
+
+        val requested = OccurrenceId.Recurrence(master.id, RecurrenceKey.Utc(slot.toInstant(TimeZone.UTC)))
+
+        val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
+        val job = backgroundScope.launch {
+            repository.observeOccurrence(requested, TimeZone.UTC).collect { event ->
+                emissions += event
+                if (emissions.size == 1) {
+                    eventDao().upsert(listOf(EventWithRawIcs(master, "", emptyList())))
+                } else if (emissions.size == 2) {
+                    cancel()
+                }
+            }
+        }
+        job.join()
+
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[0]?.timing?.start)
+        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[1]?.timing?.start)
+        assertEquals(requested, emissions[1]?.occurrenceId)
+    }
+
+    @Test
+    fun observeOccurrence_emitsNullWhenMasterIsDeleted() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = dailyMasterEntity(EventId("event://deleted-master"), calendarId)
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val requested = OccurrenceId.Recurrence(
+            master.id,
+            RecurrenceKey.Utc(LocalDateTime(2026, 6, 17, 10, 0).toInstant(TimeZone.UTC)),
+        )
+
+        val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
+        val job = backgroundScope.launch {
+            repository.observeOccurrence(requested, TimeZone.UTC).collect { event ->
+                emissions += event
+                if (emissions.size == 1) {
+                    eventDao().deleteEvent(master.id)
+                } else if (emissions.size == 2) {
+                    cancel()
+                }
+            }
+        }
+        job.join()
+
+        assertEquals(requested, emissions[0]?.occurrenceId)
+        assertNull(emissions[1])
+    }
+
+    @Test
+    fun observeEvent_eventIdPathStillReturnsMasterAndThenNullOnDelete() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = dailyMasterEntity(EventId("event://legacy-event-id"), calendarId)
+        eventDao().upsert(listOf(EventWithRawIcs(master, "")))
+
+        val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
+        val job = backgroundScope.launch {
+            repository.observeEvent(master.id).collect { event ->
+                emissions += event
+                if (emissions.size == 1) {
+                    eventDao().deleteEvent(master.id)
+                } else if (emissions.size == 2) {
+                    cancel()
+                }
+            }
+        }
+        job.join()
+
+        assertEquals(OccurrenceId.Master(master.id), emissions[0]?.occurrenceId)
+        assertNull(emissions[1])
     }
 
     private fun dailyMasterEntity(eventId: EventId, calendarId: CalendarId): EventEntity {
@@ -509,7 +743,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         )
-        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0), movedTo = LocalDateTime(2026, 6, 19, 10, 0))
+        val override = overrideEntity(
+            master.id,
+            originalStart = LocalDateTime(2026, 6, 16, 10, 0),
+            movedTo = LocalDateTime(2026, 6, 19, 10, 0),
+        )
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val colorsByDay = repository.observeVisibleCalendarColorsByDay(
@@ -544,7 +782,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         )
-        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0), movedTo = LocalDateTime(2026, 8, 20, 10, 0))
+        val override = overrideEntity(
+            master.id,
+            originalStart = LocalDateTime(2026, 6, 16, 10, 0),
+            movedTo = LocalDateTime(2026, 8, 20, 10, 0),
+        )
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val colorsByDay = repository.observeVisibleCalendarColorsByDay(
@@ -699,7 +941,13 @@ class EventRepositoryTest : RobolectricTestsBase() {
             ),
             rrule = rrule,
             hasRecurrence = true,
-            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
+            recurrenceBounds = checkNotNull(
+                toRecurrenceBoundsEntity(
+                    timing = timing,
+                    recurrenceRule = rrule,
+                    rDates = emptyList(),
+                ),
+            ),
             etag = "1",
         )
     }

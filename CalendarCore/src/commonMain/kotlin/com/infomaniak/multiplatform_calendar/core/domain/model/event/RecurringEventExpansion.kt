@@ -123,17 +123,14 @@ internal suspend fun EventWithOverrides.resolveOccurrence(
     val recurrenceKey = occurrenceId.recurrenceKey
 
     overridesByOccurrenceKey[recurrenceKey]?.let { override ->
-        // Same behaviour as addOverriddenInstances().
-        if (override.status == EventStatus.CANCELLED) return null
-
-        val seriesEnd = SeriesEndFilter.of(master = master.timing, timeZone = timeZone)
-
-        if (seriesEnd?.isOrphan(recurrenceKey) == true) {
-            onOrphanOverrideDropped(master.masterEventId, recurrenceKey)
-            return null
+        return override.takeIf {
+            master.shouldIncludeOverride(
+                override = it,
+                recurrenceKey = recurrenceKey,
+                seriesEnd = { SeriesEndFilter.of(master = master.timing, timeZone = timeZone) },
+                onOrphanOverrideDropped = onOrphanOverrideDropped,
+            )
         }
-
-        return override
     }
 
     return master.resolveRuleOccurrence(
@@ -216,13 +213,32 @@ private suspend fun MutableList<Event>.addOverriddenInstances(
 
     for ((slot, override) in overrides) {
         currentCoroutineContext().ensureActive()
-        if (override.status == EventStatus.CANCELLED) continue
-        if (seriesEnd?.isOrphan(slot) == true) {
-            onOrphanOverrideDropped(master.masterEventId, slot)
-            continue
-        }
+        val shouldIncludeOverride = master.shouldIncludeOverride(
+            override = override,
+            recurrenceKey = slot,
+            seriesEnd = { seriesEnd },
+            onOrphanOverrideDropped = onOrphanOverrideDropped,
+        )
+        if (!shouldIncludeOverride) continue
+
         if (override.timing.overlaps(rangeStart, rangeEnd, timeZone)) this += override
     }
+}
+
+private fun Event.shouldIncludeOverride(
+    override: Event,
+    recurrenceKey: RecurrenceKey,
+    seriesEnd: () -> SeriesEndFilter?,
+    onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
+): Boolean {
+    if (override.status == EventStatus.CANCELLED) return false
+
+    if (seriesEnd()?.isOrphan(recurrenceKey) == true) {
+        onOrphanOverrideDropped(masterEventId, recurrenceKey)
+        return false
+    }
+
+    return true
 }
 
 /** Same `[rangeStart, rangeEnd[` overlap rule as [buildOccurrenceAt], for an already-positioned instance. */

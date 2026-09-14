@@ -49,6 +49,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Upcom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
@@ -382,10 +383,33 @@ internal class EventRepository(
     ) {
         when {
             occurrenceId !is OccurrenceId.Recurrence -> updateEvent(credentials, occurrenceId.masterId, data)
-            scope == RecurrenceScope.AllOccurrences -> updateEvent(credentials, occurrenceId.masterId, data)
+            scope == RecurrenceScope.AllOccurrences -> updateSeriesFrom(credentials, occurrenceId, data)
             scope == RecurrenceScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
             else -> error("Editing $scope of a series is not supported yet")
         }
+    }
+
+    /**
+     * Apply to the whole series an edit prepared on one of its occurrences: [data] carries that
+     * occurrence's slot, so its timing is first expressed back on the master (see [rebasedOnto]).
+     */
+    private suspend fun updateSeriesFrom(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId.Recurrence,
+        data: EventEditData,
+    ) {
+        val masterId = occurrenceId.masterId
+        val entity = eventDao.getEvent(masterId) ?: return
+        val masterTiming = entity.toEditData().timing
+        val zone = TimeZone.currentSystemDefault()
+        // The start the occurrence was displayed with, which is what the edit was prepared against.
+        val shownStart = eventDao.getOverridesOf(masterId)
+            .firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+            ?.content?.timing?.dtStart
+            ?: occurrenceId.recurrenceKey.toLocalStart(masterTiming, zone)
+            ?: return
+
+        updateEvent(credentials, masterId, data.copy(timing = data.timing.rebasedOnto(masterTiming, shownStart)))
     }
 
     /**

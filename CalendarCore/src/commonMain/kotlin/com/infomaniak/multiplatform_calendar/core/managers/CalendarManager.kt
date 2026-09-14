@@ -177,6 +177,22 @@ public class CalendarManager internal constructor(
         }
     }
 
+    /**
+     * Apply [data] to what [scope] designates of the occurrence [occurrenceId] identifies, as offered
+     * by [editScopes][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.editScopes].
+     */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun updateEvent(
+        occurrenceId: OccurrenceId,
+        data: EventEditData,
+        scope: RecurrenceEditScope = RecurrenceEditScope.AllOccurrences,
+    ): Unit = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "update $scope of event $occurrenceId") {
+            val credentials = getCredentialsForCalendar(data.calendarId)
+            eventRepository.updateEvent(credentials, occurrenceId, data, scope)
+        }
+    }
+
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "delete event $eventId") {

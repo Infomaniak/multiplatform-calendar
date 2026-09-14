@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
@@ -102,6 +103,43 @@ internal fun EventEditData.toRemoteEdit(
 }
 
 /**
+ * The edit redefining a single instance, as one override VEVENT.
+ *
+ * An override carries no recurrence set of its own (RFC 5545 §3.8.5): the rule and its `EXDATE`/`RDATE`
+ * belong to the master, so every recurrence-shaped change is pinned to `Unchanged` here.
+ *
+ * [previous] is the content the instance already shows — the override's own when one exists, the
+ * master's when this edit is what detaches it — so an untouched colour or alarm list stays untouched
+ * in the resource instead of being rewritten.
+ */
+internal fun EventEditData.toOverrideEdit(
+    stamp: String,
+    previous: EventContentEntity?,
+): RemoteEventEdit {
+    val startZone = timing.startTimeZone
+    val endZone = timing.endTimeZone
+    return RemoteEventEdit(
+        summary = title.ifBlank { null },
+        dtStart = timing.start.toICal(timing.isAllDay, startZone),
+        dtStartTzid = startZone.tzidForIcal(timing.isAllDay),
+        dtEnd = timing.end.toICal(timing.isAllDay, endZone),
+        dtEndTzid = endZone.tzidForIcal(timing.isAllDay),
+        allDay = timing.isAllDay,
+        location = location?.ifBlank { null },
+        description = description?.ifBlank { null },
+        transp = timeBlocking?.toIcalString(),
+        timeZones = timing.vTimeZones(),
+        colorChange = resolveColorChange(previous?.colorArgb),
+        recurrenceChange = Unchanged,
+        exDateChange = RemoteDateListChange.Unchanged,
+        rDateChange = RemoteDateListChange.Unchanged,
+        overrideRemoval = RemoteOverrideRemoval.Unchanged,
+        alarms = resolveAlarmEdits(alarms, previous?.alarms.orEmpty()),
+        stamp = stamp,
+    )
+}
+
+/**
  * The overrides to drop, addressed the way the resource names them: a recorded override lends its own
  * `RECURRENCE-ID`, and a key claimed by none falls back on [toRemoteRecurrenceId]'s master form. A key
  * designating no occurrence of the master is left out: it can match no override either.
@@ -119,7 +157,7 @@ private fun List<RecurrenceKey>.toOverrideRemoval(
 }
 
 /** The `RECURRENCE-ID` this override carries in its resource, kept verbatim (see [EventOverrideEntity]). */
-private fun EventOverrideEntity.toRemoteRecurrenceId(master: EventTiming) = RemoteRecurrenceId(
+internal fun EventOverrideEntity.toRemoteRecurrenceId(master: EventTiming) = RemoteRecurrenceId(
     tzid = recurrenceIdTzid,
     isDateOnly = master.isAllDay,
     value = recurrenceIdValue,

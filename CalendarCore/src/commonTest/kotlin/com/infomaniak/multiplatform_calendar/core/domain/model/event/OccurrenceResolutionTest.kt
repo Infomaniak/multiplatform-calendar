@@ -36,6 +36,7 @@ import kotlinx.datetime.toInstant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -77,7 +78,10 @@ class OccurrenceResolutionTest {
 
         assertEquals(
             recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)),
-            resolve(EventWithOverrides(master), recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)))?.occurrenceId,
+            resolve(
+                EventWithOverrides(master),
+                recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)),
+            )?.occurrenceId,
         )
     }
 
@@ -94,7 +98,10 @@ class OccurrenceResolutionTest {
 
         assertEquals(
             recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)),
-            resolve(EventWithOverrides(master), recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)))?.occurrenceId,
+            resolve(
+                EventWithOverrides(master),
+                recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)),
+            )?.occurrenceId,
         )
     }
 
@@ -109,7 +116,8 @@ class OccurrenceResolutionTest {
     fun resolveOccurrence_returnsNullForExDate() = runTest {
         val slot = LocalDateTime(2026, 1, 2, 10, 0)
         val base = dailyMaster("event://exdate", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
-        val master = base.copy(timing = base.timing.copy(exDates = listOf(IcalDateValue.Zoned(slot.toInstant(TimeZone.UTC), "UTC"))))
+        val master =
+            base.copy(timing = base.timing.copy(exDates = listOf(IcalDateValue.Zoned(slot.toInstant(TimeZone.UTC), "UTC"))))
 
         assertNull(resolve(EventWithOverrides(master), recurrenceId(master.masterEventId, slot)))
     }
@@ -118,7 +126,8 @@ class OccurrenceResolutionTest {
     fun resolveOccurrence_returnsRDateOccurrence() = runTest {
         val rDate = LocalDateTime(2026, 1, 10, 10, 0)
         val base = dailyMaster("event://rdate", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 1))
-        val master = base.copy(timing = base.timing.copy(rDates = listOf(IcalDateValue.Zoned(rDate.toInstant(TimeZone.UTC), "UTC"))))
+        val master =
+            base.copy(timing = base.timing.copy(rDates = listOf(IcalDateValue.Zoned(rDate.toInstant(TimeZone.UTC), "UTC"))))
         val requested = recurrenceId(master.masterEventId, rDate)
 
         val resolved = resolve(EventWithOverrides(master), requested)
@@ -139,7 +148,10 @@ class OccurrenceResolutionTest {
 
         assertEquals(
             recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 1, 10, 0)),
-            resolve(EventWithOverrides(master), recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 1, 10, 0)))?.occurrenceId,
+            resolve(
+                EventWithOverrides(master),
+                recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 1, 10, 0)),
+            )?.occurrenceId,
         )
     }
 
@@ -155,7 +167,10 @@ class OccurrenceResolutionTest {
 
         assertEquals(
             recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 10, 10, 0)),
-            resolve(EventWithOverrides(master), recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 10, 10, 0)))?.occurrenceId,
+            resolve(
+                EventWithOverrides(master),
+                recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 10, 10, 0)),
+            )?.occurrenceId,
         )
     }
 
@@ -196,8 +211,12 @@ class OccurrenceResolutionTest {
             movedTo = LocalDateTime(2026, 1, 3, 9, 0),
         )
 
-        val moved = resolve(EventWithOverrides(master, mapOf(override)), OccurrenceId.Recurrence(master.masterEventId, override.first))
-        val jan3 = resolve(EventWithOverrides(master, mapOf(override)), recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)))
+        val moved =
+            resolve(EventWithOverrides(master, mapOf(override)), OccurrenceId.Recurrence(master.masterEventId, override.first))
+        val jan3 = resolve(
+            EventWithOverrides(master, mapOf(override)),
+            recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)),
+        )
 
         assertEquals(LocalDateTime(2026, 1, 3, 9, 0), moved?.timing?.start)
         assertEquals(LocalDateTime(2026, 1, 3, 10, 0), jan3?.timing?.start)
@@ -213,7 +232,10 @@ class OccurrenceResolutionTest {
 
         assertEquals(
             OccurrenceId.Recurrence(master.masterEventId, override.first),
-            resolve(EventWithOverrides(master, mapOf(override)), OccurrenceId.Recurrence(master.masterEventId, override.first))?.occurrenceId,
+            resolve(
+                EventWithOverrides(master, mapOf(override)),
+                OccurrenceId.Recurrence(master.masterEventId, override.first),
+            )?.occurrenceId,
         )
     }
 
@@ -222,7 +244,12 @@ class OccurrenceResolutionTest {
         val master = dailyMaster("event://cancelled", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
         val override = master.overrideAt(originalStart = LocalDateTime(2026, 1, 2, 10, 0), status = EventStatus.CANCELLED)
 
-        assertNull(resolve(EventWithOverrides(master, mapOf(override)), OccurrenceId.Recurrence(master.masterEventId, override.first)))
+        assertNull(
+            resolve(
+                EventWithOverrides(master, mapOf(override)),
+                OccurrenceId.Recurrence(master.masterEventId, override.first),
+            ),
+        )
     }
 
     @Test
@@ -251,7 +278,10 @@ class OccurrenceResolutionTest {
 
         assertEquals(
             OccurrenceId.Recurrence(master.masterEventId, override.first),
-            resolve(EventWithOverrides(master, mapOf(override)), OccurrenceId.Recurrence(master.masterEventId, override.first))?.occurrenceId,
+            resolve(
+                EventWithOverrides(master, mapOf(override)),
+                OccurrenceId.Recurrence(master.masterEventId, override.first),
+            )?.occurrenceId,
         )
     }
 
@@ -276,12 +306,16 @@ class OccurrenceResolutionTest {
     fun resolveOccurrence_returnsOverrideOnExDateSlot() = runTest {
         val slot = LocalDateTime(2026, 1, 2, 10, 0)
         val base = dailyMaster("event://exdate-override", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
-        val master = base.copy(timing = base.timing.copy(exDates = listOf(IcalDateValue.Zoned(slot.toInstant(TimeZone.UTC), "UTC"))))
+        val master =
+            base.copy(timing = base.timing.copy(exDates = listOf(IcalDateValue.Zoned(slot.toInstant(TimeZone.UTC), "UTC"))))
         val override = master.overrideAt(originalStart = slot)
 
         assertEquals(
             OccurrenceId.Recurrence(master.masterEventId, override.first),
-            resolve(EventWithOverrides(master, mapOf(override)), OccurrenceId.Recurrence(master.masterEventId, override.first))?.occurrenceId,
+            resolve(
+                EventWithOverrides(master, mapOf(override)),
+                OccurrenceId.Recurrence(master.masterEventId, override.first),
+            )?.occurrenceId,
         )
     }
 
@@ -290,7 +324,12 @@ class OccurrenceResolutionTest {
         val recurring = dailyMaster("event://stale", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
         val nonRecurring = recurring.copy(timing = recurring.timing.copy(recurrenceRule = null, rDates = emptyList()))
 
-        assertNull(resolve(EventWithOverrides(nonRecurring), recurrenceId(nonRecurring.masterEventId, LocalDateTime(2026, 1, 2, 10, 0))))
+        assertNull(
+            resolve(
+                EventWithOverrides(nonRecurring),
+                recurrenceId(nonRecurring.masterEventId, LocalDateTime(2026, 1, 2, 10, 0)),
+            ),
+        )
     }
 
     @Test
@@ -298,7 +337,10 @@ class OccurrenceResolutionTest {
         val master = dailyMaster("event://a", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
         val requested = OccurrenceId.Recurrence(EventId("event://b"), RecurrenceKey.Utc(Instant.parse("2026-01-02T10:00:00Z")))
 
-        assertNull(resolve(EventWithOverrides(master), requested))
+        val error = assertFailsWith<IllegalStateException> {
+            resolve(EventWithOverrides(master), requested)
+        }
+        assertEquals(error.message?.contains("does not belong to master"), true)
     }
 
     @Test
@@ -317,7 +359,8 @@ class OccurrenceResolutionTest {
     fun resolveOccurrence_supportsZonedRecurrence() = runTest {
         val zone = TimeZone.of("Europe/Zurich")
         val master = zonedMaster("event://zoned", zone, RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
-        val requested = OccurrenceId.Recurrence(master.masterEventId, RecurrenceKey.Zoned(LocalDateTime(2026, 1, 2, 10, 0), zone.id))
+        val requested =
+            OccurrenceId.Recurrence(master.masterEventId, RecurrenceKey.Zoned(LocalDateTime(2026, 1, 2, 10, 0), zone.id))
 
         val resolved = resolve(EventWithOverrides(master), requested, timeZone = TimeZone.UTC)
 
@@ -396,7 +439,11 @@ class OccurrenceResolutionTest {
     @Test
     fun resolveOccurrence_matchesExpandedOccurrenceForEveryVisibleInstance() = runTest {
         val utcMaster = dailyMaster("event://utc", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
-        val zoned = zonedMaster("event://zoned", TimeZone.of("Europe/Zurich"), RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
+        val zoned = zonedMaster(
+            id = "event://zoned",
+            zone = TimeZone.of("Europe/Zurich"),
+            rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
         val floating = floatingMaster("event://floating", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
         val allDay = allDayMaster("event://all-day", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
         val exDateBase = dailyMaster("event://exdate", RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3))
@@ -457,20 +504,34 @@ class OccurrenceResolutionTest {
         val master = base.copy(
             timing = base.timing.copy(exDates = listOf(IcalDateValue.Zoned(Instant.parse("2026-01-02T10:00:00Z"), "UTC"))),
         )
-        val cancelledOverride = master.overrideAt(originalStart = LocalDateTime(2026, 1, 3, 10, 0), status = EventStatus.CANCELLED)
+        val cancelledOverride =
+            master.overrideAt(originalStart = LocalDateTime(2026, 1, 3, 10, 0), status = EventStatus.CANCELLED)
         val nonRecurring = base.copy(timing = base.timing.copy(recurrenceRule = null, rDates = emptyList()))
 
-        val cases = listOf(
+        val nullCases = listOf(
             EventWithOverrides(master) to recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 10, 10, 0)), // after count
             EventWithOverrides(master) to recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 2, 10, 0)),  // EXDATE
-            EventWithOverrides(master, mapOf(cancelledOverride)) to OccurrenceId.Recurrence(master.masterEventId, cancelledOverride.first),
+            EventWithOverrides(master, mapOf(cancelledOverride)) to OccurrenceId.Recurrence(
+                master.masterEventId,
+                cancelledOverride.first,
+            ),
             EventWithOverrides(nonRecurring) to recurrenceId(nonRecurring.masterEventId, LocalDateTime(2026, 1, 2, 10, 0)),
-            EventWithOverrides(master) to OccurrenceId.Recurrence(EventId("event://other"), RecurrenceKey.Utc(Instant.parse("2026-01-02T10:00:00Z"))),
         )
 
-        cases.forEach { (series, request) ->
+        nullCases.forEach { (series, request) ->
             val resolved = resolve(series, request)
             if (resolved != null) assertEquals(request, resolved.occurrenceId)
+        }
+
+        assertFailsWith<IllegalStateException> {
+            val occurrenceId = OccurrenceId.Recurrence(
+                masterId = EventId("event://other"),
+                recurrenceKey = RecurrenceKey.Utc(Instant.parse("2026-01-02T10:00:00Z")),
+            )
+            resolve(
+                series = EventWithOverrides(master),
+                occurrenceId = occurrenceId,
+            )
         }
     }
 

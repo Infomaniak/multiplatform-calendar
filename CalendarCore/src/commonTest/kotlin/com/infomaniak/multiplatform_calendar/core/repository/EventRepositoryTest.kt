@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.repository
 
 import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -1262,6 +1263,29 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val edit = fakeCaldav.patches.single()
         assertEquals(listOf("20260617T100000Z"), assertIs<RemoteDateListChange.Set>(edit.rDateChange).lines.flatMap { it.values })
         assertEquals(emptyList(), fakeCaldav.deletes)
+    }
+
+    @Test
+    fun deleteEvent_thisOccurrence_leavesTheSeriesAlarmsAlone() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        ).let { it.copy(content = it.content.copy(alarms = listOf(AlarmEntity(action = "DISPLAY")))) }
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            scope = RecurrenceEditScope.ThisOccurrence,
+        )
+
+        // That alarm carries no trigger the domain can read: rebuilding the list would delete it.
+        assertNull(fakeCaldav.patches.single().alarms, "excluding a date must not touch the alarms")
     }
 
     private fun icalUtc(year: Int, month: Int, day: Int) =

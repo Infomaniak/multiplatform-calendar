@@ -33,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyDotColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
@@ -302,6 +303,7 @@ internal class EventRepository(
                 exDates = DateListEdit.Set(entity.exDates + excluded),
                 droppedOverrides = listOf(occurrenceId.recurrenceKey),
                 knownOverrides = overrides,
+                alarms = AlarmListEdit.Preserve,
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
@@ -338,6 +340,7 @@ internal class EventRepository(
                     .map(EventOverrideEntity::recurrenceKey)
                     .filterNot { it.startsBefore(pivotStart, timing) },
                 knownOverrides = overrides,
+                alarms = AlarmListEdit.Preserve,
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)

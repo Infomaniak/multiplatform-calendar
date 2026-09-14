@@ -113,7 +113,9 @@ internal suspend fun EventWithOverrides.resolveOccurrence(
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit,
     onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
 ): Event? {
-    if (occurrenceId.masterId != master.masterEventId) return null
+    check(occurrenceId.masterId == master.masterEventId) {
+        "Occurrence $occurrenceId does not belong to master ${master.masterEventId}"
+    }
 
     // A stale OccurrenceId may still be held by the UI after the event has
     // stopped being recurring.

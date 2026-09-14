@@ -87,6 +87,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceI
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import kotlin.test.assertIs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -1228,6 +1229,209 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals("20260615T110000Z", fakeCaldav.patches.single().dtStart)
     }
 
+    @Test
+    fun updateEvent_thisAndFollowing_countsTheInstancesOnEachSideOfThePivot() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+                start = LocalDateTime(2026, 6, 17, 14, 0),
+                end = LocalDateTime(2026, 6, 17, 15, 0),
+            ),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // The 15th and the 16th stay behind, the 17th to the 19th leave with the edit.
+        assertEquals("FREQ=DAILY;COUNT=2", rruleOf(fakeCaldav.patches.single()))
+        val built = fakeCaldav.builds.single()
+        assertEquals("FREQ=DAILY;COUNT=3", rruleOf(built))
+        assertEquals("20260617T140000Z", built.dtStart)
+        assertEquals("Tail", built.summary)
+        assertEquals(1, fakeCaldav.creates.size, "the tail is a resource of its own")
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_carriesAnEndDateOverToTheTail() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val until = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 6, 19, 10, 0).toInstant(TimeZone.UTC))
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, until = until),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, until = until),
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+            ),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // An end date is a date, not a count: the tail keeps it as it stands and the head ends earlier.
+        assertEquals("FREQ=DAILY;UNTIL=20260619T100000Z", rruleOf(fakeCaldav.builds.single()))
+        assertEquals("FREQ=DAILY;UNTIL=20260616T100000Z", rruleOf(fakeCaldav.patches.single()))
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_fromTheFirstOccurrence_movesTheWholeSeries() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)),
+            data = editData(
+                title = "Renamed",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            ),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // Nothing precedes the first instance, so there is no series to leave behind and none to create.
+        assertEquals(listOf("patch"), fakeCaldav.calls)
+        assertEquals("Renamed", fakeCaldav.patches.single().summary)
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_writesTheTailBeforeEndingTheMaster() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 18, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            ),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // Should the patch fail, the tail shows twice — which beats losing it outright.
+        assertEquals(listOf("build", "override", "create", "patch"), fakeCaldav.calls)
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_movesTheTailsDateListsAlongWithIt() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            rDates = listOf(icalUtc(2026, 6, 20)),
+        ).copy(exDates = listOf(icalUtc(2026, 6, 16), icalUtc(2026, 6, 18)))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+                start = LocalDateTime(2026, 6, 17, 11, 0),
+                end = LocalDateTime(2026, 6, 17, 12, 0),
+            ),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        val built = fakeCaldav.builds.single()
+        // The 16th stays with the head; the 18th and the 20th follow the tail, moved by the same hour it was.
+        assertEquals(listOf("20260618T110000Z"), dateListOf(built.exDateChange))
+        assertEquals(listOf("20260620T110000Z"), dateListOf(built.rDateChange))
+        assertEquals(listOf("20260616T100000Z"), dateListOf(fakeCaldav.patches.single().exDateChange))
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_takesTheTailsOverridesAlongWithIt() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        val kept = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        val moved = overrideEntity(
+            master.id,
+            originalStart = LocalDateTime(2026, 6, 18, 10, 0),
+            movedTo = LocalDateTime(2026, 6, 18, 15, 0),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(kept, moved))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+                start = LocalDateTime(2026, 6, 17, 11, 0),
+                end = LocalDateTime(2026, 6, 17, 12, 0),
+            ),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        val (recurrenceId, edit) = fakeCaldav.overrideUpserts.single()
+        // Only the 18th leaves, and both the slot it stands for and what it shows move by that hour.
+        assertEquals("20260618T110000Z", recurrenceId.value)
+        assertEquals("20260618T160000Z", edit.dtStart)
+        assertEquals("Moved instance", edit.summary)
+    }
+
+    private fun rruleOf(edit: RemoteEventEdit) = assertIs<RemoteRecurrenceChange.Set>(edit.recurrenceChange).value
+
+    private fun dateListOf(change: RemoteDateListChange) =
+        assertIs<RemoteDateListChange.Set>(change).lines.flatMap(RemoteDateListLine::values)
+
     private fun occurrenceOf(masterId: EventId, start: LocalDateTime) = OccurrenceId.Recurrence(
         masterId = masterId,
         recurrenceKey = RecurrenceKey.Utc(start.toInstant(TimeZone.UTC)),
@@ -1872,7 +2076,10 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
     val creates = mutableListOf<Pair<String, String>>()
     val deletes = mutableListOf<Pair<String, String>>()
     val patches = mutableListOf<RemoteEventEdit>()
+    val builds = mutableListOf<RemoteEventEdit>()
     val overrideUpserts = mutableListOf<Pair<RemoteRecurrenceId, RemoteEventEdit>>()
+    /** Every write in the order it was issued, for the tests that care about which one lands first. */
+    val calls = mutableListOf<String>()
 
     override suspend fun discoverCalendars(credentials: DavAccount) = emptyList<RemoteDavCalendar>()
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
@@ -1890,11 +2097,15 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
 
     override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): RemoteDavEvent {
         patches += edit
+        calls += "patch"
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }
 
-    override suspend fun buildEventIcs(edit: RemoteEventEdit) =
-        applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+    override suspend fun buildEventIcs(edit: RemoteEventEdit): RemoteDavEvent {
+        builds += edit
+        calls += "build"
+        return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+    }
 
     override suspend fun upsertOverrideIcs(
         icsData: String,
@@ -1902,11 +2113,13 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
         edit: RemoteEventEdit,
     ): RemoteDavEvent {
         overrideUpserts += recurrenceId to edit
+        calls += "override"
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }
 
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
         creates += calendarUrl to icsData
+        calls += "create"
         return createdRef
     }
 

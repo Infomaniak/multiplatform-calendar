@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithC
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteRecurrenceId
@@ -38,20 +39,26 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleC
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.wallClockShift
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -60,6 +67,9 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -67,10 +77,9 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
-import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
@@ -350,8 +359,86 @@ internal class EventRepository(
             occurrenceId !is OccurrenceId.Recurrence -> updateEvent(credentials, occurrenceId.masterId, data)
             scope == RecurrenceEditScope.AllOccurrences -> updateSeriesFrom(credentials, occurrenceId, data)
             scope == RecurrenceEditScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
-            else -> error("Editing $scope of a series is not supported yet")
+            else -> splitSeriesAt(credentials, occurrenceId, data)
         }
+    }
+
+    /**
+     * Split the series at [occurrenceId]: the instances from there on leave for a resource of their
+     * own carrying [data], while the master is ended right before the pivot.
+     *
+     * RFC 5545 gives a series a single `RRULE` (§3.8.5.3), so a tail that reads differently cannot
+     * stay in place. The new resource is written first: should the second request fail, the tail then
+     * shows twice — visible, and undoable — where the other order would have lost it outright.
+     *
+     * Everything the tail carried travels with it, its `EXDATE`/`RDATE` values and its overrides, each
+     * moved by however far the edit moved the pivot so they go on designating what they designated.
+     */
+    private suspend fun splitSeriesAt(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId.Recurrence,
+        data: EventEditData,
+    ) {
+        val masterId = occurrenceId.masterId
+        val entity = eventDao.getEvent(masterId) ?: return
+        val timing = entity.toEditData().timing
+        val zone = TimeZone.currentSystemDefault()
+        val pivotStart = occurrenceId.recurrenceKey.toLocalStart(timing, zone) ?: return
+        val split = timing.splitAt(pivotStart, zone)
+        // Nothing precedes the pivot, so there is no head to leave behind: the whole series is moving.
+        if (split.head == null) return updateSeriesFrom(credentials, occurrenceId, data)
+
+        val tailTiming = data.timing.copy(recurrenceRule = split.tail)
+        val tail = data.copy(timing = tailTiming)
+        val delta = wallClockShift(from = pivotStart, to = tailTiming.start)
+        val now = Clock.System.now().toICalUtcDateTime()
+        val built = caldavClient.buildEventIcs(
+            tail.toRemoteEdit(
+                stamp = now,
+                previous = null,
+                exDates = DateListEdit.Set(timing.exDates.movedTail(pivotStart, timing, delta)),
+                rDates = DateListEdit.Set(timing.rDates.movedTail(pivotStart, timing, delta)),
+            ),
+        )
+
+        val resource = carryOverridesInto(built, masterId, timing, pivotStart, tail, delta, now)
+        val ref = caldavClient.createEvent(credentials, data.calendarId.url, resource.icsData)
+        eventDao.upsertEventWithRawIcs(resource.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
+
+        // What the master keeps is exactly what a "delete this and following" would have left it.
+        truncateSeriesFrom(credentials, occurrenceId)
+    }
+
+    /** The overrides of [masterId] the [tail] takes over, redefined instance by instance in [built]. */
+    private suspend fun carryOverridesInto(
+        built: RemoteDavEvent,
+        masterId: EventId,
+        masterTiming: EventTiming,
+        pivotStart: LocalDateTime,
+        tail: EventEditData,
+        delta: Duration,
+        stamp: String,
+    ): RemoteDavEvent {
+        var resource = built
+        eventDao.getOverridesOf(masterId)
+            .filterNot { it.recurrenceKey.startsBefore(pivotStart, masterTiming) }
+            .forEach { override ->
+                val key = override.recurrenceKey.shiftedBy(delta)
+                val recurrenceId = key.toRemoteRecurrenceId(tail.timing) ?: return@forEach
+                val moved = override.toEditData(tail.calendarId).let { it.copy(timing = it.timing.shiftedBy(delta)) }
+                resource = caldavClient.upsertOverrideIcs(
+                    resource.icsData,
+                    recurrenceId,
+                    // Detached from the tail's own master, which is what it is about to be seeded from.
+                    edit = moved.toOverrideEdit(
+                        stamp = stamp,
+                        previousColorArgb = tail.eventColor?.argb,
+                        previousAlarms = tail.alarms.map(EventAlarm::toEntity),
+                    ),
+                )
+            }
+
+        return resource
     }
 
     /**
@@ -400,11 +487,12 @@ internal class EventRepository(
             ?: occurrenceId.recurrenceKey.toRemoteRecurrenceId(masterTiming)
             ?: return
 
+        val shown = existing?.content ?: entity.content
         val now = Clock.System.now().toICalUtcDateTime()
         val patched = caldavClient.upsertOverrideIcs(
             previousIcs,
             recurrenceId,
-            data.toOverrideEdit(stamp = now, previous = existing?.content ?: entity.content),
+            data.toOverrideEdit(stamp = now, previousColorArgb = shown.colorArgb, previousAlarms = shown.alarms),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
         eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
@@ -422,3 +510,13 @@ internal class EventRepository(
     }
 }
 
+
+/**
+ * The values of this list the tail takes over — those the pivot does not leave behind — each moved by
+ * [delta] so it goes on designating the instance it designated on [master].
+ */
+private fun List<IcalDateValue>.movedTail(
+    pivotStart: LocalDateTime,
+    master: EventTiming,
+    delta: Duration,
+): List<IcalDateValue> = filterNot { it.startsBefore(pivotStart, master) }.map { it.shiftedBy(delta) }

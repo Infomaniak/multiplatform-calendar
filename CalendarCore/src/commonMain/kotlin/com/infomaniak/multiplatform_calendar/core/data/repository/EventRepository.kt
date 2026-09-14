@@ -41,9 +41,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceI
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
-import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -61,7 +60,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -208,23 +206,21 @@ internal class EventRepository(
         )
     }
 
-    fun observeEvent(
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeOccurrence(
         occurrenceId: OccurrenceId,
         timeZone: TimeZone,
     ): Flow<Event?> {
-        return observeEventWithOverrides(occurrenceId.masterId).map { eventWithOverrides ->
-            val master = eventWithOverrides?.master ?: return@map null
-            when (occurrenceId) {
-                is OccurrenceId.Master -> master
-                is OccurrenceId.Recurrence -> {
-                    val override = eventWithOverrides.overridesByOccurrenceKey[occurrenceId.recurrenceKey]
-                    override ?: resolveRuleOccurrence(
-                        master = master,
-                        recurrenceKey = occurrenceId.recurrenceKey,
-                        timeZone = timeZone,
-                    )
-                }
-            }
+        return when (occurrenceId) {
+            is OccurrenceId.Master -> observeEvent(occurrenceId.masterId)
+            is OccurrenceId.Recurrence -> observeEventWithOverrides(occurrenceId.masterId).mapLatest { eventWithOverrides ->
+                eventWithOverrides?.resolveOccurrence(
+                    occurrenceId = occurrenceId,
+                    timeZone = timeZone,
+                    onExpansionTruncated = ::logTruncatedExpansion,
+                    onOrphanOverrideDropped = ::logOrphanOverride,
+                )
+            }.flowOn(Dispatchers.Default)
         }
     }
 
@@ -279,35 +275,4 @@ internal class EventRepository(
     private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides?> {
         return eventDao.observeEventWithCalendar(eventId).map { relation -> relation?.toDomainEventWithOverrides() }
     }
-
-    private suspend fun resolveRuleOccurrence(
-        master: Event,
-        recurrenceKey: RecurrenceKey,
-        timeZone: TimeZone,
-    ): Event? {
-        if (master.timing.recurrenceRule == null && master.timing.rDates.isEmpty()) {
-            crashReport.capture(
-                message = "Asked to resolve a rule occurrence for a non-recurring event ${master.masterEventId.url}",
-                data = mapOf("masterId" to master.masterEventId.url, "recurrenceKey" to recurrenceKey.canonical),
-                level = CrashReportLevel.Fatal,
-            )
-            return null
-        }
-
-        val startLocal = recurrenceKey.toLocalStart(master.timing, timeZone) ?: return null
-        val masterTiming = MasterTiming.of(master.timing, timeZone)
-        val startInstant = when (recurrenceKey) {
-            is RecurrenceKey.Utc -> recurrenceKey.instant
-            else -> masterTiming.resolvedStartInstant(startLocal)
-        }
-
-        val matchingOccurrenceId = OccurrenceId.Recurrence(master.masterEventId, recurrenceKey)
-        return listOf(EventWithOverrides(master = master))
-            .expandRecurrencesInWindow(
-                rangeStart = startInstant,
-                rangeEnd = startInstant + 1.seconds,
-                timeZone = timeZone,
-            ).firstOrNull { it.occurrenceId == matchingOccurrenceId }
-    }
 }
-

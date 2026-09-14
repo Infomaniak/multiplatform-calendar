@@ -123,12 +123,12 @@ public class CalendarManager internal constructor(
         }
     }
 
-    public fun observeEvent(
+    public fun observeOccurrence(
         occurrenceId: OccurrenceId,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Flow<Event?> {
-        return sdkCaller.flow(operation = "observe event $occurrenceId") {
-            eventRepository.observeEvent(occurrenceId, timeZone)
+        return sdkCaller.flow(operation = "observe occurrence $occurrenceId") {
+            eventRepository.observeOccurrence(occurrenceId, timeZone)
         }
     }
 

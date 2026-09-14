@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
@@ -108,13 +108,14 @@ internal fun EventEditData.toRemoteEdit(
  * An override carries no recurrence set of its own (RFC 5545 §3.8.5): the rule and its `EXDATE`/`RDATE`
  * belong to the master, so every recurrence-shaped change is pinned to `Unchanged` here.
  *
- * [previous] is the content the instance already shows — the override's own when one exists, the
- * master's when this edit is what detaches it — so an untouched colour or alarm list stays untouched
- * in the resource instead of being rewritten.
+ * [previousColorArgb] and [previousAlarms] are what the instance already shows — the override's own
+ * when one exists, its master's when this edit is what detaches it — so an untouched colour or alarm
+ * list stays untouched in the resource instead of being rewritten.
  */
 internal fun EventEditData.toOverrideEdit(
     stamp: String,
-    previous: EventContentEntity?,
+    previousColorArgb: Int?,
+    previousAlarms: List<AlarmEntity>,
     alarms: AlarmListEdit = AlarmListEdit.FromData,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
@@ -130,14 +131,14 @@ internal fun EventEditData.toOverrideEdit(
         description = description?.ifBlank { null },
         transp = timeBlocking?.toIcalString(),
         timeZones = timing.vTimeZones(),
-        colorChange = resolveColorChange(previous?.colorArgb),
+        colorChange = resolveColorChange(previousColorArgb),
         recurrenceChange = Unchanged,
         exDateChange = RemoteDateListChange.Unchanged,
         rDateChange = RemoteDateListChange.Unchanged,
         overrideRemoval = RemoteOverrideRemoval.Unchanged,
         alarms = when (alarms) {
             AlarmListEdit.Preserve -> null
-            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous?.alarms.orEmpty())
+            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous = previousAlarms)
         },
         stamp = stamp,
     )

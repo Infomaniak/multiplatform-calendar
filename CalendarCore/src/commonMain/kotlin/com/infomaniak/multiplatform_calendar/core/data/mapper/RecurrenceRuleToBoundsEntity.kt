@@ -32,11 +32,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
+import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
+import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Duration
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Floating as FloatingDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating as FloatingUntil
 
@@ -106,7 +107,7 @@ private fun List<IcalDateValue>.computeRDateBounds(
     timing: EventTimingEntity,
     durationMs: Long,
 ): RDateBoundsComputation {
-    val eventDuration = timing.eventDuration()
+    val eventDuration = wallClockShift(from = timing.dtStart, to = timing.dtEndEffective)
     var firstAnchoredStartInstantMs: Long? = null
     val anchoredEnds = mutableListOf<Long>()
     val localEnds = mutableListOf<LocalDateTime>()
@@ -118,7 +119,7 @@ private fun List<IcalDateValue>.computeRDateBounds(
             anchoredEnds += startMs + durationMs
         }
         dateValue.startLocalDateTime(timing)?.let { localStart ->
-            localEnds += localStart.plusEventDuration(eventDuration)
+            localEnds += localStart.shiftedBy(eventDuration)
         }
     }
 
@@ -218,14 +219,6 @@ private fun IcalDateValue.startLocalDateTime(timing: EventTimingEntity): LocalDa
     is Zoned -> null
 }
 
-private fun EventTimingEntity.eventDuration(): Duration {
-    return dtEndEffective.toInstant(TimeZone.UTC) - dtStart.toInstant(TimeZone.UTC)
-}
-
-private fun LocalDateTime.plusEventDuration(duration: Duration): LocalDateTime {
-    return toInstant(TimeZone.UTC).plus(duration).toLocalDateTime(TimeZone.UTC)
-}
-
 private fun minIgnoringNull(a: Long?, b: Long?): Long? = when {
     a == null -> b
     b == null -> a
@@ -275,6 +268,6 @@ private fun RecurrenceUntil.toLocalEnd(timing: EventTimingEntity): LocalDateTime
         is DateOnly -> LocalDateTime(date, timing.dtStart.time)
         is DateTimeUtc -> instant.toLocalDateTime(TimeZone.UTC)
     }
-    val duration = timing.dtEndEffective.toInstant(TimeZone.UTC) - timing.dtStart.toInstant(TimeZone.UTC)
-    return untilLocal.plusEventDuration(duration)
+    val duration = wallClockShift(from = timing.dtStart, to = timing.dtEndEffective)
+    return untilLocal.shiftedBy(duration)
 }

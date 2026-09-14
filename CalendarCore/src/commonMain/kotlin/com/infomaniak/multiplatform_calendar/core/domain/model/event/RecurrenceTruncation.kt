@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.InstanceTally
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceExpander
 import kotlinx.datetime.LocalDateTime
@@ -32,6 +33,9 @@ import kotlin.time.Instant
 
 /** What a truncation leaves of a series: its rule bounded, or none when only dates carry it on. */
 internal data class TruncatedSeries(val rule: RecurrenceRule?)
+
+/** The two sides a split leaves: what the master keeps, and the rule the new resource resumes with. */
+internal data class SeriesSplit(val head: TruncatedSeries?, val tail: RecurrenceRule?)
 
 /**
  * This series bounded so its last instance is the one preceding [pivotStart], or `null` when nothing
@@ -47,32 +51,64 @@ internal suspend fun EventTiming.truncateBefore(
     pivotStart: LocalDateTime,
     defaultZone: TimeZone,
     limits: ExpansionLimits = ExpansionLimits(),
-): TruncatedSeries? {
-    recurrenceRule?.let { rule ->
-        ruleBoundedBefore(rule, pivotStart, defaultZone, limits)?.let { return TruncatedSeries(rule = it) }
+): TruncatedSeries? = splitAt(pivotStart, defaultZone, limits).head
+
+/**
+ * This series cut in two at [pivotStart]: the head [truncateBefore] leaves, and the rule the instances
+ * from the pivot on carry on with, once re-anchored on the `DTSTART` of a resource of their own.
+ *
+ * RFC 5545 gives a series one `RRULE`, so "this and following" cannot be expressed in place; the tail
+ * becomes a second resource. A counted rule hands the head the instances it took and keeps the rest,
+ * while an `UNTIL` or endless one is carried over as it stands — the bound it names is still the one
+ * the series ends on.
+ */
+internal suspend fun EventTiming.splitAt(
+    pivotStart: LocalDateTime,
+    defaultZone: TimeZone,
+    limits: ExpansionLimits = ExpansionLimits(),
+): SeriesSplit {
+    val kept = recurrenceRule?.let { instancesBefore(it, pivotStart, defaultZone, limits) }
+    val boundedRule = kept?.lastStart?.let { lastStart ->
+        when {
+            recurrenceRule.occurrenceCount != null -> recurrenceRule.copy(occurrenceCount = kept.count)
+            else -> recurrenceRule.copy(until = untilAt(localStart = lastStart))
+        }
     }
 
-    // The rule keeps nothing, so it goes whole — what the dates carry may still stand on its own.
-    val keepsADate = rDates.any { it.startsBefore(pivotStart, this) }
-    // DTSTART is an instance in its own right only when no rule generates it.
-    val keepsItsStart = recurrenceRule == null && start < pivotStart
-    return if (keepsADate || keepsItsStart) TruncatedSeries(rule = null) else null
+    val head = when {
+        boundedRule != null -> TruncatedSeries(rule = boundedRule)
+        // The rule keeps nothing, so it goes whole — what the dates carry may still stand on its own.
+        rDates.any { it.startsBefore(pivotStart, master = this) } -> TruncatedSeries(rule = null)
+        // DTSTART is an instance in its own right only when no rule generates it.
+        recurrenceRule == null && start < pivotStart -> TruncatedSeries(rule = null)
+        else -> null
+    }
+
+    return SeriesSplit(head = head, tail = recurrenceRule?.resumedAfter(kept?.count ?: 0))
 }
 
 /**
- * [rule] bounded so its last instance is the one preceding [pivotStart], or `null` when it generates
- * none — the pivot is then its first instance, which is `DTSTART` itself.
- *
- * A counted rule stays counted (the pivot's rank minus one) and any other gets an `UNTIL`, so
- * "this and following" never changes the shape the series was authored with. The bound is read from
- * the instances the rule *generates*: `EXDATE` doesn't shift a rank, and `RDATE` doesn't create one.
+ * This rule as the tail resumes it, or `null` when the head consumed it whole. A counted rule loses
+ * the instances the head took; anything else stands as authored, the tail's own `DTSTART` being what
+ * moves it.
  */
-private suspend fun EventTiming.ruleBoundedBefore(
+private fun RecurrenceRule.resumedAfter(keptCount: Int): RecurrenceRule? = when (val count = occurrenceCount) {
+    null -> this
+    else -> (count - keptCount).takeIf { it > 0 }?.let { copy(occurrenceCount = it) }
+}
+
+/**
+ * The instances [rule] generates before [pivotStart]: how many, and where the last one starts.
+ *
+ * The bound is read from the instances the rule *generates*: `EXDATE` doesn't shift a rank, and
+ * `RDATE` doesn't create one.
+ */
+private suspend fun EventTiming.instancesBefore(
     rule: RecurrenceRule,
     pivotStart: LocalDateTime,
     defaultZone: TimeZone,
     limits: ExpansionLimits,
-): RecurrenceRule? {
+): InstanceTally {
     val tally = RecurrenceExpander.tally(
         master = this,
         rrule = rule,
@@ -84,12 +120,8 @@ private suspend fun EventTiming.ruleBoundedBefore(
     )
     // A stopped walk yields a prefix, whose size and last instance would both bound the rule short.
     check(tally.outcome == ExpansionOutcome.Completed) { "Cannot truncate a series whose expansion stopped on ${tally.outcome}" }
-    val lastStart = tally.lastStart ?: return null
 
-    return when {
-        rule.occurrenceCount != null -> rule.copy(occurrenceCount = tally.count)
-        else -> rule.copy(until = untilAt(lastStart))
-    }
+    return tally
 }
 
 /**

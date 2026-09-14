@@ -1215,6 +1215,55 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(emptyList(), fakeCaldav.patches)
     }
 
+    @Test
+    fun deleteEvent_thisAndFollowing_onTheFirstInstanceOfARDateOnlySeries_deletesTheWholeResource() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rDates = listOf(icalUtc(2026, 6, 17), icalUtc(2026, 6, 20)),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        // DTSTART is an instance of a series carried by RDATE alone, so cutting there leaves nothing.
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
+        assertEquals(emptyList(), fakeCaldav.patches, "no rule to bound must not mean nothing to delete")
+    }
+
+    @Test
+    fun deleteEvent_thisAndFollowing_onARDateOnlySeries_keepsWhatPrecedesThePivot() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rDates = listOf(icalUtc(2026, 6, 17), icalUtc(2026, 6, 20)),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 20, 10, 0)),
+            scope = RecurrenceEditScope.ThisAndFollowing,
+        )
+
+        // DTSTART and the earlier RDATE still stand, so the resource does too.
+        val edit = fakeCaldav.patches.single()
+        assertEquals(listOf("20260617T100000Z"), assertIs<RemoteDateListChange.Set>(edit.rDateChange).lines.flatMap { it.values })
+        assertEquals(emptyList(), fakeCaldav.deletes)
+    }
+
     private fun icalUtc(year: Int, month: Int, day: Int) =
         IcalDateValue.Zoned(LocalDateTime(year, month, day, 10, 0).toInstant(TimeZone.UTC), TimeZone.UTC.id)
 
@@ -1227,7 +1276,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
         eventId: EventId,
         calendarId: CalendarId,
         dtStart: LocalDateTime,
-        rrule: RecurrenceRule,
+        rrule: RecurrenceRule? = null,
+        rDates: List<IcalDateValue> = emptyList(),
         floating: Boolean = false,
     ): EventEntity {
         val dtEnd = LocalDateTime(dtStart.date, LocalTime(dtStart.hour + 1, dtStart.minute))
@@ -1247,12 +1297,13 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 timing = timing,
             ),
             rrule = rrule,
+            rDates = rDates,
             hasRecurrence = true,
             recurrenceBounds = checkNotNull(
                 toRecurrenceBoundsEntity(
                     timing = timing,
                     recurrenceRule = rrule,
-                    rDates = emptyList(),
+                    rDates = rDates,
                 ),
             ),
             etag = "1",

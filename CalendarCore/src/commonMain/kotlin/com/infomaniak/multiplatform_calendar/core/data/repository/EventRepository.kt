@@ -48,7 +48,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccu
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateRuleBefore
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -313,8 +313,8 @@ internal class EventRepository(
      * everything the dropped tail carried — its `EXDATE`/`RDATE` values and its overrides — goes in
      * the very same PUT, so no exception outlives the instances it applied to.
      *
-     * When the rule keeps nothing the pivot is `DTSTART`, which no truncation can preserve, so the
-     * whole resource is deleted instead.
+     * When nothing at all precedes the pivot the whole resource is deleted instead: no recurrence
+     * set describes a series with no instance.
      */
     private suspend fun truncateSeriesFrom(credentials: DavAccount, occurrenceId: OccurrenceId.Recurrence) {
         val masterId = occurrenceId.masterId
@@ -323,15 +323,13 @@ internal class EventRepository(
         val timing = editData.timing
         val zone = TimeZone.currentSystemDefault()
         val pivotStart = occurrenceId.recurrenceKey.toLocalStart(timing, zone) ?: return
-
         val overrides = eventDao.getOverridesOf(masterId)
-        val truncatedRule = timing.truncateRuleBefore(pivotStart, zone)
-        if (truncatedRule == null && timing.recurrenceRule != null) return deleteEvent(credentials, masterId)
+        val truncated = timing.truncateBefore(pivotStart, zone) ?: return deleteEvent(credentials, masterId)
 
         val now = Clock.System.now().toICalUtcDateTime()
         val patched = caldavClient.patchEventIcs(
             previousIcs,
-            editData.copy(timing = timing.copy(recurrenceRule = truncatedRule)).toRemoteEdit(
+            editData.copy(timing = timing.copy(recurrenceRule = truncated.rule)).toRemoteEdit(
                 stamp = now,
                 previous = entity,
                 exDates = DateListEdit.Set(timing.exDates.filter { it.startsBefore(pivotStart, timing) }),

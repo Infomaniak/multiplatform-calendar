@@ -28,7 +28,9 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyDotColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
@@ -362,6 +364,58 @@ internal class EventRepository(
                 knownOverrides = overrides,
                 alarms = AlarmListEdit.Preserve,
             ),
+        )
+        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+    }
+
+    /**
+     * Apply [data] to what [scope] designates of the series [occurrenceId] belongs to, the whole
+     * resource by default — which is also what a plain event, and a master reached by its id, can
+     * only mean.
+     */
+    suspend fun updateEvent(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId,
+        data: EventEditData,
+        scope: RecurrenceScope = RecurrenceScope.AllOccurrences,
+    ) {
+        when {
+            occurrenceId !is OccurrenceId.Recurrence -> updateEvent(credentials, occurrenceId.masterId, data)
+            scope == RecurrenceScope.AllOccurrences -> updateEvent(credentials, occurrenceId.masterId, data)
+            scope == RecurrenceScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
+            else -> error("Editing $scope of a series is not supported yet")
+        }
+    }
+
+    /**
+     * Redefine one occurrence, as an override VEVENT living in its master's resource: the instance is
+     * addressed by the `RECURRENCE-ID` the resource already names it with, and the whole object —
+     * master and every override — is PUT back in one request.
+     *
+     * The calendar cannot change: an override has no resource of its own to move.
+     */
+    private suspend fun overrideOccurrence(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId.Recurrence,
+        data: EventEditData,
+    ) {
+        val masterId = occurrenceId.masterId
+        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        require(data.calendarId == entity.calendarId) {
+            "Cannot move a single occurrence to another calendar: its override lives in $masterId"
+        }
+        val masterTiming = entity.toEditData().timing
+        val existing = eventDao.getOverridesOf(masterId).firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+        val recurrenceId = existing?.toRemoteRecurrenceId(masterTiming)
+            ?: occurrenceId.recurrenceKey.toRemoteRecurrenceId(masterTiming)
+            ?: return
+
+        val now = Clock.System.now().toICalUtcDateTime()
+        val patched = caldavClient.upsertOverrideIcs(
+            previousIcs,
+            recurrenceId,
+            data.toOverrideEdit(stamp = now, previous = existing?.content ?: entity.content),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
         eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))

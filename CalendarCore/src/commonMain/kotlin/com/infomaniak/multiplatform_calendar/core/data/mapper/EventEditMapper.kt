@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
@@ -72,6 +73,7 @@ internal fun EventEditData.toRemoteEdit(
     rDates: DateListEdit = DateListEdit.Preserve,
     droppedOverrides: List<RecurrenceKey> = emptyList(),
     knownOverrides: List<EventOverrideEntity> = emptyList(),
+    alarms: AlarmListEdit = AlarmListEdit.FromData,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -91,7 +93,10 @@ internal fun EventEditData.toRemoteEdit(
         exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
         rDateChange = timing.resolveDateListChange(rDates, previous, previous?.rDates),
         overrideRemoval = droppedOverrides.toOverrideRemoval(timing, knownOverrides),
-        alarms = resolveAlarmEdits(alarms, previous?.content?.alarms.orEmpty()),
+        alarms = when (alarms) {
+            AlarmListEdit.Preserve -> null
+            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous?.content?.alarms.orEmpty())
+        },
         stamp = stamp,
     )
 }

@@ -45,6 +45,9 @@ public val Event.masterEventIdValue: String get() = masterEventId.url
  *
  * Non-recurring events: same value as [masterEventIdValue].
  * Recurring events: synthetic value `"<masterEventId>#<canonicalOccurrenceKey>"` unique per occurrence.
+ *
+ * Read it back with `OccurrenceId.companion.parse(value:)` to name that occurrence again in a write
+ * call taking a scope, such as `deleteEvent(occurrenceId:scope:)`.
  */
 public val Event.occurrenceIdValue: String get() = occurrenceId.value
 public val Event.calendarIdValue: String get() = calendarId.url

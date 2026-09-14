@@ -58,6 +58,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent

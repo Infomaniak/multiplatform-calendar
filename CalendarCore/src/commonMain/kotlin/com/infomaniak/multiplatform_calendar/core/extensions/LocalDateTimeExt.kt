@@ -24,7 +24,9 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format
 import kotlinx.datetime.format.char
 import kotlinx.datetime.format.optional
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -68,6 +70,19 @@ internal fun Instant.toICalUtcDateTime(): String = toLocalDateTime(TimeZone.UTC)
  * [toICalUtcDateTime] on the absolute [Instant].
  */
 internal fun LocalDateTime.toICalLocalDateTime(): String = format(ICAL_DATE_TIME_BASE)
+
+/**
+ * How far [to] lies from [from] on the calendar face.
+ *
+ * Measured in [TimeZone.UTC], a zone with no transition to trip over, so the distance is the one a
+ * reader sees on the clock rather than the one the offsets in between would make of it.
+ */
+internal fun wallClockShift(from: LocalDateTime, to: LocalDateTime): Duration =
+    to.toInstant(TimeZone.UTC) - from.toInstant(TimeZone.UTC)
+
+/** This calendar face moved by [delta] (see [wallClockShift]). */
+internal fun LocalDateTime.shiftedBy(delta: Duration): LocalDateTime =
+    (toInstant(TimeZone.UTC) + delta).toLocalDateTime(TimeZone.UTC)
 
 private val ICAL_DATE = LocalDate.Format { year(); monthNumber(); day() }
 private val ICAL_DATE_TIME_BASE = LocalDateTime.Format {

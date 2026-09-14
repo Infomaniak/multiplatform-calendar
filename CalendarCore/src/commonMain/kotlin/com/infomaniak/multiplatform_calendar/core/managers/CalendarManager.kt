@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
@@ -37,6 +38,9 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -49,9 +53,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
-import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
 @Inject
@@ -184,6 +185,22 @@ public class CalendarManager internal constructor(
         sdkCaller.run(operation = "update event $eventId") {
             val credentials = getCredentialsForCalendar(data.calendarId)
             eventRepository.updateEvent(credentials, eventId, data)
+        }
+    }
+
+    /**
+     * Apply [data] to what [scope] designates of the occurrence [occurrenceId] identifies, as offered
+     * by [editScopes][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.editScopes].
+     */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun updateEvent(
+        occurrenceId: OccurrenceId,
+        data: EventEditData,
+        scope: RecurrenceScope = RecurrenceScope.AllOccurrences,
+    ): Unit = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "update $scope of event $occurrenceId") {
+            val credentials = getCredentialsForCalendar(data.calendarId)
+            eventRepository.updateEvent(credentials, occurrenceId, data, scope)
         }
     }
 

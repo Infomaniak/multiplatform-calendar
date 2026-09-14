@@ -36,6 +36,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
@@ -91,6 +92,87 @@ internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
         expanded.addOverriddenInstances(event, overrides, rangeStart, rangeEnd, timeZone, onOrphanOverrideDropped)
     }
     return expanded
+}
+
+/**
+ * Resolve exactly one displayed occurrence of this series.
+ *
+ * The same recurrence semantics as [expandRecurrencesInWindow] are applied:
+ * - RRULE / RDATE occurrences are materialised from the master.
+ * - EXDATE removes generated occurrences.
+ * - RECURRENCE-ID overrides replace their theoretical slot.
+ * - STATUS:CANCELLED overrides remove their occurrence.
+ * - overrides outside the current series UNTIL are dropped.
+ *
+ * Returns null when the requested occurrence no longer belongs to the series.
+ */
+internal suspend fun EventWithOverrides.resolveOccurrence(
+    occurrenceId: OccurrenceId.Recurrence,
+    timeZone: TimeZone,
+    limits: ExpansionLimits = ExpansionLimits(),
+    onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit,
+    onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
+): Event? {
+    if (occurrenceId.masterId != master.masterEventId) return null
+
+    // A stale OccurrenceId may still be held by the UI after the event has
+    // stopped being recurring.
+    if (!master.timing.hasRecurrenceSet()) return null
+    val recurrenceKey = occurrenceId.recurrenceKey
+
+    overridesByOccurrenceKey[recurrenceKey]?.let { override ->
+        // Same behaviour as addOverriddenInstances().
+        if (override.status == EventStatus.CANCELLED) return null
+
+        val seriesEnd = SeriesEndFilter.of(master = master.timing, timeZone = timeZone)
+
+        if (seriesEnd?.isOrphan(recurrenceKey) == true) {
+            onOrphanOverrideDropped(master.masterEventId, recurrenceKey)
+            return null
+        }
+
+        return override
+    }
+
+    return master.resolveRuleOccurrence(
+        recurrenceKey = recurrenceKey,
+        timeZone = timeZone,
+        limits = limits,
+        onExpansionTruncated = onExpansionTruncated,
+    )
+}
+
+private suspend fun Event.resolveRuleOccurrence(
+    recurrenceKey: RecurrenceKey,
+    timeZone: TimeZone,
+    limits: ExpansionLimits,
+    onExpansionTruncated: (
+        masterId: EventId,
+        outcome: ExpansionOutcome,
+    ) -> Unit,
+): Event? {
+    val localStart = recurrenceKey.toLocalStart(master = timing, defaultZone = timeZone) ?: return null
+    val masterTiming = MasterTiming.of(master = timing, defaultZone = timeZone)
+
+    val startInstant = when (recurrenceKey) {
+        is Utc -> recurrenceKey.instant
+        else -> masterTiming.resolvedStartInstant(localStart)
+    }
+
+    val occurrences = ArrayList<Occurrence>(1)
+
+    timing.expandRecurrenceOccurrencesInWindow(
+        masterId = masterEventId,
+        rangeStart = startInstant,
+        rangeEnd = startInstant + 1.seconds,
+        timeZone = timeZone,
+        target = occurrences,
+        limits = limits,
+        onExpansionTruncated = onExpansionTruncated,
+    )
+
+    val occurrence = occurrences.firstOrNull { it.key == recurrenceKey } ?: return null
+    return toOccurrenceEvent(occurrence)
 }
 
 /**

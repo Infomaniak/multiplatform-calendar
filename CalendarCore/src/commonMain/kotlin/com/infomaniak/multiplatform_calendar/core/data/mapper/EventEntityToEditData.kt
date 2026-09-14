@@ -30,6 +30,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSource
  * emits a change for whatever differs, so an omission here would not preserve a field — it would
  * clear it. The recurrence rule and its dates are part of that, hence [EventEntity.rrule] and its
  * date lists travelling in the timing.
+ *
+ * Alarms are the exception this cannot express: [AlarmEntity.toDomain] drops any stored alarm whose
+ * trigger it cannot read, so callers preserve them through [AlarmListEdit.Preserve] instead.
  */
 internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     title = content.summary,

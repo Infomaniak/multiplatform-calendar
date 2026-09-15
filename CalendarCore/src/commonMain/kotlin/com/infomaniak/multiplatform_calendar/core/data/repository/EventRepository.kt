@@ -386,76 +386,56 @@ internal class EventRepository(
     ) {
         val masterId = occurrenceId.masterId
         val entity = eventDao.getEvent(masterId) ?: return
-        val timing = entity.toEditData().timing
+        val master = entity.toEditData().timing
         val zone = TimeZone.currentSystemDefault()
-        val pivotStart = occurrenceId.recurrenceKey.toLocalStart(timing, zone) ?: return
-        val split = timing.splitAt(pivotStart, zone)
+        val pivotStart = occurrenceId.recurrenceKey.toLocalStart(master, defaultZone = zone) ?: return
+        val split = master.splitAt(pivotStart, defaultZone = zone)
         // Nothing precedes the pivot, so there is no head to leave behind: the whole series is moving.
         if (split.head == null) return updateSeriesFrom(credentials, occurrenceId, data)
         require(split.pivotFollowsTheRule) {
             "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
         }
 
-        val tailTiming = data.timing.copy(recurrenceRule = data.tailRuleAfter(split, timing))
-        val tail = data.copy(timing = tailTiming)
-        val delta = wallClockShift(from = pivotStart, to = tailTiming.start)
-        val now = Clock.System.now().toICalUtcDateTime()
-        val built = caldavClient.buildEventIcs(
-            tail.toRemoteEdit(
-                stamp = now,
-                previous = null,
-                exDates = DateListEdit.Set(timing.exDates.movedTail(pivotStart, timing, delta)),
-                rDates = DateListEdit.Set(timing.rDates.movedTail(pivotStart, timing, delta)),
-            ),
-        )
-
-        val resource = carryOverridesInto(built, masterId, timing, pivotStart, tail, delta, now)
-        val ref = caldavClient.createEvent(credentials, data.calendarId.url, resource.icsData)
-        eventDao.upsertEventWithRawIcs(resource.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
+        createTail(credentials, masterId, tail = SeriesTail.of(master, pivotStart, edit = data, split))
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
         truncateSeriesFrom(credentials, occurrenceId)
     }
 
-    /**
-     * The rule the tail carries: the one [data] asks for when the edit redefines it, the head's leftovers
-     * otherwise.
-     *
-     * [EventEditData] replaces a whole event, so it restates the recurrence even when the user left it
-     * alone — and what it restates is the *series'* rule, which outruns the tail. Only an actual change
-     * may be taken verbatim; an untouched rule has to be the one [SeriesSplit] measured against the pivot.
-     */
-    private fun EventEditData.tailRuleAfter(split: SeriesSplit, stored: EventTiming): RecurrenceRule? {
-        val edited = timing.recurrenceRuleWithMatchingUntil()
+    /** Write [tail] as a resource of its own, the overrides it takes over from [masterId] included. */
+    private suspend fun createTail(credentials: DavAccount, masterId: EventId, tail: SeriesTail) {
+        val stamp = Clock.System.now().toICalUtcDateTime()
+        val built = caldavClient.buildEventIcs(edit = tail.toRemoteEdit(stamp))
+        val resource = carryOverridesInto(built, masterId, tail, stamp)
+        val calendarId = tail.data.calendarId
 
-        return if (edited == stored.recurrenceRuleWithMatchingUntil()) split.tail else edited
+        val ref = caldavClient.createEvent(credentials, calendarUrl = calendarId.url, resource.icsData)
+        eventDao.upsertEventWithRawIcs(resource.toSyncedUpsert(ref = ref, calendarId = calendarId))
     }
 
     /** The overrides of [masterId] the [tail] takes over, redefined instance by instance in [built]. */
     private suspend fun carryOverridesInto(
         built: RemoteDavEvent,
         masterId: EventId,
-        masterTiming: EventTiming,
-        pivotStart: LocalDateTime,
-        tail: EventEditData,
-        delta: Duration,
+        tail: SeriesTail,
         stamp: String,
     ): RemoteDavEvent {
         var resource = built
         eventDao.getOverridesOf(masterId)
-            .filterNot { it.recurrenceKey.startsBefore(pivotStart, masterTiming) }
+            .filterNot { it.recurrenceKey.startsBefore(tail.pivotStart, tail.master) }
             .forEach { override ->
-                val key = override.recurrenceKey.shiftedBy(delta)
-                val recurrenceId = key.toRemoteRecurrenceId(tail.timing) ?: return@forEach
-                val moved = override.toEditData(tail.calendarId).let { it.copy(timing = it.timing.shiftedBy(delta)) }
+                val key = override.recurrenceKey.shiftedBy(tail.delta)
+                val recurrenceId = key.toRemoteRecurrenceId(master = tail.data.timing) ?: return@forEach
+                val moved = override.toEditData(tail.data.calendarId)
+                    .let { it.copy(timing = it.timing.shiftedBy(tail.delta)) }
                 resource = caldavClient.upsertOverrideIcs(
                     resource.icsData,
                     recurrenceId,
                     // Detached from the tail's own master, which is what it is about to be seeded from.
                     edit = moved.toOverrideEdit(
                         stamp = stamp,
-                        previousColorArgb = tail.eventColor?.argb,
-                        previousAlarms = tail.alarms.map(EventAlarm::toEntity),
+                        previousColorArgb = tail.data.eventColor?.argb,
+                        previousAlarms = tail.data.alarms.map(EventAlarm::toEntity),
                     ),
                 )
             }
@@ -533,12 +513,51 @@ internal class EventRepository(
 }
 
 
+/** Where a series is cut, how far the edit moves what follows, and what that tail becomes. */
+private data class SeriesTail(
+    val master: EventTiming,
+    val pivotStart: LocalDateTime,
+    val delta: Duration,
+    val data: EventEditData,
+) {
+    companion object {
+        fun of(master: EventTiming, pivotStart: LocalDateTime, edit: EventEditData, split: SeriesSplit): SeriesTail {
+            val timing = edit.timing.copy(recurrenceRule = edit.tailRuleAfter(split, stored = master))
+
+            return SeriesTail(
+                master = master,
+                pivotStart = pivotStart,
+                delta = wallClockShift(from = pivotStart, to = timing.start),
+                data = edit.copy(timing = timing),
+            )
+        }
+    }
+}
+
 /**
- * The values of this list the tail takes over — those the pivot does not leave behind — each moved by
- * [delta] so it goes on designating the instance it designated on [master].
+ * The rule the tail carries: the one the edit asks for when it redefines it, the head's leftovers otherwise.
+ *
+ * [EventEditData] replaces a whole event, so it restates the recurrence even when the user left it alone —
+ * and what it restates is the *series'* rule, which outruns the tail. Only an actual change may be taken
+ * verbatim; an untouched rule has to be the one [SeriesSplit] measured against the pivot.
  */
-private fun List<IcalDateValue>.movedTail(
-    pivotStart: LocalDateTime,
-    master: EventTiming,
-    delta: Duration,
-): List<IcalDateValue> = filterNot { it.startsBefore(pivotStart, master) }.map { it.shiftedBy(delta) }
+private fun EventEditData.tailRuleAfter(split: SeriesSplit, stored: EventTiming): RecurrenceRule? {
+    val edited = timing.recurrenceRuleWithMatchingUntil()
+
+    return if (edited == stored.recurrenceRuleWithMatchingUntil()) split.tail else edited
+}
+
+/** This tail as the edit creating its resource, the date lists it takes over moved along with it. */
+private fun SeriesTail.toRemoteEdit(stamp: String) = data.toRemoteEdit(
+    stamp = stamp,
+    previous = null,
+    exDates = DateListEdit.Set(master.exDates.movedTail(tail = this)),
+    rDates = DateListEdit.Set(master.rDates.movedTail(tail = this)),
+)
+
+/**
+ * The values of this list the [tail] takes over — those the pivot does not leave behind — each moved by
+ * its delta so it goes on designating the instance it designated on the master.
+ */
+private fun List<IcalDateValue>.movedTail(tail: SeriesTail): List<IcalDateValue> =
+    filterNot { it.startsBefore(tail.pivotStart, tail.master) }.map { it.shiftedBy(tail.delta) }

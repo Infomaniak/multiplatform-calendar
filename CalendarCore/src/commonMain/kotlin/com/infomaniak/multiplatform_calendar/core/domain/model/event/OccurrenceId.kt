@@ -45,6 +45,25 @@ public sealed class OccurrenceId {
     ) : OccurrenceId() {
         override val value: String = "${masterId.url}$SEPARATOR${recurrenceKey.canonical}"
     }
+
+    public companion object {
+        /**
+         * Read back a [value] this class handed out, so a client holding only the exported string can
+         * name the occurrence again in a write call.
+         *
+         * The instance part is recognised, not assumed: an event URL may carry a [SEPARATOR] of its
+         * own, and what follows the last one is an occurrence key only if it parses as one. Anything
+         * else is the whole resource, [Master].
+         */
+        public fun parse(value: String): OccurrenceId {
+            if (SEPARATOR !in value) return Master(EventId(value))
+
+            val key = runCatching { RecurrenceKey.parse(value.substringAfterLast(SEPARATOR)) }.getOrNull()
+                ?: return Master(EventId(value))
+
+            return Recurrence(EventId(value.substringBeforeLast(SEPARATOR)), key)
+        }
+    }
 }
 
 /** Kept out of the class so it stays an implementation detail of [OccurrenceId.Recurrence]. */

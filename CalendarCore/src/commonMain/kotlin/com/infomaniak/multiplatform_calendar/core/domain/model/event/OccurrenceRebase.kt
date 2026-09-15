@@ -19,8 +19,6 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone.Companion.UTC
-import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * This timing, edited on one occurrence, expressed on the [master] it is about to be written onto.
@@ -35,9 +33,9 @@ import kotlinx.datetime.toLocalDateTime
  * else — zones, all-day, the rule — is the edit's own and stays as given.
  */
 internal fun EventTiming.rebasedOnto(master: EventTiming, shownStart: LocalDateTime): EventTiming {
-    val shift = start.toInstant(UTC) - shownStart.toInstant(UTC)
-    val duration = end.toInstant(UTC) - start.toInstant(UTC)
-    val rebasedStart = (master.start.toInstant(UTC) + shift).toLocalDateTime(UTC)
+    val shift = wallClockShift(from = shownStart, to = start)
+    val duration = wallClockShift(from = start, to = end)
+    val rebasedStart = master.start.shiftedBy(shift)
 
-    return copy(start = rebasedStart, end = (rebasedStart.toInstant(UTC) + duration).toLocalDateTime(UTC))
+    return copy(start = rebasedStart, end = rebasedStart.shiftedBy(duration))
 }

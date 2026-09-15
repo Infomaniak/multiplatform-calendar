@@ -59,8 +59,7 @@ class RecurrenceEditScopesTest {
         val cases = mapOf(
             None to emptySet(),
             Master to emptySet(),
-            // No ThisAndFollowing: splitting a series in two is not implemented yet.
-            Occurrence to setOf(ThisOccurrence, AllOccurrences),
+            Occurrence to setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences),
         )
 
         cases.forEach { (recurrence, expected) ->

@@ -40,16 +40,8 @@ internal fun deleteScopesFor(
     else -> setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences)
 }
 
-/**
- * Which scopes a user may pick from before editing. Reads like [deleteScopesFor], minus
- * [ThisAndFollowing]: splitting a series in two is not implemented yet, so offering it would let a
- * user pick a scope no operation honours.
- */
+/** Which scopes a user may pick from before editing. Reads exactly like [deleteScopesFor]. */
 internal fun editScopesFor(
     recurrence: EventRecurrenceState,
     canEdit: Boolean,
-): Set<RecurrenceEditScope> = when {
-    !canEdit -> emptySet()
-    recurrence != Occurrence -> emptySet()
-    else -> setOf(ThisOccurrence, AllOccurrences)
-}
+): Set<RecurrenceEditScope> = deleteScopesFor(recurrence, canEdit)

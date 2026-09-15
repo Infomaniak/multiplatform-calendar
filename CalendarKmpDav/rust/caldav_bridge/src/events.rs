@@ -273,15 +273,11 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<EventEntry, Ca
 /// (RFC 5545 §3.8.4.4); only its `RECURRENCE-ID` tells them apart. An instance already overridden is
 /// patched in place, so repeated edits of the same occurrence never pile up duplicate VEVENTs.
 ///
+/// A first detachment is seeded from the master (see [`override_seeded_from`]) so the instance keeps
+/// what the series said about it; the edit is then applied on top.
+///
 /// The returned [`EventEntry`] describes the whole resource — master, and every override including
 /// this one — with `url`/`etag` left empty for the caller to fill from the server response.
-///
-// TODO: A first detachment builds the VEVENT from scratch, so it carries only what the edit names:
-//  ORGANIZER, ATTENDEE, STATUS, CLASS, CATEGORIES and any custom property of the master are lost.
-//  RFC 5545 defines no inheritance, so the override has to be seeded from a clone of the master with
-//  its recurrence set (RRULE/EXDATE/RDATE) stripped. Beware the alarms: a clone brings the master's
-//  VALARMs along, which the `(Set, None)` arm below does not strip, and they would end up duplicated.
-//  Left for the occurrence edit, the first caller this path will ever have.
 #[uniffi::export]
 pub fn upsert_override_vevent(
     ics_data: &str,
@@ -291,9 +287,10 @@ pub fn upsert_override_vevent(
     // Resolve the target up front: the alarm helpers address a VEVENT textually, by ordinal, so they
     // must aim at the override — not at the master `patch_event_ics` targets.
     let probe: Calendar = ics_data.parse().map_err(|e| bridge_error("Override", e))?;
-    let uid = master_vevent(&probe)
+    // An override shares its master's UID, that being what ties the two into one series.
+    master_vevent(&probe)
         .and_then(|master| prop(master, "UID"))
-        .ok_or_else(|| bridge_error("Override", "no master VEVENT in ICS"))?;
+        .ok_or_else(|| bridge_error("Override", "no master VEVENT with a UID in ICS"))?;
     let existing = override_vevent_index(&probe, &recurrence_id);
     // A brand new override is pushed last, so it lands after every VEVENT currently in the object.
     let target_ordinal = match existing {
@@ -302,7 +299,7 @@ pub fn upsert_override_vevent(
     };
 
     // Unchanged leaves source VALARMs untouched so `X-*` / exotic params survive partial edits.
-    // A freshly created VEVENT has none to strip.
+    // A VEVENT being detached has none yet: its seed drops the master's rather than stripping them.
     let (source, new_alarms) = match (&edit.alarms_change, existing) {
         (AlarmsChange::Unchanged, _) => (ics_data.to_string(), None),
         (AlarmsChange::Set { alarms }, Some(_)) => {
@@ -322,8 +319,9 @@ pub fn upsert_override_vevent(
             bump_revision(event, &edit.stamp);
         }
         None => {
-            let mut event = icalendar::Event::new();
-            event.add_property("UID", &uid);
+            let master =
+                master_vevent(&calendar).ok_or_else(|| bridge_error("Override", "no master VEVENT in ICS"))?;
+            let mut event = override_seeded_from(master, matches!(edit.alarms_change, AlarmsChange::Unchanged));
             event.append_property(recurrence_id_property(&recurrence_id));
             apply_content_fields(&mut event, &edit);
             bump_revision(&mut event, &edit.stamp);
@@ -417,6 +415,44 @@ fn recurrence_id_property(spec: &RecurrenceIdSpec) -> Property {
         prop.add_parameter("TZID", tzid);
     }
     prop.done()
+}
+
+/// Properties of a master that must not follow into one of its overrides.
+///
+/// `RRULE`/`EXDATE`/`RDATE` define the recurrence set, which belongs to the master alone (RFC 5545
+/// §3.8.4.4). `RECURRENCE-ID` is the override's own identity, written by the caller. `SEQUENCE` and
+/// `CREATED` describe a component's history, and the one being detached has none yet.
+const MASTER_ONLY_PROPERTIES: [&str; 6] = ["RRULE", "EXDATE", "RDATE", "RECURRENCE-ID", "SEQUENCE", "CREATED"];
+
+/// Seed a VEVENT being detached with what its master says about the instance: ORGANIZER, ATTENDEE,
+/// STATUS, CLASS, CATEGORIES, `X-` properties — everything but [`MASTER_ONLY_PROPERTIES`].
+///
+/// RFC 5545 defines no inheritance between a master and its overrides: a detached instance is a
+/// standalone component, and whatever it does not carry is simply absent from it. Starting from an
+/// empty VEVENT would therefore strip the series' participants and metadata off the very first
+/// per-occurrence edit, and the server would read that as the user removing them.
+///
+/// `keep_alarms` carries the master's VALARMs over, which is what an edit leaving alarms alone means.
+/// It must be `false` when the edit replaces them: the new ones are spliced in textually afterwards,
+/// and the seeded ones would survive beside them as duplicates.
+fn override_seeded_from(master: &icalendar::Event, keep_alarms: bool) -> icalendar::Event {
+    let is_master_only = |key: &String| MASTER_ONLY_PROPERTIES.contains(&key.as_str());
+
+    let mut seed = icalendar::Event::new();
+    for (_, property) in master.properties().iter().filter(|(key, _)| !is_master_only(key)) {
+        seed.append_property(property.clone());
+    }
+    for (_, properties) in master.multi_properties().iter().filter(|(key, _)| !is_master_only(key)) {
+        for property in properties {
+            seed.append_multi_property(property.clone());
+        }
+    }
+    if keep_alarms {
+        for alarm in master.components() {
+            seed.append_component(alarm.clone());
+        }
+    }
+    seed
 }
 
 /// Replace the user-edited content fields, then the master-only recurrence properties.

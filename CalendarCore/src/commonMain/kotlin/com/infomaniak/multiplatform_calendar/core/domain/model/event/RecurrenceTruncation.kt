@@ -23,19 +23,30 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
-import com.infomaniak.multiplatform_calendar.core.domain.recurrence.InstanceTally
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceExpander
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Instant
 
 /** What a truncation leaves of a series: its rule bounded, or none when only dates carry it on. */
 internal data class TruncatedSeries(val rule: RecurrenceRule?)
 
-/** The two sides a split leaves: what the master keeps, and the rule the new resource resumes with. */
-internal data class SeriesSplit(val head: TruncatedSeries?, val tail: RecurrenceRule?)
+/**
+ * The two sides a split leaves: what the master keeps, and the rule the new resource resumes with.
+ *
+ * [pivotFollowsTheRule] says whether the rule generates the pivot itself. When it does not — the pivot
+ * being an `RDATE` the rule never produces — the tail cannot be re-anchored on it without moving every
+ * instance that follows, since `DTSTART` is what a `RRULE` counts from (RFC 5545 §3.8.5.3). A series
+ * with no rule at all has nothing to re-anchor, so it follows trivially.
+ */
+internal data class SeriesSplit(
+    val head: TruncatedSeries?,
+    val tail: RecurrenceRule?,
+    val pivotFollowsTheRule: Boolean,
+)
 
 /**
  * This series bounded so its last instance is the one preceding [pivotStart], or `null` when nothing
@@ -67,7 +78,7 @@ internal suspend fun EventTiming.splitAt(
     defaultZone: TimeZone,
     limits: ExpansionLimits = ExpansionLimits(),
 ): SeriesSplit {
-    val kept = recurrenceRule?.let { instancesBefore(it, pivotStart, defaultZone, limits) }
+    val kept = recurrenceRule?.let { rule -> instancesUpTo(rule, pivotStart, defaultZone, limits) }
     val boundedRule = kept?.lastStart?.let { lastStart ->
         when {
             recurrenceRule.occurrenceCount != null -> recurrenceRule.copy(occurrenceCount = kept.count)
@@ -84,7 +95,11 @@ internal suspend fun EventTiming.splitAt(
         else -> null
     }
 
-    return SeriesSplit(head = head, tail = recurrenceRule?.resumedAfter(kept?.count ?: 0))
+    return SeriesSplit(
+        head = head,
+        tail = recurrenceRule?.resumedAfter(keptCount = kept?.count ?: 0),
+        pivotFollowsTheRule = kept?.generatesPivot != false,
+    )
 }
 
 /**
@@ -98,31 +113,50 @@ private fun RecurrenceRule.resumedAfter(keptCount: Int): RecurrenceRule? = when 
 }
 
 /**
- * The instances [rule] generates before [pivotStart]: how many, and where the last one starts.
+ * The instances [rule] generates before [pivotStart], counted with only the latest kept, and whether it
+ * generates the pivot itself.
  *
  * The bound is read from the instances the rule *generates*: `EXDATE` doesn't shift a rank, and
- * `RDATE` doesn't create one.
+ * `RDATE` doesn't create one. The window therefore runs one tick past the pivot — the smallest instant
+ * that can hold it, the expander emitting on `start < inputEnd` — and the sink tells the two apart.
  */
-private suspend fun EventTiming.instancesBefore(
+private suspend fun EventTiming.instancesUpTo(
     rule: RecurrenceRule,
     pivotStart: LocalDateTime,
     defaultZone: TimeZone,
     limits: ExpansionLimits,
-): InstanceTally {
-    val tally = RecurrenceExpander.tally(
+): SplitTally {
+    var count = 0
+    var lastStart: LocalDateTime? = null
+    var generatesPivot = false
+
+    val outcome = RecurrenceExpander.forEachInstance(
         master = this,
         rrule = rule,
         // The window opens before any instance can start, so a zero-duration series is kept whole too.
         inputStart = Instant.DISTANT_PAST,
-        inputEnd = MasterTiming.of(this, defaultZone).resolvedStartInstant(pivotStart),
+        // Reaching just past the pivot is what lets the same walk tell whether the rule lands on it.
+        inputEnd = MasterTiming.of(master = this, defaultZone).resolvedStartInstant(startLocal = pivotStart) +
+            1.nanoseconds,
         defaultZone = defaultZone,
         limits = limits,
-    )
+    ) { startLocal, _, _ ->
+        when {
+            startLocal < pivotStart -> {
+                lastStart = startLocal
+                count++
+            }
+            startLocal == pivotStart -> generatesPivot = true
+        }
+    }
     // A stopped walk yields a prefix, whose size and last instance would both bound the rule short.
-    check(tally.outcome == ExpansionOutcome.Completed) { "Cannot truncate a series whose expansion stopped on ${tally.outcome}" }
+    check(outcome == ExpansionOutcome.Completed) { "Cannot truncate a series whose expansion stopped on $outcome" }
 
-    return tally
+    return SplitTally(count = count, lastStart = lastStart, generatesPivot = generatesPivot)
 }
+
+/** What a split reads off a rule: the instances preceding the pivot, and whether the rule makes the pivot. */
+private data class SplitTally(val count: Int, val lastStart: LocalDateTime?, val generatesPivot: Boolean)
 
 /**
  * The inclusive `UNTIL` bound landing on the instance starting at [localStart], typed after `DTSTART`

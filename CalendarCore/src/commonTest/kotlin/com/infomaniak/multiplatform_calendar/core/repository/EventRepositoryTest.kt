@@ -1906,6 +1906,38 @@ class EventRepositoryTest : RobolectricTestsBase() {
     private fun dateListOf(change: RemoteDateListChange) =
         assertIs<RemoteDateListChange.Set>(change).lines.flatMap(RemoteDateListLine::values)
 
+    @Test
+    fun updateEvent_thisAndFollowing_atAnOccurrenceTheRuleDoesNotGenerate_isRejected() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        // The 16th at 15:00 is an RDATE: the rule only ever produces 10:00 instances.
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            rDates = listOf(IcalDateValue.Zoned(LocalDateTime(2026, 6, 16, 15, 0).toInstant(TimeZone.UTC), TimeZone.UTC.id)),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        // Re-anchoring the rule on 15:00 would push every later instance five hours away from where it stands.
+        assertFailsWith<IllegalArgumentException> {
+            repository.updateEvent(
+                credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+                target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 15, 0)), RecurrenceScope.ThisAndFollowing),
+                data = editData(
+                    title = "Tail",
+                    calendarId = calendarId,
+                    recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+                    start = LocalDateTime(2026, 6, 16, 15, 0),
+                    end = LocalDateTime(2026, 6, 16, 16, 0),
+                ),
+            )
+        }
+        assertEquals(emptyList(), fakeCaldav.calls, "nothing may be written when the split is refused")
+    }
+
     private fun occurrenceOf(masterId: EventId, start: LocalDateTime) = OccurrenceId.Recurrence(
         masterId = masterId,
         recurrenceKey = RecurrenceKey.Utc(start.toInstant(TimeZone.UTC)),

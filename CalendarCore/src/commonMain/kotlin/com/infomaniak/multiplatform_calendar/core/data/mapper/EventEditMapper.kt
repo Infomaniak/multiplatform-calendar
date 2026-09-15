@@ -194,7 +194,7 @@ private fun EventEditData.resolveRecurrenceChange(previousRule: RecurrenceRule?)
  * `DATE-TIME`, otherwise UTC `DATE-TIME`. The calendar-face value is reinterpreted across forms (zone-free,
  * deterministic) rather than converted across zones.
  */
-private fun EventTiming.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
+internal fun EventTiming.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
     val rule = recurrenceRule ?: return null
     val current = rule.until ?: return rule
     val normalized = when {

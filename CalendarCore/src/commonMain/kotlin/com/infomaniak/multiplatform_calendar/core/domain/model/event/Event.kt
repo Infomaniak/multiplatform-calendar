@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.EventRecurrenceState
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.deleteScopesFor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.editScopesFor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -72,4 +73,8 @@ public data class Event(
     /** What deleting this event may be asked to reach, empty when there is nothing to ask. */
     val deleteScopes: Set<RecurrenceEditScope>
         get() = deleteScopesFor(recurrence, canEdit)
+
+    /** What editing this event may be asked to reach, empty when there is nothing to ask. */
+    val editScopes: Set<RecurrenceEditScope>
+        get() = editScopesFor(recurrence, canEdit)
 }

@@ -1908,6 +1908,37 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertIs<RemoteDateListChange.Set>(change).lines.flatMap(RemoteDateListLine::values)
 
     @Test
+    fun updateEvent_thisAndFollowing_givesTheTailTheRuleTheEditAsksFor() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            // The user turned the rest of the series weekly: that is the rule the tail must carry.
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Weekly, occurrenceCount = 4),
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+            ),
+        )
+
+        assertEquals("FREQ=WEEKLY;COUNT=4", rruleOf(fakeCaldav.builds.single()))
+        // The head is bounded on what the series used to be, the edit being about the tail only.
+        assertEquals("FREQ=DAILY;COUNT=2", rruleOf(fakeCaldav.patches.single()))
+    }
+
+    @Test
     fun updateEvent_thisAndFollowing_atAnOccurrenceTheRuleDoesNotGenerate_isRejected() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://main")

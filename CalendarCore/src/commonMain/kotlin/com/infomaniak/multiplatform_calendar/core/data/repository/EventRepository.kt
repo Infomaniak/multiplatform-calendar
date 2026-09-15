@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.recurrenceRuleWithMatchingUntil
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
@@ -58,6 +59,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt
@@ -437,7 +439,7 @@ internal class EventRepository(
             "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
         }
 
-        val tailTiming = data.timing.copy(recurrenceRule = split.tail)
+        val tailTiming = data.timing.copy(recurrenceRule = data.tailRuleAfter(split, timing))
         val tail = data.copy(timing = tailTiming)
         val delta = wallClockShift(from = pivotStart, to = tailTiming.start)
         val now = Clock.System.now().toICalUtcDateTime()
@@ -456,6 +458,20 @@ internal class EventRepository(
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
         truncateSeriesFrom(credentials, occurrenceId)
+    }
+
+    /**
+     * The rule the tail carries: the one [data] asks for when the edit redefines it, the head's leftovers
+     * otherwise.
+     *
+     * [EventEditData] replaces a whole event, so it restates the recurrence even when the user left it
+     * alone — and what it restates is the *series'* rule, which outruns the tail. Only an actual change
+     * may be taken verbatim; an untouched rule has to be the one [SeriesSplit] measured against the pivot.
+     */
+    private fun EventEditData.tailRuleAfter(split: SeriesSplit, stored: EventTiming): RecurrenceRule? {
+        val edited = timing.recurrenceRuleWithMatchingUntil()
+
+        return if (edited == stored.recurrenceRuleWithMatchingUntil()) split.tail else edited
     }
 
     /** The overrides of [masterId] the [tail] takes over, redefined instance by instance in [built]. */

@@ -39,17 +39,18 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.VisibleC
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
@@ -373,6 +374,8 @@ internal class EventRepository(
      *
      * Everything the tail carried travels with it, its `EXDATE`/`RDATE` values and its overrides, each
      * moved by however far the edit moved the pivot so they go on designating what they designated.
+     *
+     * Refused when the rule does not generate the pivot, see [SeriesSplit.pivotFollowsTheRule].
      */
     private suspend fun splitSeriesAt(
         credentials: DavAccount,
@@ -387,6 +390,9 @@ internal class EventRepository(
         val split = timing.splitAt(pivotStart, zone)
         // Nothing precedes the pivot, so there is no head to leave behind: the whole series is moving.
         if (split.head == null) return updateSeriesFrom(credentials, occurrenceId, data)
+        require(split.pivotFollowsTheRule) {
+            "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
+        }
 
         val tailTiming = data.timing.copy(recurrenceRule = split.tail)
         val tail = data.copy(timing = tailTiming)

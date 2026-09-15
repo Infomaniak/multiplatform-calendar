@@ -29,13 +29,25 @@ import com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceEx
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Instant
 
 /** What a truncation leaves of a series: its rule bounded, or none when only dates carry it on. */
 internal data class TruncatedSeries(val rule: RecurrenceRule?)
 
-/** The two sides a split leaves: what the master keeps, and the rule the new resource resumes with. */
-internal data class SeriesSplit(val head: TruncatedSeries?, val tail: RecurrenceRule?)
+/**
+ * The two sides a split leaves: what the master keeps, and the rule the new resource resumes with.
+ *
+ * [pivotFollowsTheRule] says whether the rule generates the pivot itself. When it does not — the pivot
+ * being an `RDATE` the rule never produces — the tail cannot be re-anchored on it without moving every
+ * instance that follows, since `DTSTART` is what a `RRULE` counts from (RFC 5545 §3.8.5.3). A series
+ * with no rule at all has nothing to re-anchor, so it follows trivially.
+ */
+internal data class SeriesSplit(
+    val head: TruncatedSeries?,
+    val tail: RecurrenceRule?,
+    val pivotFollowsTheRule: Boolean,
+)
 
 /**
  * This series bounded so its last instance is the one preceding [pivotStart], or `null` when nothing
@@ -67,7 +79,7 @@ internal suspend fun EventTiming.splitAt(
     defaultZone: TimeZone,
     limits: ExpansionLimits = ExpansionLimits(),
 ): SeriesSplit {
-    val kept = recurrenceRule?.let { instancesBefore(it, pivotStart, defaultZone, limits) }
+    val kept = recurrenceRule?.let { rule -> instancesUpTo(rule, pivotStart, defaultZone, limits) }
     val boundedRule = kept?.last?.let { last ->
         when {
             recurrenceRule.occurrenceCount != null -> recurrenceRule.copy(occurrenceCount = kept.size)
@@ -84,7 +96,11 @@ internal suspend fun EventTiming.splitAt(
         else -> null
     }
 
-    return SeriesSplit(head = head, tail = recurrenceRule?.resumedAfter(kept?.size ?: 0))
+    return SeriesSplit(
+        head = head,
+        tail = recurrenceRule?.resumedAfter(keptCount = kept?.size ?: 0),
+        pivotFollowsTheRule = kept?.generatesPivot != false,
+    )
 }
 
 /**
@@ -98,25 +114,28 @@ private fun RecurrenceRule.resumedAfter(keptCount: Int): RecurrenceRule? = when 
 }
 
 /**
- * The instances [rule] generates before [pivotStart], counted, with only the latest kept.
+ * The instances [rule] generates before [pivotStart], counted with only the latest kept, and whether it
+ * generates the pivot itself.
  *
  * The bound is read from the instances the rule *generates*: `EXDATE` doesn't shift a rank, and
- * `RDATE` doesn't create one.
+ * `RDATE` doesn't create one. The window therefore runs one tick past the pivot — the smallest instant
+ * that can hold it, the expander emitting on `start < inputEnd` — and the sink tells the two apart.
  */
-private suspend fun EventTiming.instancesBefore(
+private suspend fun EventTiming.instancesUpTo(
     rule: RecurrenceRule,
     pivotStart: LocalDateTime,
     defaultZone: TimeZone,
     limits: ExpansionLimits,
-): LastInstanceSink {
-    val kept = LastInstanceSink()
+): SplitSink {
+    val kept = SplitSink(pivotStart)
     val outcome = RecurrenceExpander.expandInto(
         target = kept,
         master = this,
         rrule = rule,
         // The window opens before any instance can start, so a zero-duration series is kept whole too.
         inputStart = Instant.DISTANT_PAST,
-        inputEnd = MasterTiming.of(this, defaultZone).resolvedStartInstant(pivotStart),
+        inputEnd = MasterTiming.of(master = this, defaultZone).resolvedStartInstant(startLocal = pivotStart) +
+            1.nanoseconds,
         defaultZone = defaultZone,
         limits = limits,
     )
@@ -127,24 +146,34 @@ private suspend fun EventTiming.instancesBefore(
 }
 
 /**
- * Counts the instances handed to it and keeps only the latest, which is all a bound is read from.
+ * Counts the instances handed to it that precede [pivotStart] and keeps only the latest, which is all a
+ * bound is read from, while noting whether one lands on the pivot itself.
  *
  * [RecurrenceExpander.expandInto] writes into a list and nothing else, and the window here opens at
  * the start of the series: a dense long-running rule would otherwise materialise up to
  * [ExpansionLimits.maxGeneratedOccurrences] occurrences just to read two values off the end.
  */
-private class LastInstanceSink : AbstractMutableList<Occurrence>() {
+private class SplitSink(private val pivotStart: LocalDateTime) : AbstractMutableList<Occurrence>() {
 
     var last: Occurrence? = null
         private set
 
+    var generatesPivot: Boolean = false
+        private set
+
+    /** The instances preceding the pivot, the only ones the head is bounded on. */
     override var size: Int = 0
         private set
 
     override fun add(index: Int, element: Occurrence) {
         require(index == size) { "The expander only ever appends" }
-        last = element
-        size++
+        when {
+            element.start < pivotStart -> {
+                last = element
+                size++
+            }
+            element.start == pivotStart -> generatesPivot = true
+        }
     }
 
     override fun get(index: Int): Occurrence = writeOnly()

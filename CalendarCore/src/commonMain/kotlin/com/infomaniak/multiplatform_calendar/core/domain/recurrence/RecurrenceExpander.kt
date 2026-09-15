@@ -79,7 +79,7 @@ internal object RecurrenceExpander {
         inputEnd: Instant,
         defaultZone: TimeZone,
         limits: ExpansionLimits = ExpansionLimits(),
-    ): ExpansionOutcome = traverse(
+    ): ExpansionOutcome = forEachInstance(
         master = master,
         rrule = rrule,
         inputStart = inputStart,
@@ -98,49 +98,21 @@ internal object RecurrenceExpander {
     }
 
     /**
-     * How many instances of [rrule] overlap `[inputStart, inputEnd[`, and where the last one starts.
+     * Walks the instances of [rrule] in order and hands [onInstance] each one overlapping
+     * `[inputStart, inputEnd[`, stopping after [maxEmitted] of them.
      *
-     * The traversal [expandInto] runs, minus the materialising, and minus the output cap: that one
-     * bounds what may be handed back, which has nothing to say to a count. Work stays bounded by
-     * [ExpansionLimits.maxScannedInstances], reported through the outcome.
+     * Reading the set without materialising it goes through here and leaves [maxEmitted] alone: that cap
+     * bounds what may be handed *back*, which has nothing to say to a caller only counting. Work stays
+     * bounded by [ExpansionLimits.maxScannedInstances], reported through the outcome.
      */
-    suspend fun tally(
+    suspend fun forEachInstance(
         master: EventTiming,
         rrule: RecurrenceRule,
         inputStart: Instant,
         inputEnd: Instant,
         defaultZone: TimeZone,
         limits: ExpansionLimits = ExpansionLimits(),
-    ): InstanceTally {
-        var count = 0
-        var lastStart: LocalDateTime? = null
-        val outcome = traverse(
-            master = master,
-            rrule = rrule,
-            inputStart = inputStart,
-            inputEnd = inputEnd,
-            defaultZone = defaultZone,
-            limits = limits,
-            maxEmitted = Int.MAX_VALUE,
-        ) { startLocal, _, _ ->
-            count++
-            lastStart = startLocal
-        }
-        return InstanceTally(outcome = outcome, count = count, lastStart = lastStart)
-    }
-
-    /**
-     * The shared traversal: walks the instances of [rrule] in order and hands [onInstance] each one
-     * overlapping `[inputStart, inputEnd[`, stopping after [maxEmitted] of them.
-     */
-    private suspend inline fun traverse(
-        master: EventTiming,
-        rrule: RecurrenceRule,
-        inputStart: Instant,
-        inputEnd: Instant,
-        defaultZone: TimeZone,
-        limits: ExpansionLimits,
-        maxEmitted: Int,
+        maxEmitted: Int = Int.MAX_VALUE,
         onInstance: (startLocal: LocalDateTime, startInstant: Instant, endLocal: LocalDateTime) -> Unit,
     ): ExpansionOutcome {
         val masterTiming = MasterTiming.of(master, defaultZone)
@@ -283,10 +255,3 @@ internal object RecurrenceExpander {
         return wholePeriodsBefore.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
     }
 }
-
-/** What a traversal tallied. [outcome] matters: a tally read off a stopped walk bounds a series short. */
-internal data class InstanceTally(
-    val outcome: ExpansionOutcome,
-    val count: Int,
-    val lastStart: LocalDateTime?,
-)

@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.RdatePeriodUnsupported
@@ -103,7 +104,7 @@ internal data class ResolvedRecurrence(
     val rDates: List<IcalDateValue> = emptyList(),
     val exDates: List<IcalDateValue> = emptyList(),
 ) {
-    val hasRecurrence: Boolean get() = hasPersistedRecurrence(rule, rDates)
+    val hasRecurrence: Boolean get() = hasRecurrenceSet(rule, rDates)
 }
 
 /** Resolve the wire's color into a single ARGB: Apple hex wins over the RFC 7986 CSS3 name. */

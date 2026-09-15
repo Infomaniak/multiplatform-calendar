@@ -17,23 +17,24 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.ThemedColor
-import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
-
-public data class CalendarColors(
+/**
+ * One dot of a day cell, reduced per calendar **and** per color: an event redefining its color (RFC 7986
+ * `COLOR`) gets its own dot, and two calendars sharing a color get a dot each.
+ *
+ * [id] is that very pair, so it identifies a dot uniquely within its day and stays the same as long as the
+ * calendar keeps showing that color — unlike the events behind it, which come and go.
+ */
+public data class DotColor(
+    val id: String,
     val sourceColor: Int,
-    val onSourceColor: ThemedColor,
 ) {
     public companion object {
-        /** Color used by a calendar that declares none, and the last fallback of any event color. */
-        public const val DEFAULT_SOURCE_COLOR: Int = 0xFF2196F3.toInt() // Material Blue
 
-        public fun from(calendarColor: Int?): CalendarColors {
-            val sourceColor = calendarColor ?: DEFAULT_SOURCE_COLOR
-            return CalendarColors(
-                sourceColor = sourceColor,
-                onSourceColor = ColorComputation.from(sourceColor).onSourceColor,
-            )
+        /** The dot [calendarId] owns for [eventColorArgb], falling back on its own color then the default one. */
+        internal fun of(calendarId: CalendarId, eventColorArgb: Int?, calendarColorArgb: Int?): DotColor {
+            val sourceColor = eventColorArgb ?: calendarColorArgb ?: CalendarColors.DEFAULT_SOURCE_COLOR
+            return DotColor(id = "${calendarId.url}#$sourceColor", sourceColor = sourceColor)
         }
     }
 }
+

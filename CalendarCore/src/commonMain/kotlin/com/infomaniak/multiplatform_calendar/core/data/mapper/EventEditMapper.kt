@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -25,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleSerializer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -37,6 +39,8 @@ import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
@@ -55,14 +59,19 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
 /**
- * [exDates]/[rDates] stay out of [EventEditData] on purpose — only occurrence-level operations touch a
- * series' recurrence set, so a plain edit leaves it alone (see [DateListEdit]).
+ * [exDates]/[rDates]/[droppedOverrides] stay out of [EventEditData] on purpose — only occurrence-level
+ * operations touch a series' recurrence set, so a plain edit leaves it alone (see [DateListEdit]).
+ *
+ * [droppedOverrides] travels with the patch rather than in a call of its own so a series is never
+ * left, between two requests, with overrides its rule no longer generates.
  */
 internal fun EventEditData.toRemoteEdit(
     stamp: String,
     previous: EventEntity?,
     exDates: DateListEdit = DateListEdit.Preserve,
     rDates: DateListEdit = DateListEdit.Preserve,
+    droppedOverrides: List<RecurrenceKey> = emptyList(),
+    knownOverrides: List<EventOverrideEntity> = emptyList(),
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -81,10 +90,35 @@ internal fun EventEditData.toRemoteEdit(
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
         exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
         rDateChange = timing.resolveDateListChange(rDates, previous, previous?.rDates),
+        overrideRemoval = droppedOverrides.toOverrideRemoval(timing, knownOverrides),
         alarms = resolveAlarmEdits(alarms, previous?.content?.alarms.orEmpty()),
         stamp = stamp,
     )
 }
+
+/**
+ * The overrides to drop, addressed the way the resource names them: a recorded override lends its own
+ * `RECURRENCE-ID`, and a key claimed by none falls back on [toRemoteRecurrenceId]'s master form. A key
+ * designating no occurrence of the master is left out: it can match no override either.
+ */
+private fun List<RecurrenceKey>.toOverrideRemoval(
+    timing: EventTiming,
+    knownOverrides: List<EventOverrideEntity>,
+): RemoteOverrideRemoval {
+    if (isEmpty()) return RemoteOverrideRemoval.Unchanged
+
+    val recordedByKey = knownOverrides.associateBy(EventOverrideEntity::recurrenceKey)
+    return RemoteOverrideRemoval.Instances(
+        mapNotNull { key -> recordedByKey[key]?.toRemoteRecurrenceId(timing) ?: key.toRemoteRecurrenceId(timing) },
+    )
+}
+
+/** The `RECURRENCE-ID` this override carries in its resource, kept verbatim (see [EventOverrideEntity]). */
+private fun EventOverrideEntity.toRemoteRecurrenceId(master: EventTiming) = RemoteRecurrenceId(
+    tzid = recurrenceIdTzid,
+    isDateOnly = master.isAllDay,
+    value = recurrenceIdValue,
+)
 
 private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteColorChange = when {
     eventColor?.argb == previousColorArgb -> RemoteColorChange.Unchanged
@@ -199,6 +233,28 @@ private fun IcalDateValue.calendarDateTime(): LocalDateTime = when (this) {
     is IcalDateValue.AllDay -> date.atTime(0, 0)
     is IcalDateValue.Floating -> localDateTime
     is IcalDateValue.Zoned -> instant.toLocalDateTime(TimeZone.of(timeZoneId))
+}
+
+/**
+ * The `RECURRENCE-ID` designating this occurrence of [master].
+ *
+ * RFC 5545 §3.8.4.4 ties the value type to the master's `DTSTART`, so the key is re-expressed in that
+ * form rather than in its own: the server pairs an override with the instance it replaces on that
+ * exact value, and a mismatched form would detach it into a second, orphan instance.
+ *
+ * Only a *fallback*, for an instance no override claims yet: the zone stays free, so an existing
+ * override must be addressed with [EventOverrideEntity.recurrenceIdValue], the very text it carries.
+ *
+ * Returns `null` when the key designates no occurrence of [master] — a zoned key against a floating
+ * master, say — since there would be nothing to override.
+ */
+internal fun RecurrenceKey.toRemoteRecurrenceId(master: EventTiming): RemoteRecurrenceId? {
+    val localStart = toLocalStart(master, defaultZone = UTC) ?: return null
+    return RemoteRecurrenceId(
+        tzid = master.startTimeZone.tzidForIcal(master.isAllDay),
+        isDateOnly = master.isAllDay,
+        value = localStart.toICal(master.isAllDay, master.startTimeZone),
+    )
 }
 
 /**

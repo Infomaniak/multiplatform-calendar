@@ -58,6 +58,8 @@ private fun RemoteDavEventOverride.toEntity(
     return EventOverrideEntity(
         masterId = masterId,
         recurrenceKey = original.key,
+        recurrenceIdValue = recurrenceId,
+        recurrenceIdTzid = recurrenceIdTzid,
         originalStartInstantMs = original.startInstantMs,
         originalEndInstantMs = original.endInstantMs,
         originalStartLocalDateTime = original.startLocalDateTime,

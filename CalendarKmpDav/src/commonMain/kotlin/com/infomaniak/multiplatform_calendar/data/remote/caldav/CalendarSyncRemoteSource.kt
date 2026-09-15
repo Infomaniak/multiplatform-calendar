@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -90,6 +91,16 @@ interface CalendarSyncRemoteSource {
      */
     suspend fun buildEventIcs(edit: RemoteEventEdit): RemoteDavEvent
 
+    /**
+     * Add — or replace — the VEVENT overriding the instance [recurrenceId] designates, inside the same
+     * iCS as its master (RFC 5545 §3.8.4.4). Returns the whole resource reparsed (see [patchEventIcs]):
+     * master, and every override including this one. No network.
+     */
+    suspend fun upsertOverrideIcs(
+        icsData: String,
+        recurrenceId: RemoteRecurrenceId,
+        edit: RemoteEventEdit,
+    ): RemoteDavEvent
     /** Create a new event. Returns the server-assigned URL + etag. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef

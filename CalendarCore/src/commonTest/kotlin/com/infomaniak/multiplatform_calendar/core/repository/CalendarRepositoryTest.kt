@@ -40,6 +40,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -420,6 +421,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
         override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = error("not used")
         override suspend fun buildEventIcs(edit: RemoteEventEdit) = error("not used")
+        override suspend fun upsertOverrideIcs(icsData: String, recurrenceId: RemoteRecurrenceId, edit: RemoteEventEdit) =
+            error("not used")
         override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String) =
             error("not used")
 

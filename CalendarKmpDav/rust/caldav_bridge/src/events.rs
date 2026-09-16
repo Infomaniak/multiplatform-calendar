@@ -6,6 +6,7 @@ use fast_dav_rs::webdav::normalize_etag;
 use crate::alarms::{parse_alarms, splice_alarms_into_vevent, strip_valarms_in_vevent};
 use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
+use crate::ical_components::{is_begin_marker, is_end_marker, VEVENT};
 use crate::models::{
     AlarmsChange,
     AttendeeEntry,
@@ -23,7 +24,9 @@ use crate::models::{
     IcalDateValueEntry,
     IcalDateValueKind,
     OrganizerEntry,
+    OverrideRemoval,
     RecurrenceChange,
+    RecurrenceIdSpec,
     VTimeZoneSpec,
 };
 
@@ -254,23 +257,187 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<EventEntry, Ca
     bump_revision(event, &edit.stamp);
 
     let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
-    let final_ics = match new_alarms {
+    let spliced = match new_alarms {
         Some(alarms) => splice_alarms_into_vevent(&serialised, master_ordinal, alarms),
         None => serialised,
     };
+    // Dropped last: removing a VEVENT shifts the ordinals the alarm helpers address, and `probe`
+    // still describes the layout they were computed against.
+    let final_ics = remove_override_vevents(&spliced, &probe, &edit.override_removal);
     reparse_edited(final_ics, "Patch")
 }
 
-/// Replace the user-edited content fields (keeps DTEND/DURATION mutually exclusive).
+/// Add — or replace — the VEVENT overriding the instance identified by `recurrence_id`.
+///
+/// A detached override lives in the *same* iCalendar object as its master and shares its `UID`
+/// (RFC 5545 §3.8.4.4); only its `RECURRENCE-ID` tells them apart. An instance already overridden is
+/// patched in place, so repeated edits of the same occurrence never pile up duplicate VEVENTs.
+///
+/// The returned [`EventEntry`] describes the whole resource — master, and every override including
+/// this one — with `url`/`etag` left empty for the caller to fill from the server response.
+///
+// TODO: A first detachment builds the VEVENT from scratch, so it carries only what the edit names:
+//  ORGANIZER, ATTENDEE, STATUS, CLASS, CATEGORIES and any custom property of the master are lost.
+//  RFC 5545 defines no inheritance, so the override has to be seeded from a clone of the master with
+//  its recurrence set (RRULE/EXDATE/RDATE) stripped. Beware the alarms: a clone brings the master's
+//  VALARMs along, which the `(Set, None)` arm below does not strip, and they would end up duplicated.
+//  Left for the occurrence edit, the first caller this path will ever have.
+#[uniffi::export]
+pub fn upsert_override_vevent(
+    ics_data: &str,
+    recurrence_id: RecurrenceIdSpec,
+    edit: EventEdit,
+) -> Result<EventEntry, CaldavError> {
+    // Resolve the target up front: the alarm helpers address a VEVENT textually, by ordinal, so they
+    // must aim at the override — not at the master `patch_event_ics` targets.
+    let probe: Calendar = ics_data.parse().map_err(|e| bridge_error("Override", e))?;
+    let uid = master_vevent(&probe)
+        .and_then(|master| prop(master, "UID"))
+        .ok_or_else(|| bridge_error("Override", "no master VEVENT in ICS"))?;
+    let existing = override_vevent_index(&probe, &recurrence_id);
+    // A brand new override is pushed last, so it lands after every VEVENT currently in the object.
+    let target_ordinal = match existing {
+        Some(index) => vevent_ordinal(&probe, index),
+        None => vevent_count(&probe),
+    };
+
+    // Unchanged leaves source VALARMs untouched so `X-*` / exotic params survive partial edits.
+    // A freshly created VEVENT has none to strip.
+    let (source, new_alarms) = match (&edit.alarms_change, existing) {
+        (AlarmsChange::Unchanged, _) => (ics_data.to_string(), None),
+        (AlarmsChange::Set { alarms }, Some(_)) => {
+            (strip_valarms_in_vevent(ics_data, target_ordinal), Some(alarms.as_slice()))
+        }
+        (AlarmsChange::Set { alarms }, None) => (ics_data.to_string(), Some(alarms.as_slice())),
+    };
+    let mut calendar: Calendar = source.parse().map_err(|e| bridge_error("Override", e))?;
+
+    match override_vevent_index(&calendar, &recurrence_id) {
+        Some(index) => {
+            let event = match &mut calendar.components[index] {
+                CalendarComponent::Event(event) => event,
+                _ => unreachable!("override_vevent_index only returns VEVENT indices"),
+            };
+            apply_content_fields(event, &edit);
+            bump_revision(event, &edit.stamp);
+        }
+        None => {
+            let mut event = icalendar::Event::new();
+            event.add_property("UID", &uid);
+            event.append_property(recurrence_id_property(&recurrence_id));
+            apply_content_fields(&mut event, &edit);
+            bump_revision(&mut event, &edit.stamp);
+            calendar.push(event);
+        }
+    }
+
+    let serialised = inject_missing_vtimezones(calendar.to_string(), &edit.timezones);
+    let final_ics = match new_alarms {
+        Some(alarms) => splice_alarms_into_vevent(&serialised, target_ordinal, alarms),
+        None => serialised,
+    };
+    reparse_edited(final_ics, "Override")
+}
+
+/// Index of the VEVENT whose `RECURRENCE-ID` designates the same instance as `spec`.
+///
+/// Matched on the raw value **and** its `TZID`: RFC 5545 §3.8.4.4 ties the value type to `DTSTART` but
+/// leaves the zone free, so the same instance can be written in several forms and no comparison here
+/// could tell them apart without a time-zone database. The caller therefore owns that normalisation and
+/// passes the verbatim `RECURRENCE-ID` of the override it targets, which Kotlin records alongside it.
+fn override_vevent_index(calendar: &Calendar, spec: &RecurrenceIdSpec) -> Option<usize> {
+    calendar.components.iter().position(|component| match component {
+        CalendarComponent::Event(event) => {
+            let (value, tzid) = prop_with_tzid(event, "RECURRENCE-ID");
+            value.as_deref() == Some(spec.value.as_str()) && tzid == spec.tzid
+        }
+        _ => false,
+    })
+}
+
+/// Drop the VEVENT of each designated override, textually: a VEVENT is removed whole, and the ones
+/// left keep the bytes they were serialized with, including alarms spliced in beforehand.
+///
+/// `layout` describes the object the ordinals are read from, which must be the one `ics` was
+/// serialized from. Designating an instance with no override is a no-op: the caller works from what
+/// it knows of the series, which may be wider than what the resource actually holds.
+fn remove_override_vevents(ics: &str, layout: &Calendar, removal: &OverrideRemoval) -> String {
+    let recurrence_ids = match removal {
+        OverrideRemoval::Unchanged => return ics.to_string(),
+        OverrideRemoval::Instances { recurrence_ids } => recurrence_ids,
+    };
+    let targets: HashSet<usize> = recurrence_ids
+        .iter()
+        .filter_map(|spec| override_vevent_index(layout, spec))
+        .map(|index| vevent_ordinal(layout, index))
+        .collect();
+    if targets.is_empty() {
+        return ics.to_string();
+    }
+
+    let mut out = String::with_capacity(ics.len());
+    let mut vevent_seen = 0usize;
+    let mut dropping = false;
+    for line in ics.split_inclusive('\n') {
+        let marker = line.trim_end_matches(['\r', '\n']);
+        if !dropping && is_begin_marker(marker, VEVENT) {
+            let ordinal = vevent_seen;
+            vevent_seen += 1;
+            if targets.contains(&ordinal) {
+                dropping = true;
+                continue;
+            }
+        } else if dropping {
+            // VALARMs end on END:VALARM, so the first END:VEVENT is this VEVENT's own.
+            if is_end_marker(marker, VEVENT) {
+                dropping = false;
+            }
+            continue;
+        }
+        out.push_str(line);
+    }
+    out
+}
+
+/// Number of VEVENTs in the object, i.e. the ordinal a VEVENT pushed now would get.
+fn vevent_count(calendar: &Calendar) -> usize {
+    calendar
+        .components
+        .iter()
+        .filter(|component| matches!(component, CalendarComponent::Event(_)))
+        .count()
+}
+
+/// Build the `RECURRENCE-ID` property, carrying `VALUE=DATE` or `TZID` like an EXDATE line would.
+fn recurrence_id_property(spec: &RecurrenceIdSpec) -> Property {
+    let mut prop = Property::new("RECURRENCE-ID", &spec.value);
+    if spec.is_date_only {
+        prop.add_parameter("VALUE", "DATE");
+    } else if let Some(tzid) = &spec.tzid {
+        prop.add_parameter("TZID", tzid);
+    }
+    prop.done()
+}
+
+/// Replace the user-edited content fields, then the master-only recurrence properties.
 fn apply_edited_fields(event: &mut icalendar::Event, edit: &EventEdit) {
+    apply_content_fields(event, edit);
+    apply_recurrence_change(event, &edit.recurrence_change);
+    apply_date_list_change(event, "EXDATE", &edit.ex_date_change);
+    apply_date_list_change(event, "RDATE", &edit.r_date_change);
+}
+
+/// Replace the fields a master and a detached override define alike (keeps DTEND/DURATION mutually
+/// exclusive).
+///
+/// `RRULE`/`EXDATE`/`RDATE` are deliberately absent: they define the recurrence set, which belongs to
+/// the master alone (RFC 5545 §3.8.4.4), so [`upsert_override_vevent`] must not write them.
+fn apply_content_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "SUMMARY", edit.summary.as_deref());
     set_or_clear(event, "LOCATION", edit.location.as_deref());
     set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
     set_or_clear(event, "TRANSP", edit.transp.as_deref());
     apply_color_change(event, &edit.color_change);
-    apply_recurrence_change(event, &edit.recurrence_change);
-    apply_date_list_change(event, "EXDATE", &edit.ex_date_change);
-    apply_date_list_change(event, "RDATE", &edit.r_date_change);
 
     event.remove_property("DTSTART");
     event.remove_property("DTEND");

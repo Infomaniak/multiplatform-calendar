@@ -1193,6 +1193,8 @@ class EventDaoTest : RobolectricTestsBase() {
             } else {
                 RecurrenceKey.Utc(originalStart.toInstant(TimeZone.UTC))
             },
+            recurrenceIdValue = originalStart.toString(),
+            recurrenceIdTzid = null,
             originalStartInstantMs = originalStart.toEpochMs(TimeZone.UTC).takeUnless { floating },
             originalEndInstantMs = originalEnd.toEpochMs(TimeZone.UTC).takeUnless { floating },
             originalStartLocalDateTime = originalStart,

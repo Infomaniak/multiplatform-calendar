@@ -74,6 +74,20 @@ class EventEntityToDomainTest {
     }
 
     @Test
+    fun meetRoomUrl_isExposedOnDomainEvent() {
+        val event = eventEntity(meetRoomUrl = "https://kmeet.infomaniak.com/room").toDomain(calendar)
+
+        assertEquals("https://kmeet.infomaniak.com/room", event.meetRoomUrl)
+    }
+
+    @Test
+    fun blankMeetRoomUrl_isNormalizedToNull() {
+        val event = eventEntity(meetRoomUrl = "   ").toDomain(calendar)
+
+        assertNull(event.meetRoomUrl)
+    }
+
+    @Test
     fun blankCategoryEntries_areDropped() {
         val event = eventEntity(categories = listOf("work", "  ", "", "personal")).toDomain(calendar)
 
@@ -214,6 +228,7 @@ class EventEntityToDomainTest {
         id: String = "https://cal/tests/1.ics",
         description: String? = null,
         location: String? = null,
+        meetRoomUrl: String? = null,
         categories: List<String>? = null,
         colorArgb: Int? = null,
         attendees: List<AttendeeEntity> = emptyList(),
@@ -226,6 +241,7 @@ class EventEntityToDomainTest {
             summary = "Test",
             description = description,
             location = location,
+            meetRoomUrl = meetRoomUrl,
             timing = EventTimingEntity(
                 dtStart = LocalDateTime(2026, 6, 15, 10, 0),
                 dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),

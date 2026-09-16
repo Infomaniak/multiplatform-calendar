@@ -94,6 +94,7 @@ internal fun RemoteDavEventContent.toContentEntity(url: String) = EventContentEn
     attendees = attendees.map { it.toEntity() },
     organizer = organizer?.toEntity(),
     alarms = alarms.map { it.toEntity() },
+    meetRoomUrl = meetRoomUrl,
     colorArgb = resolveColorArgb(),
     colorIcalName = colorIcalName,
 )

@@ -46,6 +46,8 @@ internal data class EventContentEntity(
     val attendees: List<AttendeeEntity> = emptyList(),
     val organizer: OrganizerEntity? = null,
     val alarms: List<AlarmEntity> = emptyList(),
+    /** Raw `X-INFOMANIAK-MEET-ROOM-URL` kept verbatim for custom ICS round-trips. */
+    val meetRoomUrl: String? = null,
     /** Packed ARGB, or `null` when the event inherits its calendar's color. */
     val colorArgb: Int? = null,
     /** Original RFC 7986 `COLOR:<name>` kept verbatim so untouched-color edits round-trip byte-exact. */

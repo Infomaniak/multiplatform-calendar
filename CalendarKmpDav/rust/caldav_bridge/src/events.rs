@@ -133,6 +133,7 @@ fn parse_content(ev: &icalendar::Event) -> EventContentEntry {
         priority: prop(ev, "PRIORITY"),
         sequence: prop(ev, "SEQUENCE"),
         categories: prop(ev, "CATEGORIES"),
+        meet_room_url: prop(ev, "X-INFOMANIAK-MEET-ROOM-URL"),
         color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
         color_ical_name: prop(ev, "COLOR"),
         attendees: parse_attendees(ev),

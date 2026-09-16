@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.repository
 
 import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -88,6 +89,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 
 class EventRepositoryTest : RobolectricTestsBase() {
@@ -1409,6 +1411,93 @@ class EventRepositoryTest : RobolectricTestsBase() {
         rrule = RecurrenceRule(freq = Frequency.Weekly, byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY))),
         etag = etag,
     )
+
+    /** Guards the widened read window [observeUpcomingAlarms] needs: a reminder can long precede its event. */
+    @Test
+    fun observeUpcomingAlarms_findsAReminderSetLongBeforeAnEventBeyondTheHorizon() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
+        seedAlarmedEvent(
+            calendarId = calendarId,
+            dtStart = dtStart,
+            alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-20).days)),
+        )
+
+        val from = LocalDateTime(2026, 5, 20, 0, 0).toInstant(TimeZone.UTC)
+        val alarms = repository.observeUpcomingAlarms(
+            accountIds = setOf(account),
+            from = from,
+            horizon = 10.days,
+            limit = 10,
+            actions = setOf(AlarmAction.Display),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(1, alarms.size, "the event sits 26 days past the horizon, its reminder does not")
+        assertEquals(LocalDateTime(2026, 5, 26, 10, 0).toInstant(TimeZone.UTC), alarms.single().firesAt)
+    }
+
+    @Test
+    fun observeUpcomingAlarms_onlyReturnsTheRequestedActions() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
+        seedAlarmedEvent(
+            calendarId = calendarId,
+            dtStart = dtStart,
+            alarms = listOf(
+                AlarmEntity(action = "EMAIL", triggerRelative = (-30).minutes),
+                AlarmEntity(action = "DISPLAY", triggerRelative = (-15).minutes),
+            ),
+        )
+
+        val from = LocalDateTime(2026, 6, 1, 0, 0).toInstant(TimeZone.UTC)
+        val alarms = repository.observeUpcomingAlarms(
+            accountIds = setOf(account),
+            from = from,
+            horizon = 30.days,
+            limit = 10,
+            actions = setOf(AlarmAction.Display),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(
+            listOf(LocalDateTime(2026, 6, 15, 9, 45).toInstant(TimeZone.UTC)),
+            alarms.map { it.firesAt },
+            "sending the mail is the server's job, not a device notification",
+        )
+    }
+
+    private suspend fun seedAlarmedEvent(
+        calendarId: CalendarId,
+        dtStart: LocalDateTime,
+        alarms: List<AlarmEntity>,
+    ) {
+        val dtEnd = LocalDateTime(dtStart.date, LocalTime(dtStart.hour + 1, dtStart.minute))
+        val event = EventEntity(
+            id = EventId("event://alarmed"),
+            calendarId = calendarId,
+            content = EventContentEntity(
+                summary = "Alarmed",
+                timing = EventTimingEntity(
+                    dtStart = dtStart,
+                    dtEndEffective = dtEnd,
+                    startTimeZone = TimeZone.UTC.id,
+                    endTimeZone = TimeZone.UTC.id,
+                    dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                    dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+                ),
+                alarms = alarms,
+            ),
+            etag = "1",
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(event, "")))
+    }
 
     private suspend fun seedCalendar(
         accountId: AccountId,

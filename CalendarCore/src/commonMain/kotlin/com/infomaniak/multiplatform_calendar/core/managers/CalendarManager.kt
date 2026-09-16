@@ -29,6 +29,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySli
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
@@ -49,6 +51,9 @@ import kotlinx.datetime.YearMonth
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -92,6 +97,37 @@ public class CalendarManager internal constructor(
         return sdkCaller.flow(operation = "observe day slices from $start to $end for zone $timeZone") {
             accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
                 eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone)
+            }
+        }
+    }
+
+    /**
+     * Observe the alarms about to go off in `[from, from + horizon]` across the *visible* calendars of
+     * the current account, soonest first, capped at [limit].
+     *
+     * Meant to feed local notifications: each [UpcomingAlarm] carries an [UpcomingAlarmId] identifying
+     * that one firing, so a client can diff two consecutive emissions and only touch what changed.
+     *
+     * Only the [actions] asked for are returned, defaulting to the ones a device can act on; an
+     * `EMAIL` alarm is the server's job, not the client's.
+     *
+     * A recurring event yields one alarm per occurrence for a relative trigger, and a single one for an
+     * absolute trigger, which names one fixed point in time (RFC 5545 §3.8.6.3).
+     *
+     * This flow re-emits on database changes, not on the passing of time: a client must re-collect after
+     * a firing to get the next batch.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    public fun observeUpcomingAlarms(
+        limit: Int,
+        actions: Set<AlarmAction> = setOf(AlarmAction.Display, AlarmAction.Audio),
+        horizon: Duration = 30.days,
+        from: Instant = Clock.System.now(),
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<List<UpcomingAlarm>> {
+        return sdkCaller.flow(operation = "observe $limit upcoming alarms from $from over $horizon") {
+            nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
+                eventRepository.observeUpcomingAlarms(accountIds, from, horizon, limit, actions, timeZone)
             }
         }
     }

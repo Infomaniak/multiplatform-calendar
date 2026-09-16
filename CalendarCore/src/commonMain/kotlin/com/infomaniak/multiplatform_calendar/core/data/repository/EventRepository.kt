@@ -37,6 +37,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -59,6 +62,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -267,7 +272,56 @@ internal class EventRepository(
         eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
     }
 
+    /**
+     * The alarms of the *visible* calendars of [accountIds] going off in `[from, from + horizon]`,
+     * soonest first, capped at [limit] and restricted to the [actions] asked for.
+     *
+     * The events are read over a window widened by [ALARM_OFFSET_SLACK] on either side, because an alarm
+     * does not go off when its event happens: a reminder set a week ahead belongs to an event a week
+     * past the horizon, and one relative to the end of an event can outlive it. Alarms are stored inside
+     * the event they belong to rather than in a table of their own, so no query can tell how far to
+     * widen — hence a fixed margin, which a reminder set further out than that would fall outside of.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeUpcomingAlarms(
+        accountIds: Set<AccountId>,
+        from: Instant,
+        horizon: Duration,
+        limit: Int,
+        actions: Set<AlarmAction>,
+        timeZone: TimeZone,
+    ): Flow<List<UpcomingAlarm>> {
+        val until = from + horizon
+        val windowStart = from - ALARM_OFFSET_SLACK
+        val windowEnd = until + ALARM_OFFSET_SLACK
+
+        return observeVisibleEventsWithOverrides(accountIds, windowStart, windowEnd, zone = timeZone)
+            .mapLatest { eventsWithOverrides ->
+                eventsWithOverrides
+                    .expandRecurrencesInWindow(
+                        rangeStart = windowStart,
+                        rangeEnd = windowEnd,
+                        timeZone = timeZone,
+                        onExpansionTruncated = ::logTruncatedExpansion,
+                        onOrphanOverrideDropped = ::logOrphanOverride,
+                    )
+                    .upcomingAlarms(
+                        from = from,
+                        until = until,
+                        limit = limit,
+                        actions = actions,
+                        defaultZone = timeZone,
+                    )
+            }
+            .flowOn(Dispatchers.Default)
+    }
+
     private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides?> {
         return eventDao.observeEventWithCalendar(eventId).map { relation -> relation?.toDomainEventWithOverrides() }
+    }
+
+    companion object {
+        /** How far past the alarm window events are read, see [observeUpcomingAlarms]. */
+        private val ALARM_OFFSET_SLACK = 31.days
     }
 }

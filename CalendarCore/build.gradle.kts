@@ -62,7 +62,7 @@ kotlin {
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
-            implementation(kmpCalendar.kotlinx.datetime)
+            api(kmpCalendar.kotlinx.datetime)
             implementation(kmpCalendar.bundles.ktor)
 
             implementation(kmpCalendar.material.kolor)
@@ -138,5 +138,8 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
         xcf.add(this)
         linkerOpts.add("-lsqlite3")
+        // Date and time types cross the framework boundary, so Swift needs the declarations that
+        // come with them, down to the NSDate conversions it builds its own values from.
+        export(kmpCalendar.kotlinx.datetime)
     }
 }

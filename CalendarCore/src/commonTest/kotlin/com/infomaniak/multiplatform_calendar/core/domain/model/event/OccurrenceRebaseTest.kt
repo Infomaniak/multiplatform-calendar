@@ -35,7 +35,7 @@ class OccurrenceRebaseTest {
         // The app hands the occurrence's own slot back even when the edit was about something else.
         val edited = timing(LocalDateTime(2026, 6, 17, 10, 0), LocalDateTime(2026, 6, 17, 11, 0))
 
-        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0))
+        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
         assertEquals(LocalDateTime(2026, 6, 15, 10, 0), rebased.start)
         assertEquals(LocalDateTime(2026, 6, 15, 11, 0), rebased.end)
@@ -47,7 +47,7 @@ class OccurrenceRebaseTest {
         // The 17th was pushed two days on and four hours later, into a longer slot.
         val edited = timing(LocalDateTime(2026, 6, 19, 14, 0), LocalDateTime(2026, 6, 19, 15, 30))
 
-        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0))
+        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
         assertEquals(LocalDateTime(2026, 6, 17, 14, 0), rebased.start)
         // The duration is the edit's own, not the one the master used to have.
@@ -61,7 +61,7 @@ class OccurrenceRebaseTest {
         // The occurrence shown on Saturday the 28th was dragged onto Monday the 30th, same hour.
         val edited = timing(LocalDateTime(2026, 3, 30, 10, 0), LocalDateTime(2026, 3, 30, 11, 0), zurich)
 
-        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 3, 28, 10, 0))
+        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 3, 28, 10, 0), defaultZone = TimeZone.UTC)
 
         // Measured in absolute time that drag is 47 hours, and would land the series on 09:00.
         assertEquals(LocalDateTime(2026, 1, 7, 10, 0), rebased.start)
@@ -73,7 +73,7 @@ class OccurrenceRebaseTest {
         val master = timing(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 11, 0), zone = null)
         val edited = timing(LocalDateTime(2026, 6, 17, 16, 0), LocalDateTime(2026, 6, 17, 17, 0), zone = null)
 
-        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0))
+        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
         assertEquals(LocalDateTime(2026, 6, 15, 16, 0), rebased.start)
         assertEquals(LocalDateTime(2026, 6, 15, 17, 0), rebased.end)
@@ -87,7 +87,7 @@ class OccurrenceRebaseTest {
         val edited = timing(LocalDateTime(2026, 6, 19, 0, 0), LocalDateTime(2026, 6, 20, 0, 0), zone = null)
             .copy(isAllDay = true)
 
-        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 0, 0))
+        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 0, 0), defaultZone = TimeZone.UTC)
 
         assertEquals(LocalDateTime(2026, 6, 17, 0, 0), rebased.start)
         assertEquals(LocalDateTime(2026, 6, 18, 0, 0), rebased.end)
@@ -102,7 +102,7 @@ class OccurrenceRebaseTest {
         val edited = timing(LocalDateTime(2026, 6, 17, 14, 0), LocalDateTime(2026, 6, 17, 12, 0), zurich)
             .copy(endTimeZone = newYork)
 
-        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0))
+        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
         assertEquals(LocalDateTime(2026, 6, 15, 14, 0), rebased.start)
         // The faces are shifted as they stand, so the zone each one is read in is left untouched.
@@ -118,7 +118,7 @@ class OccurrenceRebaseTest {
         val edited = timing(LocalDateTime(2026, 6, 17, 14, 0), LocalDateTime(2026, 6, 17, 15, 0))
             .copy(recurrenceRule = rule)
 
-        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0))
+        val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
         assertEquals(rule, rebased.recurrenceRule)
     }

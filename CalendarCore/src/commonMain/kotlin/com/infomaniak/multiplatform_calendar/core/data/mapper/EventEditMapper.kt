@@ -74,7 +74,6 @@ internal fun EventEditData.toRemoteEdit(
     rDates: DateListEdit = DateListEdit.Preserve,
     droppedOverrides: List<RecurrenceKey> = emptyList(),
     knownOverrides: List<EventOverrideEntity> = emptyList(),
-    alarms: AlarmListEdit = AlarmListEdit.FromData,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -94,9 +93,9 @@ internal fun EventEditData.toRemoteEdit(
         exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
         rDateChange = timing.resolveDateListChange(rDates, previous, previous?.rDates),
         overrideRemoval = droppedOverrides.toOverrideRemoval(timing, knownOverrides),
-        alarms = when (alarms) {
+        alarms = when (val alarmEdit = alarms) {
             AlarmListEdit.Preserve -> null
-            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous?.content?.alarms.orEmpty())
+            is AlarmListEdit.Replace -> resolveAlarmEdits(alarmEdit.alarms, previous?.content?.alarms.orEmpty())
         },
         stamp = stamp,
     )
@@ -116,7 +115,6 @@ internal fun EventEditData.toOverrideEdit(
     stamp: String,
     previousColorArgb: Int?,
     previousAlarms: List<AlarmEntity>,
-    alarms: AlarmListEdit = AlarmListEdit.FromData,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -136,9 +134,9 @@ internal fun EventEditData.toOverrideEdit(
         exDateChange = RemoteDateListChange.Unchanged,
         rDateChange = RemoteDateListChange.Unchanged,
         overrideRemoval = RemoteOverrideRemoval.Unchanged,
-        alarms = when (alarms) {
+        alarms = when (val alarmEdit = alarms) {
             AlarmListEdit.Preserve -> null
-            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous = previousAlarms)
+            is AlarmListEdit.Replace -> resolveAlarmEdits(alarmEdit.alarms, previous = previousAlarms)
         },
         stamp = stamp,
     )

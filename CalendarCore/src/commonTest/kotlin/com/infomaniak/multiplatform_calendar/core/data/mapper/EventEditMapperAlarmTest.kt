@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
@@ -139,10 +140,21 @@ class EventEditMapperAlarmTest {
         assertEquals("server-uid", assertNotNull(edit.alarms).single().uid)
     }
 
+    @Test
+    fun anAlarmTheServerNeverNamed_goesOutWithoutAUid() {
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
+
+        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes)))
+            .toRemoteEdit(stamp = STAMP, previous = previous)
+
+        // Its `id` is an `AlarmId.Local`, which must never be passed off as a server `UID`.
+        assertNull(assertNotNull(edit.alarms).single().uid)
+    }
+
     private fun eventAlarm(offset: Duration, description: String? = "Reminder", uid: String? = null) = EventAlarm(
         action = AlarmAction.Display,
         trigger = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start),
-        uid = uid,
+        uid = uid?.let(AlarmId::Uid),
         description = description,
     )
 

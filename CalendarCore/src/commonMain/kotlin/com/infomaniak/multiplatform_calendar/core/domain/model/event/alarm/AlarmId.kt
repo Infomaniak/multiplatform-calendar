@@ -17,27 +17,23 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
-/** RFC 5545 §3.8.6 alarm action. Unknown actions surface as [Unknown] so we don't drop them. */
-public sealed interface AlarmAction {
-    public object Display : AlarmAction
-    public object Audio : AlarmAction
-    public object Email : AlarmAction
-    public data class Unknown(val raw: String) : AlarmAction
+import kotlin.jvm.JvmInline
 
-    /** The canonical iCalendar token for this action. */
-    public fun toIcalString(): String = when (this) {
-        Display -> "DISPLAY"
-        Audio -> "AUDIO"
-        Email -> "EMAIL"
-        is Unknown -> raw
-    }
+/** Identifier of an alarm within its event, split by origin: only a [Uid] may go back to the server. */
+public sealed interface AlarmId {
 
-    public companion object {
-        public fun fromIcalString(raw: String): AlarmAction = when (raw.uppercase()) {
-            "DISPLAY" -> Display
-            "AUDIO" -> Audio
-            "EMAIL" -> Email
-            else -> Unknown(raw.uppercase())
-        }
-    }
+    /** [Uid]: the `UID` verbatim. [Local]: `"<ACTION>@<canonical trigger>"`. */
+    public val value: String
+
+    /** The `UID` the server gave the alarm (RFC 9074 §4). */
+    @JvmInline
+    public value class Uid internal constructor(public override val value: String) : AlarmId
+
+    /**
+     * Derived from how the alarm fires, for the alarms the server never named.
+     *
+     * Not a unique key: alarms firing alike share it, within one event or across two.
+     */
+    @JvmInline
+    public value class Local internal constructor(public override val value: String) : AlarmId
 }

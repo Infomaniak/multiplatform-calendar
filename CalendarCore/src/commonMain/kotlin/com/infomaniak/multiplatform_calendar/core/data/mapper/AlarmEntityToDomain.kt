@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 
@@ -29,7 +30,7 @@ internal fun AlarmEntity.toDomain(): EventAlarm? {
         else -> return null
     }
     return EventAlarm(
-        uid = uid,
+        uid = uid?.let(AlarmId::Uid),
         action = AlarmAction.fromIcalString(action),
         trigger = trigger,
         description = description,

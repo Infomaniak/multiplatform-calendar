@@ -43,7 +43,7 @@ internal fun EventAlarm.toEntity(): AlarmEntity {
         is AlarmTrigger.Absolute -> Triple(null, alarmTrigger.instant, TriggerRelation.Start)
     }
     return AlarmEntity(
-        uid = uid,
+        uid = uid?.value,
         action = action.toIcalString(),
         triggerRelative = relative,
         triggerAbsolute = absolute,
@@ -65,7 +65,7 @@ private fun EventAlarm.toRemoteEdit(): RemoteAlarmEdit {
         is AlarmTrigger.Absolute -> Triple(null, alarmTrigger.instant.toICalUtcDateTime(), "START")
     }
     return RemoteAlarmEdit(
-        uid = uid,
+        uid = uid?.value,
         action = action.toIcalString(),
         triggerDuration = duration,
         triggerAbsolute = absolute,
@@ -75,11 +75,4 @@ private fun EventAlarm.toRemoteEdit(): RemoteAlarmEdit {
         attendees = attendees,
         attach = attachments,
     )
-}
-
-private fun AlarmAction.toIcalString(): String = when (this) {
-    AlarmAction.Display -> "DISPLAY"
-    AlarmAction.Audio -> "AUDIO"
-    AlarmAction.Email -> "EMAIL"
-    is AlarmAction.Unknown -> raw
 }

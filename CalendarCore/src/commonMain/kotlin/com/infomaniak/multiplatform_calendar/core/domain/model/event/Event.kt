@@ -21,6 +21,8 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceScopesFor
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 import kotlin.time.ExperimentalTime
@@ -50,4 +52,16 @@ public data class Event(
     val colors: EventColors,
     val canEdit: Boolean,
     val alarms: List<EventAlarm> = emptyList(),
-)
+) {
+    /**
+     * One instance of a series rather than a plain event. Read from [occurrenceId], the only thing
+     * that knows: an occurrence keeps the [timing] of the master it was copied from, and an override
+     * carries no rule at all, so both would be misread.
+     */
+    val isOccurrence: Boolean
+        get() = occurrenceId is OccurrenceId.Recurrence
+
+    /** What a mutation of this event may be asked to reach, empty when there is nothing to ask. */
+    val recurrenceScopes: Set<RecurrenceEditScope>
+        get() = recurrenceScopesFor(isOccurrence, canEdit)
+}

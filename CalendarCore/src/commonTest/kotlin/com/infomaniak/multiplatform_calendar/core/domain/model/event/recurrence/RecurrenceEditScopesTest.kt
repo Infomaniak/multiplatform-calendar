@@ -1,0 +1,51 @@
+/*
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
+
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.AllOccurrences
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisAndFollowing
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisOccurrence
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+class RecurrenceEditScopesTest {
+
+    @Test
+    fun scopes_areOfferedOnAnOccurrenceOnly() {
+        assertEquals(
+            setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences),
+            recurrenceScopesFor(isOccurrence = true, canEdit = true),
+        )
+    }
+
+    @Test
+    fun scopes_areEmptyOutsideOfASeries() {
+        assertEquals(emptySet(), recurrenceScopesFor(isOccurrence = false, canEdit = true))
+    }
+
+    @Test
+    fun scopes_areEmptyOnAReadOnlyCalendar() {
+        listOf(true, false).forEach { isOccurrence ->
+            assertEquals(
+                emptySet(),
+                recurrenceScopesFor(isOccurrence, canEdit = false),
+                "for isOccurrence=$isOccurrence",
+            )
+        }
+    }
+}

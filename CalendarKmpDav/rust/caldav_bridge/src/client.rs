@@ -6,16 +6,16 @@
 use fast_dav_rs::CalDavClient;
 use http::Response;
 
-use crate::error::{CaldavError, http_status_error, map_fast_dav_error};
+use crate::config::cached_client;
+use crate::error::{CaldavError, http_status_error};
 use crate::models::DavAccount;
 
 /// Build a [`CalDavClient`] authenticated with [`account`].
+///
+/// Cached per account (see [`crate::config`]), so repeated operations reuse the same TLS setup and
+/// connection pool.
 pub(crate) fn client(account: &DavAccount) -> Result<CalDavClient, CaldavError> {
-    CalDavClient::new(
-        &account.base_url,
-        Some(&account.username),
-        Some(&account.password),
-    ).map_err(|error| map_fast_dav_error("Client", error))
+    cached_client(account)
 }
 
 /// Fail unless the CalDAV response carries a 2xx status.

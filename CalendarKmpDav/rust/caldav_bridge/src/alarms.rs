@@ -10,6 +10,7 @@ use crate::ical_components::{
 };
 use crate::models::{AlarmEdit, AlarmEntry};
 
+const UID: &str = "UID";
 const ACTION: &str = "ACTION";
 const TRIGGER: &str = "TRIGGER";
 const ATTACH: &str = "ATTACH";
@@ -128,6 +129,7 @@ fn parse_valarm<C: Component>(c: &C) -> Option<AlarmEntry> {
         .map(|list| list.iter().map(|p| p.value().to_string()).collect())
         .unwrap_or_default();
     Some(AlarmEntry {
+        uid: c.properties().get(UID).map(|p| p.value().to_string()),
         action: c.properties().get(ACTION)
             .map(|p| p.value().to_ascii_uppercase())
             .unwrap_or_else(|| DEFAULT_ACTION.to_string()),
@@ -158,6 +160,10 @@ fn build_alarm_block(a: &AlarmEdit) -> Option<String> {
 
     let mut s = String::new();
     push_begin(&mut s, VALARM);
+    // `AlarmsChange::Set` rewrites the whole block, so the UID is written back or it is lost.
+    if let Some(uid) = &a.uid {
+        s.push_str(&property_line(Property::new(UID, uid)));
+    }
     s.push_str(&property_line(Property::new(ACTION, &a.action)));
     s.push_str(&property_line(trigger.done()));
     if let Some(d) = &a.description {

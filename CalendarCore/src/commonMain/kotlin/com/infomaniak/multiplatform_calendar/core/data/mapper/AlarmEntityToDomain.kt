@@ -29,6 +29,7 @@ internal fun AlarmEntity.toDomain(): EventAlarm? {
         else -> return null
     }
     return EventAlarm(
+        uid = uid,
         action = AlarmAction.fromIcalString(action),
         trigger = trigger,
         description = description,

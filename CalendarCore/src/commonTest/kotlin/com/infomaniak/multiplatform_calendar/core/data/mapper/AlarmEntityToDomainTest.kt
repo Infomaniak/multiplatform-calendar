@@ -58,6 +58,18 @@ class AlarmEntityToDomainTest {
     }
 
     @Test
+    fun serverUid_isCarriedToTheDomain() {
+        val domain = AlarmEntity(
+            uid = "valarm-uid-1",
+            action = "DISPLAY",
+            triggerRelative = (-10).minutes,
+            triggerRelatedTo = TriggerRelation.Start,
+        ).toDomain()!!
+
+        assertEquals("valarm-uid-1", domain.uid)
+    }
+
+    @Test
     fun unknownAction_isSurfacedAsUnknownWithOriginalValue() {
         val domain = AlarmEntity(
             action = "PROCEDURE",

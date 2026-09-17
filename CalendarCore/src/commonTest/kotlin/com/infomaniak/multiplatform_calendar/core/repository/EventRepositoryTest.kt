@@ -1585,6 +1585,7 @@ private fun bridgeApplyingEdit(base: RemoteDavEvent, edit: RemoteEventEdit): Rem
 )
 
 private fun RemoteAlarmEdit.toRemoteDavAlarm() = RemoteDavAlarm(
+    uid = uid,
     action = action,
     triggerDuration = triggerDuration,
     triggerAbsolute = triggerAbsolute,

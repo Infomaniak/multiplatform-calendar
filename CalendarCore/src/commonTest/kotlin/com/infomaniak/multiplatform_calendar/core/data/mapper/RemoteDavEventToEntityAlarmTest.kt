@@ -88,7 +88,15 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
 
+    @Test
+    fun serverUid_isKeptOnTheEntity() {
+        val entity = remoteEvent(alarms = listOf(alarm(uid = "valarm-uid-1"))).toEntity(calendarId)
+
+        assertEquals("valarm-uid-1", entity.content.alarms.single().uid)
+    }
+
     private fun alarm(
+        uid: String? = null,
         action: String = "DISPLAY",
         triggerDuration: String? = "-PT15M",
         triggerAbsolute: String? = null,
@@ -98,6 +106,7 @@ class RemoteDavEventToEntityAlarmTest {
         attendees: List<String> = emptyList(),
         attach: List<String> = emptyList(),
     ) = RemoteDavAlarm(
+        uid = uid,
         action = action,
         triggerDuration = triggerDuration,
         triggerAbsolute = triggerAbsolute,

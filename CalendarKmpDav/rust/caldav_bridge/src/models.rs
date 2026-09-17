@@ -111,6 +111,7 @@ pub struct IcalDateValueEntry {
 
 #[derive(uniffi::Record)]
 pub struct AlarmEntry {
+    pub uid: Option<String>,
     pub action: String,
     pub trigger_duration: Option<String>,
     pub trigger_absolute: Option<String>,
@@ -306,6 +307,7 @@ pub struct EventEdit {
 /// Fresh VALARM fields emitted for [`AlarmsChange::Set`]; hand-emitted due to `icalendar::Alarm` limitations.
 #[derive(uniffi::Record)]
 pub struct AlarmEdit {
+    pub uid: Option<String>,
     pub action: String,
     pub trigger_duration: Option<String>,
     pub trigger_absolute: Option<String>,

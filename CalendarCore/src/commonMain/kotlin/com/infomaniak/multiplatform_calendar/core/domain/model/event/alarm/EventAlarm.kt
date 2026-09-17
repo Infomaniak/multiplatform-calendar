@@ -24,4 +24,9 @@ public data class EventAlarm(
     val summary: String? = null,
     val attendees: List<String> = emptyList(),
     val attachments: List<String> = emptyList(),
+    /**
+     * `UID` the server gave this alarm (RFC 9074 §4), `null` on older or locally created ones.
+     * Carried back and forth untouched: we never mint one of our own.
+     */
+    val uid: String? = null,
 )

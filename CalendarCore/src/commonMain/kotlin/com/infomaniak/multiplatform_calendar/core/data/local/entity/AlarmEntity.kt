@@ -24,6 +24,8 @@ import kotlin.time.Instant
 
 @Serializable
 internal data class AlarmEntity(
+    /** Defaulted so alarms serialized before this field still decode. */
+    val uid: String? = null,
     val action: String,
     val triggerRelative: Duration? = null,
     val triggerAbsolute: Instant? = null,

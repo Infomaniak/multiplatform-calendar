@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -48,6 +49,30 @@ class AlarmEntitySerializationTest {
         )
 
         assertEquals(original, roundTrip(original))
+    }
+
+    @Test
+    fun serverUid_roundTrips_throughConverter() {
+        val original = AlarmEntity(
+            uid = "valarm-uid-1",
+            action = "DISPLAY",
+            triggerRelative = (-15).minutes,
+            triggerRelatedTo = TriggerRelation.Start,
+        )
+
+        assertEquals(original, roundTrip(original))
+    }
+
+    @Test
+    fun alarmStoredBeforeTheUidField_stillDecodes() {
+        // Verbatim blob shape of a row written before `uid` existed: the default is what keeps it readable.
+        val legacy = """[{"action":"DISPLAY","triggerRelative":"-PT15M","triggerRelatedTo":"Start","description":"Reminder"}]"""
+
+        val decoded = converters.toAlarms(legacy).single()
+
+        assertNull(decoded.uid)
+        assertEquals("Reminder", decoded.description)
+        assertEquals((-15).minutes, decoded.triggerRelative)
     }
 
     @Test

@@ -17,25 +17,24 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.EventRecurrenceState.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.AllOccurrences
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisAndFollowing
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisOccurrence
 
 /**
- * Which scopes a user may pick from before deleting. An empty set means there is nothing to ask.
+ * Which scopes a user may pick from before mutating an event, empty when there is nothing to ask.
+ * Common to updates and deletes: a scope says how far a mutation reaches, not which one it is.
  *
- * Only an [Occurrence] offers a choice: a master is reached by its id rather than by picking a date,
- * so it holds no occurrence to delete "this one" of.
+ * Only an occurrence offers a choice, a master being reached by its id rather than by picking a date.
  *
  * [ThisAndFollowing] is offered even on the first occurrence, where it does what [AllOccurrences]
  * does: telling those apart needs the series start, which a windowed read cannot recover.
  */
-internal fun deleteScopesFor(
-    recurrence: EventRecurrenceState,
+internal fun recurrenceScopesFor(
+    isOccurrence: Boolean,
     canEdit: Boolean,
 ): Set<RecurrenceEditScope> = when {
     !canEdit -> emptySet()
-    recurrence != Occurrence -> emptySet()
+    !isOccurrence -> emptySet()
     else -> setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences)
 }

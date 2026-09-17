@@ -43,10 +43,11 @@ import kotlinx.datetime.toInstant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
-class EventRecurrenceStateTest {
+class EventIsOccurrenceTest {
 
     @BeforeTest
     fun setUp() {
@@ -54,32 +55,19 @@ class EventRecurrenceStateTest {
     }
 
     @Test
-    fun eventWithoutRecurrence_isNone() {
+    fun plainEvent_isNotAnOccurrence() {
         val event = eventEntity().toDomain(calendar)
 
-        assertEquals(EventRecurrenceState.None, event.recurrence)
+        assertFalse(event.isOccurrence)
     }
 
     @Test
-    fun eventWithRule_isMaster() {
-        val event = eventEntity(rrule = RecurrenceRule(freq = Frequency.Daily)).toDomain(calendar)
+    fun master_isNotAnOccurrenceWhileItsOccurrencesAre() {
+        // The same event answers differently depending on how it was read, and that is the point:
+        // reading a series by id yields its master, reading a range yields its occurrences.
+        val master = eventEntity(rrule = RecurrenceRule(freq = Frequency.Daily)).toDomain(calendar)
 
-        assertEquals(EventRecurrenceState.Master, event.recurrence)
-    }
-
-    @Test
-    fun eventWithRDatesButNoRule_isMaster() {
-        val event = eventEntity(rDates = listOf(rDate)).toDomain(calendar)
-
-        assertEquals(EventRecurrenceState.Master, event.recurrence)
-    }
-
-    @Test
-    fun eventWithExDatesOnly_isNone() {
-        // EXDATE only subtracts from a set it cannot create, so it never makes an event a series.
-        val event = eventEntity(exDates = listOf(rDate)).toDomain(calendar)
-
-        assertEquals(EventRecurrenceState.None, event.recurrence)
+        assertFalse(master.isOccurrence)
     }
 
     @Test
@@ -88,7 +76,7 @@ class EventRecurrenceStateTest {
         // plain event and let an action on one occurrence pass for an action on a standalone event.
         val override = overrideEntity().toDomain(calendar)
 
-        assertEquals(EventRecurrenceState.Occurrence, override.recurrence)
+        assertTrue(override.isOccurrence)
     }
 
     @Test
@@ -99,7 +87,7 @@ class EventRecurrenceStateTest {
         val occurrences = expand(master)
 
         assertEquals(3, occurrences.size)
-        assertTrue(occurrences.all { it.recurrence == EventRecurrenceState.Occurrence })
+        assertTrue(occurrences.all { it.isOccurrence })
     }
 
     @Test
@@ -114,41 +102,32 @@ class EventRecurrenceStateTest {
             listOf(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 20, 10, 0)),
             occurrences.map { it.timing.start },
         )
-        assertTrue(occurrences.all { it.recurrence == EventRecurrenceState.Occurrence })
+        assertTrue(occurrences.all { it.isOccurrence })
     }
 
     @Test
-    fun master_staysMasterWhileItsOccurrencesDoNot() {
-        // The same event answers differently depending on how it was read, and that is the point:
-        // reading a series by id yields its master, reading a range yields its occurrences.
-        val master = eventEntity(rrule = RecurrenceRule(freq = Frequency.Daily)).toDomain(calendar)
-
-        assertEquals(EventRecurrenceState.Master, master.recurrence)
-    }
-
-    @Test
-    fun deleteScopes_areOfferedOnAnOverride() {
+    fun recurrenceScopes_areOfferedOnAnOverride() {
         val override = overrideEntity().toDomain(calendar)
 
         assertEquals(
             setOf(RecurrenceEditScope.ThisOccurrence, RecurrenceEditScope.ThisAndFollowing, RecurrenceEditScope.AllOccurrences),
-            override.deleteScopes,
+            override.recurrenceScopes,
         )
     }
 
     @Test
-    fun deleteScopes_areEmptyOnAPlainEvent() {
+    fun recurrenceScopes_areEmptyOnAPlainEvent() {
         val event = eventEntity().toDomain(calendar)
 
-        assertEquals(emptySet(), event.deleteScopes)
+        assertEquals(emptySet(), event.recurrenceScopes)
     }
 
     @Test
-    fun deleteScopes_areEmptyOnAReadOnlyCalendar() {
+    fun recurrenceScopes_areEmptyOnAReadOnlyCalendar() {
         val override = overrideEntity().toDomain(calendar.copy(accessLevel = CalendarAccessLevel.READ))
 
-        assertEquals(EventRecurrenceState.Occurrence, override.recurrence)
-        assertEquals(emptySet(), override.deleteScopes)
+        assertTrue(override.isOccurrence)
+        assertEquals(emptySet(), override.recurrenceScopes)
     }
 
     private suspend fun expand(master: Event): List<Event> = listOf(EventWithOverrides(master)).expandRecurrencesInWindow(
@@ -173,7 +152,6 @@ class EventRecurrenceStateTest {
     private fun eventEntity(
         rrule: RecurrenceRule? = null,
         rDates: List<IcalDateValue> = emptyList(),
-        exDates: List<IcalDateValue> = emptyList(),
     ) = EventEntity(
         id = masterId,
         calendarId = calendarId,
@@ -181,7 +159,7 @@ class EventRecurrenceStateTest {
         etag = "etag-1",
         rrule = rrule,
         rDates = rDates,
-        exDates = exDates,
+        exDates = emptyList(),
     )
 
     private fun overrideEntity() = EventOverrideEntity(

@@ -17,9 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.EventRecurrenceState.Master
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.EventRecurrenceState.None
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.EventRecurrenceState.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.AllOccurrences
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisAndFollowing
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisOccurrence
@@ -29,28 +26,26 @@ import kotlin.test.assertEquals
 class RecurrenceEditScopesTest {
 
     @Test
-    fun deleteScopes_matchTheirState() {
-        val cases = mapOf(
-            None to emptySet(),
-            Master to emptySet(),
-            Occurrence to setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences),
+    fun scopes_areOfferedOnAnOccurrenceOnly() {
+        assertEquals(
+            setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences),
+            recurrenceScopesFor(isOccurrence = true, canEdit = true),
         )
-
-        cases.forEach { (recurrence, expected) ->
-            assertEquals(expected, deleteScopesFor(recurrence, canEdit = true), "for $recurrence")
-        }
     }
 
     @Test
-    fun deleteScopes_areEmptyOnAReadOnlyCalendar() {
-        EventRecurrenceState.entries.forEach { recurrence ->
-            assertEquals(emptySet(), deleteScopesFor(recurrence, canEdit = false), "for $recurrence")
-        }
+    fun scopes_areEmptyOutsideOfASeries() {
+        assertEquals(emptySet(), recurrenceScopesFor(isOccurrence = false, canEdit = true))
     }
 
     @Test
-    fun deleteScopes_coverEveryState() {
-        // A new state must be given a row above, not fall into the "not an occurrence" branch.
-        assertEquals(setOf(None, Master, Occurrence), EventRecurrenceState.entries.toSet())
+    fun scopes_areEmptyOnAReadOnlyCalendar() {
+        listOf(true, false).forEach { isOccurrence ->
+            assertEquals(
+                emptySet(),
+                recurrenceScopesFor(isOccurrence, canEdit = false),
+                "for isOccurrence=$isOccurrence",
+            )
+        }
     }
 }

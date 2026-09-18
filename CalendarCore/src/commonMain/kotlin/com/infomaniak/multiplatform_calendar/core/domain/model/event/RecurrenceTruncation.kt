@@ -18,7 +18,6 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -74,9 +73,7 @@ private suspend fun EventTiming.ruleBoundedBefore(
     defaultZone: TimeZone,
     limits: ExpansionLimits,
 ): RecurrenceRule? {
-    val kept = LastInstanceSink()
-    val outcome = RecurrenceExpander.expandInto(
-        target = kept,
+    val tally = RecurrenceExpander.tally(
         master = this,
         rrule = rule,
         // The window opens before any instance can start, so a zero-duration series is kept whole too.
@@ -85,44 +82,14 @@ private suspend fun EventTiming.ruleBoundedBefore(
         defaultZone = defaultZone,
         limits = limits,
     )
-    // A capped expansion yields a prefix, whose size and last instance would both bound the rule short.
-    check(outcome == ExpansionOutcome.Completed) { "Cannot truncate a series whose expansion stopped on $outcome" }
-    val last = kept.last ?: return null
+    // A stopped walk yields a prefix, whose size and last instance would both bound the rule short.
+    check(tally.outcome == ExpansionOutcome.Completed) { "Cannot truncate a series whose expansion stopped on ${tally.outcome}" }
+    val lastStart = tally.lastStart ?: return null
 
     return when {
-        rule.occurrenceCount != null -> rule.copy(occurrenceCount = kept.size)
-        else -> rule.copy(until = untilAt(last.start))
+        rule.occurrenceCount != null -> rule.copy(occurrenceCount = tally.count)
+        else -> rule.copy(until = untilAt(lastStart))
     }
-}
-
-/**
- * Counts the instances handed to it and keeps only the latest, which is all a bound is read from.
- *
- * [RecurrenceExpander.expandInto] writes into a list and nothing else, and the window here opens at
- * the start of the series: a dense long-running rule would otherwise materialise up to
- * [ExpansionLimits.maxGeneratedOccurrences] occurrences just to read two values off the end.
- */
-private class LastInstanceSink : AbstractMutableList<Occurrence>() {
-
-    var last: Occurrence? = null
-        private set
-
-    override var size: Int = 0
-        private set
-
-    override fun add(index: Int, element: Occurrence) {
-        require(index == size) { "The expander only ever appends" }
-        last = element
-        size++
-    }
-
-    override fun get(index: Int): Occurrence = writeOnly()
-
-    override fun set(index: Int, element: Occurrence): Occurrence = writeOnly()
-
-    override fun removeAt(index: Int): Occurrence = writeOnly()
-
-    private fun writeOnly(): Nothing = throw UnsupportedOperationException("This sink only collects")
 }
 
 /**

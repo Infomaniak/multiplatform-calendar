@@ -1525,6 +1525,118 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun updateEvent_allOccurrences_carriesTheChangeOntoDetachedOverrides() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        // That instance was detached earlier and moved to the 19th: it holds its fields in its own right.
+        val override = overrideEntity(
+            master.id,
+            originalStart = LocalDateTime(2026, 6, 16, 10, 0),
+            movedTo = LocalDateTime(2026, 6, 19, 10, 0),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
+            data = editData(
+                title = "Renamed",
+                calendarId = calendarId,
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+            ),
+        )
+
+        assertEquals("Renamed", fakeCaldav.patches.single().summary)
+        // iCalendar has no inheritance: the master's new title reaches the override only by being written.
+        val (recurrenceId, edit) = fakeCaldav.overrideUpserts.single()
+        assertEquals("Renamed", edit.summary)
+        // The slot it answers to, and the one it was moved to, are its own and must survive the rename.
+        assertEquals("20260616T100000Z", recurrenceId.value)
+        assertEquals("20260619T100000Z", edit.dtStart)
+        assertEquals("20260619T110000Z", edit.dtEnd)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_leavesAnOverrideTheFieldsTheEditDidNotTouch() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val base = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        // A room only this instance was given, which the series knows nothing about.
+        val override = base.copy(content = base.content.copy(location = "Room B"))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
+            data = editData(
+                title = "Renamed",
+                calendarId = calendarId,
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+            ),
+        )
+
+        // Replaying the whole of the edit would hand the override the master's empty location.
+        val edit = fakeCaldav.overrideUpserts.single().second
+        assertEquals("Renamed", edit.summary)
+        assertEquals("Room B", edit.location)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_leavesOverridesAloneWhenOnlyTheTimingMoves() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            // Same title as the master's: only the hour moves.
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
+            data = editData(
+                title = "Daily recurring",
+                calendarId = calendarId,
+                start = LocalDateTime(2026, 6, 17, 14, 0),
+                end = LocalDateTime(2026, 6, 17, 15, 0),
+            ),
+        )
+
+        // A detached instance keeps the slot it was moved to, so a series-wide shift is not its business.
+        assertEquals(emptyList(), fakeCaldav.overrideUpserts)
+    }
+
+    @Test
     fun updateEvent_allOccurrences_carriesAMovedTimeOverToTheWholeSeries() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://main")

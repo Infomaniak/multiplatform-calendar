@@ -1367,13 +1367,21 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.ThisOccurrence,
             ),
-            data = editData(title = "Moved", calendarId = calendarId),
+            // The app hands back the slot it displayed, the 16th, which the override must carry.
+            data = editData(
+                title = "Moved",
+                calendarId = calendarId,
+                start = LocalDateTime(2026, 6, 16, 10, 0),
+                end = LocalDateTime(2026, 6, 16, 11, 0),
+            ),
         )
 
         // No override claims that slot yet, so the master's own DTSTART form names it.
         val (recurrenceId, edit) = fakeCaldav.overrideUpserts.single()
         assertEquals("20260616T100000Z", recurrenceId.value)
         assertEquals("Moved", edit.summary)
+        assertEquals("20260616T100000Z", edit.dtStart)
+        assertEquals("20260616T110000Z", edit.dtEnd)
         assertEquals(emptyList(), fakeCaldav.patches, "the master itself must not be patched")
     }
 
@@ -1400,13 +1408,21 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.ThisOccurrence,
             ),
-            data = editData(title = "Renamed", calendarId = calendarId),
+            data = editData(
+                title = "Renamed",
+                calendarId = calendarId,
+                start = LocalDateTime(2026, 6, 16, 10, 0),
+                end = LocalDateTime(2026, 6, 16, 11, 0),
+            ),
         )
 
         // Re-deriving the master's form would detach a duplicate next to the override already there.
-        val recurrenceId = fakeCaldav.overrideUpserts.single().first
+        val (recurrenceId, edit) = fakeCaldav.overrideUpserts.single()
         assertEquals("20260616T120000", recurrenceId.value)
         assertEquals("Europe/Zurich", recurrenceId.tzid)
+        // Addressed by its RECURRENCE-ID, the instance still keeps the slot the edit gives it.
+        assertEquals("20260616T100000Z", edit.dtStart)
+        assertEquals("20260616T110000Z", edit.dtEnd)
     }
 
     @Test

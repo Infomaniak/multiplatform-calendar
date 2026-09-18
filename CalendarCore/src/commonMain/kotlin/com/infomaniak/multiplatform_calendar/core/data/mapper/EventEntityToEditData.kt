@@ -48,11 +48,10 @@ internal fun EventEntity.toEditData(): EventEditData = EventEditData(
 )
 
 /**
- * This override as the edit that would leave it exactly as it stands, so a series edit can be
- * replayed onto it (see [withSeriesChanges]).
+ * This override as the edit that would leave it exactly as it stands, for [calendarId].
  *
- * The timing is bare: an override carries no recurrence set of its own (RFC 5545 §3.8.5). [calendarId]
- * is the master's, the only one an override can live in.
+ * Reads like [EventEntity.toEditData], minus the recurrence set: an override defines one instance and
+ * carries no rule of its own (RFC 5545 §3.8.4.4).
  */
 internal fun EventOverrideEntity.toEditData(calendarId: CalendarId): EventEditData = EventEditData(
     title = content.summary,

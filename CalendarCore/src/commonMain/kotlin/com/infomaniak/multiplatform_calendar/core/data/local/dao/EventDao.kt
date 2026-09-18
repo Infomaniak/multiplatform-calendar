@@ -185,6 +185,9 @@ internal abstract class EventDao {
     @Query("SELECT * FROM event_overrides WHERE masterId = :masterId ORDER BY recurrenceKey")
     abstract suspend fun getOverridesOf(masterId: EventId): List<EventOverrideEntity>
 
+    @Query("SELECT * FROM event_overrides WHERE masterId = :masterId AND recurrenceKey = :recurrenceKey LIMIT 1")
+    abstract suspend fun getOverrideOf(masterId: EventId, recurrenceKey: RecurrenceKey): EventOverrideEntity?
+
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     abstract suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>
 

@@ -18,7 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.jvm.JvmInline
+import kotlin.native.HiddenFromObjC
 import kotlin.time.Instant
 
 /**
@@ -37,7 +39,9 @@ import kotlin.time.Instant
 public value class UpcomingAlarmId internal constructor(public val value: String)
 
 /** One alarm of [event] about to go off, at [firesAt]. */
+@OptIn(ExperimentalObjCRefinement::class)
 public data class UpcomingAlarm(
+    @HiddenFromObjC
     val id: UpcomingAlarmId,
     val firesAt: Instant,
     val alarm: EventAlarm,

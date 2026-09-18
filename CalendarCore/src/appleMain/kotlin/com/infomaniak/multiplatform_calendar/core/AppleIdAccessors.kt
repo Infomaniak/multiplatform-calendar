@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 
 /**
  * Apple-only accessors that expose the underlying values of the `value class` ids as plain types.
@@ -48,3 +49,6 @@ public val Event.masterEventIdValue: String get() = masterEventId.url
 public val Event.occurrenceIdValue: String get() = occurrenceId.value
 public val Event.calendarIdValue: String get() = calendarId.url
 public val Event.accountIdValue: Long get() = accountId.value
+
+/** Identity of one alarm firing, to diff two consecutive lists of them. */
+public val UpcomingAlarm.idValue: String get() = id.value

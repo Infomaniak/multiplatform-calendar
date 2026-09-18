@@ -115,6 +115,7 @@ internal fun EventEditData.toRemoteEdit(
 internal fun EventEditData.toOverrideEdit(
     stamp: String,
     previous: EventContentEntity?,
+    alarms: AlarmListEdit = AlarmListEdit.FromData,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -134,7 +135,10 @@ internal fun EventEditData.toOverrideEdit(
         exDateChange = RemoteDateListChange.Unchanged,
         rDateChange = RemoteDateListChange.Unchanged,
         overrideRemoval = RemoteOverrideRemoval.Unchanged,
-        alarms = resolveAlarmEdits(alarms, previous?.alarms.orEmpty()),
+        alarms = when (alarms) {
+            AlarmListEdit.Preserve -> null
+            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous?.alarms.orEmpty())
+        },
         stamp = stamp,
     )
 }

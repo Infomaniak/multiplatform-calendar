@@ -1131,6 +1131,50 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun deleteEvent_thisAndFollowing_leavesTheSeriesAloneOnASlotItNeverHad() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            // 10:30 on a series that only ever runs at 10:00.
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 30)), RecurrenceScope.ThisAndFollowing),
+        )
+
+        assertEquals(emptyList(), fakeCaldav.patches, "a pivot the rule never generated must bound nothing")
+        assertEquals(emptyList(), fakeCaldav.deletes, "the resource itself must survive")
+    }
+
+    @Test
+    fun deleteEvent_thisOccurrence_leavesTheSeriesAloneOnAnAlreadyExcludedSlot() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily),
+        ).copy(exDates = listOf(icalUtc(2026, 6, 18)))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisOccurrence),
+        )
+
+        assertEquals(emptyList(), fakeCaldav.patches, "what the series no longer hands out cannot be dropped again")
+    }
+
+    @Test
     fun deleteEvent_thisAndFollowing_boundsAnEndlessRuleWithUntil() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://main")

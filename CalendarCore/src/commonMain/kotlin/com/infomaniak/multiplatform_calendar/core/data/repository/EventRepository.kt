@@ -274,6 +274,10 @@ internal class EventRepository(
     /**
      * Delete what [target] designates: the whole resource, or as far along its series as the scope it
      * carries reaches.
+     *
+     * A scoped delete is refused unless the target still names a live occurrence: the id travels
+     * through clients as a string ([OccurrenceId.parse]), and both scoped paths read the date it
+     * carries as a pivot, so a stale one would bound the series on a slot it never had.
      */
     suspend fun deleteEvent(credentials: DavAccount, target: OccurrenceTarget) {
         val occurrenceId = target.occurrenceId
@@ -281,9 +285,21 @@ internal class EventRepository(
             target !is OccurrenceTarget.Recurring -> deleteEvent(credentials, occurrenceId.masterId)
             occurrenceId !is OccurrenceId.Recurrence -> deleteEvent(credentials, occurrenceId.masterId)
             target.scope == RecurrenceScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
+            !namesALiveOccurrence(occurrenceId) -> Unit
             target.scope == RecurrenceScope.ThisOccurrence -> excludeOccurrence(credentials, occurrenceId)
             else -> truncateSeriesFrom(credentials, occurrenceId)
         }
+    }
+
+    /** Whether the series still hands [occurrenceId] out, read as the display reads it. */
+    private suspend fun namesALiveOccurrence(occurrenceId: OccurrenceId.Recurrence): Boolean {
+        val relation = eventDao.getEventWithCalendar(occurrenceId.masterId) ?: return false
+        return relation.toDomainEventWithOverrides().resolveOccurrence(
+            occurrenceId = occurrenceId,
+            timeZone = TimeZone.currentSystemDefault(),
+            onExpansionTruncated = ::logTruncatedExpansion,
+            onOrphanOverrideDropped = ::logOrphanOverride,
+        ) != null
     }
 
     /**

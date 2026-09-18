@@ -79,6 +79,69 @@ internal object RecurrenceExpander {
         inputEnd: Instant,
         defaultZone: TimeZone,
         limits: ExpansionLimits = ExpansionLimits(),
+    ): ExpansionOutcome = traverse(
+        master = master,
+        rrule = rrule,
+        inputStart = inputStart,
+        inputEnd = inputEnd,
+        defaultZone = defaultZone,
+        limits = limits,
+        maxEmitted = limits.maxGeneratedOccurrences,
+    ) { startLocal, startInstant, endLocal ->
+        target += Occurrence(
+            key = master.recurrenceKeyAt(startLocal, startInstant),
+            start = startLocal,
+            end = endLocal,
+            startTimeZone = master.startTimeZone,
+            endTimeZone = master.endTimeZone,
+        )
+    }
+
+    /**
+     * How many instances of [rrule] overlap `[inputStart, inputEnd[`, and where the last one starts.
+     *
+     * The traversal [expandInto] runs, minus the materialising, and minus the output cap: that one
+     * bounds what may be handed back, which has nothing to say to a count. Work stays bounded by
+     * [ExpansionLimits.maxScannedInstances], reported through the outcome.
+     */
+    suspend fun tally(
+        master: EventTiming,
+        rrule: RecurrenceRule,
+        inputStart: Instant,
+        inputEnd: Instant,
+        defaultZone: TimeZone,
+        limits: ExpansionLimits = ExpansionLimits(),
+    ): InstanceTally {
+        var count = 0
+        var lastStart: LocalDateTime? = null
+        val outcome = traverse(
+            master = master,
+            rrule = rrule,
+            inputStart = inputStart,
+            inputEnd = inputEnd,
+            defaultZone = defaultZone,
+            limits = limits,
+            maxEmitted = Int.MAX_VALUE,
+        ) { startLocal, _, _ ->
+            count++
+            lastStart = startLocal
+        }
+        return InstanceTally(outcome = outcome, count = count, lastStart = lastStart)
+    }
+
+    /**
+     * The shared traversal: walks the instances of [rrule] in order and hands [onInstance] each one
+     * overlapping `[inputStart, inputEnd[`, stopping after [maxEmitted] of them.
+     */
+    private suspend inline fun traverse(
+        master: EventTiming,
+        rrule: RecurrenceRule,
+        inputStart: Instant,
+        inputEnd: Instant,
+        defaultZone: TimeZone,
+        limits: ExpansionLimits,
+        maxEmitted: Int,
+        onInstance: (startLocal: LocalDateTime, startInstant: Instant, endLocal: LocalDateTime) -> Unit,
     ): ExpansionOutcome {
         val masterTiming = MasterTiming.of(master, defaultZone)
         val dtStart = master.start
@@ -112,17 +175,14 @@ internal object RecurrenceExpander {
                 // Skip candidates that are not real instances of the set (pre-DTSTART or DST gap), without counting them.
                 if (isNonInstance(masterTiming, occurrenceStartLocal, occurrenceStartInstant, dtStart)) continue
 
-                val occurrenceAdded = appendOccurrenceIfWithinWindow(
-                    target = target,
-                    master = master,
-                    masterTiming = masterTiming,
-                    occurrenceStartLocal = occurrenceStartLocal,
-                    occurrenceStartInstant = occurrenceStartInstant,
-                    inputStart = inputStart,
-                    inputEnd = inputEnd,
-                )
-                if (occurrenceAdded) generated++
-                if (generated >= limits.maxGeneratedOccurrences) return TruncatedByOccurrenceCap
+                val (occurrenceEndLocal, occurrenceEndInstant) =
+                    masterTiming.occurrenceEnd(occurrenceStartLocal, occurrenceStartInstant)
+                // A long instance straddling inputStart still overlaps the window.
+                if (occurrenceStartInstant < inputEnd && occurrenceEndInstant > inputStart) {
+                    onInstance(occurrenceStartLocal, occurrenceStartInstant, occurrenceEndLocal)
+                    generated++
+                    if (generated >= maxEmitted) return TruncatedByOccurrenceCap
+                }
 
                 count++
                 countedInPeriod = true
@@ -132,33 +192,6 @@ internal object RecurrenceExpander {
             if (consecutiveEmptyPeriods > limits.maxScannedPeriods) return StoppedByConsecutiveEmptyPeriods
             periodIndex++
         }
-    }
-
-    /**
-     * Append the occurrence starting at [occurrenceStartLocal] to [target] when it overlaps
-     * `[inputStart, inputEnd[` — a long instance straddling [inputStart] still counts. Returns whether
-     * an occurrence was appended.
-     */
-    private fun appendOccurrenceIfWithinWindow(
-        target: MutableList<Occurrence>,
-        master: EventTiming,
-        masterTiming: MasterTiming,
-        occurrenceStartLocal: LocalDateTime,
-        occurrenceStartInstant: Instant,
-        inputStart: Instant,
-        inputEnd: Instant,
-    ): Boolean {
-        val (occurrenceEndLocal, occurrenceEndInstant) = masterTiming.occurrenceEnd(occurrenceStartLocal, occurrenceStartInstant)
-        if (occurrenceStartInstant >= inputEnd || occurrenceEndInstant <= inputStart) return false
-
-        target += Occurrence(
-            key = master.recurrenceKeyAt(occurrenceStartLocal, occurrenceStartInstant),
-            start = occurrenceStartLocal,
-            end = occurrenceEndLocal,
-            startTimeZone = master.startTimeZone,
-            endTimeZone = master.endTimeZone,
-        )
-        return true
     }
 
     /**
@@ -250,3 +283,10 @@ internal object RecurrenceExpander {
         return wholePeriodsBefore.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
     }
 }
+
+/** What a traversal tallied. [outcome] matters: a tally read off a stopped walk bounds a series short. */
+internal data class InstanceTally(
+    val outcome: ExpansionOutcome,
+    val count: Int,
+    val lastStart: LocalDateTime?,
+)

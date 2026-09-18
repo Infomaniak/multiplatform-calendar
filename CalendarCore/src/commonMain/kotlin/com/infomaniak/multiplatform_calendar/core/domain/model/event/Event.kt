@@ -21,7 +21,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceScopesFor
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -62,6 +62,6 @@ public data class Event(
         get() = occurrenceId is OccurrenceId.Recurrence
 
     /** What a mutation of this event may be asked to reach, empty when there is nothing to ask. */
-    val recurrenceScopes: Set<RecurrenceEditScope>
+    val recurrenceScopes: Set<RecurrenceScope>
         get() = recurrenceScopesFor(isOccurrence, canEdit)
 }

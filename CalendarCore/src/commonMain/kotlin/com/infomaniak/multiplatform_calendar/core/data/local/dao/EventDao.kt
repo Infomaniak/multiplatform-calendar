@@ -224,6 +224,10 @@ internal abstract class EventDao {
     @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
     abstract fun observeEventWithCalendar(eventId: EventId): Flow<EventWithCalendarEntity?>
 
+    @Transaction
+    @Query("SELECT * FROM events WHERE id = :eventId LIMIT 1")
+    abstract suspend fun getEventWithCalendar(eventId: EventId): EventWithCalendarEntity?
+
     @Query("DELETE FROM events WHERE id = :eventId")
     abstract suspend fun deleteEvent(eventId: EventId)
 

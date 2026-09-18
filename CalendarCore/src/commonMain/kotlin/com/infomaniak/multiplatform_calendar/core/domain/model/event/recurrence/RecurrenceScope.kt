@@ -18,7 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
 /** How far along a series an edit or a delete reaches, as offered to the user before acting. */
-public enum class RecurrenceEditScope {
+public enum class RecurrenceScope {
     /** The picked occurrence alone. The rest of the series is left untouched. */
     ThisOccurrence,
 

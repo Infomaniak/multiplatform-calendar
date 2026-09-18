@@ -394,8 +394,7 @@ internal class EventRepository(
         val masterTiming = entity.toEditData().timing
         val zone = TimeZone.currentSystemDefault()
         // The start the occurrence was displayed with, which is what the edit was prepared against.
-        val shownStart = eventDao.getOverridesOf(masterId)
-            .firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+        val shownStart = eventDao.getOverrideOf(masterId, occurrenceId.recurrenceKey)
             ?.content?.timing?.dtStart
             ?: occurrenceId.recurrenceKey.toLocalStart(masterTiming, zone)
             ?: return
@@ -421,7 +420,7 @@ internal class EventRepository(
             "Cannot move a single occurrence to another calendar: its override lives in $masterId"
         }
         val masterTiming = entity.toEditData().timing
-        val existing = eventDao.getOverridesOf(masterId).firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+        val existing = eventDao.getOverrideOf(masterId, occurrenceId.recurrenceKey)
         val recurrenceId = existing?.toRemoteRecurrenceId(masterTiming)
             ?: occurrenceId.recurrenceKey.toRemoteRecurrenceId(masterTiming)
             ?: return

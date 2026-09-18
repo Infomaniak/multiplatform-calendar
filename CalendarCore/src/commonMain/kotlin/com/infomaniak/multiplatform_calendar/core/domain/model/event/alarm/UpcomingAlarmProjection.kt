@@ -43,8 +43,8 @@ internal fun List<Event>.upcomingAlarms(
     for (event in this) {
         // Ordinals count within one event, per key, so that reordering an event's alarm list permutes
         // the ordinals of alarms already indistinguishable instead of renaming unrelated ones.
-        // Filtering first is safe: alarms sharing a key go off at the same second, so no window and no
-        // set of actions can ever keep one of a group and drop another.
+        // Filtering first is safe: alarms sharing a key fire at the very same instant, so no window and
+        // no set of actions can ever keep one of a group and drop another.
         val ordinals = HashMap<String, Int>()
         for (alarm in event.alarms) {
             if (alarm.action !in actions) continue
@@ -95,5 +95,5 @@ private fun EventAlarm.alarmKey(event: Event, firesAt: Instant): String {
         is AlarmTrigger.Absolute -> event.masterEventId.url
         is AlarmTrigger.Relative -> event.occurrenceId.value
     }
-    return "$scope|${firesAt.epochSeconds}|${id.value}"
+    return "$scope|$firesAt|${id.value}"
 }

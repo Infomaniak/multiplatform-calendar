@@ -35,6 +35,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
@@ -168,6 +169,20 @@ class UpcomingAlarmProjectionTest {
             asIs.map(UpcomingAlarm::id).toSet(),
             shuffled.map(UpcomingAlarm::id).toSet(),
             "ids count per key, not along the list, so reordering must not reschedule anything",
+        )
+    }
+
+    @Test
+    fun twoAlarmsFiringWithinTheSameSecond_keepTheirOwnIds() {
+        // 09:45:00.400 and 09:45:00.800: same action, same anchor second, same canonical alarm id.
+        val alarms = listOf(reminder(15.minutes - 400.milliseconds), reminder(15.minutes - 800.milliseconds))
+        val asIs = listOf(eventAt(day = 10, alarms = alarms)).project()
+        val reversed = listOf(eventAt(day = 10, alarms = alarms.reversed())).project()
+
+        assertEquals(
+            asIs.associate { it.firesAt to it.id },
+            reversed.associate { it.firesAt to it.id },
+            "an id follows the moment its alarm goes off, down to the sub-second",
         )
     }
 

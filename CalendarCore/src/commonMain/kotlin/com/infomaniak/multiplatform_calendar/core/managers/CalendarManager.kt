@@ -114,8 +114,9 @@ public class CalendarManager internal constructor(
      * A recurring event yields one alarm per occurrence for a relative trigger, and a single one for an
      * absolute trigger, which names one fixed point in time (RFC 5545 §3.8.6.3).
      *
-     * This flow re-emits on database changes, not on the passing of time: a client must re-collect after
-     * a firing to get the next batch.
+     * This flow re-emits on database changes, not on the passing of time, and [from] is bound once when
+     * this is called — re-collecting the same flow keeps the window it was built with. To advance it, call
+     * this again.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeUpcomingAlarms(

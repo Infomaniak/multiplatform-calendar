@@ -1175,6 +1175,29 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun deleteEvent_thisAndFollowing_boundsASeriesTooDenseToMaterialise() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Minutely),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+
+        repository.deleteEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            // Past the 100_000 instances an expansion may hand back, which a rank has no reason to obey.
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 9, 15, 10, 0)), RecurrenceScope.ThisAndFollowing),
+        )
+
+        val change = assertIs<RemoteRecurrenceChange.Set>(fakeCaldav.patches.single().recurrenceChange)
+        assertEquals("FREQ=MINUTELY;UNTIL=20260915T095900Z", change.value)
+    }
+
+    @Test
     fun deleteEvent_thisAndFollowing_boundsAnEndlessRuleWithUntil() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://main")

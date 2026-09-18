@@ -203,6 +203,23 @@ public class CalendarManager internal constructor(
             }
         }
 
+    /**
+     * The edit that would leave the occurrence [occurrenceId] designates exactly as it stands, to fill
+     * an edition form with and hand back to [updateEvent] once the user has changed what they wanted.
+     *
+     * Going through this rather than rebuilding an edit from an [Event][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event]
+     * is what keeps an untouched field untouched: an edit states the intended *final* state, so a field
+     * left out of it is not preserved, it is cleared.
+     *
+     * `null` when nothing is stored under that id.
+     */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun getEditData(occurrenceId: OccurrenceId): EventEditData? = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "read edit data of event $occurrenceId") {
+            eventRepository.getEditData(occurrenceId)
+        }
+    }
+
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "delete event $eventId") {

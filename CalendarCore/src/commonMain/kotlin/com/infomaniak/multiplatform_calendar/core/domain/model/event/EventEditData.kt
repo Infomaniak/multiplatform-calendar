@@ -18,13 +18,14 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 
 /**
  * Editable event fields, shared by the edition and (upcoming) creation flows.
  *
  * Full-replacement semantics: every mapped field overwrites its previous value on save (the ICS
- * patch drops properties absent from the edit). Callers must echo unchanged fields from `previous`.
+ * patch drops properties absent from the edit). Callers must echo unchanged fields from `previous`,
+ * which [CalendarManager.getEditData][com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.getEditData]
+ * hands over already filled in.
  */
 public data class EventEditData(
     val title: String,
@@ -35,5 +36,6 @@ public data class EventEditData(
     val calendarId: CalendarId,
     /** `null` to inherit the calendar's color. */
     val eventColor: EventSourceColor?,
-    val alarms: List<EventAlarm>,
+    /** [AlarmListEdit.Preserve] unless the alarms are themselves part of the edit. */
+    val alarms: AlarmListEdit,
 )

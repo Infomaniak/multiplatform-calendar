@@ -20,6 +20,8 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import kotlinx.datetime.LocalDateTime
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.TimeZone.Companion.UTC
 
 /**
@@ -31,13 +33,16 @@ import kotlinx.datetime.TimeZone.Companion.UTC
  * master is shifted by — leaving it untouched when the time was not part of the edit.
  *
  * The arithmetic is done on calendar faces (in [UTC], a zone with no transition to trip over): the
- * series keeps the local time it is read at, whatever offsets lie between the two dates. Everything
- * else — zones, all-day, the rule — is the edit's own and stays as given.
+ * series keeps the local time it is read at, whatever offsets lie between the two dates. The end is
+ * then derived the way the expansion derives an occurrence's, so that an edit read back and handed
+ * over untouched lands on the master's own end. Everything else — zones, all-day, the rule — is the
+ * edit's own and stays as given.
  */
-internal fun EventTiming.rebasedOnto(master: EventTiming, shownStart: LocalDateTime): EventTiming {
+internal fun EventTiming.rebasedOnto(master: EventTiming, shownStart: LocalDateTime, defaultZone: TimeZone): EventTiming {
     val shift = wallClockShift(from = shownStart, to = start)
-    val duration = wallClockShift(from = start, to = end)
     val rebasedStart = master.start.shiftedBy(shift)
+    val edited = MasterTiming.of(master = this, defaultZone = defaultZone)
+    val (rebasedEnd, _) = edited.occurrenceEnd(rebasedStart, edited.resolvedStartInstant(rebasedStart))
 
-    return copy(start = rebasedStart, end = rebasedStart.shiftedBy(duration))
+    return copy(start = rebasedStart, end = rebasedEnd)
 }

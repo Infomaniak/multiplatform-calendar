@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
@@ -29,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.recurrenceRuleWith
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
@@ -53,6 +55,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -61,12 +64,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccu
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.statedAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.withSeriesChanges
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -346,7 +351,6 @@ internal class EventRepository(
                 exDates = DateListEdit.Set(entity.exDates + excluded),
                 droppedOverrides = listOf(occurrenceId.recurrenceKey),
                 knownOverrides = overrides,
-                alarms = AlarmListEdit.Preserve,
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
@@ -383,7 +387,6 @@ internal class EventRepository(
                     .map(EventOverrideEntity::recurrenceKey)
                     .filterNot { it.startsBefore(pivotStart, timing) },
                 knownOverrides = overrides,
-                alarms = AlarmListEdit.Preserve,
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
@@ -435,10 +438,32 @@ internal class EventRepository(
             "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
         }
 
-        createTail(credentials, masterId, tail = SeriesTail.of(master, pivotStart, edit = data, split))
+        createTail(
+            credentials,
+            masterId,
+            tail = SeriesTail.of(master, pivotStart, edit = data.statingAlarmsOf(entity), split),
+        )
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
         truncateSeriesFrom(credentials, occurrenceId)
+    }
+
+    /**
+     * This edit with its alarms spelled out from [master], for a resource that does not exist yet.
+     *
+     * [AlarmListEdit.Preserve] leaves a resource's own `VALARM`s alone, which a tail about to be created
+     * has none of: left as is, it would be born without the alarms the series carries.
+     *
+     * Restating them goes through the domain model, which a `VALARM` whose `TRIGGER` is malformed cannot
+     * be read into: such an alarm survives every edit that patches the resource in place, but not a split,
+     * whose tail is built from scratch. It is invisible to the whole app already, [AlarmEntity.toDomain]
+     * being how alarms are read everywhere, so the tail is born without it rather than the split refused.
+     */
+    private fun EventEditData.statingAlarmsOf(master: EventEntity): EventEditData = when (alarms) {
+        is AlarmListEdit.Replace -> this
+        AlarmListEdit.Preserve -> copy(
+            alarms = AlarmListEdit.Replace(master.content.alarms.mapNotNull(AlarmEntity::toDomain)),
+        )
     }
 
     /** Write [tail] as a resource of its own, the overrides it takes over from [masterId] included. */
@@ -466,7 +491,14 @@ internal class EventRepository(
                 val key = override.recurrenceKey.shiftedBy(tail.delta)
                 val recurrenceId = key.toRemoteRecurrenceId(master = tail.data.timing) ?: return@forEach
                 val moved = override.toEditData(tail.data.calendarId)
-                    .let { it.copy(timing = it.timing.shiftedBy(tail.delta)) }
+                    .let {
+                        it.copy(
+                            timing = it.timing.shiftedBy(tail.delta),
+                            // Stated, not preserved: seeding from the tail's master would hand the
+                            // override the master's alarms in place of the ones it carries itself.
+                            alarms = AlarmListEdit.Replace(override.content.alarms.mapNotNull(AlarmEntity::toDomain)),
+                        )
+                    }
                 resource = caldavClient.upsertOverrideIcs(
                     resource.icsData,
                     recurrenceId,
@@ -474,12 +506,53 @@ internal class EventRepository(
                     edit = moved.toOverrideEdit(
                         stamp = stamp,
                         previousColorArgb = tail.data.eventColor?.argb,
-                        previousAlarms = tail.data.alarms.map(EventAlarm::toEntity),
+                        previousAlarms = tail.data.alarms.statedAlarms.map(EventAlarm::toEntity),
                     ),
                 )
             }
 
         return resource
+    }
+
+    /**
+     * The edit that would leave the instance [occurrenceId] designates exactly as it stands, ready to
+     * be handed back to [updateEvent] with whichever fields the user changed.
+     *
+     * Read from the stored resource rather than from the domain [Event]: an event reads its colour
+     * already resolved against its calendar, which would write the calendar's colour onto the event as
+     * if it were its own, and its alarms already projected, which drops the ones whose trigger cannot
+     * be read. Alarms are therefore left to the resource, see [AlarmListEdit.Preserve].
+     *
+     * The timing is the slot the occurrence is *displayed* on, which is what [updateEvent] expects of an
+     * edit prepared on an occurrence, carrying the master's rule so that a whole-series edit keeps the
+     * recurrence it did not touch.
+     */
+    suspend fun getEditData(occurrenceId: OccurrenceId): EventEditData? {
+        val entity = eventDao.getEvent(occurrenceId.masterId) ?: return null
+        val master = entity.toEditData()
+        if (occurrenceId !is OccurrenceId.Recurrence) return master
+
+        val override = eventDao.getOverridesOf(occurrenceId.masterId)
+            .firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+
+        if (override != null) {
+            val redefined = override.toEditData(entity.calendarId)
+            return redefined.copy(
+                timing = redefined.timing.copy(
+                    recurrenceRule = master.timing.recurrenceRule,
+                    rDates = master.timing.rDates,
+                    exDates = master.timing.exDates,
+                ),
+            )
+        }
+
+        val zone = TimeZone.currentSystemDefault()
+        val start = occurrenceId.recurrenceKey.toLocalStart(master.timing, defaultZone = zone) ?: return null
+        // The end the expansion gives this slot, so the edit opens on the times the occurrence is shown with.
+        val masterTiming = MasterTiming.of(master.timing, defaultZone = zone)
+        val (end, _) = masterTiming.occurrenceEnd(start, masterTiming.resolvedStartInstant(start))
+
+        return master.copy(timing = master.timing.copy(start = start, end = end))
     }
 
     /**
@@ -497,7 +570,9 @@ internal class EventRepository(
     ) {
         val masterId = occurrenceId.masterId
         val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        // The alarms the master actually stands with, so an edit restating them reads as no change.
         val before = entity.toEditData()
+            .copy(alarms = AlarmListEdit.Replace(entity.content.alarms.mapNotNull(AlarmEntity::toDomain)))
         val masterTiming = before.timing
         val zone = TimeZone.currentSystemDefault()
         // The start the occurrence was displayed with, which is what the edit was prepared against.
@@ -506,11 +581,10 @@ internal class EventRepository(
             ?: occurrenceId.recurrenceKey.toLocalStart(masterTiming, zone)
             ?: return
 
-        val after = data.copy(timing = data.timing.rebasedOnto(masterTiming, shownStart))
+        val after = data.copy(timing = data.timing.rebasedOnto(masterTiming, shownStart, defaultZone = zone))
         val now = Clock.System.now().toICalUtcDateTime()
         var patched = caldavClient.patchEventIcs(previousIcs, after.toRemoteEdit(stamp = now, previous = entity))
 
-        val alarmsEdited = after.alarms != before.alarms
         eventDao.getOverridesOf(masterId).forEach { override ->
             val carried = override.toEditData(entity.calendarId).withSeriesChanges(before, after) ?: return@forEach
             patched = caldavClient.upsertOverrideIcs(
@@ -520,7 +594,6 @@ internal class EventRepository(
                     stamp = now,
                     previousColorArgb = override.content.colorArgb,
                     previousAlarms = override.content.alarms,
-                    alarms = if (alarmsEdited) AlarmListEdit.FromData else AlarmListEdit.Preserve,
                 ),
             )
         }

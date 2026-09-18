@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -536,7 +537,7 @@ class EventEditMapperTest {
         timeBlocking = timeBlocking,
         calendarId = calendarId,
         eventColor = null,
-        alarms = emptyList(),
+        alarms = AlarmListEdit.Replace(emptyList()),
     )
 
     private fun editData(recurrence: RecurrenceRule?, isAllDay: Boolean, zone: TimeZone?) = EventEditData(
@@ -554,7 +555,7 @@ class EventEditMapperTest {
         timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
-        alarms = emptyList(),
+        alarms = AlarmListEdit.Replace(emptyList()),
     )
 
     private fun editData(recurrence: RecurrenceRule?) = EventEditData(
@@ -572,7 +573,7 @@ class EventEditMapperTest {
         timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
-        alarms = emptyList(),
+        alarms = AlarmListEdit.Replace(emptyList()),
     )
 
     private fun editData(timing: EventTiming) = EventEditData(
@@ -583,7 +584,7 @@ class EventEditMapperTest {
         timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
-        alarms = emptyList(),
+        alarms = AlarmListEdit.Replace(emptyList()),
     )
 
     private fun editData(eventColor: Int?) = EventEditData(
@@ -600,7 +601,7 @@ class EventEditMapperTest {
         timeBlocking = null,
         calendarId = calendarId,
         eventColor = eventColor?.let(::EventSourceColor),
-        alarms = emptyList(),
+        alarms = AlarmListEdit.Replace(emptyList()),
     )
 
     private fun eventEntity(

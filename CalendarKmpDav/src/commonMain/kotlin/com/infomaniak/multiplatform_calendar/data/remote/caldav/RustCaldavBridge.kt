@@ -288,6 +288,7 @@ private fun List<RemoteAlarmEdit>?.toRustAlarmsChange(): RustAlarmsChange =
     if (this == null) RustAlarmsChange.Unchanged else RustAlarmsChange.Set(map { it.toRust() })
 
 private fun RemoteAlarmEdit.toRust() = RustAlarmEdit(
+    uid = uid,
     action = action,
     triggerDuration = triggerDuration,
     triggerAbsolute = triggerAbsolute,
@@ -383,6 +384,7 @@ private fun AttendeeEntry.toRemote() = RemoteDavAttendee(
 private fun OrganizerEntry.toRemote() = RemoteDavOrganizer(email = email, displayName = displayName)
 
 private fun AlarmEntry.toRemote() = RemoteDavAlarm(
+    uid = uid,
     action = action,
     triggerDuration = triggerDuration,
     triggerAbsolute = triggerAbsolute,

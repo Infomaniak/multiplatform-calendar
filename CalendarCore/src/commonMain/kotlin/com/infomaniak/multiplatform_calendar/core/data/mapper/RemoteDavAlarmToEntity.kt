@@ -27,6 +27,7 @@ import kotlinx.datetime.toInstant
 
 internal fun RemoteDavAlarm.toEntity(): AlarmEntity {
     return AlarmEntity(
+        uid = uid,
         action = action.uppercase(),
         triggerRelative = parseICalDuration(triggerDuration),
         triggerAbsolute = triggerAbsolute?.let { parseICalDateTime(it)?.toInstant(TimeZone.UTC) },

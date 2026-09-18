@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
 data class RemoteAlarmEdit(
+    val uid: String?,
     val action: String,
     val triggerDuration: String?,
     val triggerAbsolute: String?,

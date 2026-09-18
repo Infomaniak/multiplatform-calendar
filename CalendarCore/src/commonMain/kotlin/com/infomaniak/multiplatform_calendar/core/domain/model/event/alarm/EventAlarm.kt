@@ -24,4 +24,16 @@ public data class EventAlarm(
     val summary: String? = null,
     val attendees: List<String> = emptyList(),
     val attachments: List<String> = emptyList(),
-)
+    /** `null` on the alarms the server never named. Carried back and forth untouched. */
+    val uid: AlarmId.Uid? = null,
+) {
+
+    /** The server's [uid] when it gave one, an [AlarmId.Local] otherwise, which is not unique. */
+    public val id: AlarmId get() = uid ?: AlarmId.Local("${action.toIcalString()}@${trigger.canonical()}")
+}
+
+/** Written so two triggers firing alike read alike, `-PT15M` and `-PT900S` included. */
+private fun AlarmTrigger.canonical(): String = when (this) {
+    is AlarmTrigger.Relative -> "R:${offset.inWholeSeconds}:${relatedTo.name}"
+    is AlarmTrigger.Absolute -> "A:${instant.epochSeconds}"
+}

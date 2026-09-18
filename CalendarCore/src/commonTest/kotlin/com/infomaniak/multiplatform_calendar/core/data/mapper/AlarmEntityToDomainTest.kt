@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import kotlin.test.Test
@@ -55,6 +56,19 @@ class AlarmEntityToDomainTest {
 
         val trigger = assertIs<AlarmTrigger.Absolute>(domain.trigger)
         assertEquals(instant, trigger.instant)
+    }
+
+    @Test
+    fun serverUid_isCarriedToTheDomain_andBecomesTheAlarmId() {
+        val domain = AlarmEntity(
+            uid = "valarm-uid-1",
+            action = "DISPLAY",
+            triggerRelative = (-10).minutes,
+            triggerRelatedTo = TriggerRelation.Start,
+        ).toDomain()!!
+
+        assertEquals(AlarmId.Uid("valarm-uid-1"), domain.uid)
+        assertEquals(AlarmId.Uid("valarm-uid-1"), domain.id)
     }
 
     @Test

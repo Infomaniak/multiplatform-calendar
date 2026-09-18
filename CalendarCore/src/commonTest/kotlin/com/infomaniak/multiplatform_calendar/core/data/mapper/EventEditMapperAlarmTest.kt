@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
@@ -118,9 +119,42 @@ class EventEditMapperAlarmTest {
         assertEquals("20260615T090000Z", emitted.triggerAbsolute)
     }
 
-    private fun eventAlarm(offset: Duration, description: String? = "Reminder") = EventAlarm(
+    @Test
+    fun serverUid_onAnUntouchedAlarm_isNotSeenAsAChange() {
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes, uid = "server-uid")))
+        val same = eventAlarm(offset = -15.minutes, uid = "server-uid")
+
+        val edit = editData(alarms = listOf(same)).toRemoteEdit(stamp = STAMP, previous = previous)
+
+        assertNull(edit.alarms)
+    }
+
+    @Test
+    fun serverUid_isWrittenBack_whenTheAlarmListIsRebuilt() {
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes, uid = "server-uid")))
+
+        // The whole VALARM list is replaced on any change, so dropping the UID here would destroy it.
+        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes, uid = "server-uid")))
+            .toRemoteEdit(stamp = STAMP, previous = previous)
+
+        assertEquals("server-uid", assertNotNull(edit.alarms).single().uid)
+    }
+
+    @Test
+    fun anAlarmTheServerNeverNamed_goesOutWithoutAUid() {
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
+
+        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes)))
+            .toRemoteEdit(stamp = STAMP, previous = previous)
+
+        // Its `id` is an `AlarmId.Local`, which must never be passed off as a server `UID`.
+        assertNull(assertNotNull(edit.alarms).single().uid)
+    }
+
+    private fun eventAlarm(offset: Duration, description: String? = "Reminder", uid: String? = null) = EventAlarm(
         action = AlarmAction.Display,
         trigger = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start),
+        uid = uid?.let(AlarmId::Uid),
         description = description,
     )
 
@@ -128,7 +162,9 @@ class EventEditMapperAlarmTest {
         triggerRelative: Duration? = null,
         triggerAbsolute: Instant? = null,
         description: String? = "Reminder",
+        uid: String? = null,
     ) = AlarmEntity(
+        uid = uid,
         action = "DISPLAY",
         triggerRelative = triggerRelative,
         triggerAbsolute = triggerAbsolute,

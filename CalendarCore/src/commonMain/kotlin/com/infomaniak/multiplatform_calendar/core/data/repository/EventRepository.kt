@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
@@ -50,6 +51,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.withSeriesChanges
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
@@ -259,6 +261,17 @@ internal class EventRepository(
         // row mirrors exactly what is written to the server (bumped SEQUENCE, refreshed
         // DTSTAMP/LAST-MODIFIED, preserved server-only fields) with no Kotlin-side re-derivation.
         val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
+        writePatchedEvent(credentials, eventId, entity, data, patched)
+    }
+
+    /** Send a patched resource off, moving it to another calendar when that is what the edit asks. */
+    private suspend fun writePatchedEvent(
+        credentials: DavAccount,
+        eventId: EventId,
+        entity: EventEntity,
+        data: EventEditData,
+        patched: RemoteDavEvent,
+    ) {
         if (data.calendarId == entity.calendarId) {
             val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
             eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
@@ -388,6 +401,10 @@ internal class EventRepository(
     /**
      * Apply to the whole series an edit prepared on one of its occurrences: [data] carries that
      * occurrence's slot, so its timing is first expressed back on the master (see [rebasedOnto]).
+     *
+     * Detached overrides are VEVENTs of their own, which the master's fields do not reach (see
+     * [withSeriesChanges]); each is replayed the same change in the same resource, so the series and
+     * its exceptions are never left disagreeing between two requests.
      */
     private suspend fun updateSeriesFrom(
         credentials: DavAccount,
@@ -395,8 +412,9 @@ internal class EventRepository(
         data: EventEditData,
     ) {
         val masterId = occurrenceId.masterId
-        val entity = eventDao.getEvent(masterId) ?: return
-        val masterTiming = entity.toEditData().timing
+        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val before = entity.toEditData()
+        val masterTiming = before.timing
         val zone = TimeZone.currentSystemDefault()
         // The start the occurrence was displayed with, which is what the edit was prepared against.
         val shownStart = eventDao.getOverrideOf(masterId, occurrenceId.recurrenceKey)
@@ -404,7 +422,25 @@ internal class EventRepository(
             ?: occurrenceId.recurrenceKey.toLocalStart(masterTiming, zone)
             ?: return
 
-        updateEvent(credentials, masterId, data.copy(timing = data.timing.rebasedOnto(masterTiming, shownStart)))
+        val after = data.copy(timing = data.timing.rebasedOnto(masterTiming, shownStart))
+        val now = Clock.System.now().toICalUtcDateTime()
+        var patched = caldavClient.patchEventIcs(previousIcs, after.toRemoteEdit(stamp = now, previous = entity))
+
+        val alarmsEdited = after.alarms != before.alarms
+        eventDao.getOverridesOf(masterId).forEach { override ->
+            val carried = override.toEditData(entity.calendarId).withSeriesChanges(before, after) ?: return@forEach
+            patched = caldavClient.upsertOverrideIcs(
+                patched.icsData,
+                override.toRemoteRecurrenceId(masterTiming),
+                carried.toOverrideEdit(
+                    stamp = now,
+                    previous = override.content,
+                    alarms = if (alarmsEdited) AlarmListEdit.FromData else AlarmListEdit.Preserve,
+                ),
+            )
+        }
+
+        writePatchedEvent(credentials, masterId, entity, after, patched)
     }
 
     /**

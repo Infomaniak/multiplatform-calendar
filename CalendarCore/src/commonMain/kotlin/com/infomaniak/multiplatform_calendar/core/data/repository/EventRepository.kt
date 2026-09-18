@@ -371,21 +371,17 @@ internal class EventRepository(
     }
 
     /**
-     * Apply [data] to what [scope] designates of the series [occurrenceId] belongs to, the whole
-     * resource by default — which is also what a plain event, and a master reached by its id, can
-     * only mean.
+     * Apply [data] to what [target] designates: the whole resource — which is all a plain event, and
+     * a series named by its master, can mean — or as far along the series as the scope it carries.
      */
-    suspend fun updateEvent(
-        credentials: DavAccount,
-        occurrenceId: OccurrenceId,
-        data: EventEditData,
-        scope: RecurrenceScope = RecurrenceScope.AllOccurrences,
-    ) {
+    suspend fun updateEvent(credentials: DavAccount, target: OccurrenceTarget, data: EventEditData) {
+        val occurrenceId = target.occurrenceId
         when {
+            target !is OccurrenceTarget.Recurring -> updateEvent(credentials, occurrenceId.masterId, data)
             occurrenceId !is OccurrenceId.Recurrence -> updateEvent(credentials, occurrenceId.masterId, data)
-            scope == RecurrenceScope.AllOccurrences -> updateSeriesFrom(credentials, occurrenceId, data)
-            scope == RecurrenceScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
-            else -> error("Editing $scope of a series is not supported yet")
+            target.scope == RecurrenceScope.AllOccurrences -> updateSeriesFrom(credentials, occurrenceId, data)
+            target.scope == RecurrenceScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
+            else -> error("Editing ${target.scope} of a series is not supported yet")
         }
     }
 

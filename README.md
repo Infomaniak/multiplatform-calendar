@@ -52,6 +52,42 @@ sdk.accountManager.initAccount(...)
 sdk.calendarManager.observeCalendars(...)
 ```
 
+### Date and time types
+
+`kotlinx-datetime` is an `api` dependency **exported** into the XCFramework, because its types (`LocalDate`,
+`LocalDateTime`, `TimeZone`, `YearMonth`, …) cross the public API — `calendarManager.observeDaySlices(start:end:timeZone:)` takes
+instants and keys its result by `LocalDate`. Exporting it gives Swift those types under their plain names
+(`LocalDate` instead of an opaque `Kotlinx_datetimeLocalDate`), lets SKIE generate its Swift refinements for them,
+and above all ships the Foundation converters Apple callers need to build their own values.
+
+Kotlin → Foundation, as instance methods:
+
+```swift
+let date: Date = instant.toNSDate()
+let comps: DateComponents = localDate.toNSDateComponents()     // also on LocalDateTime and YearMonth
+let tz: Foundation.TimeZone = kotlinTimeZone.toNSTimeZone()
+```
+
+Foundation → Kotlin, through `ConvertersKt`:
+
+```swift
+let kotlinTz: MultiplatformCalendar.TimeZone = ConvertersKt.toKotlinTimeZone(timeZone)
+```
+
+Two rough edges are worth knowing about, both coming from upstream rather than from this build:
+
+- **`TimeZone` is ambiguous.** The exported `kotlinx.datetime.TimeZone` collides with `Foundation.TimeZone`, so Swift
+  asks for a qualified name on either side (`Foundation.TimeZone`, `MultiplatformCalendar.TimeZone`) wherever both are
+  in scope.
+- **`Date` → `Instant` has no usable converter.** `ConvertersKt.toKotlinInstant(_:youShallNotPass:)` takes an
+  `OverloadMarker`, a marker `kotlinx-datetime` 0.8 carries while `Instant` moves from `kotlinx.datetime` to
+  `kotlin.time`, and that type exposes no initialiser to Objective-C. Go through the epoch instead:
+
+  ```swift
+  let instant = KotlinInstant.companion.fromEpochMilliseconds(
+      epochMilliseconds: Int64(date.timeIntervalSince1970 * 1000))
+  ```
+
 ### DI (Metro)
 
 - **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core contributes shared graph accessors

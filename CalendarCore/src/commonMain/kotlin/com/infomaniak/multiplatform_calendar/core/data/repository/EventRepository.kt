@@ -41,9 +41,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
@@ -266,18 +267,16 @@ internal class EventRepository(
     }
 
     /**
-     * Delete what [scope] designates of the series [occurrenceId] belongs to, the whole resource by
-     * default — which is also what a plain event, and a master reached by its id, can only mean.
+     * Delete what [target] designates: the whole resource, or as far along its series as the scope it
+     * carries reaches.
      */
-    suspend fun deleteEvent(
-        credentials: DavAccount,
-        occurrenceId: OccurrenceId,
-        scope: RecurrenceEditScope = RecurrenceEditScope.AllOccurrences,
-    ) {
+    suspend fun deleteEvent(credentials: DavAccount, target: OccurrenceTarget) {
+        val occurrenceId = target.occurrenceId
         when {
+            target !is OccurrenceTarget.Recurring -> deleteEvent(credentials, occurrenceId.masterId)
             occurrenceId !is OccurrenceId.Recurrence -> deleteEvent(credentials, occurrenceId.masterId)
-            scope == RecurrenceEditScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
-            scope == RecurrenceEditScope.ThisOccurrence -> excludeOccurrence(credentials, occurrenceId)
+            target.scope == RecurrenceScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
+            target.scope == RecurrenceScope.ThisOccurrence -> excludeOccurrence(credentials, occurrenceId)
             else -> truncateSeriesFrom(credentials, occurrenceId)
         }
     }

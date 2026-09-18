@@ -17,13 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.AllOccurrences
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisAndFollowing
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisOccurrence
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope.AllOccurrences
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope.ThisAndFollowing
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope.ThisOccurrence
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class RecurrenceEditScopesTest {
+class RecurrenceScopesTest {
 
     @Test
     fun scopes_areOfferedOnAnOccurrenceOnly() {

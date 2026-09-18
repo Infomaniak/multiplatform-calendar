@@ -29,7 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySli
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
@@ -197,18 +197,19 @@ public class CalendarManager internal constructor(
     }
 
     /**
-     * Delete what [scope] designates of the occurrence [occurrenceId] identifies, as offered by
-     * [recurrenceScopes][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.recurrenceScopes].
+     * Delete what [target] designates, as offered by
+     * [recurrenceScopes][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.recurrenceScopes]
+     * and built by
+     * [targetedAs][com.infomaniak.multiplatform_calendar.core.domain.model.event.targetedAs].
+     *
+     * A scoped delete whose occurrence the series no longer hands out does nothing.
      */
     @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun deleteEvent(
-        occurrenceId: OccurrenceId,
-        scope: RecurrenceEditScope = RecurrenceEditScope.AllOccurrences,
-    ): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "delete $scope of event $occurrenceId") {
-            val accountId = eventRepository.getAccountIdByEventId(occurrenceId.masterId)
+    public suspend fun deleteEvent(target: OccurrenceTarget): Unit = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "delete $target") {
+            val accountId = eventRepository.getAccountIdByEventId(target.occurrenceId.masterId)
             val credentials = accountRepository.getCredentials(accountId)
-            eventRepository.deleteEvent(credentials, occurrenceId, scope)
+            eventRepository.deleteEvent(credentials, target)
         }
     }
 

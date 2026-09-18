@@ -17,9 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.AllOccurrences
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisAndFollowing
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope.ThisOccurrence
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope.AllOccurrences
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope.ThisAndFollowing
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope.ThisOccurrence
 
 /**
  * Which scopes a user may pick from before mutating an event, empty when there is nothing to ask.
@@ -33,7 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 internal fun recurrenceScopesFor(
     isOccurrence: Boolean,
     canEdit: Boolean,
-): Set<RecurrenceEditScope> = when {
+): Set<RecurrenceScope> = when {
     !canEdit -> emptySet()
     !isOccurrence -> emptySet()
     else -> setOf(ThisOccurrence, ThisAndFollowing, AllOccurrences)

@@ -110,7 +110,7 @@ class EventIsOccurrenceTest {
         val override = overrideEntity().toDomain(calendar)
 
         assertEquals(
-            setOf(RecurrenceEditScope.ThisOccurrence, RecurrenceEditScope.ThisAndFollowing, RecurrenceEditScope.AllOccurrences),
+            setOf(RecurrenceScope.ThisOccurrence, RecurrenceScope.ThisAndFollowing, RecurrenceScope.AllOccurrences),
             override.recurrenceScopes,
         )
     }

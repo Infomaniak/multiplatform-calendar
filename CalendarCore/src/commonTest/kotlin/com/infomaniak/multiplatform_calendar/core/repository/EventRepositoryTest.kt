@@ -44,6 +44,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -86,7 +87,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceEditScope
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import kotlin.test.assertIs
@@ -988,8 +989,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
-            scope = RecurrenceEditScope.ThisOccurrence,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
         val edit = fakeCaldav.patches.single()
@@ -1021,8 +1021,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
-            scope = RecurrenceEditScope.ThisOccurrence,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
         // Addressing it in the master's form would match no VEVENT and leave the override behind.
@@ -1047,8 +1046,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
-            scope = RecurrenceEditScope.ThisOccurrence,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
         // Excluding a date must read as an edit that changes nothing else: the rule above all, which a
@@ -1077,8 +1075,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
-            scope = RecurrenceEditScope.AllOccurrences,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.AllOccurrences),
         )
 
         assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
@@ -1102,8 +1099,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         // A master designates no instance, so there is nothing to exclude: only the series as a whole.
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = OccurrenceId.Master(master.id),
-            scope = RecurrenceEditScope.ThisOccurrence,
+            target = OccurrenceTarget.Recurring(OccurrenceId.Master(master.id), RecurrenceScope.ThisOccurrence),
         )
 
         assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
@@ -1124,8 +1120,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)),
-            scope = RecurrenceEditScope.ThisAndFollowing,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
         // A counted rule stays counted: the 4th instance is the pivot, so 3 survive.
@@ -1149,8 +1144,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)),
-            scope = RecurrenceEditScope.ThisAndFollowing,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
         // UNTIL is inclusive, so it lands on the last instance kept, not on the pivot.
@@ -1180,8 +1174,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)),
-            scope = RecurrenceEditScope.ThisAndFollowing,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
         // Only what applied to a surviving instance is kept; the rest would outlive its target.
@@ -1208,8 +1201,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         // Cutting at DTSTART leaves no instance, and no rule can express an empty series.
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)),
-            scope = RecurrenceEditScope.ThisAndFollowing,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
         assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
@@ -1232,8 +1224,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         // DTSTART is an instance of a series carried by RDATE alone, so cutting there leaves nothing.
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)),
-            scope = RecurrenceEditScope.ThisAndFollowing,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
         assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
@@ -1255,8 +1246,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 20, 10, 0)),
-            scope = RecurrenceEditScope.ThisAndFollowing,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 20, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
         // DTSTART and the earlier RDATE still stand, so the resource does too.
@@ -1280,8 +1270,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.deleteEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
-            scope = RecurrenceEditScope.ThisOccurrence,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
         // That alarm carries no trigger the domain can read: rebuilding the list would delete it.

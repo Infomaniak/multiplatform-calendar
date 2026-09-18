@@ -167,7 +167,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
     /**
      * Pipeline: a `DAILY` COUNT=5 master synced once must surface as 5 distinct occurrences over the
      * 7-day window in `observeVisibleDaySlices` — one per day, each a slice under its own date, with a
-     * stable synthetic id `masterId#key`.
+     * stable synthetic id `occurrence#key#masterId`.
      */
     @Test
     fun observeVisibleDaySlices_expandsDailyRecurringMasterIntoOccurrences() = runTest {
@@ -210,7 +210,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val occurrenceIds = slicesByDay.values.flatten().map { it.event.occurrenceId.value }
         assertEquals(5, occurrenceIds.size, "DAILY COUNT=5 must yield 5 occurrences")
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
-        assertTrue(occurrenceIds.all { it.startsWith("event://daily#") }, "ids must be masterId#key")
+        assertTrue(occurrenceIds.all { it.endsWith("#event://daily") }, "ids must name their master")
         assertEquals(5, slicesByDay.keys.size, "each occurrence lands on its own day")
     }
 
@@ -240,7 +240,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val events = slicesByDay.values.flatten().map { it.event }
         assertEquals(5, events.size, "the override replaces its occurrence, it does not add one")
 
-        val expectedId = "${master.id.url}#${RecurrenceKey.Utc(overriddenSlot.toInstant(TimeZone.UTC)).canonical}"
+        val expectedId = "occurrence#${RecurrenceKey.Utc(overriddenSlot.toInstant(TimeZone.UTC)).canonical}#${master.id.url}"
         val rendered = events.single { it.occurrenceId.value == expectedId }
         assertEquals("Moved instance", rendered.title, "the override's own content must reach the rendered occurrence")
         assertEquals(LocalDateTime(2026, 6, 17, 15, 0), rendered.timing.start, "and its own, moved timing")
@@ -626,7 +626,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val occurrenceIds = slicesByDay.values.flatten().map { it.event.occurrenceId.value }
         assertEquals(3, occurrenceIds.size, "all-day DAILY COUNT=3 must yield 3 occurrences")
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
-        assertTrue(occurrenceIds.all { it.startsWith("event://all-day#") }, "ids must be masterId#key")
+        assertTrue(occurrenceIds.all { it.endsWith("#event://all-day") }, "ids must name their master")
         assertEquals(3, slicesByDay.keys.size, "each all-day occurrence lands on its own day")
     }
 

@@ -52,15 +52,26 @@ class OccurrenceIdTest {
 
     @Test
     fun parse_leavesAnEventUrlWithAFragmentWhole() {
-        // The separator is recognised, not assumed: nothing here names an occurrence.
+        // Nothing announces an instance here.
         val url = "https://cal/main/series.ics#section"
 
         assertEquals(OccurrenceId.Master(EventId(url)), OccurrenceId.parse(url))
     }
 
     @Test
-    fun parse_takesTheLastSeparatorAsTheInstanceOne() {
-        val master = EventId("https://cal/main/odd#name.ics")
+    fun parse_leavesWholeAResourceWhoseFragmentReadsLikeAKey() {
+        val url = "https://cal/main/series.ics#AllDay:2026-06-16"
+
+        assertEquals(
+            OccurrenceId.Master(EventId(url)),
+            OccurrenceId.parse(url),
+            "the fragment names this resource, not an instance of another one",
+        )
+    }
+
+    @Test
+    fun parse_readsBackAMasterUrlCarryingSeparatorsOfItsOwn() {
+        val master = EventId("https://cal/main/odd#name#more.ics")
         val id = OccurrenceId.Recurrence(master, RecurrenceKey.AllDay(LocalDate(2026, 6, 16)))
 
         assertEquals(id, OccurrenceId.parse(id.value))

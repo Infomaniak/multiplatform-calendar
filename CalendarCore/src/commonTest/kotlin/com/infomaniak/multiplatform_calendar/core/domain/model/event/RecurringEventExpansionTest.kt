@@ -118,7 +118,7 @@ class RecurringEventExpansionTest {
 
     @Test
     fun occurrenceIdIsStableRegardlessOfObservationWindow() = runTest {
-        // A given occurrence must keep the same synthetic `masterId#key` id whatever window it is seen
+        // A given occurrence must keep the same synthetic `occurrence#key#masterId` id whatever window it is seen
         // through, so UI diffing stays stable — i.e. the key is anchored to the occurrence, not its
         // index within the returned list.
         val master = dailyMaster(id = "event://daily", rule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5))
@@ -154,7 +154,7 @@ class RecurringEventExpansionTest {
             result.none { it.masterEventId == recurring.masterEventId && it.occurrenceId == recurring.occurrenceId },
             "the recurring master itself must not survive expansion",
         )
-        assertEquals(2, result.count { it.occurrenceId.value.startsWith("event://daily#") })
+        assertEquals(2, result.count { it.occurrenceId.value.endsWith("#event://daily") })
     }
 
     @Test
@@ -181,7 +181,7 @@ class RecurringEventExpansionTest {
 
         assertEquals(2, occurrences.size)
         occurrences.forEach { occurrence ->
-            assertTrue(occurrence.occurrenceId.value.startsWith("event://daily#"), "each occurrence gets its synthetic id")
+            assertTrue(occurrence.occurrenceId.value.endsWith("#event://daily"), "each occurrence gets its synthetic id")
             assertEquals(master.title, occurrence.title, "title must be copied from the master")
             assertEquals(master.colors, occurrence.colors, "colors must be copied from the master")
             assertEquals(master.canEdit, occurrence.canEdit, "editability must be copied from the master")

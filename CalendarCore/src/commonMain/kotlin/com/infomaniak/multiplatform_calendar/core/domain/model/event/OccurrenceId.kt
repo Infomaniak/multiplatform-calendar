@@ -26,7 +26,7 @@ public sealed class OccurrenceId {
 
     internal abstract val masterId: EventId
 
-    /** [Master]: same value as [EventId.url]. [Recurrence]: `"<eventId>#<canonicalRecurrenceKey>"`. */
+    /** [Master]: same value as [EventId.url]. [Recurrence]: tagged, see [OccurrenceId.parse]. */
     public abstract val value: String
 
     final override fun toString(): String = value
@@ -43,7 +43,7 @@ public sealed class OccurrenceId {
         override val masterId: EventId,
         val recurrenceKey: RecurrenceKey,
     ) : OccurrenceId() {
-        override val value: String = "${masterId.url}$SEPARATOR${recurrenceKey.canonical}"
+        override val value: String = "$OCCURRENCE_PREFIX${recurrenceKey.canonical}$SEPARATOR${masterId.url}"
     }
 
     public companion object {
@@ -51,20 +51,26 @@ public sealed class OccurrenceId {
          * Read back a [value] this class handed out, so a client holding only the exported string can
          * name the occurrence again in a write call.
          *
-         * The instance part is recognised, not assumed: an event URL may carry a [SEPARATOR] of its
-         * own, and what follows the last one is an occurrence key only if it parses as one. Anything
-         * else is the whole resource, [Master].
+         * An instance is announced by its prefix rather than guessed at, and its key comes first
+         * because a key never holds a [SEPARATOR] while a URL may hold several. Reading the tail
+         * instead would take `…/series.ics#AllDay:2026-06-16` — one whole resource — for an instance
+         * of another. Anything unannounced is a [Master].
          */
         public fun parse(value: String): OccurrenceId {
-            if (SEPARATOR !in value) return Master(EventId(value))
+            if (!value.startsWith(OCCURRENCE_PREFIX)) return Master(EventId(value))
 
-            val key = runCatching { RecurrenceKey.parse(value.substringAfterLast(SEPARATOR)) }.getOrNull()
+            val tagged = value.removePrefix(OCCURRENCE_PREFIX)
+            val url = tagged.substringAfter(SEPARATOR, missingDelimiterValue = "")
+            if (url.isEmpty()) return Master(EventId(value))
+
+            val key = runCatching { RecurrenceKey.parse(tagged.substringBefore(SEPARATOR)) }.getOrNull()
                 ?: return Master(EventId(value))
 
-            return Recurrence(EventId(value.substringBeforeLast(SEPARATOR)), key)
+            return Recurrence(EventId(url), key)
         }
     }
 }
 
-/** Kept out of the class so it stays an implementation detail of [OccurrenceId.Recurrence]. */
+/** Kept out of the class so they stay implementation details of [OccurrenceId.Recurrence]. */
 private const val SEPARATOR = '#'
+private const val OCCURRENCE_PREFIX = "occurrence$SEPARATOR"

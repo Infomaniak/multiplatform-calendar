@@ -1364,9 +1364,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.updateEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                RecurrenceScope.ThisOccurrence,
+            ),
             data = editData(title = "Moved", calendarId = calendarId),
-            scope = RecurrenceScope.ThisOccurrence,
         )
 
         // No override claims that slot yet, so the master's own DTSTART form names it.
@@ -1395,9 +1397,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.updateEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                RecurrenceScope.ThisOccurrence,
+            ),
             data = editData(title = "Renamed", calendarId = calendarId),
-            scope = RecurrenceScope.ThisOccurrence,
         )
 
         // Re-deriving the master's form would detach a duplicate next to the override already there.
@@ -1421,14 +1425,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.updateEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                RecurrenceScope.ThisOccurrence,
+            ),
             // The app hands back the series rule it displayed: an override must not adopt it.
             data = editData(
                 title = "Renamed",
                 calendarId = calendarId,
                 recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
             ),
-            scope = RecurrenceScope.ThisOccurrence,
         )
 
         val edit = fakeCaldav.overrideUpserts.single().second
@@ -1457,9 +1463,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertFailsWith<IllegalArgumentException> {
             repository.updateEvent(
                 credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-                occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                target = OccurrenceTarget.Recurring(
+                    occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                    RecurrenceScope.ThisOccurrence,
+                ),
                 data = editData(title = "Moved away", calendarId = otherCalendarId),
-                scope = RecurrenceScope.ThisOccurrence,
             )
         }
         assertEquals(emptyList(), fakeCaldav.overrideUpserts)
@@ -1480,7 +1488,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.updateEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
             // The app hands back the slot it displayed, the 16th, not the series' own DTSTART.
             data = editData(
                 title = "Renamed",
@@ -1488,7 +1499,6 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 start = LocalDateTime(2026, 6, 16, 10, 0),
                 end = LocalDateTime(2026, 6, 16, 11, 0),
             ),
-            scope = RecurrenceScope.AllOccurrences,
         )
 
         val edit = fakeCaldav.patches.single()
@@ -1514,7 +1524,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.updateEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
             // The occurrence showed 10:00 and was pushed to 14:00: the series follows by that much.
             data = editData(
                 title = "Event",
@@ -1522,7 +1535,6 @@ class EventRepositoryTest : RobolectricTestsBase() {
                 start = LocalDateTime(2026, 6, 16, 14, 0),
                 end = LocalDateTime(2026, 6, 16, 15, 30),
             ),
-            scope = RecurrenceScope.AllOccurrences,
         )
 
         val edit = fakeCaldav.patches.single()
@@ -1552,14 +1564,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         repository.updateEvent(
             credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
             data = editData(
                 title = "Event",
                 calendarId = calendarId,
                 start = LocalDateTime(2026, 6, 19, 11, 0),
                 end = LocalDateTime(2026, 6, 19, 12, 0),
             ),
-            scope = RecurrenceScope.AllOccurrences,
         )
 
         // Measured against the override's own start, the edit is one hour: not the three days and

@@ -73,7 +73,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideSeed
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
@@ -1903,6 +1903,44 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals("Moved instance", edit.summary)
     }
 
+    @Test
+    fun updateEvent_thisAndFollowing_fromAnOverriddenPivot_doesNotCarryThePivotOverride() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        val pivot = overrideEntity(
+            master.id,
+            originalStart = LocalDateTime(2026, 6, 17, 10, 0),
+            movedTo = LocalDateTime(2026, 6, 17, 15, 0),
+        )
+        val after = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 18, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(pivot, after))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                start = LocalDateTime(2026, 6, 17, 11, 0),
+                end = LocalDateTime(2026, 6, 17, 12, 0),
+            ),
+        )
+
+        // The tail already stands for the pivot, so carrying its override would displace it twice.
+        val (recurrenceId, _) = fakeCaldav.overrideUpserts.single()
+        assertEquals("20260618T110000Z", recurrenceId.value)
+        // And the tail is built from the pivot's own VEVENT, which is what holds its content.
+        assertEquals("20260617T100000Z", fakeCaldav.buildSeeds.single()?.recurrenceId?.value)
+    }
+
     private fun rruleOf(edit: RemoteEventEdit) = assertIs<RemoteRecurrenceChange.Set>(edit.recurrenceChange).value
 
     private fun dateListOf(change: RemoteDateListChange) =
@@ -2713,8 +2751,8 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
     val patches = mutableListOf<RemoteEventEdit>()
     val builds = mutableListOf<RemoteEventEdit>()
     /** What each build/override was seeded from, so the tests can assert the source ICS reaches the bridge. */
-    val buildSeeds = mutableListOf<String?>()
-    val overrideSeeds = mutableListOf<RemoteOverrideSeed?>()
+    val buildSeeds = mutableListOf<RemoteVeventSeed?>()
+    val overrideSeeds = mutableListOf<RemoteVeventSeed?>()
     val overrideUpserts = mutableListOf<Pair<RemoteRecurrenceId, RemoteEventEdit>>()
     /** Every write in the order it was issued, for the tests that care about which one lands first. */
     val calls = mutableListOf<String>()
@@ -2739,9 +2777,9 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }
 
-    override suspend fun buildEventIcs(edit: RemoteEventEdit, seedIcs: String?): RemoteDavEvent {
+    override suspend fun buildEventIcs(edit: RemoteEventEdit, seed: RemoteVeventSeed?): RemoteDavEvent {
         builds += edit
-        buildSeeds += seedIcs
+        buildSeeds += seed
         calls += "build"
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }
@@ -2750,7 +2788,7 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
         icsData: String,
         recurrenceId: RemoteRecurrenceId,
         edit: RemoteEventEdit,
-        seed: RemoteOverrideSeed?,
+        seed: RemoteVeventSeed?,
     ): RemoteDavEvent {
         overrideUpserts += recurrenceId to edit
         overrideSeeds += seed

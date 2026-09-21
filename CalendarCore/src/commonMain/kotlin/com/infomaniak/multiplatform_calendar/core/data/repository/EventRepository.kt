@@ -63,6 +63,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsAfter
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
@@ -74,7 +75,8 @@ import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideSeed
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -440,56 +442,67 @@ internal class EventRepository(
             "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
         }
 
-        createTail(credentials, masterId, tail = SeriesTail.of(master, pivotStart, edit = data, split), sourceIcs)
+        val overrides = eventDao.getOverridesOf(masterId)
+        // The tail stands for the pivot, so a detached pivot is what it has to be seeded from.
+        val pivotSeed = overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+        createTail(
+            credentials,
+            tail = SeriesTail.of(master, pivotStart, edit = data, split),
+            carried = overrides.filter { it.recurrenceKey.startsAfter(pivotStart, master) },
+            source = SeriesSource(sourceIcs, pivotSeed?.toRemoteRecurrenceId(master)),
+        )
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
         truncateSeriesFrom(credentials, occurrenceId)
     }
 
     /**
-     * Write [tail] as a resource of its own, the overrides it takes over from [masterId] included.
+     * Write [tail] as a resource of its own, the [carried] overrides included.
      *
-     * [sourceIcs] seeds both the tail and those overrides from the VEVENTs they stand for, so they keep
-     * what [EventEditData] cannot represent — organizer, attendees, `STATUS`, custom properties.
+     * Both are seeded from the VEVENTs they stand for in [source], so they keep what [EventEditData]
+     * cannot represent — organizer, attendees, `STATUS`, custom properties.
      */
-    private suspend fun createTail(credentials: DavAccount, masterId: EventId, tail: SeriesTail, sourceIcs: String) {
+    private suspend fun createTail(
+        credentials: DavAccount,
+        tail: SeriesTail,
+        carried: List<EventOverrideEntity>,
+        source: SeriesSource,
+    ) {
         val stamp = Clock.System.now().toICalUtcDateTime()
-        val built = caldavClient.buildEventIcs(edit = tail.toRemoteEdit(stamp), seedIcs = sourceIcs)
-        val resource = carryOverridesInto(built, masterId, tail, stamp, sourceIcs)
+        val built = caldavClient.buildEventIcs(edit = tail.toRemoteEdit(stamp), seed = source.pivotSeed())
+        val resource = carryOverridesInto(built, carried, tail, stamp, source)
         val calendarId = tail.data.calendarId
 
         val ref = caldavClient.createEvent(credentials, calendarUrl = calendarId.url, resource.icsData)
         eventDao.upsertEventWithRawIcs(resource.toSyncedUpsert(ref = ref, calendarId = calendarId))
     }
 
-    /** The overrides of [masterId] the [tail] takes over, redefined instance by instance in [built]. */
+    /** The [carried] overrides the [tail] takes over, redefined instance by instance in [built]. */
     private suspend fun carryOverridesInto(
         built: RemoteDavEvent,
-        masterId: EventId,
+        carried: List<EventOverrideEntity>,
         tail: SeriesTail,
         stamp: String,
-        sourceIcs: String,
+        source: SeriesSource,
     ): RemoteDavEvent {
         var resource = built
-        eventDao.getOverridesOf(masterId)
-            .filterNot { it.recurrenceKey.startsBefore(tail.pivotStart, tail.master) }
-            .forEach { override ->
-                val key = override.recurrenceKey.shiftedBy(tail.delta)
-                val recurrenceId = key.toRemoteRecurrenceId(master = tail.data.timing) ?: return@forEach
-                val moved = override.toEditData(tail.data.calendarId)
-                    .let { it.copy(timing = it.timing.shiftedBy(tail.delta)) }
-                resource = caldavClient.upsertOverrideIcs(
-                    resource.icsData,
-                    recurrenceId,
-                    edit = moved.toOverrideEdit(
-                        stamp = stamp,
-                        previousColorArgb = tail.data.eventColor?.argb,
-                        previousAlarms = tail.data.alarms.map(EventAlarm::toEntity),
-                    ),
-                    // Cloned from the VEVENT it already is, so its own content survives the move.
-                    seed = RemoteOverrideSeed(sourceIcs, override.toRemoteRecurrenceId(master = tail.master)),
-                )
-            }
+        carried.forEach { override ->
+            val key = override.recurrenceKey.shiftedBy(tail.delta)
+            val recurrenceId = key.toRemoteRecurrenceId(master = tail.data.timing) ?: return@forEach
+            val moved = override.toEditData(tail.data.calendarId)
+                .let { it.copy(timing = it.timing.shiftedBy(tail.delta)) }
+            resource = caldavClient.upsertOverrideIcs(
+                resource.icsData,
+                recurrenceId,
+                edit = moved.toOverrideEdit(
+                    stamp = stamp,
+                    previousColorArgb = tail.data.eventColor?.argb,
+                    previousAlarms = tail.data.alarms.map(EventAlarm::toEntity),
+                ),
+                // Cloned from the VEVENT it already is, so its own content survives the move.
+                seed = RemoteVeventSeed(source.ics, override.toRemoteRecurrenceId(master = tail.master)),
+            )
+        }
 
         return resource
     }
@@ -637,6 +650,14 @@ internal class EventRepository(
         /** How far past the alarm window events are read, see [observeUpcomingAlarms]. */
         private val ALARM_OFFSET_SLACK = 31.days
     }
+}
+
+/**
+ * The resource a split reads from: its whole [ics], and the `RECURRENCE-ID` of the pivot when that
+ * occurrence is already detached — the VEVENT the tail then stands for.
+ */
+private data class SeriesSource(val ics: String, val pivotRecurrenceId: RemoteRecurrenceId?) {
+    fun pivotSeed() = RemoteVeventSeed(ics, pivotRecurrenceId)
 }
 
 /** Where a series is cut, how far the edit moves what follows, and what that tail becomes. */

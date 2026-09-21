@@ -25,10 +25,10 @@ use crate::models::{
     IcalDateValueKind,
     OrganizerEntry,
     OverrideRemoval,
-    OverrideSeed,
     RecurrenceChange,
     RecurrenceIdSpec,
     VTimeZoneSpec,
+    VeventSeed,
 };
 
 /// Read a single iCalendar property value as an owned [`String`].
@@ -284,7 +284,7 @@ pub fn upsert_override_vevent(
     ics_data: &str,
     recurrence_id: RecurrenceIdSpec,
     edit: EventEdit,
-    seed: Option<OverrideSeed>,
+    seed: Option<VeventSeed>,
 ) -> Result<EventEntry, CaldavError> {
     // Resolve the target up front: the alarm helpers address a VEVENT textually, by ordinal, so they
     // must aim at the override — not at the master `patch_event_ics` targets.
@@ -322,7 +322,7 @@ pub fn upsert_override_vevent(
         }
         None => {
             let keep_alarms = matches!(edit.alarms_change, AlarmsChange::Unchanged);
-            let mut event = match seed.as_ref().and_then(|seed| carried_seed(seed, keep_alarms)) {
+            let mut event = match seed.as_ref().and_then(|seed| seeded_vevent(seed, keep_alarms)) {
                 Some(mut carried) => {
                     carried.add_property("UID", &master_uid);
                     carried
@@ -348,13 +348,16 @@ pub fn upsert_override_vevent(
     reparse_edited(final_ics, "Override")
 }
 
-/// The VEVENT [`OverrideSeed`] designates, cloned for its new series. `None` when the resource no
-/// longer holds it, leaving the caller to seed from the target master as an undetached instance would.
-fn carried_seed(seed: &OverrideSeed, keep_alarms: bool) -> Option<icalendar::Event> {
+/// The VEVENT [`VeventSeed`] designates, cloned for a series of its own. `None` when the resource no
+/// longer holds it, leaving the caller to fall back on its own seeding.
+fn seeded_vevent(seed: &VeventSeed, keep_alarms: bool) -> Option<icalendar::Event> {
     let source: Calendar = seed.ics.parse().ok()?;
-    let index = override_vevent_index(&source, &seed.recurrence_id)?;
+    let index = match &seed.recurrence_id {
+        Some(recurrence_id) => override_vevent_index(&source, recurrence_id)?,
+        None => master_vevent_index(&source)?,
+    };
     match &source.components[index] {
-        CalendarComponent::Event(event) => Some(reseeded_from(&event, keep_alarms)),
+        CalendarComponent::Event(event) => Some(reseeded_from(event, keep_alarms)),
         _ => None,
     }
 }
@@ -537,22 +540,20 @@ fn date_time_property(key: &str, value: &str, tzid: Option<&str>) -> Property {
 
 /// Build an iCalendar object (one VEVENT) from [`EventEdit`], with a new UID and SEQUENCE 0.
 ///
-/// `seed_ics` makes the VEVENT start from the master of that resource rather than from an empty one,
-/// so a series tail keeps the organizer, attendees, status and custom properties of the series it
-/// splits from — [`EventEdit`] carries only the user-editable subset of a VEVENT.
+/// `seed` makes the VEVENT start from an existing one rather than from an empty one, so a series tail
+/// keeps the organizer, attendees, status and custom properties [`EventEdit`] cannot represent. It
+/// designates the master of the series being split, or the override standing for the pivot when that
+/// occurrence is already detached.
 ///
 /// Returns the freshly built event **reparsed** from its final serialization (see
 /// [`patch_event_ics`] for the rationale). `url`/`etag` are left empty for the caller to fill.
 #[uniffi::export]
-pub fn build_event_ics(edit: EventEdit, seed_ics: Option<String>) -> Result<EventEntry, CaldavError> {
-    let mut event = match &seed_ics {
-        Some(ics) => {
-            let source: Calendar = ics.parse().map_err(|e| bridge_error("Build", e))?;
-            let master = master_vevent(&source).ok_or_else(|| bridge_error("Build", "no master VEVENT in seed"))?;
-            reseeded_from(master, matches!(edit.alarms_change, AlarmsChange::Unchanged))
-        }
-        None => icalendar::Event::new(),
-    };
+pub fn build_event_ics(edit: EventEdit, seed: Option<VeventSeed>) -> Result<EventEntry, CaldavError> {
+    let keep_alarms = matches!(edit.alarms_change, AlarmsChange::Unchanged);
+    let mut event = seed
+        .as_ref()
+        .and_then(|seed| seeded_vevent(seed, keep_alarms))
+        .unwrap_or_else(icalendar::Event::new);
     event.add_property("UID", uuid::Uuid::new_v4().to_string());
     apply_edited_fields(&mut event, &edit);
     bump_revision(&mut event, &edit.stamp);

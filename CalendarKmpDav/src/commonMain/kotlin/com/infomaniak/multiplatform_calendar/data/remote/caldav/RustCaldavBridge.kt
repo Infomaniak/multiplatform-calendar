@@ -31,7 +31,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideSeed
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
@@ -63,10 +63,10 @@ import uniffi.caldav_bridge.EventOverrideEntry
 import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
 import uniffi.caldav_bridge.OrganizerEntry
-import uniffi.caldav_bridge.OverrideSeed
 import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.RecurrenceIdSpec
 import uniffi.caldav_bridge.VTimeZoneSpec
+import uniffi.caldav_bridge.VeventSeed
 import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
 import uniffi.caldav_bridge.AlarmsChange as RustAlarmsChange
@@ -235,10 +235,10 @@ internal class RustCaldavBridge(
         }
     }
 
-    override suspend fun buildEventIcs(edit: RemoteEventEdit, seedIcs: String?): RemoteDavEvent =
+    override suspend fun buildEventIcs(edit: RemoteEventEdit, seed: RemoteVeventSeed?): RemoteDavEvent =
         withContext(cpuDispatcher) {
             try {
-                rustBuildEventIcs(edit = edit.toRust(), seedIcs = seedIcs).toRemoteEvent()
+                rustBuildEventIcs(edit = edit.toRust(), seed = seed?.toRust()).toRemoteEvent()
             } catch (e: CaldavException) {
                 throw e.toCaldavBridgeException("buildEventIcs")
             }
@@ -248,7 +248,7 @@ internal class RustCaldavBridge(
         icsData: String,
         recurrenceId: RemoteRecurrenceId,
         edit: RemoteEventEdit,
-        seed: RemoteOverrideSeed?,
+        seed: RemoteVeventSeed?,
     ): RemoteDavEvent = withContext(cpuDispatcher) {
         try {
             rustUpsertOverrideVevent(
@@ -331,7 +331,7 @@ private fun RemoteDateListLine.toRust() = DateListLine(tzid = tzid, isDateOnly =
 
 private fun RemoteRecurrenceId.toRust() = RecurrenceIdSpec(tzid = tzid, isDateOnly = isDateOnly, value = value)
 
-private fun RemoteOverrideSeed.toRust() = OverrideSeed(ics = icsData, recurrenceId = recurrenceId.toRust())
+private fun RemoteVeventSeed.toRust() = VeventSeed(ics = icsData, recurrenceId = recurrenceId?.toRust())
 
 private fun RemoteVTimeZone.toRust() = VTimeZoneSpec(tzid = tzid, offset = offset)
 

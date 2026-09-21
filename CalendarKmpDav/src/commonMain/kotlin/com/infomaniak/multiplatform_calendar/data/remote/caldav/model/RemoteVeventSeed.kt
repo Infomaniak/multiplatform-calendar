@@ -18,14 +18,16 @@
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
 /**
- * Where a carried override takes its content from: the resource [icsData] it currently lives in, and
- * the [recurrenceId] designating it there. Mirrors the Rust `OverrideSeed` record at the FFI boundary.
+ * Where a VEVENT takes its content from: the resource [icsData] it lives in, and the [recurrenceId]
+ * designating it there — `null` for the master. Mirrors the Rust `VeventSeed` record at the FFI
+ * boundary.
  *
- * Splitting a series moves its future overrides onto the new tail. Rebuilding them from the edit model
- * alone would drop whatever it cannot represent — `STATUS:CANCELLED` above all, which would bring a
- * cancelled occurrence back to life — so they are cloned from their own VEVENT instead.
+ * Splitting a series moves its future overrides onto a new tail, and the tail itself stands for the
+ * pivot. Rebuilding either from the edit model alone would drop whatever it cannot represent —
+ * organizer, attendees, `STATUS:CANCELLED` above all, which would bring a cancelled occurrence back to
+ * life — so each is cloned from the VEVENT it already is.
  */
-data class RemoteOverrideSeed(
+data class RemoteVeventSeed(
     val icsData: String,
-    val recurrenceId: RemoteRecurrenceId,
+    val recurrenceId: RemoteRecurrenceId? = null,
 )

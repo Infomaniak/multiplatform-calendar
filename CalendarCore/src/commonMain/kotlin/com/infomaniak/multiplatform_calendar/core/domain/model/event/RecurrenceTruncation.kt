@@ -181,3 +181,14 @@ internal fun RecurrenceKey.startsBefore(pivotStart: LocalDateTime, master: Event
     val localStart = toLocalStart(master, defaultZone = TimeZone.UTC) ?: return true
     return localStart < pivotStart
 }
+
+/**
+ * Whether the occurrence of [master] this key designates starts strictly after [pivotStart].
+ *
+ * Not the negation of [startsBefore]: the pivot itself satisfies neither, which is what tells a split
+ * that the instance it is built from is not also one of the overrides it takes over.
+ */
+internal fun RecurrenceKey.startsAfter(pivotStart: LocalDateTime, master: EventTiming): Boolean {
+    val localStart = toLocalStart(master, defaultZone = TimeZone.UTC) ?: return false
+    return localStart > pivotStart
+}

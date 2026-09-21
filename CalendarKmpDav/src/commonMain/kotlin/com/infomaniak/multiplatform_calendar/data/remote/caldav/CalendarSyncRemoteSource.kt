@@ -24,7 +24,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideSeed
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -89,11 +89,11 @@ interface CalendarSyncRemoteSource {
     /**
      * Build an iCS (one VEVENT, new UID) from [edit], returning it reparsed (see [patchEventIcs]).
      *
-     * [seedIcs] makes the VEVENT start from the master of that resource rather than from an empty one,
-     * so a series tail keeps the organizer, attendees, status and custom properties [RemoteEventEdit]
-     * cannot represent. No network.
+     * [seed] makes the VEVENT start from an existing one rather than from an empty one, so a series
+     * tail keeps the organizer, attendees, status and custom properties [RemoteEventEdit] cannot
+     * represent. No network.
      */
-    suspend fun buildEventIcs(edit: RemoteEventEdit, seedIcs: String? = null): RemoteDavEvent
+    suspend fun buildEventIcs(edit: RemoteEventEdit, seed: RemoteVeventSeed? = null): RemoteDavEvent
 
     /**
      * Add — or replace — the VEVENT overriding the instance [recurrenceId] designates, inside the same
@@ -107,7 +107,7 @@ interface CalendarSyncRemoteSource {
         icsData: String,
         recurrenceId: RemoteRecurrenceId,
         edit: RemoteEventEdit,
-        seed: RemoteOverrideSeed? = null,
+        seed: RemoteVeventSeed? = null,
     ): RemoteDavEvent
     /** Create a new event. Returns the server-assigned URL + etag. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

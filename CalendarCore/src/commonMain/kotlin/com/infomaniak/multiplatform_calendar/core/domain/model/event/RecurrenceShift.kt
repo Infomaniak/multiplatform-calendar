@@ -19,6 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import kotlinx.datetime.TimeZone
@@ -52,4 +54,18 @@ internal fun RecurrenceKey.shiftedBy(delta: Duration): RecurrenceKey = when (thi
     is RecurrenceKey.Floating -> RecurrenceKey.Floating(localDateTime.shiftedBy(delta))
     is RecurrenceKey.Zoned -> RecurrenceKey.Zoned(localDateTime.shiftedBy(delta), timeZoneId)
     is RecurrenceKey.Utc -> RecurrenceKey.Utc(instant + delta)
+}
+
+/**
+ * This rule with the end date it may carry moved by [delta], so the series it bounds keeps the last
+ * occurrence it had: left where it was, an end date cuts one the move pushed past it.
+ */
+internal fun RecurrenceRule.shiftedBy(delta: Duration): RecurrenceRule =
+    until?.let { copy(until = it.shiftedBy(delta)) } ?: this
+
+/** See [IcalDateValue.shiftedBy]. */
+private fun RecurrenceUntil.shiftedBy(delta: Duration): RecurrenceUntil = when (this) {
+    is RecurrenceUntil.DateOnly -> RecurrenceUntil.DateOnly(date.atTime(0, 0).shiftedBy(delta).date)
+    is RecurrenceUntil.DateTimeUtc -> RecurrenceUntil.DateTimeUtc(instant + delta)
+    is RecurrenceUntil.Floating -> RecurrenceUntil.Floating(dateTime.shiftedBy(delta))
 }

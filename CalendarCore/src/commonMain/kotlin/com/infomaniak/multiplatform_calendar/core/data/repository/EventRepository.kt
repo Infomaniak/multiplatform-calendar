@@ -685,12 +685,13 @@ private data class SeriesTail(
 ) {
     companion object {
         fun of(master: EventTiming, pivotStart: LocalDateTime, edit: EventEditData, split: SeriesSplit): SeriesTail {
-            val timing = edit.timing.copy(recurrenceRule = edit.tailRuleAfter(split, stored = master))
+            val delta = wallClockShift(from = pivotStart, to = edit.timing.start)
+            val timing = edit.timing.copy(recurrenceRule = edit.tailRuleAfter(split, stored = master, delta))
 
             return SeriesTail(
                 master = master,
                 pivotStart = pivotStart,
-                delta = wallClockShift(from = pivotStart, to = timing.start),
+                delta = delta,
                 data = edit.copy(timing = timing),
             )
         }
@@ -702,12 +703,13 @@ private data class SeriesTail(
  *
  * [EventEditData] replaces a whole event, so it restates the recurrence even when the user left it alone —
  * and what it restates is the *series'* rule, which outruns the tail. Only an actual change may be taken
- * verbatim; an untouched rule has to be the one [SeriesSplit] measured against the pivot.
+ * verbatim; an untouched rule has to be the one [SeriesSplit] measured against the pivot, moved by [delta]
+ * so its end date bounds the tail where the series it comes from ended.
  */
-private fun EventEditData.tailRuleAfter(split: SeriesSplit, stored: EventTiming): RecurrenceRule? {
+private fun EventEditData.tailRuleAfter(split: SeriesSplit, stored: EventTiming, delta: Duration): RecurrenceRule? {
     val edited = timing.recurrenceRuleWithMatchingUntil()
 
-    return if (edited == stored.recurrenceRuleWithMatchingUntil()) split.tail else edited
+    return if (edited == stored.recurrenceRuleWithMatchingUntil()) split.tail?.shiftedBy(delta) else edited
 }
 
 /** This tail as the edit creating its resource, the date lists it takes over moved along with it. */

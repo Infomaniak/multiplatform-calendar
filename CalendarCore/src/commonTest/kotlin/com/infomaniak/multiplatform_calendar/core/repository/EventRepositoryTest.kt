@@ -2041,6 +2041,36 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertNull(recurrenceId.tzid)
     }
 
+    @Test
+    fun updateEvent_thisAndFollowing_keepsTheLastOccurrenceWhenTheMovedTailRunsPastItsEndDate() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val until = RecurrenceUntil.DateTimeUtc(LocalDateTime(2026, 6, 19, 10, 0).toInstant(TimeZone.UTC))
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, until = until),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, until = until),
+                start = LocalDateTime(2026, 6, 17, 14, 0),
+                end = LocalDateTime(2026, 6, 17, 15, 0),
+            ),
+        )
+
+        // The end date moves with the series: left at 10:00 it would cut the 19th, four hours short.
+        assertEquals("FREQ=DAILY;UNTIL=20260619T140000Z", rruleOf(fakeCaldav.builds.single()))
+    }
+
     private fun rruleOf(edit: RemoteEventEdit) = assertIs<RemoteRecurrenceChange.Set>(edit.recurrenceChange).value
 
     private fun dateListOf(change: RemoteDateListChange) =

@@ -2071,6 +2071,38 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals("FREQ=DAILY;UNTIL=20260619T140000Z", rruleOf(fakeCaldav.builds.single()))
     }
 
+    @Test
+    fun updateEvent_thisAndFollowing_carriesAnOverrideTheNewRuleNoLongerGenerates() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 18, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Weekly, occurrenceCount = 3),
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+            ),
+        )
+
+        // A weekly tail no longer generates the 18th, but RFC 5545 lets the override stand on its own:
+        // dropping what the user wrote into it would lose more than it would tidy up.
+        val (recurrenceId, _) = fakeCaldav.overrideUpserts.single()
+        assertEquals("20260618T100000Z", recurrenceId.value)
+    }
+
     private fun rruleOf(edit: RemoteEventEdit) = assertIs<RemoteRecurrenceChange.Set>(edit.recurrenceChange).value
 
     private fun dateListOf(change: RemoteDateListChange) =

@@ -73,6 +73,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
@@ -2711,6 +2712,9 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
     val deletes = mutableListOf<Pair<String, String>>()
     val patches = mutableListOf<RemoteEventEdit>()
     val builds = mutableListOf<RemoteEventEdit>()
+    /** What each build/override was seeded from, so the tests can assert the source ICS reaches the bridge. */
+    val buildSeeds = mutableListOf<String?>()
+    val overrideSeeds = mutableListOf<RemoteOverrideSeed?>()
     val overrideUpserts = mutableListOf<Pair<RemoteRecurrenceId, RemoteEventEdit>>()
     /** Every write in the order it was issued, for the tests that care about which one lands first. */
     val calls = mutableListOf<String>()
@@ -2735,8 +2739,9 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }
 
-    override suspend fun buildEventIcs(edit: RemoteEventEdit): RemoteDavEvent {
+    override suspend fun buildEventIcs(edit: RemoteEventEdit, seedIcs: String?): RemoteDavEvent {
         builds += edit
+        buildSeeds += seedIcs
         calls += "build"
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }
@@ -2745,8 +2750,10 @@ private class FakeCaldavClient : CalendarSyncRemoteSource {
         icsData: String,
         recurrenceId: RemoteRecurrenceId,
         edit: RemoteEventEdit,
+        seed: RemoteOverrideSeed?,
     ): RemoteDavEvent {
         overrideUpserts += recurrenceId to edit
+        overrideSeeds += seed
         calls += "override"
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }

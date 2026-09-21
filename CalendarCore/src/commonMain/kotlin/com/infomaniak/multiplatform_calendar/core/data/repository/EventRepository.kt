@@ -74,6 +74,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideSeed
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -428,7 +429,7 @@ internal class EventRepository(
         data: EventEditData,
     ) {
         val masterId = occurrenceId.masterId
-        val entity = eventDao.getEvent(masterId) ?: return
+        val (entity, sourceIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
         val master = entity.toEditData().timing
         val zone = TimeZone.currentSystemDefault()
         val pivotStart = occurrenceId.recurrenceKey.toLocalStart(master, defaultZone = zone) ?: return
@@ -439,17 +440,22 @@ internal class EventRepository(
             "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
         }
 
-        createTail(credentials, masterId, tail = SeriesTail.of(master, pivotStart, edit = data, split))
+        createTail(credentials, masterId, tail = SeriesTail.of(master, pivotStart, edit = data, split), sourceIcs)
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
         truncateSeriesFrom(credentials, occurrenceId)
     }
 
-    /** Write [tail] as a resource of its own, the overrides it takes over from [masterId] included. */
-    private suspend fun createTail(credentials: DavAccount, masterId: EventId, tail: SeriesTail) {
+    /**
+     * Write [tail] as a resource of its own, the overrides it takes over from [masterId] included.
+     *
+     * [sourceIcs] seeds both the tail and those overrides from the VEVENTs they stand for, so they keep
+     * what [EventEditData] cannot represent — organizer, attendees, `STATUS`, custom properties.
+     */
+    private suspend fun createTail(credentials: DavAccount, masterId: EventId, tail: SeriesTail, sourceIcs: String) {
         val stamp = Clock.System.now().toICalUtcDateTime()
-        val built = caldavClient.buildEventIcs(edit = tail.toRemoteEdit(stamp))
-        val resource = carryOverridesInto(built, masterId, tail, stamp)
+        val built = caldavClient.buildEventIcs(edit = tail.toRemoteEdit(stamp), seedIcs = sourceIcs)
+        val resource = carryOverridesInto(built, masterId, tail, stamp, sourceIcs)
         val calendarId = tail.data.calendarId
 
         val ref = caldavClient.createEvent(credentials, calendarUrl = calendarId.url, resource.icsData)
@@ -462,6 +468,7 @@ internal class EventRepository(
         masterId: EventId,
         tail: SeriesTail,
         stamp: String,
+        sourceIcs: String,
     ): RemoteDavEvent {
         var resource = built
         eventDao.getOverridesOf(masterId)
@@ -474,12 +481,13 @@ internal class EventRepository(
                 resource = caldavClient.upsertOverrideIcs(
                     resource.icsData,
                     recurrenceId,
-                    // Detached from the tail's own master, which is what it is about to be seeded from.
                     edit = moved.toOverrideEdit(
                         stamp = stamp,
                         previousColorArgb = tail.data.eventColor?.argb,
                         previousAlarms = tail.data.alarms.map(EventAlarm::toEntity),
                     ),
+                    // Cloned from the VEVENT it already is, so its own content survives the move.
+                    seed = RemoteOverrideSeed(sourceIcs, override.toRemoteRecurrenceId(master = tail.master)),
                 )
             }
 

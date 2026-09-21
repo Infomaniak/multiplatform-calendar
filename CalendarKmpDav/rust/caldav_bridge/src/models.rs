@@ -236,6 +236,18 @@ pub struct DateListLine {
     pub values: Vec<String>,
 }
 
+/// Where a carried override takes its content from: the resource it currently lives in, and the
+/// `RECURRENCE-ID` designating it there.
+///
+/// Splitting a series moves its future overrides onto the new tail. Rebuilding them from the edit
+/// model alone would drop whatever it cannot represent — `STATUS:CANCELLED` above all, which would
+/// bring a cancelled occurrence back to life — so they are cloned from their own VEVENT instead.
+#[derive(uniffi::Record)]
+pub struct OverrideSeed {
+    pub ics: String,
+    pub recurrence_id: RecurrenceIdSpec,
+}
+
 /// The `RECURRENCE-ID` of the instance an override stands for (RFC 5545 §3.8.4.4).
 ///
 /// Its value type must match the master's `DTSTART`, so it is described exactly like one

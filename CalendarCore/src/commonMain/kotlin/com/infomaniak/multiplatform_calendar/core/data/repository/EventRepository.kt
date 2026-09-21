@@ -63,13 +63,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsAfter
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.withSeriesChanges
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
+import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -448,7 +449,7 @@ internal class EventRepository(
         createTail(
             credentials,
             tail = SeriesTail.of(master, pivotStart, edit = data, split),
-            carried = overrides.filter { it.recurrenceKey.startsAfter(pivotStart, master) },
+            carried = overrides.mapNotNull { it.carriedAfter(pivotStart, master) },
             source = SeriesSource(sourceIcs, pivotSeed?.toRemoteRecurrenceId(master)),
         )
 
@@ -465,7 +466,7 @@ internal class EventRepository(
     private suspend fun createTail(
         credentials: DavAccount,
         tail: SeriesTail,
-        carried: List<EventOverrideEntity>,
+        carried: List<CarriedOverride>,
         source: SeriesSource,
     ) {
         val stamp = Clock.System.now().toICalUtcDateTime()
@@ -480,15 +481,15 @@ internal class EventRepository(
     /** The [carried] overrides the [tail] takes over, redefined instance by instance in [built]. */
     private suspend fun carryOverridesInto(
         built: RemoteDavEvent,
-        carried: List<EventOverrideEntity>,
+        carried: List<CarriedOverride>,
         tail: SeriesTail,
         stamp: String,
         source: SeriesSource,
     ): RemoteDavEvent {
         var resource = built
-        carried.forEach { override ->
-            val key = override.recurrenceKey.shiftedBy(tail.delta)
-            val recurrenceId = key.toRemoteRecurrenceId(master = tail.data.timing) ?: return@forEach
+        carried.forEach { (override, slot) ->
+            // The slot is resolved against the master, then re-encoded in the tail's own DTSTART form.
+            val recurrenceId = slot.shiftedBy(tail.delta).toRemoteRecurrenceId(master = tail.data.timing)
             val moved = override.toEditData(tail.data.calendarId)
                 .let { it.copy(timing = it.timing.shiftedBy(tail.delta)) }
             resource = caldavClient.upsertOverrideIcs(
@@ -660,6 +661,21 @@ private data class SeriesSource(val ics: String, val pivotRecurrenceId: RemoteRe
     fun pivotSeed() = RemoteVeventSeed(ics, pivotRecurrenceId)
 }
 
+/** An override a tail takes over, with the calendar face it starts on in the master it comes from. */
+private data class CarriedOverride(val entity: EventOverrideEntity, val slot: LocalDateTime)
+
+/**
+ * This override as one a tail starting at [pivotStart] takes over, its slot resolved once against
+ * [master] for the migration to re-encode.
+ *
+ * `null` when it stays behind: an override at the pivot is not carried, the tail is built from it, and
+ * one designating no occurrence of [master] — a zoned key on a floating series, say — cannot be placed.
+ */
+private fun EventOverrideEntity.carriedAfter(pivotStart: LocalDateTime, master: EventTiming): CarriedOverride? {
+    val slot = recurrenceKey.toLocalStart(master, defaultZone = TimeZone.UTC) ?: return null
+    return if (slot > pivotStart) CarriedOverride(this, slot) else null
+}
+
 /** Where a series is cut, how far the edit moves what follows, and what that tail becomes. */
 private data class SeriesTail(
     val master: EventTiming,
@@ -705,6 +721,12 @@ private fun SeriesTail.toRemoteEdit(stamp: String) = data.toRemoteEdit(
 /**
  * The values of this list the [tail] takes over — those the pivot does not leave behind — each moved by
  * its delta so it goes on designating the instance it designated on the master.
+ *
+ * Each is resolved against the master it comes from before being re-encoded in the tail's own form, so
+ * it survives an edit turning the series zoned, floating or all-day. A value designating no occurrence
+ * of the master excludes and adds nothing, and stays behind.
  */
-private fun List<IcalDateValue>.movedTail(tail: SeriesTail): List<IcalDateValue> =
-    filterNot { it.startsBefore(tail.pivotStart, tail.master) }.map { it.shiftedBy(tail.delta) }
+private fun List<IcalDateValue>.movedTail(tail: SeriesTail): List<IcalDateValue> = mapNotNull { value ->
+    val slot = value.toRecurrenceKey(tail.master)?.toLocalStart(tail.master, defaultZone = TimeZone.UTC)
+    slot?.takeIf { it >= tail.pivotStart }?.shiftedBy(tail.delta)?.toIcalDateValue(master = tail.data.timing)
+}

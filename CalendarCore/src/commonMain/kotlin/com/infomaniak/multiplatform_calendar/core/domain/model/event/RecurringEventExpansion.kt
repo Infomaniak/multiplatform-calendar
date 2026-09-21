@@ -459,13 +459,21 @@ internal fun RecurrenceKey.toLocalStart(master: EventTiming, defaultZone: TimeZo
  * only form [toRecurrenceKey] reads back — writing the key's own form would exclude nothing.
  * `null` when the key designates no occurrence of [master].
  */
-internal fun RecurrenceKey.toIcalDateValue(master: EventTiming): IcalDateValue? {
-    val localStart = toLocalStart(master, defaultZone = TimeZone.UTC) ?: return null
+internal fun RecurrenceKey.toIcalDateValue(master: EventTiming): IcalDateValue? =
+    toLocalStart(master, defaultZone = TimeZone.UTC)?.toIcalDateValue(master)
+
+/**
+ * The `EXDATE`/`RDATE` value this calendar-face slot takes in [master]'s own `DTSTART` form.
+ *
+ * Splitting a series resolves a value against the master it comes from and re-encodes it here against
+ * the one it lands on, so an exception goes on designating the same slot when the two differ in form.
+ */
+internal fun LocalDateTime.toIcalDateValue(master: EventTiming): IcalDateValue {
     val zone = master.startTimeZone
     return when {
-        master.isAllDay -> IcalDateValue.AllDay(localStart.date)
-        zone == null -> IcalDateValue.Floating(localStart)
-        else -> IcalDateValue.Zoned(localStart.toInstant(zone), zone.id)
+        master.isAllDay -> IcalDateValue.AllDay(date)
+        zone == null -> IcalDateValue.Floating(this)
+        else -> IcalDateValue.Zoned(toInstant(zone), zone.id)
     }
 }
 

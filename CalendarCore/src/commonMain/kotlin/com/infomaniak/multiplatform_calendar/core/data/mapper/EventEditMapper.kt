@@ -296,14 +296,21 @@ private fun IcalDateValue.calendarDateTime(): LocalDateTime = when (this) {
  * Returns `null` when the key designates no occurrence of [master] — a zoned key against a floating
  * master, say — since there would be nothing to override.
  */
-internal fun RecurrenceKey.toRemoteRecurrenceId(master: EventTiming): RemoteRecurrenceId? {
-    val localStart = toLocalStart(master, defaultZone = UTC) ?: return null
-    return RemoteRecurrenceId(
-        tzid = master.startTimeZone.tzidForIcal(master.isAllDay),
-        isDateOnly = master.isAllDay,
-        value = localStart.toICal(master.isAllDay, master.startTimeZone),
-    )
-}
+internal fun RecurrenceKey.toRemoteRecurrenceId(master: EventTiming): RemoteRecurrenceId? =
+    toLocalStart(master, defaultZone = UTC)?.toRemoteRecurrenceId(master)
+
+/**
+ * The `RECURRENCE-ID` this calendar-face slot takes in [master]'s own `DTSTART` form.
+ *
+ * Splitting a series resolves an override's slot against the master it comes from and re-encodes it
+ * here against the one it lands on, so it goes on designating the same instance when the two differ
+ * in form — a zoned override moving onto a floating tail, say.
+ */
+internal fun LocalDateTime.toRemoteRecurrenceId(master: EventTiming) = RemoteRecurrenceId(
+    tzid = master.startTimeZone.tzidForIcal(master.isAllDay),
+    isDateOnly = master.isAllDay,
+    value = toICal(master.isAllDay, master.startTimeZone),
+)
 
 /**
  * Serialize a calendar-face [LocalDateTime] as an RFC 5545 value:

@@ -1941,6 +1941,106 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals("20260617T100000Z", fakeCaldav.buildSeeds.single()?.recurrenceId?.value)
     }
 
+    @Test
+    fun updateEvent_thisAndFollowing_reencodesTheDateListsWhenTheTailTurnsFloating() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            rDates = listOf(icalUtc(2026, 6, 20)),
+        ).copy(exDates = listOf(icalUtc(2026, 6, 18)))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+                start = LocalDateTime(2026, 6, 17, 11, 0),
+                end = LocalDateTime(2026, 6, 17, 12, 0),
+                timeZone = null,
+            ),
+        )
+
+        val built = fakeCaldav.builds.single()
+        // A UTC value would designate nothing on a floating series: both take its DTSTART form.
+        assertEquals(listOf("20260618T110000"), dateListOf(built.exDateChange))
+        assertEquals(listOf("20260620T110000"), dateListOf(built.rDateChange))
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_reencodesTheDateListsWhenTheTailTurnsAllDay() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            rDates = listOf(icalUtc(2026, 6, 20)),
+        ).copy(exDates = listOf(icalUtc(2026, 6, 18)))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+                start = LocalDateTime(2026, 6, 17, 0, 0),
+                end = LocalDateTime(2026, 6, 18, 0, 0),
+                timeZone = null,
+                isAllDay = true,
+            ),
+        )
+
+        val built = fakeCaldav.builds.single()
+        // An all-day series reads DATE values only, so the excluded and added days keep their meaning.
+        assertEquals(listOf("20260618"), dateListOf(built.exDateChange))
+        assertEquals(listOf("20260620"), dateListOf(built.rDateChange))
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_reencodesACarriedOverrideWhenTheTailTurnsFloating() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 18, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                start = LocalDateTime(2026, 6, 17, 11, 0),
+                end = LocalDateTime(2026, 6, 17, 12, 0),
+                timeZone = null,
+            ),
+        )
+
+        val (recurrenceId, _) = fakeCaldav.overrideUpserts.single()
+        // Its UTC RECURRENCE-ID would pair with no instance of a floating tail, so it takes that form.
+        assertEquals("20260618T110000", recurrenceId.value)
+        assertNull(recurrenceId.tzid)
+    }
+
     private fun rruleOf(edit: RemoteEventEdit) = assertIs<RemoteRecurrenceChange.Set>(edit.recurrenceChange).value
 
     private fun dateListOf(change: RemoteDateListChange) =
@@ -2640,14 +2740,16 @@ class EventRepositoryTest : RobolectricTestsBase() {
         alarms: List<EventAlarm> = emptyList(),
         start: LocalDateTime = LocalDateTime(2026, 6, 15, 10, 0),
         end: LocalDateTime = LocalDateTime(2026, 6, 15, 11, 0),
+        timeZone: TimeZone? = TimeZone.UTC,
+        isAllDay: Boolean = false,
     ) = EventEditData(
         title = title,
         timing = EventTiming(
             start = start,
             end = end,
-            startTimeZone = TimeZone.UTC,
-            endTimeZone = TimeZone.UTC,
-            isAllDay = false,
+            startTimeZone = timeZone,
+            endTimeZone = timeZone,
+            isAllDay = isAllDay,
             recurrenceRule = recurrence,
         ),
         location = null,

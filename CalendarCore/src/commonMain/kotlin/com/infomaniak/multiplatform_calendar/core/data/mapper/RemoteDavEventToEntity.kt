@@ -98,6 +98,7 @@ internal fun RemoteDavEventContent.toContentEntity(url: String) = EventContentEn
     organizer = organizer?.toEntity(),
     alarms = alarms.map { it.toEntity() },
     meetRoomUrl = meetRoomUrl,
+    bookableUuid = bookableUuid,
     attachments = infomaniakAttach.map(RemoteEventAttachment::toEntity),
     colorArgb = resolveColorArgb(),
     colorIcalName = colorIcalName,

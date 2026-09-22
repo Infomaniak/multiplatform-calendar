@@ -146,6 +146,7 @@ fn parse_content(
         sequence: prop(ev, "SEQUENCE"),
         categories: prop(ev, "CATEGORIES"),
         meet_room_url: prop(ev, "X-INFOMANIAK-MEET-ROOM-URL"),
+        bookable_uuid: prop(ev, "X-INFOMANIAK-BOOKABLE"),
         attachments: match raw_ev {
             Some(component) => parse_infomaniak_attachments(component),
             None => Vec::new(),

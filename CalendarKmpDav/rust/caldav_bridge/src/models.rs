@@ -76,6 +76,8 @@ pub struct EventContentEntry {
     pub categories: Option<String>,
     /// Raw `X-INFOMANIAK-MEET-ROOM-URL` value.
     pub meet_room_url: Option<String>,
+    /// Raw `X-INFOMANIAK-BOOKABLE` UUID value.
+    pub bookable_uuid: Option<String>,
     /// `X-INFOMANIAK-ATTACH` values with their relevant parameters.
     pub attachments: Vec<InfomaniakAttachEntry>,
     /// Raw `X-APPLE-CALENDAR-COLOR` value (typically `#RRGGBB` or `#RRGGBBAA`).

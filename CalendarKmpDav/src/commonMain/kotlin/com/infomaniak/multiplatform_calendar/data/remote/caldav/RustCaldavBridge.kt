@@ -376,6 +376,7 @@ private fun EventContentEntry.toRemote() = RemoteDavEventContent(
     sequence = sequence,
     categories = categories,
     meetRoomUrl = meetRoomUrl,
+    bookableUuid = bookableUuid,
     infomaniakAttach = attachments.map(InfomaniakAttachEntry::toRemote),
     colorHex = colorHex,
     colorIcalName = colorIcalName,

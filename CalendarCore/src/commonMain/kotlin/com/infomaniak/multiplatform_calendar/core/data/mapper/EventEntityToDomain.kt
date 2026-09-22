@@ -68,6 +68,7 @@ internal fun EventContentEntity.toDomain(
         classification = classification,
         categories = categories?.filter { it.isNotBlank() }.orEmpty(),
         meetRoomUrl = meetRoomUrl?.ifBlank { null },
+        bookableUuid = bookableUuid?.ifBlank { null },
         attachments = attachments.map { it.toDomain() },
         timing = timing.toDomain(recurrenceRule = recurrenceRule, rDates = rDates, exDates = exDates),
         lastModified = lastModified?.toInstant(TimeZone.UTC),

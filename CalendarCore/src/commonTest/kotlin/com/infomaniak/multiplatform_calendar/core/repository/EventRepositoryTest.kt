@@ -2958,6 +2958,67 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals(LocalDateTime(2026, 5, 26, 10, 0).toInstant(TimeZone.UTC), alarms.single().firesAt)
     }
 
+    /** A reminder further out than the fixed slack the read window used to be widened by. */
+    @Test
+    fun observeUpcomingAlarms_findsAReminderSetFurtherAheadThanAnyFixedMargin() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        seedAlarmedEvent(
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-40).days)),
+        )
+
+        val alarms = repository.observeUpcomingAlarms(
+            accountIds = setOf(account),
+            from = LocalDateTime(2026, 5, 1, 0, 0).toInstant(TimeZone.UTC),
+            horizon = 10.days,
+            limit = 10,
+            actions = setOf(AlarmAction.Display),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(
+            listOf(LocalDateTime(2026, 5, 6, 10, 0).toInstant(TimeZone.UTC)),
+            alarms.map { it.firesAt },
+            "how far an event is read past the horizon is its own reminder's offset, not a fixed margin",
+        )
+    }
+
+    /**
+     * A dense series only reached by a fast-forward: widening the read window by more than the
+     * reminder needs spends the expansion budget before the window itself, leaving nothing to fire.
+     */
+    @Test
+    fun observeUpcomingAlarms_findsTheRemindersOfADenseSeriesStartingLongBeforeTheWindow() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+
+        seedAlarmedEvent(
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 1, 1, 0, 0),
+            alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-5).minutes)),
+            id = EventId("event://secondly"),
+            rrule = RecurrenceRule(freq = Frequency.Secondly),
+        )
+
+        val from = LocalDateTime(2026, 6, 1, 0, 0).toInstant(TimeZone.UTC)
+        val alarms = repository.observeUpcomingAlarms(
+            accountIds = setOf(account),
+            from = from,
+            horizon = 30.days,
+            limit = 10,
+            actions = setOf(AlarmAction.Display),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(10, alarms.size, "the series runs every second throughout the window")
+        assertEquals(from, alarms.first().firesAt, "the occurrence five minutes into the window opens it")
+    }
+
     @Test
     fun observeUpcomingAlarms_onlyReturnsTheRequestedActions() = runTest {
         val account = AccountId(1)
@@ -2995,23 +3056,31 @@ class EventRepositoryTest : RobolectricTestsBase() {
         calendarId: CalendarId,
         dtStart: LocalDateTime,
         alarms: List<AlarmEntity>,
+        id: EventId = EventId("event://alarmed"),
+        rrule: RecurrenceRule? = null,
     ) {
         val dtEnd = LocalDateTime(dtStart.date, LocalTime(dtStart.hour + 1, dtStart.minute))
+        val timing = EventTimingEntity(
+            dtStart = dtStart,
+            dtEndEffective = dtEnd,
+            startTimeZone = TimeZone.UTC.id,
+            endTimeZone = TimeZone.UTC.id,
+            dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+        )
         val event = EventEntity(
-            id = EventId("event://alarmed"),
+            id = id,
             calendarId = calendarId,
             content = EventContentEntity(
                 summary = "Alarmed",
-                timing = EventTimingEntity(
-                    dtStart = dtStart,
-                    dtEndEffective = dtEnd,
-                    startTimeZone = TimeZone.UTC.id,
-                    endTimeZone = TimeZone.UTC.id,
-                    dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
-                    dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
-                ),
+                timing = timing,
                 alarms = alarms,
             ),
+            rrule = rrule,
+            hasRecurrence = rrule != null,
+            recurrenceBounds = rrule?.let {
+                toRecurrenceBoundsEntity(timing = timing, recurrenceRule = it, rDates = emptyList())
+            },
             etag = "1",
         )
         eventDao().upsert(listOf(EventWithRawIcs(event, "")))

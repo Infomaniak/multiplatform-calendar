@@ -37,6 +37,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
@@ -61,6 +62,7 @@ import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.EventOverrideEntry
 import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
+import uniffi.caldav_bridge.InfomaniakAttachEntry
 import uniffi.caldav_bridge.OrganizerEntry
 import uniffi.caldav_bridge.OverrideRemoval
 import uniffi.caldav_bridge.RecurrenceChange
@@ -374,6 +376,7 @@ private fun EventContentEntry.toRemote() = RemoteDavEventContent(
     sequence = sequence,
     categories = categories,
     meetRoomUrl = meetRoomUrl,
+    infomaniakAttach = attachments.map(InfomaniakAttachEntry::toRemote),
     colorHex = colorHex,
     colorIcalName = colorIcalName,
     attendees = attendees.map(AttendeeEntry::toRemote),
@@ -401,6 +404,12 @@ private fun AlarmEntry.toRemote() = RemoteDavAlarm(
     summary = summary,
     attendees = attendees,
     attach = attach,
+)
+
+private fun InfomaniakAttachEntry.toRemote() = RemoteEventAttachment(
+    url = url,
+    filename = filename,
+    mimetype = mimeType,
 )
 
 private fun IcalDateValueEntry.toRemote() = RemoteIcalDateValue(

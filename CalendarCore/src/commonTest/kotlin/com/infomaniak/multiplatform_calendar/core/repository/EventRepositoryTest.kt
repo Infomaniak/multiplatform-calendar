@@ -2133,6 +2133,41 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals("Daily recurring", eventDao().getEvent(master.id)?.content?.summary)
     }
 
+    @Test
+    fun updateEvent_thisAndFollowing_seedsTheTailAndItsOverridesFromTheSourceIcs() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 18, 10, 0))
+        val sourceIcs = "BEGIN:VCALENDAR\nORGANIZER:mailto:a@b.c\nEND:VCALENDAR"
+        eventDao().upsert(listOf(EventWithRawIcs(master, sourceIcs, listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+            ),
+        )
+
+        // What the bridge clones is what survives the split: organizer, attendees, STATUS, custom
+        // properties. This asserts the source reaches it — the cloning itself belongs to the Rust side.
+        assertEquals(RemoteVeventSeed(sourceIcs, recurrenceId = null), fakeCaldav.buildSeeds.single())
+        val overrideSeed = fakeCaldav.overrideSeeds.single()
+        assertEquals(sourceIcs, overrideSeed?.icsData)
+        assertEquals("20260618T100000Z", overrideSeed?.recurrenceId?.value)
+    }
+
     private fun rruleOf(edit: RemoteEventEdit) = assertIs<RemoteRecurrenceChange.Set>(edit.recurrenceChange).value
 
     private fun dateListOf(change: RemoteDateListChange) =

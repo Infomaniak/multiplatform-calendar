@@ -26,5 +26,5 @@ public data class Attendee(
     val isOrganizer: Boolean = false,
     val responseNeeded: Boolean = false,
 ) {
-    val key: String get() = "$email#$displayName"
+    val key: String inline get() = "$email#$displayName"
 }

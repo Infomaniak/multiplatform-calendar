@@ -25,4 +25,6 @@ public data class Attendee(
     val role: AttendeeRole,
     val isOrganizer: Boolean = false,
     val responseNeeded: Boolean = false,
-)
+) {
+    val key: String get() = "$email#$displayName"
+}

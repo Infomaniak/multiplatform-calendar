@@ -436,6 +436,8 @@ internal class EventRepository(
         val master = entity.toEditData().timing
         val zone = TimeZone.currentSystemDefault()
         val pivotStart = occurrenceId.recurrenceKey.toLocalStart(master, defaultZone = zone) ?: return
+        // A stale target: the instance was excluded since, so there is no longer anything to split there.
+        if (master.excludes(pivotStart)) return
         val split = master.splitAt(pivotStart, defaultZone = zone)
         // Nothing precedes the pivot, so there is no head to leave behind: the whole series is moving.
         if (split.head == null) return updateSeriesFrom(credentials, occurrenceId, data)
@@ -663,6 +665,11 @@ private data class SeriesSource(val ics: String, val pivotRecurrenceId: RemoteRe
 
 /** An override a tail takes over, with the calendar face it starts on in the master it comes from. */
 private data class CarriedOverride(val entity: EventOverrideEntity, val slot: LocalDateTime)
+
+/** Whether an `EXDATE` of this series drops the instance starting at [start]. */
+private fun EventTiming.excludes(start: LocalDateTime) = exDates.any {
+    it.toRecurrenceKey(master = this)?.toLocalStart(master = this, defaultZone = TimeZone.UTC) == start
+}
 
 /**
  * This override as one a tail starting at [pivotStart] takes over, its slot resolved once against

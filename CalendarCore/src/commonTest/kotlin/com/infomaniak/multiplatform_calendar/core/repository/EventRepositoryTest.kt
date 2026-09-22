@@ -2103,6 +2103,36 @@ class EventRepositoryTest : RobolectricTestsBase() {
         assertEquals("20260618T100000Z", recurrenceId.value)
     }
 
+    @Test
+    fun updateEvent_thisAndFollowing_onAnExcludedOccurrence_doesNothing() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        ).copy(exDates = listOf(icalUtc(2026, 6, 17)))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                start = LocalDateTime(2026, 6, 17, 11, 0),
+                end = LocalDateTime(2026, 6, 17, 12, 0),
+            ),
+        )
+
+        // Only a target left over from before the exclusion reaches here: splitting would resurrect it.
+        assertEquals(emptyList(), fakeCaldav.calls)
+        assertEquals("Daily recurring", eventDao().getEvent(master.id)?.content?.summary)
+    }
+
     private fun rruleOf(edit: RemoteEventEdit) = assertIs<RemoteRecurrenceChange.Set>(edit.recurrenceChange).value
 
     private fun dateListOf(change: RemoteDateListChange) =

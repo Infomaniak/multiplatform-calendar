@@ -33,9 +33,6 @@ use crate::models::{
     VeventSeed,
 };
 
-const X_INFOMANIAK_ATTACH: &str = "X-INFOMANIAK-ATTACH";
-const X_INFOMANIAK_MEET_ROOM_URL: &str = "X-INFOMANIAK-MEET-ROOM-URL";
-
 /// Read a single iCalendar property value as an owned [`String`].
 fn prop(event: &icalendar::Event, name: &str) -> Option<String> {
     event.property_value(name).map(|s| s.to_string())
@@ -148,7 +145,7 @@ fn parse_content(
         priority: prop(ev, "PRIORITY"),
         sequence: prop(ev, "SEQUENCE"),
         categories: prop(ev, "CATEGORIES"),
-        meet_room_url: prop(ev, X_INFOMANIAK_MEET_ROOM_URL),
+        meet_room_url: prop(ev, "X-INFOMANIAK-MEET-ROOM-URL"),
         attachments: match raw_ev {
             Some(component) => parse_infomaniak_attachments(component),
             None => Vec::new(),
@@ -190,7 +187,7 @@ fn parse_infomaniak_attachments(
     component
         .properties
         .iter()
-        .filter(|property| property.name.as_str().eq_ignore_ascii_case(X_INFOMANIAK_ATTACH))
+        .filter(|property| property.name.as_str().eq_ignore_ascii_case("X-INFOMANIAK-ATTACH"))
         .map(infomaniak_attach_from_prop)
         .collect()
 }

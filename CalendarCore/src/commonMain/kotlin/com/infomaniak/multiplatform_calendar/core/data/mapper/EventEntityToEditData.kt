@@ -19,6 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 
@@ -37,6 +39,24 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSource
 internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     title = content.summary,
     timing = content.timing.toDomain(recurrenceRule = rrule, rDates = rDates, exDates = exDates),
+    location = content.location,
+    description = content.description,
+    timeBlocking = content.timeBlocking,
+    calendarId = calendarId,
+    eventColor = content.colorArgb?.let(::EventSourceColor),
+    alarms = content.alarms.mapNotNull(AlarmEntity::toDomain),
+)
+
+/**
+ * This override as the edit that would leave it exactly as it stands, so a series edit can be
+ * replayed onto it (see [withSeriesChanges]).
+ *
+ * The timing is bare: an override carries no recurrence set of its own (RFC 5545 §3.8.5). [calendarId]
+ * is the master's, the only one an override can live in.
+ */
+internal fun EventOverrideEntity.toEditData(calendarId: CalendarId): EventEditData = EventEditData(
+    title = content.summary,
+    timing = content.timing.toDomain(),
     location = content.location,
     description = content.description,
     timeBlocking = content.timeBlocking,

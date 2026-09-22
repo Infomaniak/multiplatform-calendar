@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
+import androidx.room3.Embedded
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
 import androidx.room3.Index
@@ -49,4 +50,5 @@ internal data class CalendarEntity(
     val ctag: String? = null,
     val syncToken: String? = null,
     val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
+    @Embedded val syncState: CalendarSyncStateEntity,
 )

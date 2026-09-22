@@ -23,9 +23,12 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarSyncStateEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.SyncErrorReason.NETWORK
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.SyncErrorReason.SERVER
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -38,6 +41,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class CalendarDaoTest : RobolectricTestsBase() {
 
@@ -179,16 +183,67 @@ class CalendarDaoTest : RobolectricTestsBase() {
         assertEquals(emptyList(), calendarDao.getByAccountId(accountId))
     }
 
+    @Test
+    fun defaultSyncState_roundTripsAsNonNullEmbeddedWithAllNullFields() = runTest {
+        // Room can read an all-null @Embedded back as null; this locks it round-trips as a non-null entity.
+        val accountId = AccountId(1)
+        accountDao.insert(AccountEntity(id = accountId))
+        val stored = calendar(id = "calendar://a", accountId = accountId)
+        calendarDao.upsert(listOf(stored))
+
+        val readBack = calendarDao.findById(stored.id)!!
+        assertEquals(CalendarSyncStateEntity(), readBack.syncState)
+        assertNull(readBack.syncState.lastSyncedAtMs)
+        assertNull(readBack.syncState.lastSyncAttemptAtMs)
+        assertNull(readBack.syncState.lastSyncError)
+    }
+
+    @Test
+    fun updateSyncSuccess_setsTimestamps_andClearsPreviousError() = runTest {
+        val accountId = AccountId(1)
+        accountDao.insert(AccountEntity(id = accountId))
+        val stored = calendar(id = "calendar://a", accountId = accountId).copy(
+            syncState = CalendarSyncStateEntity(lastSyncAttemptAtMs = 1L, lastSyncError = NETWORK),
+        )
+        calendarDao.upsert(listOf(stored))
+
+        calendarDao.updateSyncSuccess(stored.id, syncedAtMs = 42L)
+
+        val syncState = calendarDao.findById(stored.id)!!.syncState
+        assertEquals(42L, syncState.lastSyncedAtMs)
+        assertEquals(42L, syncState.lastSyncAttemptAtMs)
+        assertNull(syncState.lastSyncError)
+    }
+
+    @Test
+    fun updateSyncFailure_recordsAttemptAndReason_preservingPreviousSuccessTimestamp() = runTest {
+        val accountId = AccountId(1)
+        accountDao.insert(AccountEntity(id = accountId))
+        val stored = calendar(id = "calendar://a", accountId = accountId).copy(
+            syncState = CalendarSyncStateEntity(lastSyncedAtMs = 10L, lastSyncAttemptAtMs = 10L),
+        )
+        calendarDao.upsert(listOf(stored))
+
+        calendarDao.updateSyncFailure(stored.id, attemptedAtMs = 99L, reason = SERVER)
+
+        val syncState = calendarDao.findById(stored.id)!!.syncState
+        assertEquals(10L, syncState.lastSyncedAtMs, "A failure must keep the last successful timestamp")
+        assertEquals(99L, syncState.lastSyncAttemptAtMs)
+        assertEquals(SERVER, syncState.lastSyncError)
+    }
+
     private fun calendar(
         id: String,
         accountId: AccountId,
         isVisible: Boolean = true,
         displayName: String = "Calendar $id",
+        syncState: CalendarSyncStateEntity = CalendarSyncStateEntity(),
     ) = CalendarEntity(
         id = CalendarId(id),
         accountId = accountId,
         displayName = displayName,
         color = null,
         isVisible = isVisible,
+        syncState = syncState,
     )
 }

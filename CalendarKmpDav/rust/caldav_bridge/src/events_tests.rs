@@ -130,3 +130,17 @@ fn missing_filename_in_override_falls_back_to_url() {
     assert_eq!("https://example.com/override", attachment.filename);
 }
 
+#[test]
+fn bookable_is_parsed_on_master_and_override() {
+    let ics = calendar_with(
+        "BEGIN:VEVENT\r\nUID:test\r\nDTSTART;TZID=Europe/Zurich:20260916T120000\r\nX-INFOMANIAK-BOOKABLE:master-bookable\r\nRRULE:FREQ=DAILY;COUNT=2\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:test\r\nRECURRENCE-ID;TZID=Europe/Zurich:20260917T120000\r\nDTSTART;TZID=Europe/Zurich:20260917T130000\r\nX-INFOMANIAK-BOOKABLE:override-bookable\r\nEND:VEVENT\r\n",
+    );
+
+    let event = parse_event(&ics);
+    assert_eq!(Some("master-bookable".to_string()), event.content.bookable_uuid);
+    assert_eq!(
+        Some("override-bookable".to_string()),
+        event.overrides[0].content.bookable_uuid,
+    );
+}
+

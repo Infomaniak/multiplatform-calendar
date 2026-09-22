@@ -42,7 +42,24 @@ class RemoteDavEventToEntityMeetRoomTest {
         assertNull(entity.content.meetRoomUrl)
     }
 
-    private fun remoteEvent(meetRoomUrl: String?) = RemoteDavEvent(
+    @Test
+    fun bookableUuid_isStoredInContentEntity() {
+        val entity = remoteEvent(bookableUuid = "bookable-id").toEntity(calendarId)
+
+        assertEquals("bookable-id", entity.content.bookableUuid)
+    }
+
+    @Test
+    fun missingBookableUuid_staysNull() {
+        val entity = remoteEvent(bookableUuid = null).toEntity(calendarId)
+
+        assertNull(entity.content.bookableUuid)
+    }
+
+    private fun remoteEvent(
+        meetRoomUrl: String? = null,
+        bookableUuid: String? = null,
+    ) = RemoteDavEvent(
         url = "https://cal/tests/meet.ics",
         etag = "etag-1",
         icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT",
@@ -67,6 +84,7 @@ class RemoteDavEventToEntityMeetRoomTest {
             sequence = null,
             categories = null,
             meetRoomUrl = meetRoomUrl,
+            bookableUuid = bookableUuid,
             colorHex = null,
             colorIcalName = null,
             attendees = emptyList(),

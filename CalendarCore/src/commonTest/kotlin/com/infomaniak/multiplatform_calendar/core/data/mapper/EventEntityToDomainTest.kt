@@ -88,6 +88,20 @@ class EventEntityToDomainTest {
     }
 
     @Test
+    fun bookableUuid_isExposedOnDomainEvent() {
+        val event = eventEntity(bookableUuid = "bookable-id").toDomain(calendar)
+
+        assertEquals("bookable-id", event.bookableUuid)
+    }
+
+    @Test
+    fun blankBookableUuid_isNormalizedToNull() {
+        val event = eventEntity(bookableUuid = "   ").toDomain(calendar)
+
+        assertNull(event.bookableUuid)
+    }
+
+    @Test
     fun blankCategoryEntries_areDropped() {
         val event = eventEntity(categories = listOf("work", "  ", "", "personal")).toDomain(calendar)
 
@@ -229,6 +243,7 @@ class EventEntityToDomainTest {
         description: String? = null,
         location: String? = null,
         meetRoomUrl: String? = null,
+        bookableUuid: String? = null,
         categories: List<String>? = null,
         colorArgb: Int? = null,
         attendees: List<AttendeeEntity> = emptyList(),
@@ -242,6 +257,7 @@ class EventEntityToDomainTest {
             description = description,
             location = location,
             meetRoomUrl = meetRoomUrl,
+            bookableUuid = bookableUuid,
             timing = EventTimingEntity(
                 dtStart = LocalDateTime(2026, 6, 15, 10, 0),
                 dtEndEffective = LocalDateTime(2026, 6, 15, 11, 0),

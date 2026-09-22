@@ -85,6 +85,13 @@ pub struct EventContentEntry {
     pub alarms: Vec<AlarmEntry>,
 }
 
+#[derive(uniffi::Record)]
+pub struct InfomaniakAttachEntry {
+    pub url: String,
+    pub filename: String,
+    pub mime_type: Option<String>,
+}
+
 /// A `VEVENT` overriding a single instance of its series, identified by its `RECURRENCE-ID`.
 #[derive(uniffi::Record)]
 pub struct EventOverrideEntry {

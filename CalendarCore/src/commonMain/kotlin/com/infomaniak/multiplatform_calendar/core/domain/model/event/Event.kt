@@ -46,6 +46,7 @@ public data class Event(
     val classification: Classification? = null,
     val categories: List<String> = emptyList(),
     val meetRoomUrl: String? = null,
+    val attachments: List<EventAttachment> = emptyList(),
     val timing: EventTiming,
     val lastModified: Instant? = null,
     val attendees: List<Attendee> = emptyList(),

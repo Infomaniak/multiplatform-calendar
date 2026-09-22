@@ -47,13 +47,16 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySli
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.offsetFromStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
@@ -88,7 +91,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlin.time.Clock
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -672,11 +675,11 @@ internal class EventRepository(
      * The alarms of the *visible* calendars of [accountIds] going off in `[from, from + horizon]`,
      * soonest first, capped at [limit] and restricted to the [actions] asked for.
      *
-     * The events are read over a window widened by [ALARM_OFFSET_SLACK] on either side, because an alarm
-     * does not go off when its event happens: a reminder set a week ahead belongs to an event a week
-     * past the horizon, and one relative to the end of an event can outlive it. Alarms are stored inside
-     * the event they belong to rather than in a table of their own, so no query can tell how far to
-     * widen — hence a fixed margin, which a reminder set further out than that would fall outside of.
+     * An alarm does not go off when its event happens, so events are read, then expanded, over a window
+     * each one widens for itself by what its own alarms reach — see
+     * [EventDao.observeAlarmedInRange][com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.observeAlarmedInRange].
+     * A margin shared by all of them could only be a guess: too short and a reminder set further out is
+     * lost, too long and a dense series spends its whole expansion budget before the window it fires in.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeUpcomingAlarms(
@@ -688,38 +691,83 @@ internal class EventRepository(
         timeZone: TimeZone,
     ): Flow<List<UpcomingAlarm>> {
         val until = from + horizon
-        val windowStart = from - ALARM_OFFSET_SLACK
-        val windowEnd = until + ALARM_OFFSET_SLACK
 
-        return observeVisibleEventsWithOverrides(accountIds, windowStart, windowEnd, zone = timeZone)
+        return observeAlarmedEventsWithOverrides(accountIds, from, until, zone = timeZone)
             .mapLatest { eventsWithOverrides ->
-                eventsWithOverrides
-                    .expandRecurrencesInWindow(
-                        rangeStart = windowStart,
-                        rangeEnd = windowEnd,
+                val occurrences = eventsWithOverrides.flatMap { eventWithOverrides ->
+                    val window = eventWithOverrides.alarmWindow(from, until, timeZone)
+                    listOf(eventWithOverrides).expandRecurrencesInWindow(
+                        rangeStart = window.start,
+                        rangeEnd = window.endExclusive,
                         timeZone = timeZone,
                         onExpansionTruncated = ::logTruncatedExpansion,
                         onOrphanOverrideDropped = ::logOrphanOverride,
                     )
-                    .upcomingAlarms(
-                        from = from,
-                        until = until,
-                        limit = limit,
-                        actions = actions,
-                        defaultZone = timeZone,
-                    )
+                }
+
+                upcomingAlarms(
+                    occurrences = occurrences,
+                    storedRows = eventsWithOverrides.flatMap(EventWithOverrides::ringingRows),
+                    from = from,
+                    until = until,
+                    limit = limit,
+                    actions = actions,
+                    defaultZone = timeZone,
+                )
             }
             .flowOn(Dispatchers.Default)
+    }
+
+    private fun observeAlarmedEventsWithOverrides(
+        accountIds: Set<AccountId>,
+        start: Instant,
+        end: Instant,
+        zone: TimeZone,
+    ): Flow<List<EventWithOverrides>> {
+        return eventDao.observeAlarmedInRange(
+            accountIds = accountIds,
+            startInstantMs = start.toEpochMilliseconds(),
+            endInstantMs = end.toEpochMilliseconds(),
+            startLocalDateTime = start.toLocalDateTime(zone),
+            endLocalDateTime = end.toLocalDateTime(zone),
+        ).map(List<EventWithCalendarEntity>::toDomainEventsWithOverrides)
     }
 
     private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides?> {
         return eventDao.observeEventWithCalendar(eventId).map { relation -> relation?.toDomainEventWithOverrides() }
     }
+}
 
-    companion object {
-        /** How far past the alarm window events are read, see [observeUpcomingAlarms]. */
-        private val ALARM_OFFSET_SLACK = 31.days
+/**
+ * The window this event must be expanded over for its alarms to be caught in `[from, until]`: the
+ * pendant of the shift the query applies, overrides included, since their alarms are their own. Only
+ * relative triggers widen it — an absolute one rings off [ringingRows], unexpanded.
+ */
+private fun EventWithOverrides.alarmWindow(from: Instant, until: Instant, zone: TimeZone): OpenEndRange<Instant> {
+    var minOffset = Duration.ZERO
+    var maxOffset = Duration.ZERO
+
+    fun widenBy(event: Event) {
+        for (alarm in event.alarms) {
+            val offset = (alarm.trigger as? AlarmTrigger.Relative)?.offsetFromStart(event.timing, zone) ?: continue
+            minOffset = minOf(minOffset, offset)
+            maxOffset = maxOf(maxOffset, offset)
+        }
     }
+
+    widenBy(master)
+    overridesByOccurrenceKey.values.forEach(::widenBy)
+
+    // The expander's window is half-open, hence the nudge past the last start that can still ring.
+    return (from - maxOffset)..<(until - minOffset + 1.nanoseconds)
+}
+
+/**
+ * The rows an absolute trigger may ring from: the event as stored, plus the overrides holding an
+ * instance of it. A `STATUS:CANCELLED` override holds none, so its alarms have nothing to announce.
+ */
+private fun EventWithOverrides.ringingRows(): List<Event> {
+    return listOf(master) + overridesByOccurrenceKey.values.filter { it.status != EventStatus.CANCELLED }
 }
 
 /**

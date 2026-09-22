@@ -32,3 +32,7 @@ mod props;
 
 mod calendars;
 mod events;
+
+#[cfg(test)]
+mod events_tests;
+

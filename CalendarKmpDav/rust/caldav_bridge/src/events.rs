@@ -96,15 +96,15 @@ fn prop_values_with_meta(event: &icalendar::Event, name: &str) -> Vec<IcalDateVa
 /// than blindly taking the first component — otherwise an override preceding the master would shadow
 /// it (RFC 5545 §3.8.4.4).
 pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<EventEntry> {
-    let parsed: Calendar = ics_data.parse().unwrap_or_default();
     let unfolded = unfold(&ics_data);
-    let raw_calendar = read_calendar(&unfolded).ok();
+    let raw_calendar = read_calendar(&unfolded).ok()?;
+    let parsed = Calendar::from(raw_calendar.clone());
 
     // TODO: Support non-VEVENT components (e.g. VTODO / VJOURNAL) instead of skipping them.
     let Some(master) = master_vevent(&parsed) else {
         return None;
     };
-    let raw_master = raw_calendar.as_ref().and_then(raw_master_vevent);
+    let raw_master = raw_master_vevent(&raw_calendar);
 
     Some(EventEntry {
         url,
@@ -114,7 +114,7 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
         rdates: prop_values_with_meta(master, "RDATE"),
         exdates: prop_values_with_meta(master, "EXDATE"),
         content: parse_content(master, raw_master),
-        overrides: parse_overrides(&parsed, raw_calendar.as_ref()),
+        overrides: parse_overrides(&parsed, Some(&raw_calendar)),
         ics_data,
     })
 }

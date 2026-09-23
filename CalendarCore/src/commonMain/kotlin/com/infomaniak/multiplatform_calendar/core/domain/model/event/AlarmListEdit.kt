@@ -17,18 +17,33 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-/** Where an edit's `VALARM`s come from, mirroring [DateListEdit] for the alarm list. */
-internal enum class AlarmListEdit {
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 
-    /** Take them from the edit, emitting a replacement for whatever differs from the stored ones. */
-    FromData,
+/** What an edit does to the `VALARM`s already on the resource, mirroring [DateListEdit] for alarms. */
+public sealed interface AlarmListEdit {
 
     /**
      * Leave the resource's own `VALARM`s alone.
      *
-     * For an operation that edits the recurrence set rather than the event: the alarms an edit carries
-     * are a *domain* projection, which drops any stored alarm whose trigger cannot be read, and the
-     * replacement that gap provokes would delete it from the resource.
+     * The alarms an edit could carry are a *domain* projection, which drops any stored alarm whose
+     * trigger cannot be read; replacing the list from that projection would delete such an alarm from
+     * the resource. An edit that is not about alarms says so here and cannot lose one.
      */
-    Preserve,
+    public data object Preserve : AlarmListEdit
+
+    /**
+     * Make the resource's alarms be exactly [alarms], the ones to keep included.
+     *
+     * This is a whole-list replacement, not a set of additions: the `VALARM`s are stripped and rewritten
+     * from [alarms]. When the list projects back to what is already stored, nothing is emitted at all and
+     * the original blocks survive untouched, exotic `X-*` parameters and all.
+     */
+    public data class Replace(val alarms: List<EventAlarm>) : AlarmListEdit
 }
+
+/** The alarms this edit states, none when it states none — see [AlarmListEdit.Preserve]. */
+internal val AlarmListEdit.statedAlarms: List<EventAlarm>
+    get() = when (this) {
+        AlarmListEdit.Preserve -> emptyList()
+        is AlarmListEdit.Replace -> alarms
+    }

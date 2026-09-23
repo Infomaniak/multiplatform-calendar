@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
@@ -186,7 +187,7 @@ class EventEditMapperAlarmTest {
         timeBlocking = null,
         calendarId = calendarId,
         eventColor = null,
-        alarms = alarms,
+        alarms = AlarmListEdit.Replace(alarms),
     )
 
     private fun eventEntity(alarms: List<AlarmEntity>) = EventEntity(

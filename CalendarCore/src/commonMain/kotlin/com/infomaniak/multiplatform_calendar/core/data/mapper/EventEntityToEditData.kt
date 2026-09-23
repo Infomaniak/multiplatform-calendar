@@ -21,20 +21,21 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
 
 /**
- * This event as the edit that would leave it exactly as it stands, for occurrence-level operations
- * which touch a series' recurrence set without editing the event itself.
+ * This event as the edit that would leave it exactly as it stands.
  *
  * Every field has to be carried over: [toRemoteEdit] reads an edit as the intended *final* state and
  * emits a change for whatever differs, so an omission here would not preserve a field — it would
  * clear it. The recurrence rule and its dates are part of that, hence [EventEntity.rrule] and its
  * date lists travelling in the timing.
  *
- * Alarms are the exception this cannot express: [AlarmEntity.toDomain] drops any stored alarm whose
- * trigger it cannot read, so callers preserve them through [AlarmListEdit.Preserve] instead.
+ * Alarms are the one thing this cannot state as a value: [AlarmEntity.toDomain] drops any stored alarm
+ * whose trigger it cannot read, and rewriting the list from that projection would delete it. They are
+ * left to the resource through [AlarmListEdit.Preserve], which a caller editing them overrides.
  */
 internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     title = content.summary,
@@ -44,7 +45,7 @@ internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     timeBlocking = content.timeBlocking,
     calendarId = calendarId,
     eventColor = content.colorArgb?.let(::EventSourceColor),
-    alarms = content.alarms.mapNotNull(AlarmEntity::toDomain),
+    alarms = AlarmListEdit.Preserve,
 )
 
 /**
@@ -61,5 +62,5 @@ internal fun EventOverrideEntity.toEditData(calendarId: CalendarId): EventEditDa
     timeBlocking = content.timeBlocking,
     calendarId = calendarId,
     eventColor = content.colorArgb?.let(::EventSourceColor),
-    alarms = content.alarms.mapNotNull(AlarmEntity::toDomain),
+    alarms = AlarmListEdit.Preserve,
 )

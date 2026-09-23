@@ -2,6 +2,7 @@
 
 use icalendar::{Calendar, CalendarComponent, Component, Property};
 use icalendar::parser::{self, read_calendar, unfold};
+use http::Uri;
 use std::collections::HashSet;
 use fast_dav_rs::webdav::normalize_etag;
 use crate::alarms::{parse_alarms, splice_alarms_into_vevent, strip_valarms_in_vevent};
@@ -100,11 +101,28 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
     let raw_calendar = read_calendar(&unfolded).ok()?;
     let parsed = Calendar::from(raw_calendar.clone());
 
-    // TODO: Support non-VEVENT components (e.g. VTODO / VJOURNAL) instead of skipping them.
-    let Some(master) = master_vevent(&parsed) else {
+    // `parsed` is built directly from `raw_calendar`, so VEVENT order is shared between both
+    // representations. Keep them paired instead of rediscovering the raw VEVENT from
+    // RECURRENCE-ID/TZID later: that avoids case-sensitivity mismatches and O(n²) scans.
+    let parsed_vevents: Vec<&icalendar::Event> = parsed.events().collect();
+    let raw_vevents: Vec<&parser::Component<'_>> = raw_calendar
+        .components
+        .iter()
+        .filter(|component| component.name.as_str().eq_ignore_ascii_case(VEVENT))
+        .collect();
+
+    // Both views come from the same parse tree. Never combine them if that invariant changes.
+    if parsed_vevents.len() != raw_vevents.len() {
         return None;
-    };
-    let raw_master = raw_master_vevent(&raw_calendar);
+    }
+    let vevents: Vec<_> = parsed_vevents.into_iter().zip(raw_vevents).collect();
+
+    // TODO: Support non-VEVENT components (e.g. VTODO / VJOURNAL) instead of skipping them.
+    let master_index = vevents
+        .iter()
+        .position(|(_, raw_event)| raw_prop(raw_event, "RECURRENCE-ID").is_none())
+        .unwrap_or(0);
+    let (master, raw_master) = *vevents.get(master_index)?;
 
     Some(EventEntry {
         url,
@@ -113,8 +131,8 @@ pub(crate) fn parse_ics(url: String, etag: String, ics_data: String) -> Option<E
         rrule: prop(master, "RRULE"),
         rdates: prop_values_with_meta(master, "RDATE"),
         exdates: prop_values_with_meta(master, "EXDATE"),
-        content: parse_content(master, raw_master),
-        overrides: parse_overrides(&parsed, Some(&raw_calendar)),
+        content: parse_content(master, Some(raw_master)),
+        overrides: parse_overrides(&vevents),
         ics_data,
     })
 }
@@ -145,8 +163,12 @@ fn parse_content(
         priority: prop(ev, "PRIORITY"),
         sequence: prop(ev, "SEQUENCE"),
         categories: prop(ev, "CATEGORIES"),
-        meet_room_url: prop(ev, "X-INFOMANIAK-MEET-ROOM-URL"),
-        bookable_uuid: prop(ev, "X-INFOMANIAK-BOOKABLE"),
+        meet_room_url: raw_ev.and_then(|component| {
+            raw_text_prop(component, "X-INFOMANIAK-MEET-ROOM-URL")
+        }),
+        bookable_uuid: raw_ev.and_then(|component| {
+            raw_text_prop(component, "X-INFOMANIAK-BOOKABLE")
+        }),
         attachments: match raw_ev {
             Some(component) => parse_infomaniak_attachments(component),
             None => Vec::new(),
@@ -167,16 +189,27 @@ fn parsed_param(property: &parser::Property<'_>, name: &str) -> Option<String> {
         .and_then(|param| param.val.as_ref().map(|value| value.as_str().to_string()))
 }
 
-fn unescape_ical_value(value: &str) -> String {
-    value.replace("\\:", ":")
+fn attachment_filename_from_url(url: &str) -> Option<String> {
+    url.parse::<Uri>()
+        .ok()?
+        .path()
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .filter(|segment| !segment.is_empty())
+        .map(str::to_string)
 }
 
 fn infomaniak_attach_from_prop(
     property: &parser::Property<'_>,
 ) -> InfomaniakAttachEntry {
-    let url = unescape_ical_value(property.val.as_str());
+    // VALUE=URI prevents `icalendar` from applying its normal TEXT unescaping, while Infomaniak
+    // currently escapes URI punctuation. Reuse the crate's own unescaper instead of duplicating it.
+    let url = property.val.clone().unescape_text().as_str().to_string();
     InfomaniakAttachEntry {
-        filename: parsed_param(property, "FILENAME").unwrap_or_else(|| url.clone()),
+        filename: parsed_param(property, "FILENAME")
+            .or_else(|| attachment_filename_from_url(&url))
+            .unwrap_or_else(|| url.clone()),
         url,
         mime_type: parsed_param(property, "FMTTYPE"),
     }
@@ -203,36 +236,9 @@ fn raw_prop<'a>(
         .find(|property| property.name.as_str().eq_ignore_ascii_case(name))
 }
 
-fn raw_master_vevent<'a>(
-    calendar: &'a parser::Calendar<'a>,
-) -> Option<&'a parser::Component<'a>> {
-    let mut first_vevent = None;
-    for component in &calendar.components {
-        if component.name.as_str().eq_ignore_ascii_case(VEVENT) {
-            if raw_prop(component, "RECURRENCE-ID").is_none() {
-                return Some(component);
-            }
-            first_vevent.get_or_insert(component);
-        }
-    }
-    first_vevent
-}
-
-fn raw_override_vevent<'a>(
-    calendar: &'a parser::Calendar<'a>,
-    recurrence_id: &str,
-    recurrence_id_tzid: Option<&str>,
-) -> Option<&'a parser::Component<'a>> {
-    calendar.components.iter().find(|component| {
-        if !component.name.as_str().eq_ignore_ascii_case(VEVENT) {
-            return false;
-        }
-        let Some(raw_recurrence_id) = raw_prop(component, "RECURRENCE-ID") else {
-            return false;
-        };
-        raw_recurrence_id.val.as_str() == recurrence_id
-            && parsed_param(raw_recurrence_id, "TZID").as_deref() == recurrence_id_tzid
-    })
+fn raw_text_prop(component: &parser::Component<'_>, name: &str) -> Option<String> {
+    raw_prop(component, name)
+        .map(|property| property.val.clone().unescape_text().as_str().to_string())
 }
 
 /// Collect every `VEVENT` carrying a `RECURRENCE-ID`, i.e. the detached overrides of the series.
@@ -240,54 +246,38 @@ fn raw_override_vevent<'a>(
 /// A recurrence master has no `RECURRENCE-ID` and is dropped by [`parse_override`] itself, so a
 /// resource made only of detached instances keeps every one of them.
 fn parse_overrides(
-    calendar: &Calendar,
-    raw_calendar: Option<&parser::Calendar<'_>>,
+    vevents: &[(&icalendar::Event, &parser::Component<'_>)],
 ) -> Vec<EventOverrideEntry> {
-    let mut overrides = Vec::new();
-    for component in &calendar.components {
-        if let CalendarComponent::Event(event) = component {
-            if let Some(parsed) = parse_override(event, raw_calendar) {
-                overrides.push(parsed);
-            }
-        }
-    }
-    overrides
+    vevents
+        .iter()
+        .filter_map(|(event, raw_event)| parse_override(event, raw_event))
+        .collect()
 }
 
 /// Build an [`EventOverrideEntry`] from a `VEVENT`, or `None` when it has no `RECURRENCE-ID`.
 fn parse_override(
     ev: &icalendar::Event,
-    raw_calendar: Option<&parser::Calendar<'_>>,
+    raw_ev: &parser::Component<'_>,
 ) -> Option<EventOverrideEntry> {
-    use icalendar::Component;
-
-    let Some(recurrence_id_property) = ev.properties().get("RECURRENCE-ID") else {
-        return None;
-    };
-    let param = |key: &str| {
-        recurrence_id_property
-            .params()
-            .get(key)
-            .map(|value| value.value().to_string())
-    };
-    let raw_override = raw_calendar.and_then(|calendar| {
-        raw_override_vevent(
-            calendar,
-            recurrence_id_property.value(),
-            param("TZID").as_deref(),
-        )
-    });
+    let recurrence_id_property = raw_prop(raw_ev, "RECURRENCE-ID")?;
+    let recurrence_id_tzid = parsed_param(recurrence_id_property, "TZID");
+    let recurrence_id_value_type = parsed_param(recurrence_id_property, "VALUE");
+    let recurrence_id_range = parsed_param(recurrence_id_property, "RANGE");
 
     Some(EventOverrideEntry {
-        recurrence_id: recurrence_id_property.value().to_string(),
-        recurrence_id_tzid: param("TZID"),
-        recurrence_id_value_type: match param("VALUE").as_deref().map(str::to_ascii_uppercase).as_deref() {
+        recurrence_id: recurrence_id_property.val.as_str().to_string(),
+        recurrence_id_tzid,
+        recurrence_id_value_type: match recurrence_id_value_type
+            .as_deref()
+            .map(str::to_ascii_uppercase)
+            .as_deref()
+        {
             Some("DATE") => IcalDateValueKind::Date,
             Some("PERIOD") => IcalDateValueKind::Period,
             _ => IcalDateValueKind::DateTime,
         },
-        recurrence_id_range: param("RANGE"),
-        content: parse_content(ev, raw_override),
+        recurrence_id_range,
+        content: parse_content(ev, Some(raw_ev)),
     })
 }
 

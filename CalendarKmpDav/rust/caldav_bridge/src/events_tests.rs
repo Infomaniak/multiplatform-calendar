@@ -51,7 +51,7 @@ fn multiple_attachments_preserve_order() {
 }
 
 #[test]
-fn missing_filename_falls_back_to_url() {
+fn missing_filename_falls_back_to_url_path() {
     let ics = calendar_with(
         "BEGIN:VEVENT\r\nUID:test\r\nDTSTART:20260916T120000Z\r\nX-INFOMANIAK-ATTACH;VALUE=URI;FMTTYPE=image/png:https\\://example.com/a\r\nEND:VEVENT\r\n",
     );
@@ -60,7 +60,7 @@ fn missing_filename_falls_back_to_url() {
     assert_eq!(1, event.content.attachments.len());
     let attachment = &event.content.attachments[0];
     assert_eq!("https://example.com/a", attachment.url);
-    assert_eq!("https://example.com/a", attachment.filename);
+    assert_eq!("a", attachment.filename);
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn two_overrides_match_recurrence_id_and_tzid() {
 }
 
 #[test]
-fn missing_filename_in_override_falls_back_to_url() {
+fn missing_filename_in_override_falls_back_to_url_path() {
     let ics = calendar_with(
         "BEGIN:VEVENT\r\nUID:test\r\nDTSTART;TZID=Europe/Zurich:20260916T120000\r\nRRULE:FREQ=DAILY;COUNT=2\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:test\r\nRECURRENCE-ID;TZID=Europe/Zurich:20260917T120000\r\nDTSTART;TZID=Europe/Zurich:20260917T130000\r\nX-INFOMANIAK-ATTACH;VALUE=URI:https\\://example.com/override\r\nEND:VEVENT\r\n",
     );
@@ -127,7 +127,57 @@ fn missing_filename_in_override_falls_back_to_url() {
     let event = parse_event(&ics);
     let attachment = &event.overrides[0].content.attachments[0];
     assert_eq!("https://example.com/override", attachment.url);
-    assert_eq!("https://example.com/override", attachment.filename);
+    assert_eq!("override", attachment.filename);
+}
+
+#[test]
+fn missing_filename_uses_last_url_path_segment_without_query() {
+    let ics = calendar_with(
+        "BEGIN:VEVENT\r\nUID:test\r\nDTSTART:20260916T120000Z\r\nX-INFOMANIAK-ATTACH;VALUE=URI:https\\://example.com/files/report.pdf?token=123\r\nEND:VEVENT\r\n",
+    );
+
+    let event = parse_event(&ics);
+    let attachment = &event.content.attachments[0];
+    assert_eq!("https://example.com/files/report.pdf?token=123", attachment.url);
+    assert_eq!("report.pdf", attachment.filename);
+}
+
+#[test]
+fn attachment_value_is_fully_unescaped() {
+    let ics = calendar_with(
+        "BEGIN:VEVENT\r\nUID:test\r\nDTSTART:20260916T120000Z\r\nX-INFOMANIAK-ATTACH;VALUE=URI;FILENAME=file.txt:https\\://example.com/a\\,b\\;c\r\nEND:VEVENT\r\n",
+    );
+
+    let event = parse_event(&ics);
+    assert_eq!(
+        "https://example.com/a,b;c",
+        event.content.attachments[0].url
+    );
+}
+
+#[test]
+fn lowercase_recurrence_id_before_master_keeps_master_and_raw_content_aligned() {
+    let ics = calendar_with(
+        "BEGIN:VEVENT\r\nUID:test\r\nrecurrence-id:20260917T120000Z\r\nDTSTART:20260917T130000Z\r\nX-INFOMANIAK-ATTACH;VALUE=URI;FILENAME=override.txt:https\\://example.com/override\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:test\r\nDTSTART:20260916T120000Z\r\nRRULE:FREQ=DAILY;COUNT=2\r\nX-INFOMANIAK-ATTACH;VALUE=URI;FILENAME=master.txt:https\\://example.com/master\r\nEND:VEVENT\r\n",
+    );
+
+    let event = parse_event(&ics);
+    assert_eq!("master.txt", event.content.attachments[0].filename);
+    assert_eq!(1, event.overrides.len());
+    assert_eq!("override.txt", event.overrides[0].content.attachments[0].filename);
+}
+
+#[test]
+fn lowercase_override_parameters_are_preserved() {
+    let ics = calendar_with(
+        "BEGIN:VEVENT\r\nUID:test\r\nDTSTART;TZID=Europe/Zurich:20260916T120000\r\nRRULE:FREQ=DAILY;COUNT=2\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:test\r\nRECURRENCE-ID;tzid=Europe/Zurich;value=DATE-TIME;range=THISANDFUTURE:20260917T120000\r\nDTSTART;TZID=Europe/Zurich:20260917T130000\r\nX-INFOMANIAK-ATTACH;VALUE=URI;FILENAME=override.txt:https\\://example.com/override\r\nEND:VEVENT\r\n",
+    );
+
+    let event = parse_event(&ics);
+    let override_event = &event.overrides[0];
+    assert_eq!(Some("Europe/Zurich".to_string()), override_event.recurrence_id_tzid);
+    assert_eq!(Some("THISANDFUTURE".to_string()), override_event.recurrence_id_range);
+    assert_eq!("override.txt", override_event.content.attachments[0].filename);
 }
 
 #[test]

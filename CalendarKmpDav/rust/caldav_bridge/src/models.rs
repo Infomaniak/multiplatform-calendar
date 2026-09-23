@@ -236,6 +236,19 @@ pub struct DateListLine {
     pub values: Vec<String>,
 }
 
+/// Where a VEVENT takes its content from: the resource [`ics`] it lives in, and the `RECURRENCE-ID`
+/// designating it there — `None` for the master.
+///
+/// Splitting a series moves its future overrides onto a new tail, and the tail itself stands for the
+/// pivot. Rebuilding either from the edit model alone would drop whatever it cannot represent —
+/// organizer, attendees, `STATUS:CANCELLED` above all, which would bring a cancelled occurrence back
+/// to life — so each is cloned from the VEVENT it already is.
+#[derive(uniffi::Record)]
+pub struct VeventSeed {
+    pub ics: String,
+    pub recurrence_id: Option<RecurrenceIdSpec>,
+}
+
 /// The `RECURRENCE-ID` of the instance an override stands for (RFC 5545 §3.8.4.4).
 ///
 /// Its value type must match the master's `DTSTART`, so it is described exactly like one

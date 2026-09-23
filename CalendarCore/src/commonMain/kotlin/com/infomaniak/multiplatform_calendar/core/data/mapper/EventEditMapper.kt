@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
@@ -108,13 +108,14 @@ internal fun EventEditData.toRemoteEdit(
  * An override carries no recurrence set of its own (RFC 5545 §3.8.5): the rule and its `EXDATE`/`RDATE`
  * belong to the master, so every recurrence-shaped change is pinned to `Unchanged` here.
  *
- * [previous] is the content the instance already shows — the override's own when one exists, the
- * master's when this edit is what detaches it — so an untouched colour or alarm list stays untouched
- * in the resource instead of being rewritten.
+ * [previousColorArgb] and [previousAlarms] are what the instance already shows — the override's own
+ * when one exists, its master's when this edit is what detaches it — so an untouched colour or alarm
+ * list stays untouched in the resource instead of being rewritten.
  */
 internal fun EventEditData.toOverrideEdit(
     stamp: String,
-    previous: EventContentEntity?,
+    previousColorArgb: Int?,
+    previousAlarms: List<AlarmEntity>,
     alarms: AlarmListEdit = AlarmListEdit.FromData,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
@@ -130,14 +131,14 @@ internal fun EventEditData.toOverrideEdit(
         description = description?.ifBlank { null },
         transp = timeBlocking?.toIcalString(),
         timeZones = timing.vTimeZones(),
-        colorChange = resolveColorChange(previous?.colorArgb),
+        colorChange = resolveColorChange(previousColorArgb),
         recurrenceChange = Unchanged,
         exDateChange = RemoteDateListChange.Unchanged,
         rDateChange = RemoteDateListChange.Unchanged,
         overrideRemoval = RemoteOverrideRemoval.Unchanged,
         alarms = when (alarms) {
             AlarmListEdit.Preserve -> null
-            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous?.alarms.orEmpty())
+            AlarmListEdit.FromData -> resolveAlarmEdits(this.alarms, previous = previousAlarms)
         },
         stamp = stamp,
     )
@@ -193,7 +194,7 @@ private fun EventEditData.resolveRecurrenceChange(previousRule: RecurrenceRule?)
  * `DATE-TIME`, otherwise UTC `DATE-TIME`. The calendar-face value is reinterpreted across forms (zone-free,
  * deterministic) rather than converted across zones.
  */
-private fun EventTiming.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
+internal fun EventTiming.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
     val rule = recurrenceRule ?: return null
     val current = rule.until ?: return rule
     val normalized = when {
@@ -295,14 +296,21 @@ private fun IcalDateValue.calendarDateTime(): LocalDateTime = when (this) {
  * Returns `null` when the key designates no occurrence of [master] — a zoned key against a floating
  * master, say — since there would be nothing to override.
  */
-internal fun RecurrenceKey.toRemoteRecurrenceId(master: EventTiming): RemoteRecurrenceId? {
-    val localStart = toLocalStart(master, defaultZone = UTC) ?: return null
-    return RemoteRecurrenceId(
-        tzid = master.startTimeZone.tzidForIcal(master.isAllDay),
-        isDateOnly = master.isAllDay,
-        value = localStart.toICal(master.isAllDay, master.startTimeZone),
-    )
-}
+internal fun RecurrenceKey.toRemoteRecurrenceId(master: EventTiming): RemoteRecurrenceId? =
+    toLocalStart(master, defaultZone = UTC)?.toRemoteRecurrenceId(master)
+
+/**
+ * The `RECURRENCE-ID` this calendar-face slot takes in [master]'s own `DTSTART` form.
+ *
+ * Splitting a series resolves an override's slot against the master it comes from and re-encodes it
+ * here against the one it lands on, so it goes on designating the same instance when the two differ
+ * in form — a zoned override moving onto a floating tail, say.
+ */
+internal fun LocalDateTime.toRemoteRecurrenceId(master: EventTiming) = RemoteRecurrenceId(
+    tzid = master.startTimeZone.tzidForIcal(master.isAllDay),
+    isDateOnly = master.isAllDay,
+    value = toICal(master.isAllDay, master.startTimeZone),
+)
 
 /**
  * Serialize a calendar-face [LocalDateTime] as an RFC 5545 value:

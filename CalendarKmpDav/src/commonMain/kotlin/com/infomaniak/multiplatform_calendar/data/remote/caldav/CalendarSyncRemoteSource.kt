@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -86,20 +87,27 @@ interface CalendarSyncRemoteSource {
     suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): RemoteDavEvent
 
     /**
-     * Build a fresh iCS (one VEVENT, new UID) from [edit], returning it reparsed (see [patchEventIcs]).
-     * No network.
+     * Build an iCS (one VEVENT, new UID) from [edit], returning it reparsed (see [patchEventIcs]).
+     *
+     * [seed] makes the VEVENT start from an existing one rather than from an empty one, so a series
+     * tail keeps the organizer, attendees, status and custom properties [RemoteEventEdit] cannot
+     * represent. No network.
      */
-    suspend fun buildEventIcs(edit: RemoteEventEdit): RemoteDavEvent
+    suspend fun buildEventIcs(edit: RemoteEventEdit, seed: RemoteVeventSeed? = null): RemoteDavEvent
 
     /**
      * Add — or replace — the VEVENT overriding the instance [recurrenceId] designates, inside the same
      * iCS as its master (RFC 5545 §3.8.4.4). Returns the whole resource reparsed (see [patchEventIcs]):
-     * master, and every override including this one. No network.
+     * master, and every override including this one.
+     *
+     * A newly detached instance is seeded from its master; [seed] makes it clone that VEVENT instead,
+     * which is how an override carried onto another series keeps its own content. No network.
      */
     suspend fun upsertOverrideIcs(
         icsData: String,
         recurrenceId: RemoteRecurrenceId,
         edit: RemoteEventEdit,
+        seed: RemoteVeventSeed? = null,
     ): RemoteDavEvent
     /** Create a new event. Returns the server-assigned URL + etag. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

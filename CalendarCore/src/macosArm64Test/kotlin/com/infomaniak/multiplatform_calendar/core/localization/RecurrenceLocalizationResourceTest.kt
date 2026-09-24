@@ -17,6 +17,15 @@
  */
 package com.infomaniak.multiplatform_calendar.core.localization
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
@@ -24,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import platform.Foundation.NSLocale
@@ -31,6 +41,8 @@ import platform.Foundation.NSUserDefaults
 import platform.Foundation.preferredLanguages
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -146,6 +158,49 @@ class RecurrenceLocalizationResourceTest {
             }
         }
     }
+
+    @Test
+    fun eventLocalization_usesDtStartAndItsStartTimeZone() = runTest {
+        val zone = TimeZone.of("Europe/Zurich")
+        val rule = RecurrenceRule(
+            freq = Frequency.Weekly,
+            until = RecurrenceUntil.DateTimeUtc(Instant.parse("2028-12-31T23:59:59Z")),
+        )
+        val event = eventWithRule(rule, zone)
+
+        withPreferredLanguage("en") {
+            val description = event.toLocalizedRecurrenceString()
+            assertEquals(rule.toLocalizedString(start, zone), description)
+            assertNotEquals(rule.toLocalizedString(start, TimeZone.UTC), description)
+            assertNotEquals(rule.toLocalizedString(LocalDateTime(2026, 10, 1, 18, 30), zone), description)
+        }
+    }
+
+    @Test
+    fun eventLocalization_withoutRuleReturnsNullEvenWithRDates() = runTest {
+        val event = eventWithRule(rule = null, zone = TimeZone.UTC)
+        val rDateOnly = event.copy(timing = event.timing.copy(rDates = listOf(IcalDateValue.AllDay(LocalDate(2026, 10, 1)))))
+
+        assertNull(rDateOnly.toLocalizedRecurrenceString())
+    }
+
+    private fun eventWithRule(rule: RecurrenceRule?, zone: TimeZone): Event = Event(
+        masterEventId = EventId("event://recurrence-localization"),
+        occurrenceId = OccurrenceId.Master(EventId("event://recurrence-localization")),
+        calendarId = CalendarId("calendar://test"),
+        accountId = AccountId(1L),
+        title = "Test",
+        timing = EventTiming(
+            start = start,
+            end = LocalDateTime(2026, 9, 30, 19, 30),
+            startTimeZone = zone,
+            endTimeZone = TimeZone.UTC,
+            isAllDay = false,
+            recurrenceRule = rule,
+        ),
+        colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
+        canEdit = true,
+    )
 
     private fun referenceRule(): RecurrenceRule = RecurrenceRule(
         freq = Frequency.Monthly,

@@ -50,6 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.DateTimeUnit
@@ -169,6 +170,17 @@ public class CalendarManager internal constructor(
     ): Flow<Event?> {
         return sdkCaller.flow(operation = "observe occurrence $occurrenceId") {
             eventRepository.observeOccurrence(occurrenceId, timeZone)
+        }
+    }
+
+    /** What [observeOccurrence] currently emits for [occurrenceId], `null` when it names nothing. */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun getOccurrence(
+        occurrenceId: OccurrenceId,
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Event? = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "get occurrence $occurrenceId") {
+            eventRepository.observeOccurrence(occurrenceId, timeZone).first()
         }
     }
 

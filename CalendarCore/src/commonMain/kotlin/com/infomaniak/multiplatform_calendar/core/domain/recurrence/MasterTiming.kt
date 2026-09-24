@@ -18,6 +18,10 @@
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -74,7 +78,7 @@ internal class MasterTiming private constructor(
             endZone = if (master.isAllDay) defaultZone else (master.endTimeZone ?: defaultZone),
             isAllDay = master.isAllDay,
             nominalDuration = master.endInstant(defaultZone) - master.startInstant(defaultZone),
-            allDaySpanDays = if (master.isAllDay) master.start.date.daysUntil(master.end.date) else 0,
+            allDaySpanDays = if (master.isAllDay) master.startWallClock.date.daysUntil(master.endWallClock.date) else 0,
         )
     }
 }

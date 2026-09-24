@@ -19,29 +19,32 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
 
 /**
  * Build the persisted [EventTimingEntity] from an edited domain [EventTiming].
  *
  * The edited timing always carries an explicit end, so any pre-existing `DURATION` is dropped
  * (RFC 5545 §3.8.2.5: `DTEND` and `DURATION` are mutually exclusive) and [EventTimingEntity.dtEndEffective]
- * is simply [EventTiming.end]. Epoch-ms columns are anchored via [startStorageZone] / [endStorageZone]
+ * is simply the wall-clock of [EventTiming.end]. Epoch-ms columns are anchored via [startStorageZone] / [endStorageZone]
  * (`null` for floating events — see [EventTimingEntity.dtStartInstantMs]).
  */
 internal fun EventTiming.toEntity(): EventTimingEntity {
     val startZone = startStorageZone()
     val endZone = endStorageZone()
     return EventTimingEntity(
-        dtStart = start,
-        dtEnd = end,
+        dtStart = startWallClock,
+        dtEnd = endWallClock,
         duration = null,
-        dtEndEffective = end,
+        dtEndEffective = endWallClock,
         startTimeZone = startTimeZone?.id,
         endTimeZone = endTimeZone?.id,
-        dtStartInstantMs = startZone?.let { start.toInstant(it).toEpochMilliseconds() },
-        dtEndInstantMs = endZone?.let { end.toInstant(it).toEpochMilliseconds() },
+        dtStartInstantMs = startZone?.let { startInstant(it).toEpochMilliseconds() },
+        dtEndInstantMs = endZone?.let { endInstant(it).toEpochMilliseconds() },
         isAllDay = isAllDay,
     )
 }
@@ -52,12 +55,12 @@ internal fun EventTiming.toEntity(): EventTimingEntity {
  * [EventTimingEntity.dtStartInstantMs] for the DAO's wall-clock fallback branch on `null`.
  *
  * - All-day → `TimeZone.UTC` so the recorded epoch ms is device-independent.
- * - Zoned   → [EventTiming.startTimeZone].
+ * - Zoned   → the zone of [EventTiming.start].
  * - Floating (no `TZID`, no `Z`) → `null`.
  */
 private fun EventTiming.startStorageZone(): TimeZone? = storageZoneFor(startTimeZone)
 
-/** See [startStorageZone]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
+/** See [startStorageZone]. Uses the zone of [EventTiming.end] (which can differ from the start one). */
 private fun EventTiming.endStorageZone(): TimeZone? = storageZoneFor(endTimeZone)
 
 private fun EventTiming.storageZoneFor(zone: TimeZone?): TimeZone? = when {

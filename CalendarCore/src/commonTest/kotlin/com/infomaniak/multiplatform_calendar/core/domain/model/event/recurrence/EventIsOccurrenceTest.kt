@@ -100,7 +100,7 @@ class EventIsOccurrenceTest {
         // and neither of the two is the master any more.
         assertEquals(
             listOf(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 20, 10, 0)),
-            occurrences.map { it.timing.start },
+            occurrences.map { it.timing.start.wallClock },
         )
         assertTrue(occurrences.all { it.isOccurrence })
     }

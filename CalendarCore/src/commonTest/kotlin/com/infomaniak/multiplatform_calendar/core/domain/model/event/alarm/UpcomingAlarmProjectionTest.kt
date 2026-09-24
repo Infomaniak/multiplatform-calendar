@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.withWallClocks
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
@@ -102,7 +104,7 @@ class UpcomingAlarmProjectionTest {
         val onTime = master.occurrenceOn(day = 11)
         // Same slot, hence the same occurrenceId, but the occurrence itself was moved four hours later.
         val moved = onTime.copy(
-            timing = onTime.timing.copy(start = at(day = 11, hour = 14), end = at(day = 11, hour = 15)),
+            timing = onTime.timing.withWallClocks(start = at(day = 11, hour = 14), end = at(day = 11, hour = 15)),
         )
 
         assertEquals(onTime.occurrenceId, moved.occurrenceId, "moving an occurrence leaves its RECURRENCE-ID alone")
@@ -298,10 +300,8 @@ class UpcomingAlarmProjectionTest {
             accountId = AccountId(1L),
             title = "Test",
             timing = EventTiming(
-                start = at(day, hour = 10),
-                end = at(day, hour = 11),
-                startTimeZone = TimeZone.UTC,
-                endTimeZone = TimeZone.UTC,
+                start = EventDateTime.of(at(day, hour = 10), TimeZone.UTC),
+                end = EventDateTime.of(at(day, hour = 11), TimeZone.UTC),
                 isAllDay = false,
             ),
             colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
@@ -313,7 +313,7 @@ class UpcomingAlarmProjectionTest {
     /** What the expansion hands us: the master re-timed onto one of its slots. */
     private fun Event.occurrenceOn(day: Int): Event = copy(
         occurrenceId = OccurrenceId.Recurrence(masterEventId, RecurrenceKey.Utc(utc(day, hour = 10))),
-        timing = timing.copy(start = at(day, hour = 10), end = at(day, hour = 11)),
+        timing = timing.withWallClocks(start = at(day, hour = 10), end = at(day, hour = 11)),
     )
 
     private fun at(day: Int, hour: Int, minute: Int = 0) = LocalDateTime(2026, 2, day, hour, minute)

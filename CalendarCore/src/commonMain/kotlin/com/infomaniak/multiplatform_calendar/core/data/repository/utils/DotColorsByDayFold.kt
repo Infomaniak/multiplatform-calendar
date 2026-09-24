@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
@@ -122,10 +123,8 @@ internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
 
 /** The [EventTiming] this row describes, resolving its zone ids through [zoneCache]. */
 private fun EventDotColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTiming(
-    start = dtStart,
-    end = dtEndEffective,
-    startTimeZone = startZoneId?.let { zoneCache.zoneOf(it) },
-    endTimeZone = endZoneId?.let { zoneCache.zoneOf(it) },
+    start = EventDateTime.of(dtStart, startZoneId?.let { zoneCache.zoneOf(it) }),
+    end = EventDateTime.of(dtEndEffective, endZoneId?.let { zoneCache.zoneOf(it) }),
     isAllDay = isAllDay,
     recurrenceRule = rrule,
     rDates = rDates,
@@ -143,8 +142,8 @@ private fun DotOrderByDay.recordPlainEvent(
     timeZone: TimeZone,
 ) {
     recordCoveredDays(
-        start = timing.start.projectInto(timing.startTimeZone, timeZone),
-        end = timing.end.projectInto(timing.endTimeZone, timeZone),
+        start = timing.startIn(timeZone),
+        end = timing.endIn(timeZone),
         visibleDays = visibleDays,
         dotColor = dotColor,
         isAllDay = row.isAllDay,

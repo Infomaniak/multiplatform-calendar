@@ -37,8 +37,8 @@ class OccurrenceRebaseTest {
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 15, 10, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 6, 15, 11, 0), rebased.end)
+        assertEquals(LocalDateTime(2026, 6, 15, 10, 0), rebased.startWallClock)
+        assertEquals(LocalDateTime(2026, 6, 15, 11, 0), rebased.endWallClock)
     }
 
     @Test
@@ -49,9 +49,9 @@ class OccurrenceRebaseTest {
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 17, 14, 0), rebased.start)
+        assertEquals(LocalDateTime(2026, 6, 17, 14, 0), rebased.startWallClock)
         // The duration is the edit's own, not the one the master used to have.
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 30), rebased.end)
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 30), rebased.endWallClock)
     }
 
     @Test
@@ -64,8 +64,8 @@ class OccurrenceRebaseTest {
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 3, 28, 10, 0), defaultZone = TimeZone.UTC)
 
         // Measured in absolute time that drag is 47 hours, and would land the series on 09:00.
-        assertEquals(LocalDateTime(2026, 1, 7, 10, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 1, 7, 11, 0), rebased.end)
+        assertEquals(LocalDateTime(2026, 1, 7, 10, 0), rebased.startWallClock)
+        assertEquals(LocalDateTime(2026, 1, 7, 11, 0), rebased.endWallClock)
     }
 
     @Test
@@ -75,8 +75,8 @@ class OccurrenceRebaseTest {
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 15, 16, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 6, 15, 17, 0), rebased.end)
+        assertEquals(LocalDateTime(2026, 6, 15, 16, 0), rebased.startWallClock)
+        assertEquals(LocalDateTime(2026, 6, 15, 17, 0), rebased.endWallClock)
         assertEquals(null, rebased.startTimeZone)
     }
 
@@ -89,24 +89,22 @@ class OccurrenceRebaseTest {
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 0, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 17, 0, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 6, 18, 0, 0), rebased.end)
+        assertEquals(LocalDateTime(2026, 6, 17, 0, 0), rebased.startWallClock)
+        assertEquals(LocalDateTime(2026, 6, 18, 0, 0), rebased.endWallClock)
         assertEquals(true, rebased.isAllDay)
     }
 
     @Test
     fun rebasedOnto_endInAnotherZone_keepsTheZonesTheEditCameWith() {
-        val master = timing(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 8, 0), zurich)
-            .copy(endTimeZone = newYork)
+        val master = timing(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 8, 0), zurich, endZone = newYork)
         // A flight: it leaves Zurich at 14:00 and lands in New York at 12:00 the same day.
-        val edited = timing(LocalDateTime(2026, 6, 17, 14, 0), LocalDateTime(2026, 6, 17, 12, 0), zurich)
-            .copy(endTimeZone = newYork)
+        val edited = timing(LocalDateTime(2026, 6, 17, 14, 0), LocalDateTime(2026, 6, 17, 12, 0), zurich, endZone = newYork)
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), rebased.start)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), rebased.startWallClock)
         // The faces are shifted as they stand, so the zone each one is read in is left untouched.
-        assertEquals(LocalDateTime(2026, 6, 15, 12, 0), rebased.end)
+        assertEquals(LocalDateTime(2026, 6, 15, 12, 0), rebased.endWallClock)
         assertEquals(zurich, rebased.startTimeZone)
         assertEquals(newYork, rebased.endTimeZone)
     }
@@ -127,11 +125,10 @@ class OccurrenceRebaseTest {
         start: LocalDateTime,
         end: LocalDateTime,
         zone: TimeZone? = TimeZone.UTC,
+        endZone: TimeZone? = zone,
     ) = EventTiming(
-        start = start,
-        end = end,
-        startTimeZone = zone,
-        endTimeZone = zone,
+        start = EventDateTime.of(start, zone),
+        end = EventDateTime.of(end, endZone),
         isAllDay = false,
     )
 }

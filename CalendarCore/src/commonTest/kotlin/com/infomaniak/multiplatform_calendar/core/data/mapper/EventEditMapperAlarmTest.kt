@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
@@ -176,10 +177,8 @@ class EventEditMapperAlarmTest {
     private fun editData(alarms: List<EventAlarm>) = EventEditData(
         title = "Test",
         timing = EventTiming(
-            start = LocalDateTime(2026, 6, 15, 10, 0),
-            end = LocalDateTime(2026, 6, 15, 11, 0),
-            startTimeZone = TimeZone.UTC,
-            endTimeZone = TimeZone.UTC,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 10, 0), TimeZone.UTC),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 11, 0), TimeZone.UTC),
             isAllDay = false,
         ),
         location = null,

@@ -27,7 +27,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -50,6 +49,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.DateTimeUnit
@@ -172,6 +172,17 @@ public class CalendarManager internal constructor(
         }
     }
 
+    /** What [observeOccurrence] currently emits for [occurrenceId], `null` when it names nothing. */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun getOccurrence(
+        occurrenceId: OccurrenceId,
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Event? = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "get occurrence $occurrenceId") {
+            eventRepository.observeOccurrence(occurrenceId, timeZone).first()
+        }
+    }
+
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "sync events for all accounts") {
@@ -217,14 +228,6 @@ public class CalendarManager internal constructor(
         }
     }
 
-    @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun updateEvent(eventId: EventId, data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "update event $eventId") {
-            val credentials = getCredentialsForCalendar(data.calendarId)
-            eventRepository.updateEvent(credentials, eventId, data)
-        }
-    }
-
     /**
      * Apply [data] to what [target] designates, as offered by
      * [recurrenceScopes][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.recurrenceScopes]
@@ -254,15 +257,6 @@ public class CalendarManager internal constructor(
     public suspend fun getEditData(occurrenceId: OccurrenceId): EventEditData? = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "read edit data of event $occurrenceId") {
             eventRepository.getEditData(occurrenceId)
-        }
-    }
-
-    @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun deleteEvent(eventId: EventId): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "delete event $eventId") {
-            val accountId = eventRepository.getAccountIdByEventId(eventId)
-            val credentials = accountRepository.getCredentials(accountId)
-            eventRepository.deleteEvent(credentials, eventId)
         }
     }
 

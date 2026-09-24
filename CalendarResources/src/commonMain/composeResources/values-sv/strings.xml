@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recurrence_at_hour">vid timme %1$d</string>
+    <string name="recurrence_at_hours">vid timmarna %1$s</string>
+    <string name="recurrence_at_minute">vid minut %1$d</string>
+    <string name="recurrence_at_minutes">vid minuterna %1$s</string>
+    <string name="recurrence_at_second">vid sekund %1$d</string>
+    <string name="recurrence_at_seconds">vid sekunderna %1$s</string>
+    <string name="recurrence_clause_join">%1$s, %2$s</string>
+    <string name="recurrence_date">%2$d %1$s %3$d</string>
+    <string name="recurrence_date_month_april">april</string>
+    <string name="recurrence_date_month_august">augusti</string>
+    <string name="recurrence_date_month_december">december</string>
+    <string name="recurrence_date_month_february">februari</string>
+    <string name="recurrence_date_month_january">januari</string>
+    <string name="recurrence_date_month_july">juli</string>
+    <string name="recurrence_date_month_june">juni</string>
+    <string name="recurrence_date_month_march">mars</string>
+    <string name="recurrence_date_month_may">maj</string>
+    <string name="recurrence_date_month_november">november</string>
+    <string name="recurrence_date_month_october">oktober</string>
+    <string name="recurrence_date_month_september">september</string>
+    <string name="recurrence_every_day">Varje dag</string>
+    <string name="recurrence_every_hour">Varje timme</string>
+    <string name="recurrence_every_minute">Varje minut</string>
+    <string name="recurrence_every_month">Varje månad</string>
+    <string name="recurrence_every_second">Varje sekund</string>
+    <string name="recurrence_every_week">Varje vecka</string>
+    <string name="recurrence_every_year">Varje år</string>
+    <string name="recurrence_first_matching_day">på den första matchande dagen (%1$s)</string>
+    <string name="recurrence_in_week_numbers">i %1$s under året</string>
+    <string name="recurrence_last_matching_day">på den sista matchande dagen (%1$s)</string>
+    <string name="recurrence_list_append">%1$s, %2$s</string>
+    <string name="recurrence_list_last">%1$s och %2$s</string>
+    <string name="recurrence_list_two">%1$s och %2$s</string>
+    <string name="recurrence_month_april">i april</string>
+    <string name="recurrence_month_august">i augusti</string>
+    <string name="recurrence_month_day">dag %1$d</string>
+    <string name="recurrence_month_day_from_end">dag %1$d från slutet</string>
+    <string name="recurrence_month_day_last">den sista dagen</string>
+    <string name="recurrence_month_december">i december</string>
+    <string name="recurrence_month_february">i februari</string>
+    <string name="recurrence_month_january">i januari</string>
+    <string name="recurrence_month_july">i juli</string>
+    <string name="recurrence_month_june">i juni</string>
+    <string name="recurrence_month_march">i mars</string>
+    <string name="recurrence_month_may">i maj</string>
+    <string name="recurrence_month_november">i november</string>
+    <string name="recurrence_month_october">i oktober</string>
+    <string name="recurrence_month_september">i september</string>
+    <string name="recurrence_number">%1$d</string>
+    <string name="recurrence_on_annual_date">den %2$d %1$s</string>
+    <string name="recurrence_on_month_days">på %1$s i månaden</string>
+    <string name="recurrence_on_year_days">på %1$s under året</string>
+    <string name="recurrence_ordinal_weekday_fifth">den femte %1$s</string>
+    <string name="recurrence_ordinal_weekday_fifth_last">den femte sista %1$s</string>
+    <string name="recurrence_ordinal_weekday_first">den första %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth">den fjärde %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth_last">den fjärde sista %1$s</string>
+    <string name="recurrence_ordinal_weekday_last">den sista %1$s</string>
+    <string name="recurrence_ordinal_weekday_position">%1$s på position %2$d</string>
+    <string name="recurrence_ordinal_weekday_position_from_end">%1$s på position %2$d från slutet</string>
+    <string name="recurrence_ordinal_weekday_second">den andra %1$s</string>
+    <string name="recurrence_ordinal_weekday_second_last">den näst sista %1$s</string>
+    <string name="recurrence_ordinal_weekday_third">den tredje %1$s</string>
+    <string name="recurrence_ordinal_weekday_third_last">den tredje sista %1$s</string>
+    <string name="recurrence_set_position">position %1$d</string>
+    <string name="recurrence_set_position_first">den första</string>
+    <string name="recurrence_set_position_from_end">position %1$d från slutet</string>
+    <string name="recurrence_set_position_last">den sista</string>
+    <string name="recurrence_until">till %1$s</string>
+    <string name="recurrence_using_set_positions">med %1$s bland de matchande förekomsterna</string>
+    <string name="recurrence_week_number">vecka %1$d</string>
+    <string name="recurrence_week_number_from_end">vecka %1$d från slutet</string>
+    <string name="recurrence_week_number_last">den sista veckan</string>
+    <string name="recurrence_week_start">med veckor som börjar på %1$s</string>
+    <string name="recurrence_weekday_friday">på fredagar</string>
+    <string name="recurrence_weekday_monday">på måndagar</string>
+    <string name="recurrence_weekday_name_friday">fredag</string>
+    <string name="recurrence_weekday_name_monday">måndag</string>
+    <string name="recurrence_weekday_name_saturday">lördag</string>
+    <string name="recurrence_weekday_name_sunday">söndag</string>
+    <string name="recurrence_weekday_name_thursday">torsdag</string>
+    <string name="recurrence_weekday_name_tuesday">tisdag</string>
+    <string name="recurrence_weekday_name_wednesday">onsdag</string>
+    <string name="recurrence_weekday_saturday">på lördagar</string>
+    <string name="recurrence_weekday_sunday">på söndagar</string>
+    <string name="recurrence_weekday_thursday">på torsdagar</string>
+    <string name="recurrence_weekday_tuesday">på tisdagar</string>
+    <string name="recurrence_weekday_wednesday">på onsdagar</string>
+    <string name="recurrence_year_day">dag %1$d</string>
+    <string name="recurrence_year_day_from_end">dag %1$d från slutet</string>
+    <string name="recurrence_year_day_last">den sista dagen</string>
+
+    <plurals name="recurrence_every_n_days">
+        <item quantity="one">Var %1$d dag</item>
+        <item quantity="other">Var %1$d dag</item>
+    </plurals>
+    <plurals name="recurrence_every_n_hours">
+        <item quantity="one">Var %1$d timme</item>
+        <item quantity="other">Var %1$d timme</item>
+    </plurals>
+    <plurals name="recurrence_every_n_minutes">
+        <item quantity="one">Var %1$d minut</item>
+        <item quantity="other">Var %1$d minut</item>
+    </plurals>
+    <plurals name="recurrence_every_n_months">
+        <item quantity="one">Var %1$d månad</item>
+        <item quantity="other">Var %1$d månad</item>
+    </plurals>
+    <plurals name="recurrence_every_n_seconds">
+        <item quantity="one">Var %1$d sekund</item>
+        <item quantity="other">Var %1$d sekund</item>
+    </plurals>
+    <plurals name="recurrence_every_n_weeks">
+        <item quantity="one">Var %1$d vecka</item>
+        <item quantity="other">Var %1$d vecka</item>
+    </plurals>
+    <plurals name="recurrence_every_n_years">
+        <item quantity="one">Vart %1$d år</item>
+        <item quantity="other">Vart %1$d år</item>
+    </plurals>
+    <plurals name="recurrence_for_occurrences">
+        <item quantity="one">i %1$d förekomst</item>
+        <item quantity="other">i %1$d förekomster</item>
+    </plurals>
+</resources>

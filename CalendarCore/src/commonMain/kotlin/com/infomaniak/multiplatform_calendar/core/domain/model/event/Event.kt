@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceScopesFor
+import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 import kotlin.time.ExperimentalTime
@@ -67,4 +68,9 @@ public data class Event(
     /** What a mutation of this event may be asked to reach, empty when there is nothing to ask. */
     val recurrenceScopes: Set<RecurrenceScope>
         get() = recurrenceScopesFor(isOccurrence, canEdit)
+
+    /** The description with all Infomaniak marked blocks removed. */
+    val cleanedDescription: String
+        get() = description?.removeMarkedBlocks() ?: ""
+
 }

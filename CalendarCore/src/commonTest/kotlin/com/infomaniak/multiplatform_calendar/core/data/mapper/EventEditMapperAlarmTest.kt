@@ -169,6 +169,20 @@ class EventEditMapperAlarmTest {
     }
 
     @Test
+    fun storedUnknownActionAlarm_isLeftOutOfTheComparison() {
+        val previous = eventEntity(
+            alarms = listOf(
+                alarmEntity(triggerRelative = (-15).minutes),
+                alarmEntity(triggerRelative = (-30).minutes, action = "X-CUSTOM"),
+            ),
+        )
+
+        val edit = editData(alarms = listOf(eventAlarm(offset = -15.minutes))).toRemoteEdit(stamp = STAMP, previous = previous)
+
+        assertNull(edit.alarms)
+    }
+
+    @Test
     fun repetition_isWrittenBack_whenTheAlarmListIsRebuilt() {
         val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
         val repeated = eventAlarm(offset = -5.minutes, repetition = AlarmRepetition(2, 300.seconds))
@@ -181,13 +195,40 @@ class EventEditMapperAlarmTest {
         assertEquals(RemoteAlarmRepetition(count = 2, interval = "PT5M"), emitted[1].repetition)
     }
 
+    @Test
+    fun storedUnknownActionAlarm_isNotRestatedWhenTheListIsRebuilt() {
+        val previous = eventEntity(
+            alarms = listOf(
+                alarmEntity(triggerRelative = (-15).minutes),
+                alarmEntity(triggerRelative = (-30).minutes, action = "X-CUSTOM"),
+            ),
+        )
+
+        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes))).toRemoteEdit(stamp = STAMP, previous = previous)
+
+        assertEquals(listOf("DISPLAY"), assertNotNull(edit.alarms).map { it.action })
+    }
+
+    @Test
+    fun statedUnknownActionAlarm_isIgnored() {
+        val stated = listOf(
+            eventAlarm(offset = -5.minutes),
+            eventAlarm(offset = -30.minutes, action = AlarmAction.Unknown("X-CUSTOM")),
+        )
+
+        val edit = editData(alarms = stated).toRemoteEdit(stamp = STAMP, previous = null)
+
+        assertEquals(listOf("DISPLAY"), assertNotNull(edit.alarms).map { it.action })
+    }
+
     private fun eventAlarm(
         offset: Duration,
         description: String? = "Reminder",
         uid: String? = null,
         repetition: AlarmRepetition? = null,
+        action: AlarmAction = AlarmAction.Display,
     ) = EventAlarm(
-        action = AlarmAction.Display,
+        action = action,
         trigger = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start),
         uid = uid?.let(AlarmId::Uid),
         description = description,
@@ -200,9 +241,10 @@ class EventEditMapperAlarmTest {
         description: String? = "Reminder",
         uid: String? = null,
         repetition: AlarmRepetitionEntity? = null,
+        action: String = "DISPLAY",
     ) = AlarmEntity(
         uid = uid,
-        action = "DISPLAY",
+        action = action,
         triggerRelative = triggerRelative,
         triggerAbsolute = triggerAbsolute,
         triggerRelatedTo = TriggerRelation.Start,

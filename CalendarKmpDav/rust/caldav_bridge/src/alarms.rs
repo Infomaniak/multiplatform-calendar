@@ -21,6 +21,19 @@ const DATE_TIME_VALUE: &str = "DATE-TIME";
 const RELATED_START: &str = "START";
 const RELATED_END: &str = "END";
 const DEFAULT_ACTION: &str = "DISPLAY";
+/// The actions an edit governs; a VALARM with any other is kept verbatim through every edit.
+const EDITABLE_ACTIONS: [&str; 3] = ["DISPLAY", "AUDIO", "EMAIL"];
+
+/// A VALARM without `ACTION` reads as [`DEFAULT_ACTION`], so it is editable.
+fn is_editable_action(action: Option<&str>) -> bool {
+    action.map_or(true, |action| EDITABLE_ACTIONS.iter().any(|editable| action.eq_ignore_ascii_case(editable)))
+}
+
+/// Whether every edit keeps this VALARM, see [`EDITABLE_ACTIONS`].
+pub(crate) fn is_uneditable_valarm<C: Component>(c: &C) -> bool {
+    c.component_kind().eq_ignore_ascii_case(VALARM)
+        && !is_editable_action(c.properties().get(ACTION).map(|p| p.value()))
+}
 
 pub(crate) fn parse_alarms(ev: &icalendar::Event) -> Vec<AlarmEntry> {
     ev.components()
@@ -30,15 +43,15 @@ pub(crate) fn parse_alarms(ev: &icalendar::Event) -> Vec<AlarmEntry> {
         .collect()
 }
 
-/// Strips VALARMs from the VEVENT at `target_vevent` (0-based ordinal among VEVENTs), leaving every
-/// other VEVENT's alarms — e.g. recurrence-exception overrides — untouched.
+/// Strips the editable VALARMs (see [`EDITABLE_ACTIONS`]) from the VEVENT at `target_vevent` (0-based
+/// ordinal among VEVENTs), leaving every other VEVENT's alarms — e.g. recurrence-exception overrides — untouched.
 /// Only the line terminator is trimmed so folded continuation lines aren't mistaken for boundaries.
-pub(crate) fn strip_valarms_in_vevent(ics: &str, target_vevent: usize) -> String {
+pub(crate) fn strip_editable_valarms_in_vevent(ics: &str, target_vevent: usize) -> String {
     let mut out = String::with_capacity(ics.len());
     let mut vevent_seen = 0usize;
     let mut in_target = false;
     let mut done = false;
-    let mut in_alarm = false;
+    let mut alarm: Option<String> = None;
     for line in ics.split_inclusive('\n') {
         let marker = line.trim_end_matches(['\r', '\n']);
         if !done && !in_target && is_begin_marker(marker, VEVENT) {
@@ -52,12 +65,17 @@ pub(crate) fn strip_valarms_in_vevent(ics: &str, target_vevent: usize) -> String
         }
         if in_target {
             if is_begin_marker(marker, VALARM) {
-                in_alarm = true;
+                alarm = Some(line.to_string());
                 continue;
             }
-            if in_alarm {
+            if let Some(block) = alarm.as_mut() {
+                block.push_str(line);
                 if is_end_marker(marker, VALARM) {
-                    in_alarm = false;
+                    if let Some(block) = alarm.take() {
+                        if !is_editable_action(block_action(&block).as_deref()) {
+                            out.push_str(&block);
+                        }
+                    }
                 }
                 continue;
             }
@@ -69,6 +87,30 @@ pub(crate) fn strip_valarms_in_vevent(ics: &str, target_vevent: usize) -> String
         out.push_str(line);
     }
     out
+}
+
+/// The `ACTION` of a VALARM block, read once its folded lines are joined back.
+fn block_action(block: &str) -> Option<String> {
+    let unfolded = block.replace("\r\n ", "").replace("\r\n\t", "").replace("\n ", "").replace("\n\t", "");
+    unfolded.lines().find_map(action_value)
+}
+
+/// The value of an `ACTION` content line, `None` for any other line.
+fn action_value(line: &str) -> Option<String> {
+    let name_end = line.find([';', ':'])?;
+    if !line[..name_end].eq_ignore_ascii_case(ACTION) {
+        return None;
+    }
+    let mut in_quotes = false;
+    let value_start = line[name_end..].char_indices().find_map(|(i, c)| match c {
+        '"' => {
+            in_quotes = !in_quotes;
+            None
+        }
+        ':' if !in_quotes => Some(name_end + i + 1),
+        _ => None,
+    })?;
+    Some(line[value_start..].trim().to_string())
 }
 
 /// Splices VALARM blocks before the `END:VEVENT` of the VEVENT at `target_vevent` (0-based ordinal

@@ -21,6 +21,5 @@ private const val MARKED_BLOCKS = "/\\*----------------------------------------\
 private val MARKED_BLOCKS_REGEX = Regex("$MARKED_BLOCKS[\\s\\S]*?$MARKED_BLOCKS")
 
 internal fun String.removeMarkedBlocks(): String {
-    val regex = MARKED_BLOCKS_REGEX
-    return this.replace(regex, "").trim()
+    return this.replace(MARKED_BLOCKS_REGEX, "").trim()
 }

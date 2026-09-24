@@ -35,16 +35,7 @@ public sealed interface EventDateTime {
     /** The wall-clock in the event's original form: as-is when [Floating], at [Precise.timeZone] when [Precise]. */
     public val wallClock: LocalDateTime
 
-    /** Absolute point in time; a [Floating] wall-clock is anchored in [defaultZone] (the reader's zone). */
-    public fun toInstant(defaultZone: TimeZone): Instant
-
-    /** Wall-clock at [targetZone]; a [Floating] one is returned as-is, being read in the reader's zone. */
-    public fun toLocalDateTime(targetZone: TimeZone): LocalDateTime
-
-    public data class Floating(override val wallClock: LocalDateTime) : EventDateTime {
-        override fun toInstant(defaultZone: TimeZone): Instant = wallClock.toInstant(defaultZone)
-        override fun toLocalDateTime(targetZone: TimeZone): LocalDateTime = wallClock
-    }
+    public data class Floating(override val wallClock: LocalDateTime) : EventDateTime
 
     /**
      * [wallClock] is the wall-clock the source described at [timeZone]. It only differs from [instant] read at
@@ -57,11 +48,6 @@ public sealed interface EventDateTime {
         override val wallClock: LocalDateTime,
     ) : EventDateTime {
         public constructor(instant: Instant, timeZone: TimeZone) : this(instant, timeZone, instant.toLocalDateTime(timeZone))
-
-        override fun toInstant(defaultZone: TimeZone): Instant = instant
-
-        override fun toLocalDateTime(targetZone: TimeZone): LocalDateTime =
-            if (targetZone == timeZone) wallClock else instant.toLocalDateTime(targetZone)
 
         override fun equals(other: Any?): Boolean = other is Precise &&
             instant == other.instant && timeZone == other.timeZone && wallClock == other.wallClock
@@ -84,6 +70,18 @@ public sealed interface EventDateTime {
             else -> Precise(wallClock.toInstant(timeZone), timeZone, wallClock)
         }
     }
+}
+
+/** Absolute point in time; a [EventDateTime.Floating] wall-clock is anchored in [defaultZone] (the reader's zone). */
+internal fun EventDateTime.toInstant(defaultZone: TimeZone): Instant = when (this) {
+    is EventDateTime.Floating -> wallClock.toInstant(defaultZone)
+    is EventDateTime.Precise -> instant
+}
+
+/** Wall-clock at [targetZone]; a [EventDateTime.Floating] one is returned as-is, being read in the reader's zone. */
+internal fun EventDateTime.toLocalDateTime(targetZone: TimeZone): LocalDateTime = when (this) {
+    is EventDateTime.Floating -> wallClock
+    is EventDateTime.Precise -> if (targetZone == timeZone) wallClock else instant.toLocalDateTime(targetZone)
 }
 
 /** The zone of a [EventDateTime.Precise], `null` for a [EventDateTime.Floating]. */

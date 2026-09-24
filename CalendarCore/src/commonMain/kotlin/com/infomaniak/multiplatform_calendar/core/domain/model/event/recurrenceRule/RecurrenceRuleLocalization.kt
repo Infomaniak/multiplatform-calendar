@@ -34,8 +34,10 @@ import kotlinx.datetime.TimeZone
 public suspend fun RecurrenceRule.toLocalizedString(
     start: LocalDateTime,
     timeZone: TimeZone? = null,
-): String = RecurrenceTextFormatter().format(
+): String = recurrenceTextFormatter.format(
     rule = this,
     start = start,
     timeZone = timeZone,
 )
+
+private val recurrenceTextFormatter: RecurrenceTextFormatter by lazy { RecurrenceTextFormatter() }

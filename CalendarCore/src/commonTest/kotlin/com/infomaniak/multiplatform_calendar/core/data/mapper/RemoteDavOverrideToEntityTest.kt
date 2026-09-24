@@ -118,6 +118,24 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
+    fun overrideMeetRoomUrl_isPreservedInOverrideContent() {
+        val event = remoteEvent(
+            dtstart = "20260615T100000Z",
+            overrides = listOf(
+                override(
+                    recurrenceId = "20260617T100000Z",
+                    dtstart = "20260617T140000Z",
+                    meetRoomUrl = "https://kmeet.infomaniak.com/override-room",
+                ),
+            ),
+        )
+
+        val override = event.toOverrideEntities(event.toTimingEntity()).single()
+
+        assertEquals("https://kmeet.infomaniak.com/override-room", override.content.meetRoomUrl)
+    }
+
+    @Test
     fun overrideWhoseFormDiffersFromTheMasterIsSkippedWithoutLosingItsSiblings() {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
@@ -275,6 +293,7 @@ class RemoteDavOverrideToEntityTest {
         recurrenceIdValueType: RemoteIcalDateValueType = RemoteIcalDateValueType.DateTime,
         isThisAndFuture: Boolean = false,
         status: String? = null,
+        meetRoomUrl: String? = null,
     ) = RemoteDavEventOverride(
         recurrenceId = recurrenceId,
         recurrenceIdTzid = recurrenceIdTzid,
@@ -298,6 +317,7 @@ class RemoteDavOverrideToEntityTest {
             priority = null,
             sequence = null,
             categories = null,
+            meetRoomUrl = meetRoomUrl,
             colorHex = null,
             colorIcalName = null,
         ),

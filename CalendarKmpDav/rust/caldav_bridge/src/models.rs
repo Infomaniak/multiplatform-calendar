@@ -74,6 +74,12 @@ pub struct EventContentEntry {
     pub priority: Option<String>,
     pub sequence: Option<String>,
     pub categories: Option<String>,
+    /// Raw `X-INFOMANIAK-MEET-ROOM-URL` value.
+    pub meet_room_url: Option<String>,
+    /// Raw `X-INFOMANIAK-BOOKABLE` UUID value.
+    pub bookable_uuid: Option<String>,
+    /// `X-INFOMANIAK-ATTACH` values with their relevant parameters.
+    pub attachments: Vec<InfomaniakAttachEntry>,
     /// Raw `X-APPLE-CALENDAR-COLOR` value (typically `#RRGGBB` or `#RRGGBBAA`).
     pub color_hex: Option<String>,
     /// Raw RFC 7986 §5.9 `COLOR` value (a case-insensitive CSS3 color name).
@@ -81,6 +87,13 @@ pub struct EventContentEntry {
     pub attendees: Vec<AttendeeEntry>,
     pub organizer: Option<OrganizerEntry>,
     pub alarms: Vec<AlarmEntry>,
+}
+
+#[derive(uniffi::Record)]
+pub struct InfomaniakAttachEntry {
+    pub url: String,
+    pub filename: String,
+    pub mime_type: Option<String>,
 }
 
 /// A `VEVENT` overriding a single instance of its series, identified by its `RECURRENCE-ID`.

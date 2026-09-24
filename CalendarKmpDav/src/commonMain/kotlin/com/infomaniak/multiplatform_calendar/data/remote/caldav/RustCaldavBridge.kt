@@ -22,6 +22,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -29,22 +31,21 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Set
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Unchanged
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,7 +55,6 @@ import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
 import uniffi.caldav_bridge.DateListChange
-import uniffi.caldav_bridge.OverrideRemoval
 import uniffi.caldav_bridge.DateListLine
 import uniffi.caldav_bridge.EventContentEntry
 import uniffi.caldav_bridge.EventEdit
@@ -62,7 +62,9 @@ import uniffi.caldav_bridge.EventEntry
 import uniffi.caldav_bridge.EventOverrideEntry
 import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
+import uniffi.caldav_bridge.InfomaniakAttachEntry
 import uniffi.caldav_bridge.OrganizerEntry
+import uniffi.caldav_bridge.OverrideRemoval
 import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.RecurrenceIdSpec
 import uniffi.caldav_bridge.VTimeZoneSpec
@@ -373,6 +375,9 @@ private fun EventContentEntry.toRemote() = RemoteDavEventContent(
     priority = priority,
     sequence = sequence,
     categories = categories,
+    meetRoomUrl = meetRoomUrl,
+    bookableUuid = bookableUuid,
+    infomaniakAttach = attachments.map(InfomaniakAttachEntry::toRemote),
     colorHex = colorHex,
     colorIcalName = colorIcalName,
     attendees = attendees.map(AttendeeEntry::toRemote),
@@ -400,6 +405,12 @@ private fun AlarmEntry.toRemote() = RemoteDavAlarm(
     summary = summary,
     attendees = attendees,
     attach = attach,
+)
+
+private fun InfomaniakAttachEntry.toRemote() = RemoteEventAttachment(
+    url = url,
+    filename = filename,
+    mimetype = mimeType,
 )
 
 private fun IcalDateValueEntry.toRemote() = RemoteIcalDateValue(

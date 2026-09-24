@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local
 import androidx.room3.ColumnTypeConverter
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventAttachmentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
@@ -60,6 +61,12 @@ internal class CalendarTypeConverters {
 
     @ColumnTypeConverter
     fun toAlarms(value: String): List<AlarmEntity> = Json.decodeFromString(value)
+
+    @ColumnTypeConverter
+    fun fromInfomaniakAttach(value: List<EventAttachmentEntity>): String = Json.encodeToString(value)
+
+    @ColumnTypeConverter
+    fun toInfomaniakAttach(value: String): List<EventAttachmentEntity> = Json.decodeFromString(value)
 
     @ColumnTypeConverter
     fun fromRecurrenceRule(value: RecurrenceRule?): String? = value?.let { Json.encodeToString(it) }

@@ -70,6 +70,12 @@ data class RemoteDavEventContent(
     val sequence: String? = null,
     /** Comma-separated categories. */
     val categories: String? = null,
+    /** Raw `X-INFOMANIAK-MEET-ROOM-URL` value. */
+    val meetRoomUrl: String? = null,
+    /** Raw `X-INFOMANIAK-BOOKABLE` UUID value. */
+    val bookableUuid: String? = null,
+    /** Parsed `X-INFOMANIAK-ATTACH` custom properties. */
+    val infomaniakAttach: List<RemoteEventAttachment> = emptyList(),
     /** Raw `X-APPLE-CALENDAR-COLOR` value (Apple extension, typically `#RRGGBB` or `#RRGGBBAA`). */
     val colorHex: String? = null,
     /** Raw `COLOR` value (RFC 7986 §5.9, a case-insensitive CSS3 color name). */

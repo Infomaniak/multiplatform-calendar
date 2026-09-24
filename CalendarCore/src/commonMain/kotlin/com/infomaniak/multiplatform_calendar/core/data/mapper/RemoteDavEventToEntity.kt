@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventAttachmentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
@@ -48,6 +49,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import kotlinx.datetime.TimeZone
@@ -95,8 +97,17 @@ internal fun RemoteDavEventContent.toContentEntity(url: String) = EventContentEn
     attendees = attendees.map { it.toEntity() },
     organizer = organizer?.toEntity(),
     alarms = alarms.map { it.toEntity() },
+    meetRoomUrl = meetRoomUrl,
+    bookableUuid = bookableUuid,
+    attachments = infomaniakAttach.map(RemoteEventAttachment::toEntity),
     colorArgb = resolveColorArgb(),
     colorIcalName = colorIcalName,
+)
+
+private fun RemoteEventAttachment.toEntity() = EventAttachmentEntity(
+    url = url,
+    filename = filename,
+    mimetype = mimetype,
 )
 
 internal data class ResolvedRecurrence(

@@ -60,6 +60,7 @@ include(
     ":Account",
     ":CalendarCore",
     ":CalendarKmpDav",
+    ":CalendarResources",
     ":Contacts",
     ":Network",
 )

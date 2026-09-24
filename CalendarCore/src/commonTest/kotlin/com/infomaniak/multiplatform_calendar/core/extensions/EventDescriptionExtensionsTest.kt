@@ -26,59 +26,59 @@ class EventDescriptionExtensionsTest {
 
     @Test
     fun removeMarkedBlocks_removesOneBlockAndPreservesSurroundingText() {
-        val input = "avant${marker}contenu à supprimer${marker}après"
+        val input = "before${marker}content to remove${marker}after"
 
-        assertEquals("avantaprès", input.removeMarkedBlocks())
+        assertEquals("beforeafter", input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_removesMultipleBlocks() {
-        val input = "avant${marker}premier${marker}milieu${marker}second${marker}après"
+        val input = "before${marker}first${marker}middle${marker}second${marker}after"
 
-        assertEquals("avantmilieuaprès", input.removeMarkedBlocks())
+        assertEquals("beforemiddleafter", input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_removesMultilineBlockAndPreservesLineBreaksOutsideIt() {
-        val input = "avant\n${marker}\npremière ligne\ndeuxième ligne\n${marker}\naprès"
+        val input = "before\n${marker}\nfirst line\nsecond line\n${marker}\nafter"
 
-        assertEquals("avant\n\naprès", input.removeMarkedBlocks())
+        assertEquals("before\n\nafter", input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_removesSeveralMultilineBlocks() {
-        val input = "avant\n${marker}\npremier bloc\nsur deux lignes\n${marker}\nentre\n" +
-            "${marker}\nsecond bloc\nsur deux lignes\n${marker}\naprès"
+        val input = "before\n${marker}\nfirst block\nspanning two lines\n${marker}\nbetween\n" +
+            "${marker}\nsecond block\nspanning two lines\n${marker}\nafter"
 
-        assertEquals("avant\n\nentre\n\naprès", input.removeMarkedBlocks())
+        assertEquals("before\n\nbetween\n\nafter", input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_removesMultilineEmptyBlock() {
-        val input = "avant\n${marker}\n${marker}\naprès"
+        val input = "before\n${marker}\n${marker}\nafter"
 
-        assertEquals("avant\n\naprès", input.removeMarkedBlocks())
+        assertEquals("before\n\nafter", input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_removesBlockWithEmptyContent() {
-        val input = "avant${marker}${marker}après"
+        val input = "before${marker}${marker}after"
 
-        assertEquals("avantaprès", input.removeMarkedBlocks())
+        assertEquals("beforeafter", input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_removesSeveralEmptyBlocks() {
-        val input = "avant${marker}${marker}${marker}${marker}après"
+        val input = "before${marker}${marker}${marker}${marker}after"
 
-        assertEquals("avantaprès", input.removeMarkedBlocks())
+        assertEquals("beforeafter", input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_removesEmptyAndNonEmptyBlocksTogether() {
-        val input = "avant${marker}contenu${marker}${marker}${marker}après"
+        val input = "before${marker}content${marker}${marker}${marker}after"
 
-        assertEquals("avantaprès", input.removeMarkedBlocks())
+        assertEquals("beforeafter", input.removeMarkedBlocks())
     }
 
     @Test
@@ -90,14 +90,14 @@ class EventDescriptionExtensionsTest {
 
     @Test
     fun removeMarkedBlocks_leavesTextWithoutBlocksUntouched() {
-        val input = "description normale"
+        val input = "normal description"
 
         assertEquals(input, input.removeMarkedBlocks())
     }
 
     @Test
     fun removeMarkedBlocks_leavesUnmatchedMarkerUntouched() {
-        val input = "avant${marker}contenu sans fermeture"
+        val input = "before${marker}content without closing marker"
 
         assertEquals(input, input.removeMarkedBlocks())
     }

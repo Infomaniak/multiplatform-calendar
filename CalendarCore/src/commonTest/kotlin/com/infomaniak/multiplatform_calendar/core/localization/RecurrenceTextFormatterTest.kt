@@ -102,7 +102,7 @@ class RecurrenceTextFormatterTest {
     fun yearly_withByMonthAndNoDaySelector_inheritsOnlyMonthDayFromDtStart() = runTest {
         assertEquals(
             "recurrence_every_year | recurrence_month_january & recurrence_month_june | " +
-                "recurrence_on_month_days(recurrence_month_day(30))",
+                    "recurrence_on_month_days(recurrence_month_day(30))",
             format(RecurrenceRule(freq = Frequency.Yearly, byMonth = listOf(6, 1))),
         )
     }
@@ -111,7 +111,7 @@ class RecurrenceTextFormatterTest {
     fun byMonth_isSortedAndDeduplicated() = runTest {
         assertEquals(
             "recurrence_every_year | recurrence_month_january, recurrence_month_june & recurrence_month_september | " +
-                "recurrence_on_month_days(recurrence_month_day(30))",
+                    "recurrence_on_month_days(recurrence_month_day(30))",
             format(RecurrenceRule(freq = Frequency.Yearly, byMonth = listOf(9, 1, 6, 1))),
         )
     }
@@ -120,7 +120,7 @@ class RecurrenceTextFormatterTest {
     fun byMonthDay_supportsPositiveLastAndNegativePositions() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_on_month_days(" +
-                "recurrence_month_day(1), recurrence_month_day_from_end(2) & recurrence_month_day_last)",
+                    "recurrence_month_day(1), recurrence_month_day_last & recurrence_month_day_from_end(2))",
             format(RecurrenceRule(freq = Frequency.Monthly, byMonthDay = listOf(-1, 1, -2))),
         )
     }
@@ -129,8 +129,8 @@ class RecurrenceTextFormatterTest {
     fun byDay_supportsPositiveNegativeAndGenericOrdinals() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_ordinal_weekday_first(recurrence_weekday_name_monday), " +
-                "recurrence_ordinal_weekday_position(recurrence_weekday_name_tuesday, 6) & " +
-                "recurrence_ordinal_weekday_last(recurrence_weekday_name_friday)",
+                    "recurrence_ordinal_weekday_position(recurrence_weekday_name_tuesday, 6) & " +
+                    "recurrence_ordinal_weekday_last(recurrence_weekday_name_friday)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
@@ -139,7 +139,7 @@ class RecurrenceTextFormatterTest {
                         WeekDayNum(ordinal = 6, dayOfWeek = DayOfWeek.TUESDAY),
                         WeekDayNum(ordinal = 1, dayOfWeek = DayOfWeek.MONDAY),
                     ),
-                )
+                ),
             ),
         )
     }
@@ -148,7 +148,7 @@ class RecurrenceTextFormatterTest {
     fun weekStart_changesWeekdayOrderingAndIsAlsoDescribed() = runTest {
         assertEquals(
             "recurrence_every_week | recurrence_weekday_sunday, recurrence_weekday_monday & recurrence_weekday_friday | " +
-                "recurrence_week_start(recurrence_weekday_name_sunday)",
+                    "recurrence_week_start(recurrence_weekday_name_sunday)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Weekly,
@@ -158,7 +158,7 @@ class RecurrenceTextFormatterTest {
                         WeekDayNum(dayOfWeek = DayOfWeek.SUNDAY),
                     ),
                     weekStart = DayOfWeek.SUNDAY,
-                )
+                ),
             ),
         )
     }
@@ -167,13 +167,13 @@ class RecurrenceTextFormatterTest {
     fun byYearDayAndByWeekNumber_supportNegativePositions() = runTest {
         assertEquals(
             "recurrence_every_year | recurrence_in_week_numbers(recurrence_week_number(1) & recurrence_week_number_last) | " +
-                "recurrence_on_year_days(recurrence_year_day(100) & recurrence_year_day_last) | recurrence_weekday_wednesday",
+                    "recurrence_on_year_days(recurrence_year_day(100) & recurrence_year_day_last) | recurrence_weekday_wednesday",
             format(
                 RecurrenceRule(
                     freq = Frequency.Yearly,
                     byYearDay = listOf(-1, 100),
                     byWeekNumber = listOf(-1, 1),
-                )
+                ),
             ),
         )
     }
@@ -182,14 +182,14 @@ class RecurrenceTextFormatterTest {
     fun timeSelectors_areSortedAndDeduplicated() = runTest {
         assertEquals(
             "recurrence_every_day | recurrence_at_hours(8 & 17) | recurrence_at_minutes(15 & 45) | " +
-                "recurrence_at_seconds(0 & 30)",
+                    "recurrence_at_seconds(0 & 30)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Daily,
                     byHour = listOf(17, 8, 17),
                     byMinute = listOf(45, 15),
                     bySecond = listOf(30, 0),
-                )
+                ),
             ),
         )
     }
@@ -253,7 +253,7 @@ class RecurrenceTextFormatterTest {
                     freq = Frequency.Daily,
                     occurrenceCount = 10,
                     until = RecurrenceUntil.DateOnly(LocalDate(2028, 12, 31)),
-                )
+                ),
             ),
         )
     }
@@ -267,7 +267,7 @@ class RecurrenceTextFormatterTest {
                     freq = Frequency.Monthly,
                     byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY)),
                     byOccurrencePosition = listOf(-1),
-                )
+                ),
             ),
         )
     }
@@ -276,14 +276,14 @@ class RecurrenceTextFormatterTest {
     fun monthlySetPos_lastWithSeveralWeekdays_keepsTheExplicitCandidateDays() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_last_matching_day(" +
-                "recurrence_weekday_name_monday, recurrence_weekday_name_tuesday, " +
-                "recurrence_weekday_name_wednesday, recurrence_weekday_name_thursday & recurrence_weekday_name_friday)",
+                    "recurrence_weekday_name_monday, recurrence_weekday_name_tuesday, " +
+                    "recurrence_weekday_name_wednesday, recurrence_weekday_name_thursday & recurrence_weekday_name_friday)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
                     byDay = WEEKDAYS.map { WeekDayNum(dayOfWeek = it) },
                     byOccurrencePosition = listOf(-1),
-                )
+                ),
             ),
         )
     }
@@ -292,7 +292,7 @@ class RecurrenceTextFormatterTest {
     fun monthlySetPos_firstWithSeveralWeekdays_keepsTheExplicitCandidateDays() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_first_matching_day(" +
-                "recurrence_weekday_name_monday, recurrence_weekday_name_tuesday & recurrence_weekday_name_friday)",
+                    "recurrence_weekday_name_monday, recurrence_weekday_name_tuesday & recurrence_weekday_name_friday)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
@@ -302,7 +302,7 @@ class RecurrenceTextFormatterTest {
                         WeekDayNum(dayOfWeek = DayOfWeek.TUESDAY),
                     ),
                     byOccurrencePosition = listOf(1),
-                )
+                ),
             ),
         )
     }
@@ -311,7 +311,7 @@ class RecurrenceTextFormatterTest {
     fun monthlySetPos_withByMonth_stillUsesTheSafeDayShortcut() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_month_january & recurrence_month_june | " +
-                "recurrence_last_matching_day(recurrence_weekday_name_monday & recurrence_weekday_name_friday)",
+                    "recurrence_last_matching_day(recurrence_weekday_name_monday & recurrence_weekday_name_friday)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
@@ -321,7 +321,7 @@ class RecurrenceTextFormatterTest {
                         WeekDayNum(dayOfWeek = DayOfWeek.FRIDAY),
                     ),
                     byOccurrencePosition = listOf(-1),
-                )
+                ),
             ),
         )
     }
@@ -330,14 +330,14 @@ class RecurrenceTextFormatterTest {
     fun monthlySetPos_withTimeSelectors_doesNotPretendToSelectOnlyADay() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_weekday_monday | recurrence_at_hours(9 & 17) | " +
-                "recurrence_using_set_positions(recurrence_set_position_last)",
+                    "recurrence_using_set_positions(recurrence_set_position_last)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
                     byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY)),
                     byHour = listOf(9, 17),
                     byOccurrencePosition = listOf(-1),
-                )
+                ),
             ),
         )
     }
@@ -346,14 +346,14 @@ class RecurrenceTextFormatterTest {
     fun monthlySetPos_withAnotherDateSelector_fallsBackToGenericPositionText() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_on_month_days(recurrence_month_day(10)) | recurrence_weekday_monday | " +
-                "recurrence_using_set_positions(recurrence_set_position_last)",
+                    "recurrence_using_set_positions(recurrence_set_position_last)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
                     byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY)),
                     byMonthDay = listOf(10),
                     byOccurrencePosition = listOf(-1),
-                )
+                ),
             ),
         )
     }
@@ -362,7 +362,7 @@ class RecurrenceTextFormatterTest {
     fun setPos_otherThanFirstOrLastWithSeveralDays_isKeptGeneric() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_weekday_monday & recurrence_weekday_friday | " +
-                "recurrence_using_set_positions(recurrence_set_position(2))",
+                    "recurrence_using_set_positions(recurrence_set_position(2))",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
@@ -371,7 +371,7 @@ class RecurrenceTextFormatterTest {
                         WeekDayNum(dayOfWeek = DayOfWeek.FRIDAY),
                     ),
                     byOccurrencePosition = listOf(2),
-                )
+                ),
             ),
         )
     }
@@ -380,13 +380,29 @@ class RecurrenceTextFormatterTest {
     fun multipleSetPositions_areSortedAndKeptGeneric() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_weekday_monday | " +
-                "recurrence_using_set_positions(recurrence_set_position_first & recurrence_set_position_last)",
+                    "recurrence_using_set_positions(recurrence_set_position_first & recurrence_set_position_last)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,
                     byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY)),
                     byOccurrencePosition = listOf(-1, 1),
-                )
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun multipleNegativeSetPositions_areSortedByDistanceFromEnd() = runTest {
+        assertEquals(
+            "recurrence_every_month | recurrence_weekday_monday | " +
+                    "recurrence_using_set_positions(recurrence_set_position_first, " +
+                    "recurrence_set_position_last & recurrence_set_position_from_end(2))",
+            format(
+                RecurrenceRule(
+                    freq = Frequency.Monthly,
+                    byDay = listOf(WeekDayNum(dayOfWeek = DayOfWeek.MONDAY)),
+                    byOccurrencePosition = listOf(-2, 1, -1),
+                ),
             ),
         )
     }
@@ -395,11 +411,11 @@ class RecurrenceTextFormatterTest {
     fun referenceRule_preservesByMonthByDayBySetPosAndUntilSemantics() = runTest {
         assertEquals(
             "recurrence_every_month | recurrence_month_january, recurrence_month_february, recurrence_month_march, " +
-                "recurrence_month_april, recurrence_month_may, recurrence_month_june, recurrence_month_september, " +
-                "recurrence_month_october, recurrence_month_november & recurrence_month_december | " +
-                "recurrence_last_matching_day(recurrence_weekday_name_monday, recurrence_weekday_name_tuesday, " +
-                "recurrence_weekday_name_wednesday, recurrence_weekday_name_thursday & recurrence_weekday_name_friday) | " +
-                "recurrence_until(recurrence_date(recurrence_date_month_january, 1, 2029))",
+                    "recurrence_month_april, recurrence_month_may, recurrence_month_june, recurrence_month_september, " +
+                    "recurrence_month_october, recurrence_month_november & recurrence_month_december | " +
+                    "recurrence_last_matching_day(recurrence_weekday_name_monday, recurrence_weekday_name_tuesday, " +
+                    "recurrence_weekday_name_wednesday, recurrence_weekday_name_thursday & recurrence_weekday_name_friday) | " +
+                    "recurrence_until(recurrence_date(recurrence_date_month_january, 1, 2029))",
             format(
                 RecurrenceRule(
                     freq = Frequency.Monthly,

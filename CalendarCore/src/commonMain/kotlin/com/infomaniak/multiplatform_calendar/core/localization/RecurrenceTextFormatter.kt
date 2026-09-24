@@ -153,10 +153,10 @@ internal class RecurrenceTextFormatter(
 
         val setPositionShortcut = formatMonthlySetPositionShortcut(rule)
 
-        if (rule.byMonthDay.isNotEmpty()) {
-            clauses += formatMonthDays(rule.byMonthDay)
-        } else {
+        if (rule.byMonthDay.isEmpty()) {
             formatImplicitMonthDay(rule, start)?.let(clauses::add)
+        } else {
+            clauses += formatMonthDays(rule.byMonthDay)
         }
 
         if (setPositionShortcut != null) {

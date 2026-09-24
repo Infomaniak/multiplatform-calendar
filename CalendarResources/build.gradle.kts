@@ -47,6 +47,7 @@ kotlin {
             // Exposed so CalendarCore can call getString/getPluralString while keeping
             // every XML resource and generated Res accessor in this dedicated module.
             api(kmpCalendar.compose.resources)
+            api(kmpCalendar.compose.runtime)
         }
     }
 }

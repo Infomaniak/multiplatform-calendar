@@ -19,6 +19,7 @@
 // Root project is a pure aggregator. The actual modules live in subprojects:
 // - :CalendarCore   → public KMP library (domain, Room DB, repositories, managers, Apple SDK)
 // - :CalendarKmpDav → internal Rust/UniFFI CalDAV bridge module (remote CalDAV layer)
+// - :CalendarResources → internal Compose Multiplatform resources used by CalendarCore
 //
 // Plugins are declared here with `apply false` so they are loaded in the root
 // classloader scope and shared across sibling subprojects. This avoids
@@ -27,6 +28,8 @@
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library) apply false
     alias(kmpCalendar.plugins.androidx.room) apply false
+    alias(kmpCalendar.plugins.compose.compiler) apply false
+    alias(kmpCalendar.plugins.compose.multiplatform) apply false
     alias(kmpCalendar.plugins.kotlin.multiplatform) apply false
     alias(kmpCalendar.plugins.kotlin.serialization) apply false
     alias(kmpCalendar.plugins.ksp) apply false

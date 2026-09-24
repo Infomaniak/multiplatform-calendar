@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.core.extensions.mapCancellable
 import com.infomaniak.multiplatform_calendar.resources.Res
 import com.infomaniak.multiplatform_calendar.resources.recurrence_at_hour
 import com.infomaniak.multiplatform_calendar.resources.recurrence_at_hours
@@ -122,6 +123,8 @@ import com.infomaniak.multiplatform_calendar.resources.recurrence_weekday_wednes
 import com.infomaniak.multiplatform_calendar.resources.recurrence_year_day
 import com.infomaniak.multiplatform_calendar.resources.recurrence_year_day_from_end
 import com.infomaniak.multiplatform_calendar.resources.recurrence_year_day_last
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -141,6 +144,7 @@ internal class RecurrenceTextFormatter(
         start: LocalDateTime,
         timeZone: TimeZone?,
     ): String {
+        currentCoroutineContext().ensureActive()
         val clauses = mutableListOf(formatFrequency(rule))
 
         if (rule.byMonth.isNotEmpty()) clauses += formatMonths(rule.byMonth)
@@ -217,11 +221,11 @@ internal class RecurrenceTextFormatter(
     }
 
     private suspend fun formatMonths(months: List<Int>): String = localizedList(
-        months.distinct().sorted().map { recurrenceMonthText(it) },
+        months.distinct().sorted().mapCancellable { recurrenceMonthText(it) },
     )
 
     private suspend fun formatMonthDays(days: List<Int>): String {
-        val values = days.distinct().sortedRecurrencePositions().map { value ->
+        val values = days.distinct().sortedRecurrencePositions().mapCancellable { value ->
             when {
                 value == -1 -> strings.string(Res.string.recurrence_month_day_last)
                 value < 0 -> strings.string(Res.string.recurrence_month_day_from_end, -value)
@@ -232,7 +236,7 @@ internal class RecurrenceTextFormatter(
     }
 
     private suspend fun formatWeekDays(days: List<WeekDayNum>, weekStart: DayOfWeek?): String = localizedList(
-        days.distinct().sortedWeekDayNums(weekStart).map { day ->
+        days.distinct().sortedWeekDayNums(weekStart).mapCancellable { day ->
             day.ordinal?.let { ordinalWeekDayText(day.dayOfWeek, it) }
                 ?: recurrenceWeekDayText(day.dayOfWeek)
         },
@@ -270,7 +274,7 @@ internal class RecurrenceTextFormatter(
         }
 
         if (days.size > 1 && position in setOf(1, -1)) {
-            val names = localizedList(days.sortedDaysOfWeek(rule.weekStart).map { weekDayName(it) })
+            val names = localizedList(days.sortedDaysOfWeek(rule.weekStart).mapCancellable { weekDayName(it) })
             return strings.string(
                 if (position == 1) Res.string.recurrence_first_matching_day
                 else Res.string.recurrence_last_matching_day,
@@ -303,7 +307,7 @@ internal class RecurrenceTextFormatter(
     }
 
     private suspend fun formatSetPositions(positions: List<Int>): String {
-        val values = positions.distinct().sortedRecurrencePositions().map { value ->
+        val values = positions.distinct().sortedRecurrencePositions().mapCancellable { value ->
             when {
                 value == 1 -> strings.string(Res.string.recurrence_set_position_first)
                 value == -1 -> strings.string(Res.string.recurrence_set_position_last)
@@ -315,7 +319,7 @@ internal class RecurrenceTextFormatter(
     }
 
     private suspend fun formatYearDays(days: List<Int>): String {
-        val values = days.distinct().sortedRecurrencePositions().map { value ->
+        val values = days.distinct().sortedRecurrencePositions().mapCancellable { value ->
             when {
                 value == -1 -> strings.string(Res.string.recurrence_year_day_last)
                 value < 0 -> strings.string(Res.string.recurrence_year_day_from_end, -value)
@@ -326,7 +330,7 @@ internal class RecurrenceTextFormatter(
     }
 
     private suspend fun formatWeekNumbers(weeks: List<Int>): String {
-        val values = weeks.distinct().sortedRecurrencePositions().map { value ->
+        val values = weeks.distinct().sortedRecurrencePositions().mapCancellable { value ->
             when {
                 value == -1 -> strings.string(Res.string.recurrence_week_number_last)
                 value < 0 -> strings.string(Res.string.recurrence_week_number_from_end, -value)
@@ -448,7 +452,7 @@ internal class RecurrenceTextFormatter(
     }
 
     private suspend fun localizedNumberList(values: List<Int>): String = localizedList(
-        values.map { strings.string(Res.string.recurrence_number, it) },
+        values.mapCancellable { strings.string(Res.string.recurrence_number, it) },
     )
 
     private suspend fun localizedList(items: List<String>): String {
@@ -458,8 +462,10 @@ internal class RecurrenceTextFormatter(
 
         var result = strings.string(Res.string.recurrence_list_append, items[0], items[1])
         for (index in 2 until items.lastIndex) {
+            currentCoroutineContext().ensureActive()
             result = strings.string(Res.string.recurrence_list_append, result, items[index])
         }
+        currentCoroutineContext().ensureActive()
         return strings.string(Res.string.recurrence_list_last, result, items.last())
     }
 

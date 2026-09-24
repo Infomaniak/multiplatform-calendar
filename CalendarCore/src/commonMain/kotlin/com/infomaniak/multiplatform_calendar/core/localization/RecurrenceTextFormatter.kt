@@ -146,48 +146,62 @@ internal class RecurrenceTextFormatter(
     ): String {
         currentCoroutineContext().ensureActive()
         val clauses = mutableListOf(formatFrequency(rule))
+        val setPositionShortcut = clauses.appendDateClauses(rule, start)
 
-        if (rule.byMonth.isNotEmpty()) clauses += formatMonths(rule.byMonth)
-        if (rule.byWeekNumber.isNotEmpty()) clauses += formatWeekNumbers(rule.byWeekNumber)
-        if (rule.byYearDay.isNotEmpty()) clauses += formatYearDays(rule.byYearDay)
+        clauses.appendTimeClauses(rule)
+        clauses.appendSetPositionClause(rule, setPositionShortcut)
+        clauses.appendWeekStartAndEndClauses(rule, timeZone)
+
+        return joinClauses(clauses)
+    }
+
+    private suspend fun MutableList<String>.appendDateClauses(rule: RecurrenceRule, start: LocalDateTime): String? {
+        if (rule.byMonth.isNotEmpty()) this += formatMonths(rule.byMonth)
+        if (rule.byWeekNumber.isNotEmpty()) this += formatWeekNumbers(rule.byWeekNumber)
+        if (rule.byYearDay.isNotEmpty()) this += formatYearDays(rule.byYearDay)
 
         val setPositionShortcut = formatMonthlySetPositionShortcut(rule)
-
         when {
-            rule.byMonthDay.isEmpty() -> formatImplicitMonthDay(rule, start)?.let(clauses::add)
-            else -> clauses += formatMonthDays(rule.byMonthDay)
+            rule.byMonthDay.isEmpty() -> formatImplicitMonthDay(rule, start)?.let(this::add)
+            else -> this += formatMonthDays(rule.byMonthDay)
         }
 
         when {
-            setPositionShortcut != null -> clauses += setPositionShortcut
-            rule.byDay.isNotEmpty() -> clauses += formatWeekDays(rule.byDay, rule.weekStart)
-            else -> formatImplicitWeekDay(rule, start)?.let(clauses::add)
+            setPositionShortcut != null -> this += setPositionShortcut
+            rule.byDay.isNotEmpty() -> this += formatWeekDays(rule.byDay, rule.weekStart)
+            else -> formatImplicitWeekDay(rule, start)?.let(this::add)
         }
 
         if (shouldUseImplicitAnnualDate(rule)) {
-            clauses += formatAnnualDate(start.date)
+            this += formatAnnualDate(start.date)
         }
 
-        if (rule.byHour.isNotEmpty()) clauses += formatHours(rule.byHour)
-        if (rule.byMinute.isNotEmpty()) clauses += formatMinutes(rule.byMinute)
-        if (rule.bySecond.isNotEmpty()) clauses += formatSeconds(rule.bySecond)
+        return setPositionShortcut
+    }
 
+    private suspend fun MutableList<String>.appendTimeClauses(rule: RecurrenceRule) {
+        if (rule.byHour.isNotEmpty()) this += formatHours(rule.byHour)
+        if (rule.byMinute.isNotEmpty()) this += formatMinutes(rule.byMinute)
+        if (rule.bySecond.isNotEmpty()) this += formatSeconds(rule.bySecond)
+    }
+
+    private suspend fun MutableList<String>.appendSetPositionClause(rule: RecurrenceRule, setPositionShortcut: String?) {
         if (setPositionShortcut == null && rule.byOccurrencePosition.isNotEmpty()) {
-            clauses += formatSetPositions(rule.byOccurrencePosition)
+            this += formatSetPositions(rule.byOccurrencePosition)
         }
+    }
 
-        rule.weekStart?.let { clauses += strings.string(Res.string.recurrence_week_start, weekDayName(it)) }
+    private suspend fun MutableList<String>.appendWeekStartAndEndClauses(rule: RecurrenceRule, timeZone: TimeZone?) {
+        rule.weekStart?.let { this += strings.string(Res.string.recurrence_week_start, weekDayName(it)) }
 
         when {
-            rule.until != null -> clauses += formatUntil(rule.until, timeZone)
-            rule.occurrenceCount != null -> clauses += strings.plural(
+            rule.until != null -> this += formatUntil(rule.until, timeZone)
+            rule.occurrenceCount != null -> this += strings.plural(
                 Res.plurals.recurrence_for_occurrences,
                 rule.occurrenceCount,
                 rule.occurrenceCount,
             )
         }
-
-        return joinClauses(clauses)
     }
 
     private suspend fun formatFrequency(rule: RecurrenceRule): String {
@@ -432,19 +446,38 @@ internal class RecurrenceTextFormatter(
     private suspend fun recurrenceMonthText(month: Int): String = strings.string(monthResource(month, date = false))
     private suspend fun dateMonthName(month: Int): String = strings.string(monthResource(month, date = true))
 
-    private fun monthResource(month: Int, date: Boolean): StringResource = when (month) {
-        1 -> if (date) Res.string.recurrence_date_month_january else Res.string.recurrence_month_january
-        2 -> if (date) Res.string.recurrence_date_month_february else Res.string.recurrence_month_february
-        3 -> if (date) Res.string.recurrence_date_month_march else Res.string.recurrence_month_march
-        4 -> if (date) Res.string.recurrence_date_month_april else Res.string.recurrence_month_april
-        5 -> if (date) Res.string.recurrence_date_month_may else Res.string.recurrence_month_may
-        6 -> if (date) Res.string.recurrence_date_month_june else Res.string.recurrence_month_june
-        7 -> if (date) Res.string.recurrence_date_month_july else Res.string.recurrence_month_july
-        8 -> if (date) Res.string.recurrence_date_month_august else Res.string.recurrence_month_august
-        9 -> if (date) Res.string.recurrence_date_month_september else Res.string.recurrence_month_september
-        10 -> if (date) Res.string.recurrence_date_month_october else Res.string.recurrence_month_october
-        11 -> if (date) Res.string.recurrence_date_month_november else Res.string.recurrence_month_november
-        12 -> if (date) Res.string.recurrence_date_month_december else Res.string.recurrence_month_december
+    private fun monthResource(month: Int, date: Boolean): StringResource =
+        if (date) dateMonthResource(month) else recurrenceMonthResource(month)
+
+    private fun recurrenceMonthResource(month: Int): StringResource = when (month) {
+        1 -> Res.string.recurrence_month_january
+        2 -> Res.string.recurrence_month_february
+        3 -> Res.string.recurrence_month_march
+        4 -> Res.string.recurrence_month_april
+        5 -> Res.string.recurrence_month_may
+        6 -> Res.string.recurrence_month_june
+        7 -> Res.string.recurrence_month_july
+        8 -> Res.string.recurrence_month_august
+        9 -> Res.string.recurrence_month_september
+        10 -> Res.string.recurrence_month_october
+        11 -> Res.string.recurrence_month_november
+        12 -> Res.string.recurrence_month_december
+        else -> error("Invalid RFC 5545 month: $month")
+    }
+
+    private fun dateMonthResource(month: Int): StringResource = when (month) {
+        1 -> Res.string.recurrence_date_month_january
+        2 -> Res.string.recurrence_date_month_february
+        3 -> Res.string.recurrence_date_month_march
+        4 -> Res.string.recurrence_date_month_april
+        5 -> Res.string.recurrence_date_month_may
+        6 -> Res.string.recurrence_date_month_june
+        7 -> Res.string.recurrence_date_month_july
+        8 -> Res.string.recurrence_date_month_august
+        9 -> Res.string.recurrence_date_month_september
+        10 -> Res.string.recurrence_date_month_october
+        11 -> Res.string.recurrence_date_month_november
+        12 -> Res.string.recurrence_date_month_december
         else -> error("Invalid RFC 5545 month: $month")
     }
 

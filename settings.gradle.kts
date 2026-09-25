@@ -59,4 +59,5 @@ dependencyResolutionManagement {
 include(
     ":CalendarCore",
     ":CalendarKmpDav",
+    ":CalendarResources",
 )

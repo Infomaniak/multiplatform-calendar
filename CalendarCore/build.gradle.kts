@@ -25,6 +25,8 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
     alias(kmpCalendar.plugins.androidx.room)
+    alias(kmpCalendar.plugins.compose.compiler)
+    alias(kmpCalendar.plugins.compose.multiplatform)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
@@ -38,6 +40,7 @@ kotlin {
         namespace = "com.infomaniak.multiplatform_calendar.core"
         compileSdk = property("kmp.compileSdk").toString().toInt()
         minSdk = property("kmp.minSdk").toString().toInt()
+        androidResources.enable = true
 
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
@@ -59,6 +62,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":CalendarKmpDav"))
+            implementation(project(":CalendarResources"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
@@ -101,6 +105,12 @@ kotlin {
     }
 
     explicitApi()
+}
+
+// CalendarCore produces the public XCFramework. Applying the Compose resources plugin here lets
+// the final framework aggregate resources coming from the CalendarResources project dependency.
+compose.resources {
+    generateResClass = always
 }
 
 room3 {

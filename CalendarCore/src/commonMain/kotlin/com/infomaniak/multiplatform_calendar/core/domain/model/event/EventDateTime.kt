@@ -42,19 +42,13 @@ public sealed interface EventDateTime {
      * [timeZone] when the source described a wall-clock skipped by a DST gap (e.g. 02:30 on a spring-forward day
      * in Europe/Paris): it is kept as-is since a recurrence rule repeats the described wall-clock (RFC 5545 §3.3.10).
      */
-    public class Precise internal constructor(
-        public val instant: Instant,
-        public val timeZone: TimeZone,
+    @ConsistentCopyVisibility
+    public data class Precise internal constructor(
+        val instant: Instant,
+        val timeZone: TimeZone,
         override val wallClock: LocalDateTime,
     ) : EventDateTime {
         public constructor(instant: Instant, timeZone: TimeZone) : this(instant, timeZone, instant.toLocalDateTime(timeZone))
-
-        override fun equals(other: Any?): Boolean = other is Precise &&
-            instant == other.instant && timeZone == other.timeZone && wallClock == other.wallClock
-
-        override fun hashCode(): Int = 31 * (31 * instant.hashCode() + timeZone.hashCode()) + wallClock.hashCode()
-
-        override fun toString(): String = "Precise(instant=$instant, timeZone=$timeZone, wallClock=$wallClock)"
     }
 
     public companion object {

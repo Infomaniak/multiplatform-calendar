@@ -18,9 +18,11 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.isValidAlarmRepetition
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -36,5 +38,10 @@ internal fun RemoteDavAlarm.toEntity(): AlarmEntity {
         summary = summary,
         attendees = attendees,
         attachments = attach,
+        repetition = repetition?.let { r ->
+            parseICalDuration(r.interval)
+                ?.takeIf { isValidAlarmRepetition(r.count, it) }
+                ?.let { AlarmRepetitionEntity(r.count, it) }
+        },
     )
 }

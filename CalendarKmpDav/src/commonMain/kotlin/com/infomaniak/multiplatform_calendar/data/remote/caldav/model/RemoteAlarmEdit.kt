@@ -27,4 +27,5 @@ data class RemoteAlarmEdit(
     val summary: String?,
     val attendees: List<String>,
     val attach: List<String>,
+    val repetition: RemoteAlarmRepetition?,
 )

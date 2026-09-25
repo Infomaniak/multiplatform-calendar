@@ -26,6 +26,8 @@ public data class EventAlarm(
     val attachments: List<String> = emptyList(),
     /** `null` on the alarms the server never named. Carried back and forth untouched. */
     val uid: AlarmId.Uid? = null,
+    /** Carried back and forth, never expanded into upcoming alarms. */
+    val repetition: AlarmRepetition? = null,
 ) {
 
     /** The server's [uid] when it gave one, an [AlarmId.Local] otherwise, which is not unique. */

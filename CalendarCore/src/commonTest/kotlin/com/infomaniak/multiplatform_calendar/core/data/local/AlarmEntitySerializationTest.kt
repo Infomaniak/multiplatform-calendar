@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.local
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -64,6 +65,17 @@ class AlarmEntitySerializationTest {
     }
 
     @Test
+    fun repetition_roundTrips_throughConverter() {
+        val original = AlarmEntity(
+            action = "DISPLAY",
+            triggerRelative = (-15).minutes,
+            repetition = AlarmRepetitionEntity(count = 2, interval = 5.minutes),
+        )
+
+        assertEquals(original, roundTrip(original))
+    }
+
+    @Test
     fun alarmStoredBeforeTheUidField_stillDecodes() {
         // Verbatim blob shape of a row written before `uid` existed: the default is what keeps it readable.
         val legacy = """[{"action":"DISPLAY","triggerRelative":"-PT15M","triggerRelatedTo":"Start","description":"Reminder"}]"""
@@ -71,6 +83,7 @@ class AlarmEntitySerializationTest {
         val decoded = converters.toAlarms(legacy).single()
 
         assertNull(decoded.uid)
+        assertNull(decoded.repetition)
         assertEquals("Reminder", decoded.description)
         assertEquals((-15).minutes, decoded.triggerRelative)
     }

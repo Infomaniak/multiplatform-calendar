@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.TimeZone
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -28,10 +29,15 @@ import kotlin.time.Instant
  * Only the [actions] asked for are projected. Since an action is part of what tells two alarms apart
  * (see [alarmKey]), filtering one out never shifts the identity of the ones kept.
  *
- * Expects [this] to be already expanded into occurrences: a relative trigger is read against the timing
- * of the occurrence carrying it, so each one gets its own firing.
+ * The two kinds of trigger come from two lists: a **relative** one fires per occurrence, so it is read
+ * from [occurrences], while an **absolute** one names a fixed instant that RFC 5545 §3.8.6.3 fires once
+ * for the whole series, so it is read from [storedRows] — the masters and overrides as stored — and
+ * rings whether or not an occurrence stands in the window. A non-recurring event is in both lists, but
+ * each trigger is read from one only.
  */
-internal fun List<Event>.upcomingAlarms(
+internal fun upcomingAlarms(
+    occurrences: List<Event>,
+    storedRows: List<Event>,
     from: Instant,
     until: Instant,
     limit: Int,
@@ -39,7 +45,24 @@ internal fun List<Event>.upcomingAlarms(
     defaultZone: TimeZone,
 ): List<UpcomingAlarm> {
     val projected = ArrayList<UpcomingAlarm>()
+    occurrences.projectInto(projected, from, until, actions, defaultZone) { it is AlarmTrigger.Relative }
+    storedRows.projectInto(projected, from, until, actions, defaultZone) { it is AlarmTrigger.Absolute }
 
+    return projected
+        // Collapses the copies an absolute trigger cloned onto the overrides of its series, see [alarmKey].
+        .distinctBy(UpcomingAlarm::id)
+        .sortedBy(UpcomingAlarm::firesAt)
+        .take(limit)
+}
+
+private fun List<Event>.projectInto(
+    projected: MutableList<UpcomingAlarm>,
+    from: Instant,
+    until: Instant,
+    actions: Set<AlarmAction>,
+    defaultZone: TimeZone,
+    triggers: (AlarmTrigger) -> Boolean,
+) {
     for (event in this) {
         // Ordinals count within one event, per key, so that reordering an event's alarm list permutes
         // the ordinals of alarms already indistinguishable instead of renaming unrelated ones.
@@ -47,7 +70,7 @@ internal fun List<Event>.upcomingAlarms(
         // no set of actions can ever keep one of a group and drop another.
         val ordinals = HashMap<String, Int>()
         for (alarm in event.alarms) {
-            if (alarm.action !in actions) continue
+            if (!triggers(alarm.trigger) || alarm.action !in actions) continue
             val firesAt = alarm.firesAt(event.timing, defaultZone)
             if (firesAt < from || firesAt > until) continue
 
@@ -63,23 +86,23 @@ internal fun List<Event>.upcomingAlarms(
             )
         }
     }
-
-    return projected
-        // Collapses the copies the expansion handed us for a series-wide absolute trigger, see [alarmKey].
-        .distinctBy(UpcomingAlarm::id)
-        .sortedBy(UpcomingAlarm::firesAt)
-        .take(limit)
 }
 
 /** When this alarm goes off, for an event happening at [timing]. */
 private fun EventAlarm.firesAt(timing: EventTiming, defaultZone: TimeZone): Instant = when (val trigger = trigger) {
     is AlarmTrigger.Absolute -> trigger.instant
-    is AlarmTrigger.Relative -> {
-        val anchor = when (trigger.relatedTo) {
-            TriggerRelation.Start -> timing.startInstant(defaultZone)
-            TriggerRelation.End -> timing.endInstant(defaultZone)
-        }
-        anchor + trigger.offset
+    is AlarmTrigger.Relative -> timing.startInstant(defaultZone) + trigger.offsetFromStart(timing, defaultZone)
+}
+
+/**
+ * How long after the start of [timing] this trigger goes off. A `RELATED=END` one is counted from the
+ * start too, by adding the event's duration, so that one anchor answers for both forms — as
+ * `AlarmBoundsEntity` records per row.
+ */
+internal fun AlarmTrigger.Relative.offsetFromStart(timing: EventTiming, defaultZone: TimeZone): Duration {
+    return when (relatedTo) {
+        TriggerRelation.Start -> offset
+        TriggerRelation.End -> (timing.endInstant(defaultZone) - timing.startInstant(defaultZone)) + offset
     }
 }
 
@@ -88,7 +111,8 @@ private fun EventAlarm.firesAt(timing: EventTiming, defaultZone: TimeZone): Inst
  * of that event set it off.
  *
  * An absolute trigger names one fixed point in time, which RFC 5545 §3.8.6.3 fires once for the whole
- * series: keying it on the series is what collapses the occurrences back into that single firing.
+ * series: keying it on the series is what collapses the copies it was cloned onto the overrides of that
+ * series into a single firing.
  */
 private fun EventAlarm.alarmKey(event: Event, firesAt: Instant): String {
     val scope = when (trigger) {

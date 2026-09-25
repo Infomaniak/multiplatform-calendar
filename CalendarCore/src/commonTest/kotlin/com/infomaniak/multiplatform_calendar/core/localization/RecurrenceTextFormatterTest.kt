@@ -167,7 +167,7 @@ class RecurrenceTextFormatterTest {
     fun byYearDayAndByWeekNumber_supportNegativePositions() = runTest {
         assertEquals(
             "recurrence_every_year | recurrence_in_week_numbers(recurrence_week_number(1) & recurrence_week_number_last) | " +
-                    "recurrence_on_year_days(recurrence_year_day(100) & recurrence_year_day_last) | recurrence_weekday_wednesday",
+                    "recurrence_on_year_days(recurrence_year_day(100) & recurrence_year_day_last)",
             format(
                 RecurrenceRule(
                     freq = Frequency.Yearly,

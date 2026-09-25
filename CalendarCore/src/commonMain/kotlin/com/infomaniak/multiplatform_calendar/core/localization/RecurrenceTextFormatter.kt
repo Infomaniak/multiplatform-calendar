@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceCandidateSet.inheritsDtStartWeekdayForWeekNumber
 import com.infomaniak.multiplatform_calendar.core.extensions.mapCancellable
 import com.infomaniak.multiplatform_calendar.resources.Res
 import com.infomaniak.multiplatform_calendar.resources.recurrence_at_hour
@@ -385,7 +386,7 @@ internal class RecurrenceTextFormatter(
         Frequency.Weekly if rule.byMonthDay.isEmpty()
                 && rule.byYearDay.isEmpty()
                 && rule.byWeekNumber.isEmpty() -> recurrenceWeekDayText(start.dayOfWeek)
-        Frequency.Yearly if rule.byWeekNumber.isNotEmpty() -> recurrenceWeekDayText(start.dayOfWeek)
+        Frequency.Yearly if rule.inheritsDtStartWeekdayForWeekNumber() -> recurrenceWeekDayText(start.dayOfWeek)
         else -> null
     }
 

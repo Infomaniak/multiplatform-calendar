@@ -21,10 +21,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 internal suspend fun <T, R> List<T>.mapCancellable(transform: suspend (T) -> R): List<R> {
-    val result = ArrayList<R>(size)
-    for (index in indices) {
+    return List(size) { index ->
         currentCoroutineContext().ensureActive()
-        result.add(transform(this[index]))
+        transform(this[index])
     }
-    return result
 }

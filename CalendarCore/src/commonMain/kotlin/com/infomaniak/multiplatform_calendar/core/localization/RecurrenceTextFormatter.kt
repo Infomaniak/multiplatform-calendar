@@ -381,14 +381,11 @@ internal class RecurrenceTextFormatter(
         }
     }
 
-    private suspend fun formatImplicitWeekDay(rule: RecurrenceRule, start: LocalDateTime): String? = when {
-        rule.freq == Frequency.Weekly &&
-                rule.byMonthDay.isEmpty() && rule.byYearDay.isEmpty() && rule.byWeekNumber.isEmpty() ->
-            recurrenceWeekDayText(start.dayOfWeek)
-
-        rule.freq == Frequency.Yearly && rule.byWeekNumber.isNotEmpty() ->
-            recurrenceWeekDayText(start.dayOfWeek)
-
+    private suspend fun formatImplicitWeekDay(rule: RecurrenceRule, start: LocalDateTime): String? = when (rule.freq) {
+        Frequency.Weekly if rule.byMonthDay.isEmpty()
+                && rule.byYearDay.isEmpty()
+                && rule.byWeekNumber.isEmpty() -> recurrenceWeekDayText(start.dayOfWeek)
+        Frequency.Yearly if rule.byWeekNumber.isNotEmpty() -> recurrenceWeekDayText(start.dayOfWeek)
         else -> null
     }
 

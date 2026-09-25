@@ -30,13 +30,18 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlar
 /**
  * Returns `null` when the projected alarms match [previous], leaving source VALARM blocks untouched
  * so `X-*` / exotic params survive partial edits; otherwise the full replacement list.
+ *
+ * [AlarmAction.Unknown] alarms are not editable: the stated ones are dropped, the stored ones left out
+ * of the comparison, since the bridge keeps them verbatim through any replacement.
  */
 internal fun resolveAlarmEdits(
     alarms: List<EventAlarm>,
     previous: List<AlarmEntity>,
 ): List<RemoteAlarmEdit>? {
-    val projected = alarms.map(EventAlarm::toEntity)
-    return if (projected == previous) null else alarms.map(EventAlarm::toRemoteEdit)
+    val editable = alarms.filterNot { it.action is AlarmAction.Unknown }
+    val previousEditable = previous.filterNot { AlarmAction.fromIcalString(it.action) is AlarmAction.Unknown }
+    val projected = editable.map(EventAlarm::toEntity)
+    return if (projected == previousEditable) null else editable.map(EventAlarm::toRemoteEdit)
 }
 
 internal fun EventAlarm.toEntity(): AlarmEntity {

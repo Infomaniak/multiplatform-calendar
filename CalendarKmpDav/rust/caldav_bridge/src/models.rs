@@ -300,6 +300,7 @@ pub enum OverrideRemoval {
 
 /// Requested change to a VEVENT's VALARM sub-components.
 /// `Unchanged` leaves source VALARM blocks untouched so `X-*` / exotic params survive partial edits.
+/// `Set` replaces the DISPLAY/AUDIO/EMAIL ones only: a VALARM with any other `ACTION` is kept verbatim.
 #[derive(uniffi::Enum)]
 pub enum AlarmsChange {
     Unchanged,

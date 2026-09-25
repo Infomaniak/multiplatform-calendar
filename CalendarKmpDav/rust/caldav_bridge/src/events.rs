@@ -5,7 +5,7 @@ use icalendar::parser::{self, read_calendar, unfold};
 use http::Uri;
 use std::collections::HashSet;
 use fast_dav_rs::webdav::normalize_etag;
-use crate::alarms::{parse_alarms, splice_alarms_into_vevent, strip_valarms_in_vevent};
+use crate::alarms::{is_uneditable_valarm, parse_alarms, splice_alarms_into_vevent, strip_editable_valarms_in_vevent};
 use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::ical_components::{is_begin_marker, is_end_marker, VEVENT};
@@ -344,7 +344,7 @@ pub fn patch_event_ics(ics_data: &str, edit: EventEdit) -> Result<EventEntry, Ca
     let (source, new_alarms) = match &edit.alarms_change {
         AlarmsChange::Unchanged => (ics_data.to_string(), None),
         AlarmsChange::Set { alarms } => {
-            (strip_valarms_in_vevent(ics_data, master_ordinal), Some(alarms.as_slice()))
+            (strip_editable_valarms_in_vevent(ics_data, master_ordinal), Some(alarms.as_slice()))
         }
     };
     let mut calendar: Calendar = source.parse().map_err(|e| bridge_error("Patch", e))?;
@@ -406,7 +406,7 @@ pub fn upsert_override_vevent(
     let (source, new_alarms) = match (&edit.alarms_change, existing) {
         (AlarmsChange::Unchanged, _) => (ics_data.to_string(), None),
         (AlarmsChange::Set { alarms }, Some(_)) => {
-            (strip_valarms_in_vevent(ics_data, target_ordinal), Some(alarms.as_slice()))
+            (strip_editable_valarms_in_vevent(ics_data, target_ordinal), Some(alarms.as_slice()))
         }
         (AlarmsChange::Set { alarms }, None) => (ics_data.to_string(), Some(alarms.as_slice())),
     };
@@ -560,7 +560,7 @@ const MASTER_ONLY_PROPERTIES: [&str; 6] = ["RRULE", "EXDATE", "RDATE", "RECURREN
 ///
 /// `keep_alarms` carries the master's VALARMs over, which is what an edit leaving alarms alone means.
 /// It must be `false` when the edit replaces them: the new ones are spliced in textually afterwards,
-/// and the seeded ones would survive beside them as duplicates.
+/// and the seeded ones would survive beside them as duplicates. Uneditable VALARMs are carried either way.
 fn override_seeded_from(master: &icalendar::Event, keep_alarms: bool) -> icalendar::Event {
     seeded_from(master, &MASTER_ONLY_PROPERTIES, keep_alarms)
 }
@@ -572,7 +572,8 @@ fn reseeded_from(source: &icalendar::Event, keep_alarms: bool) -> icalendar::Eve
     seeded_from(source, &excluded, keep_alarms)
 }
 
-/// Clone every property of `source` but those in `excluded`, VALARMs included when `keep_alarms`.
+/// Clone every property of `source` but those in `excluded`, all VALARMs when `keep_alarms`, the
+/// uneditable ones otherwise (see [`is_uneditable_valarm`]).
 fn seeded_from(source: &icalendar::Event, excluded: &[&str], keep_alarms: bool) -> icalendar::Event {
     let is_excluded = |key: &String| excluded.contains(&key.as_str());
 
@@ -585,10 +586,8 @@ fn seeded_from(source: &icalendar::Event, excluded: &[&str], keep_alarms: bool) 
             seed.append_multi_property(property.clone());
         }
     }
-    if keep_alarms {
-        for alarm in source.components() {
-            seed.append_component(alarm.clone());
-        }
+    for alarm in source.components().iter().filter(|alarm| keep_alarms || is_uneditable_valarm(*alarm)) {
+        seed.append_component(alarm.clone());
     }
     seed
 }

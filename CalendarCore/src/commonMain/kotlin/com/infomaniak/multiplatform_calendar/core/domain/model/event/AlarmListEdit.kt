@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 
 /** What an edit does to the `VALARM`s already on the resource, mirroring [DateListEdit] for alarms. */
@@ -37,6 +38,8 @@ public sealed interface AlarmListEdit {
      * This is a whole-list replacement, not a set of additions: the `VALARM`s are stripped and rewritten
      * from [alarms]. When the list projects back to what is already stored, nothing is emitted at all and
      * the original blocks survive untouched, exotic `X-*` parameters and all.
+     *
+     * [AlarmAction.Unknown] alarms are outside its reach: stated ones are ignored, stored ones kept verbatim.
      */
     public data class Replace(val alarms: List<EventAlarm>) : AlarmListEdit
 }

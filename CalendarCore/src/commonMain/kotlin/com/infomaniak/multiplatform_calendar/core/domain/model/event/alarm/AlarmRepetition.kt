@@ -15,17 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
+package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
-data class RemoteDavAlarm(
-    val uid: String?,
-    val action: String,
-    val triggerDuration: String?,
-    val triggerAbsolute: String?,
-    val triggerRelatedTo: String,
-    val description: String?,
-    val summary: String?,
-    val attendees: List<String>,
-    val attach: List<String>,
-    val repetition: RemoteAlarmRepetition?,
-)
+import kotlin.time.Duration
+
+/** The alarm fires [count] more times, [interval] apart, after its trigger. */
+public data class AlarmRepetition(val count: Int, val interval: Duration) {
+    init {
+        require(isValidAlarmRepetition(count, interval)) { "Invalid repetition: count $count, interval $interval" }
+    }
+}
+
+/** RFC 5545: `REPEAT` is not negative and `DURATION` is positive. */
+internal fun isValidAlarmRepetition(count: Int, interval: Duration): Boolean = count >= 0 && interval.isPositive()

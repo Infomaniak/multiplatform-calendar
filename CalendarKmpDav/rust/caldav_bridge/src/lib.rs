@@ -35,5 +35,7 @@ mod calendars;
 mod events;
 
 #[cfg(test)]
+mod alarms_tests;
+#[cfg(test)]
 mod events_tests;
 

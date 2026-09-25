@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeException.Companion.toCaldavBridgeException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmRepetition
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
@@ -50,6 +51,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.AlarmEntry
+import uniffi.caldav_bridge.AlarmRepetitionSpec
 import uniffi.caldav_bridge.AttendeeEntry
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
@@ -304,6 +306,7 @@ private fun RemoteAlarmEdit.toRust() = RustAlarmEdit(
     summary = summary,
     attendees = attendees,
     attach = attach,
+    repetition = repetition?.let { AlarmRepetitionSpec(count = it.count.toUInt(), interval = it.interval) },
 )
 
 private fun RemoteColorChange.toRust(): ColorChange = when (this) {
@@ -405,6 +408,7 @@ private fun AlarmEntry.toRemote() = RemoteDavAlarm(
     summary = summary,
     attendees = attendees,
     attach = attach,
+    repetition = repetition?.let { RemoteAlarmRepetition(count = it.count.toInt(), interval = it.interval) },
 )
 
 private fun InfomaniakAttachEntry.toRemote() = RemoteEventAttachment(

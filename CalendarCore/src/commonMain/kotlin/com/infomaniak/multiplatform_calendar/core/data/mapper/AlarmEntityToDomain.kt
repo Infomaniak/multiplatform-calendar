@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmRepetition
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 
@@ -37,5 +38,6 @@ internal fun AlarmEntity.toDomain(): EventAlarm? {
         summary = summary,
         attendees = attendees,
         attachments = attachments,
+        repetition = repetition?.let { AlarmRepetition(it.count, it.interval) },
     )
 }

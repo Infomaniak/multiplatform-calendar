@@ -8,12 +8,14 @@ use crate::ical_components::{
     is_begin_marker, is_end_marker, push_begin, push_end, ATTENDEE, DESCRIPTION, SUMMARY, VALARM,
     VALUE_PARAM, VEVENT,
 };
-use crate::models::{AlarmEdit, AlarmEntry};
+use crate::models::{AlarmEdit, AlarmEntry, AlarmRepetitionSpec};
 
 const UID: &str = "UID";
 const ACTION: &str = "ACTION";
 const TRIGGER: &str = "TRIGGER";
 const ATTACH: &str = "ATTACH";
+const REPEAT: &str = "REPEAT";
+const DURATION: &str = "DURATION";
 const RELATED_PARAM: &str = "RELATED";
 const DATE_TIME_VALUE: &str = "DATE-TIME";
 const RELATED_START: &str = "START";
@@ -140,7 +142,15 @@ fn parse_valarm<C: Component>(c: &C) -> Option<AlarmEntry> {
         summary: c.properties().get(SUMMARY).map(|p| p.value().to_string()),
         attendees,
         attach,
+        repetition: parse_repetition(c),
     })
+}
+
+/// `None` unless both `REPEAT` and `DURATION` are there, as RFC 5545 requires them together.
+fn parse_repetition<C: Component>(c: &C) -> Option<AlarmRepetitionSpec> {
+    let count = c.properties().get(REPEAT)?.value().trim().parse().ok()?;
+    let interval = c.properties().get(DURATION)?.value().trim().to_string();
+    Some(AlarmRepetitionSpec { count, interval })
 }
 
 fn build_alarm_block(a: &AlarmEdit) -> Option<String> {
@@ -166,6 +176,10 @@ fn build_alarm_block(a: &AlarmEdit) -> Option<String> {
     }
     s.push_str(&property_line(Property::new(ACTION, &a.action)));
     s.push_str(&property_line(trigger.done()));
+    if let Some(r) = &a.repetition {
+        s.push_str(&property_line(Property::new(DURATION, &r.interval)));
+        s.push_str(&property_line(Property::new(REPEAT, &r.count.to_string())));
+    }
     if let Some(d) = &a.description {
         s.push_str(&property_line(Property::new(DESCRIPTION, d)));
     }

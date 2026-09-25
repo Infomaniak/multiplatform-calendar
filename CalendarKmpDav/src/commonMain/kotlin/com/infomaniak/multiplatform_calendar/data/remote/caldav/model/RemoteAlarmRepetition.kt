@@ -17,15 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-data class RemoteDavAlarm(
-    val uid: String?,
-    val action: String,
-    val triggerDuration: String?,
-    val triggerAbsolute: String?,
-    val triggerRelatedTo: String,
-    val description: String?,
-    val summary: String?,
-    val attendees: List<String>,
-    val attach: List<String>,
-    val repetition: RemoteAlarmRepetition?,
+/** A VALARM's `REPEAT` count and its `DURATION` interval, a raw RFC 5545 duration. */
+data class RemoteAlarmRepetition(
+    val count: Int,
+    val interval: String,
 )

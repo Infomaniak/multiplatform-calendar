@@ -133,6 +133,14 @@ pub struct AlarmEntry {
     pub summary: Option<String>,
     pub attendees: Vec<String>,
     pub attach: Vec<String>,
+    pub repetition: Option<AlarmRepetitionSpec>,
+}
+
+/// A VALARM's `REPEAT` and its `DURATION` (raw RFC 5545 duration), which RFC 5545 requires together.
+#[derive(uniffi::Record)]
+pub struct AlarmRepetitionSpec {
+    pub count: u32,
+    pub interval: String,
 }
 
 /// Lightweight reference returned by a calendar-query without calendar-data.
@@ -342,5 +350,6 @@ pub struct AlarmEdit {
     pub summary: Option<String>,
     pub attendees: Vec<String>,
     pub attach: Vec<String>,
+    pub repetition: Option<AlarmRepetitionSpec>,
 }
 

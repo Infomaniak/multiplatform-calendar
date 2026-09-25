@@ -18,12 +18,14 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmRepetition
 
 /**
  * Returns `null` when the projected alarms match [previous], leaving source VALARM blocks untouched
@@ -52,6 +54,7 @@ internal fun EventAlarm.toEntity(): AlarmEntity {
         summary = summary,
         attendees = attendees,
         attachments = attachments,
+        repetition = repetition?.let { AlarmRepetitionEntity(it.count, it.interval) },
     )
 }
 
@@ -74,5 +77,6 @@ private fun EventAlarm.toRemoteEdit(): RemoteAlarmEdit {
         summary = summary,
         attendees = attendees,
         attach = attachments,
+        repetition = repetition?.let { RemoteAlarmRepetition(it.count, it.interval.toIsoString()) },
     )
 }

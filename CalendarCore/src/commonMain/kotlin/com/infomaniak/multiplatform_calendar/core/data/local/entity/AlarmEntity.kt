@@ -34,4 +34,11 @@ internal data class AlarmEntity(
     val summary: String? = null,
     val attendees: List<String> = emptyList(),
     val attachments: List<String> = emptyList(),
+    val repetition: AlarmRepetitionEntity? = null,
+)
+
+@Serializable
+internal data class AlarmRepetitionEntity(
+    val count: Int,
+    val interval: Duration,
 )

@@ -3205,6 +3205,7 @@ private fun RemoteAlarmEdit.toRemoteDavAlarm() = RemoteDavAlarm(
     summary = summary,
     attendees = attendees,
     attach = attach,
+    repetition = repetition,
 )
 
 /** Fake remote source: records create/delete calls and returns [patchedEvent] for patch/build,

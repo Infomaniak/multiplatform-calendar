@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
@@ -28,9 +29,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmRepetition
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmRepetition
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
@@ -39,6 +42,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class EventEditMapperAlarmTest {
@@ -152,11 +156,42 @@ class EventEditMapperAlarmTest {
         assertNull(assertNotNull(edit.alarms).single().uid)
     }
 
-    private fun eventAlarm(offset: Duration, description: String? = "Reminder", uid: String? = null) = EventAlarm(
+    @Test
+    fun repetition_onAnUntouchedAlarm_isNotSeenAsAChange() {
+        val previous = eventEntity(
+            alarms = listOf(alarmEntity(triggerRelative = (-15).minutes, repetition = AlarmRepetitionEntity(2, 5.minutes))),
+        )
+        val same = eventAlarm(offset = -15.minutes, repetition = AlarmRepetition(2, 5.minutes))
+
+        val edit = editData(alarms = listOf(same)).toRemoteEdit(stamp = STAMP, previous = previous)
+
+        assertNull(edit.alarms)
+    }
+
+    @Test
+    fun repetition_isWrittenBack_whenTheAlarmListIsRebuilt() {
+        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
+        val repeated = eventAlarm(offset = -5.minutes, repetition = AlarmRepetition(2, 300.seconds))
+
+        val edit = editData(alarms = listOf(eventAlarm(offset = -30.minutes), repeated))
+            .toRemoteEdit(stamp = STAMP, previous = previous)
+
+        val emitted = assertNotNull(edit.alarms)
+        assertNull(emitted[0].repetition)
+        assertEquals(RemoteAlarmRepetition(count = 2, interval = "PT5M"), emitted[1].repetition)
+    }
+
+    private fun eventAlarm(
+        offset: Duration,
+        description: String? = "Reminder",
+        uid: String? = null,
+        repetition: AlarmRepetition? = null,
+    ) = EventAlarm(
         action = AlarmAction.Display,
         trigger = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start),
         uid = uid?.let(AlarmId::Uid),
         description = description,
+        repetition = repetition,
     )
 
     private fun alarmEntity(
@@ -164,6 +199,7 @@ class EventEditMapperAlarmTest {
         triggerAbsolute: Instant? = null,
         description: String? = "Reminder",
         uid: String? = null,
+        repetition: AlarmRepetitionEntity? = null,
     ) = AlarmEntity(
         uid = uid,
         action = "DISPLAY",
@@ -171,6 +207,7 @@ class EventEditMapperAlarmTest {
         triggerAbsolute = triggerAbsolute,
         triggerRelatedTo = TriggerRelation.Start,
         description = description,
+        repetition = repetition,
     )
 
     private fun editData(alarms: List<EventAlarm>) = EventEditData(

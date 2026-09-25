@@ -19,6 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmRepetition
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
@@ -95,6 +97,34 @@ class RemoteDavEventToEntityAlarmTest {
         assertEquals("valarm-uid-1", entity.content.alarms.single().uid)
     }
 
+    @Test
+    fun repetition_isKeptOnTheEntity() {
+        val remote = alarm(repetition = RemoteAlarmRepetition(count = 2, interval = "PT300S"))
+        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
+
+        assertEquals(AlarmRepetitionEntity(count = 2, interval = 5.minutes), entity.repetition)
+    }
+
+    @Test
+    fun repetitionWithAnUnreadableInterval_isDropped() {
+        val remote = alarm(repetition = RemoteAlarmRepetition(count = 2, interval = "soon"))
+        val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
+
+        assertNull(entity.repetition)
+    }
+
+    @Test
+    fun repetitionBreakingRfc5545_isDropped() {
+        val invalid = listOf(
+            RemoteAlarmRepetition(count = -1, interval = "PT5M"),
+            RemoteAlarmRepetition(count = 2, interval = "PT0S"),
+            RemoteAlarmRepetition(count = 2, interval = "-PT5M"),
+        )
+        val alarms = remoteEvent(alarms = invalid.map { alarm(repetition = it) }).toEntity(calendarId).content.alarms
+
+        assertTrue(alarms.all { it.repetition == null })
+    }
+
     private fun alarm(
         uid: String? = null,
         action: String = "DISPLAY",
@@ -105,6 +135,7 @@ class RemoteDavEventToEntityAlarmTest {
         summary: String? = null,
         attendees: List<String> = emptyList(),
         attach: List<String> = emptyList(),
+        repetition: RemoteAlarmRepetition? = null,
     ) = RemoteDavAlarm(
         uid = uid,
         action = action,
@@ -115,6 +146,7 @@ class RemoteDavEventToEntityAlarmTest {
         summary = summary,
         attendees = attendees,
         attach = attach,
+        repetition = repetition,
     )
 
     private fun remoteEvent(

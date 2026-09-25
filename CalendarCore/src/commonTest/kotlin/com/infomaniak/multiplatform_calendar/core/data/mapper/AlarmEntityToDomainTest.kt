@@ -18,8 +18,10 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmRepetition
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import kotlin.test.Test
@@ -69,6 +71,17 @@ class AlarmEntityToDomainTest {
 
         assertEquals(AlarmId.Uid("valarm-uid-1"), domain.uid)
         assertEquals(AlarmId.Uid("valarm-uid-1"), domain.id)
+    }
+
+    @Test
+    fun repetition_isCarriedToTheDomain() {
+        val domain = AlarmEntity(
+            action = "DISPLAY",
+            triggerRelative = (-10).minutes,
+            repetition = AlarmRepetitionEntity(count = 3, interval = 5.minutes),
+        ).toDomain()!!
+
+        assertEquals(AlarmRepetition(count = 3, interval = 5.minutes), domain.repetition)
     }
 
     @Test

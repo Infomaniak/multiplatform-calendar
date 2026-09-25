@@ -100,14 +100,14 @@
     </plurals>
     <plurals name="recurrence_every_n_hours">
         <item quantity="one">Co %1$d godzinę</item>
-        <item quantity="few">%1$d godziny</item>
-        <item quantity="many">%1$d godzin</item>
+        <item quantity="few">Co %1$d godziny</item>
+        <item quantity="many">Co %1$d godzin</item>
         <item quantity="other">Co %1$d godzin</item>
     </plurals>
     <plurals name="recurrence_every_n_minutes">
         <item quantity="one">Co %1$d minutę</item>
-        <item quantity="few">%1$d minuty</item>
-        <item quantity="many">%1$d minut</item>
+        <item quantity="few">Co %1$d minuty</item>
+        <item quantity="many">Co %1$d minut</item>
         <item quantity="other">Co %1$d minut</item>
     </plurals>
     <plurals name="recurrence_every_n_months">
@@ -118,8 +118,8 @@
     </plurals>
     <plurals name="recurrence_every_n_seconds">
         <item quantity="one">Co %1$d sekundę</item>
-        <item quantity="few">%1$d sekundy</item>
-        <item quantity="many">%1$d sekund</item>
+        <item quantity="few">Co %1$d sekundy</item>
+        <item quantity="many">Co %1$d sekund</item>
         <item quantity="other">Co %1$d sekund</item>
     </plurals>
     <plurals name="recurrence_every_n_weeks">

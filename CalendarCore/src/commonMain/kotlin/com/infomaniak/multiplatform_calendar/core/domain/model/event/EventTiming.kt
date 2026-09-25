@@ -58,12 +58,6 @@ public data class EventTiming(
     val rDates: List<IcalDateValue> = emptyList(),
     val exDates: List<IcalDateValue> = emptyList(),
 ) {
-    init {
-        require(!isAllDay || (start is EventDateTime.Floating && end is EventDateTime.Floating)) {
-            "An all-day timing has no time zone, its bounds must be floating"
-        }
-    }
-
     /**
      * Resolve [EventTiming.start] to an absolute [Instant].
      *

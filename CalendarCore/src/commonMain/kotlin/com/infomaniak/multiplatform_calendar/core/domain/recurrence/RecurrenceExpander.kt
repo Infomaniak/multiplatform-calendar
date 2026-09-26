@@ -18,6 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -116,7 +119,7 @@ internal object RecurrenceExpander {
         onInstance: (startLocal: LocalDateTime, startInstant: Instant, endLocal: LocalDateTime) -> Unit,
     ): ExpansionOutcome {
         val masterTiming = MasterTiming.of(master, defaultZone)
-        val dtStart = master.start
+        val dtStart = master.startWallClock
 
         var count = 0
         var generated = 0

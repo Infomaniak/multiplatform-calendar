@@ -53,10 +53,8 @@ class EventTimingTest {
     @Test
     fun endInstant_usesEndZone_notStartZone_forCrossZoneEvent() {
         val timing = EventTiming(
-            start = LocalDateTime(2026, 6, 15, 9, 0),
-            end = LocalDateTime(2026, 6, 15, 21, 0),
-            startTimeZone = newYork,
-            endTimeZone = paris,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 9, 0), newYork),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 21, 0), paris),
             isAllDay = false,
         )
         assertEquals(LocalDateTime(2026, 6, 15, 9, 0).toInstant(newYork), timing.startInstant(TimeZone.UTC))
@@ -92,10 +90,8 @@ class EventTimingTest {
     @Test
     fun endIn_usesEndZone_notStartZone() {
         val timing = EventTiming(
-            start = LocalDateTime(2026, 6, 15, 9, 0),
-            end = LocalDateTime(2026, 6, 15, 21, 0),
-            startTimeZone = newYork,
-            endTimeZone = paris,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 9, 0), newYork),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 21, 0), paris),
             isAllDay = false,
         )
         // Paris 21:00 == 19:00 UTC == Tokyo 04:00 next day.
@@ -125,10 +121,8 @@ class EventTimingTest {
         // All-day events store both zones as null; startIn should not attempt any reprojection.
         val start = LocalDateTime(2026, 6, 15, 0, 0)
         val timing = EventTiming(
-            start = start,
-            end = LocalDateTime(2026, 6, 16, 0, 0),
-            startTimeZone = null,
-            endTimeZone = null,
+            start = EventDateTime.of(start, null),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 16, 0, 0), null),
             isAllDay = true,
         )
         assertSame(start, timing.startIn(paris))
@@ -146,18 +140,14 @@ class EventTimingTest {
     // ---- Helpers --------------------------------------------------------------------------------
 
     private fun zoned(start: LocalDateTime, zone: TimeZone): EventTiming = EventTiming(
-        start = start,
-        end = LocalDateTime(start.date, start.time),
-        startTimeZone = zone,
-        endTimeZone = zone,
+        start = EventDateTime.of(start, zone),
+        end = EventDateTime.of(LocalDateTime(start.date, start.time), zone),
         isAllDay = false,
     )
 
     private fun floating(start: LocalDateTime): EventTiming = EventTiming(
-        start = start,
-        end = LocalDateTime(start.date, start.time),
-        startTimeZone = null,
-        endTimeZone = null,
+        start = EventDateTime.of(start, null),
+        end = EventDateTime.of(LocalDateTime(start.date, start.time), null),
         isAllDay = false,
     )
 }

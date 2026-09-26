@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.withWallClocks
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
@@ -577,7 +579,7 @@ internal class EventRepository(
         val masterTiming = MasterTiming.of(master.timing, defaultZone = zone)
         val (end, _) = masterTiming.occurrenceEnd(start, masterTiming.resolvedStartInstant(start))
 
-        return master.copy(timing = master.timing.copy(start = start, end = end))
+        return master.copy(timing = master.timing.withWallClocks(start = start, end = end))
     }
 
     /**
@@ -807,7 +809,7 @@ private data class SeriesTail(
 ) {
     companion object {
         fun of(master: EventTiming, pivotStart: LocalDateTime, edit: EventEditData, split: SeriesSplit): SeriesTail {
-            val delta = wallClockShift(from = pivotStart, to = edit.timing.start)
+            val delta = wallClockShift(from = pivotStart, to = edit.timing.startWallClock)
             val timing = edit.timing.copy(recurrenceRule = edit.tailRuleAfter(split, stored = master, delta))
 
             return SeriesTail(

@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.repository
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
@@ -251,10 +252,10 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val expectedId = "occurrence#${RecurrenceKey.Utc(overriddenSlot.toInstant(TimeZone.UTC)).canonical}#${master.id.url}"
         val rendered = events.single { it.occurrenceId.value == expectedId }
         assertEquals("Moved instance", rendered.title, "the override's own content must reach the rendered occurrence")
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), rendered.timing.start, "and its own, moved timing")
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), rendered.timing.start.wallClock, "and its own, moved timing")
         assertEquals(
             1,
-            events.count { it.timing.start.date == LocalDateTime(2026, 6, 17, 0, 0).date },
+            events.count { it.timing.start.wallClock.date == LocalDateTime(2026, 6, 17, 0, 0).date },
             "the theoretical 10:00 slot must be gone, not doubled",
         )
     }
@@ -280,7 +281,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
             timeZone = TimeZone.UTC,
         ).first()
 
-        val days = slicesByDay.values.flatten().map { it.event.timing.start.date }
+        val days = slicesByDay.values.flatten().map { it.event.timing.start.wallClock.date }
         assertEquals(4, days.size, "a cancelled override deletes its occurrence")
         assertTrue(LocalDateTime(2026, 6, 17, 0, 0).date !in days, "and it is the overridden day that disappears")
     }
@@ -396,8 +397,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
         }
         job.join()
 
-        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[0]?.timing?.start)
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[1]?.timing?.start)
+        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[0]?.timing?.start?.wallClock)
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[1]?.timing?.start?.wallClock)
         assertEquals(requested, emissions[1]?.occurrenceId)
     }
 
@@ -456,8 +457,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
         }
         job.join()
 
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[0]?.timing?.start)
-        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[1]?.timing?.start)
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[0]?.timing?.start?.wallClock)
+        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[1]?.timing?.start?.wallClock)
         assertEquals(requested, emissions[1]?.occurrenceId)
     }
 
@@ -2371,8 +2372,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         val data = assertNotNull(repository.getEditData(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0))))
 
-        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), data.timing.start, "the slot the occurrence is shown on")
-        assertEquals(LocalDateTime(2026, 6, 17, 11, 0), data.timing.end, "the master's duration, carried over")
+        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), data.timing.start.wallClock, "the slot the occurrence is shown on")
+        assertEquals(LocalDateTime(2026, 6, 17, 11, 0), data.timing.end.wallClock, "the master's duration, carried over")
         assertEquals(master.rrule, data.timing.recurrenceRule, "the rule lives on the master")
         assertEquals(AlarmListEdit.Preserve, data.alarms)
     }
@@ -2393,8 +2394,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
 
         val data = assertNotNull(repository.getEditData(occurrence))
 
-        assertEquals(LocalDateTime(2025, 11, 2, 1, 0), data.timing.start, "the slot the occurrence is shown on")
-        assertEquals(LocalDateTime(2025, 11, 2, 6, 0), data.timing.end, "the five hours the expansion shows")
+        assertEquals(LocalDateTime(2025, 11, 2, 1, 0), data.timing.start.wallClock, "the slot the occurrence is shown on")
+        assertEquals(LocalDateTime(2025, 11, 2, 6, 0), data.timing.end.wallClock, "the five hours the expansion shows")
     }
 
     /** The counterpart of [getEditData_endsTheOccurrenceWhereTheExpansionShowsIt]: a no-op save moves nothing. */
@@ -2436,7 +2437,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val data = assertNotNull(repository.getEditData(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0))))
 
         assertEquals("Moved instance", data.title, "the override redefines the instance")
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), data.timing.start, "where the override moved it")
+        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), data.timing.start.wallClock, "where the override moved it")
         assertEquals(master.rrule, data.timing.recurrenceRule, "an override carries no rule: the master's stands")
     }
 
@@ -3400,10 +3401,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
     ) = EventEditData(
         title = title,
         timing = EventTiming(
-            start = start,
-            end = end,
-            startTimeZone = timeZone,
-            endTimeZone = timeZone,
+            start = EventDateTime.of(start, timeZone.takeUnless { isAllDay }),
+            end = EventDateTime.of(end, timeZone.takeUnless { isAllDay }),
             isAllDay = isAllDay,
             recurrenceRule = recurrence,
         ),

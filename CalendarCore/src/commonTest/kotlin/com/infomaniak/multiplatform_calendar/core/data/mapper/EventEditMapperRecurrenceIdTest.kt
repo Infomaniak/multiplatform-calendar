@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import kotlinx.datetime.LocalDate
@@ -101,10 +102,8 @@ class EventEditMapperRecurrenceIdTest {
     }
 
     private fun timing(zone: TimeZone?, isAllDay: Boolean = false) = EventTiming(
-        start = LocalDateTime(2026, 6, 15, 10, 0),
-        end = LocalDateTime(2026, 6, 15, 11, 0),
-        startTimeZone = zone,
-        endTimeZone = zone,
+        start = EventDateTime.of(LocalDateTime(2026, 6, 15, 10, 0), zone),
+        end = EventDateTime.of(LocalDateTime(2026, 6, 15, 11, 0), zone),
         isAllDay = isAllDay,
     )
 }

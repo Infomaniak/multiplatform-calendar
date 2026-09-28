@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Compan
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.FLOATING_TIMING
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_ANCHORED
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_FLOATING
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
@@ -96,6 +97,45 @@ internal abstract class EventDao {
         """,
     )
     abstract fun observeVisibleInRange(
+        accountIds: Set<AccountId>,
+        startInstantMs: Long,
+        endInstantMs: Long,
+        startLocalDateTime: LocalDateTime,
+        endLocalDateTime: LocalDateTime,
+    ): Flow<List<EventWithCalendarEntity>>
+
+    /**
+     * Events (with their parent calendar) from all *visible* calendars of [accountIds] whose alarms may go
+     * off in the [`[startInstantMs, endInstantMs]`] window.
+     *
+     * An alarm does not go off when its event happens, so the branches of [observeVisibleInRange] are
+     * reused on bounds widened **per row** by what that row's own alarms reach ([AlarmBoundsEntity]),
+     * plus two branches for the absolute triggers, which answer to no timing at all.
+     *
+     * Kept apart from [observeVisibleInRange]: bounds that depend on the row are not indexable, and the
+     * display path has no reason to pay for it.
+     */
+    @Transaction
+    @Query(
+        """
+        SELECT event.* FROM events event
+        INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        WHERE calendar.accountId IN(:accountIds)
+          AND calendar.isVisible = 1
+          AND (
+            (event.hasRecurrence = 0 AND $ALARMED_ANCHORED_TIMING)
+            OR (event.hasRecurrence = 0 AND $ALARMED_FLOATING_TIMING)
+            OR $ALARMED_RECURRING_ANCHORED
+            OR $ALARMED_RECURRING_FLOATING
+            OR $ALARMED_OVERRIDE_ANCHORED
+            OR $ALARMED_OVERRIDE_FLOATING
+            OR $EVENT_ABSOLUTE_ALARM
+            OR $OVERRIDE_ABSOLUTE_ALARM
+          )
+        ORDER BY event.dtStartInstantMs IS NULL, event.dtStartInstantMs ASC, event.dtStart ASC
+        """,
+    )
+    abstract fun observeAlarmedInRange(
         accountIds: Set<AccountId>,
         startInstantMs: Long,
         endInstantMs: Long,
@@ -316,5 +356,110 @@ internal abstract class EventDao {
                   AND override.dtStartInstantMs IS NULL
                   AND override.dtStart < :endLocalDateTime
                   AND override.dtEndEffective >= :startLocalDateTime))"""
+
+        // ---- Alarm window (see [observeAlarmedInRange]) ---------------------------------------------
+
+        /**
+         * How far past the window a row must be read for its alarms, in milliseconds. `[from, until]`
+         * catches the alarm `start + offset` exactly when `start` sits in
+         * `[from - maxAlarmOffsetMs, until - minAlarmOffsetMs]`. Each shift is clamped to `0` so that a
+         * row whose alarms all trail its start keeps the plain window rather than a narrower one.
+         */
+        private const val EVENT_WINDOW_START_MS = "(:startInstantMs - MAX(event.maxAlarmOffsetMs, 0))"
+        private const val EVENT_WINDOW_END_MS = "(:endInstantMs - MIN(event.minAlarmOffsetMs, 0))"
+
+        private const val OVERRIDE_WINDOW_START_MS =
+            "(:startInstantMs - MAX(override.maxAlarmOffsetMs, 0))"
+        private const val OVERRIDE_WINDOW_END_MS =
+            "(:endInstantMs - MIN(override.minAlarmOffsetMs, 0))"
+
+        /**
+         * Wall-clock pendants of the shifts above, for the floating / all-day branches, which compare ISO
+         * text rather than instants. Both sides go through `strftime` because the stored strings come from
+         * `LocalDateTime.toString()`, which drops zero seconds (`2026-06-17T10:00`) where the `datetime`
+         * modifier always yields them.
+         */
+        private const val WALL_CLOCK = "'%Y-%m-%dT%H:%M:%f'"
+        private const val EVENT_WINDOW_START_WALL =
+            "strftime($WALL_CLOCK, :startLocalDateTime, (-MAX(event.maxAlarmOffsetMs, 0) / 1000.0) || ' seconds')"
+        private const val EVENT_WINDOW_END_WALL =
+            "strftime($WALL_CLOCK, :endLocalDateTime, (-MIN(event.minAlarmOffsetMs, 0) / 1000.0) || ' seconds')"
+        private const val OVERRIDE_WINDOW_START_WALL =
+            "strftime($WALL_CLOCK, :startLocalDateTime, (-MAX(override.maxAlarmOffsetMs, 0) / 1000.0) || ' seconds')"
+        private const val OVERRIDE_WINDOW_END_WALL =
+            "strftime($WALL_CLOCK, :endLocalDateTime, (-MIN(override.minAlarmOffsetMs, 0) / 1000.0) || ' seconds')"
+
+        /**
+         * Whether the row holds an alarm the timing branches answer for, i.e. a relative one. Sits inside
+         * each branch rather than next to them: a master with no alarm still has to be read when one of
+         * its overrides carries one.
+         */
+        private const val EVENT_HAS_ALARM = "event.minAlarmOffsetMs IS NOT NULL"
+        private const val OVERRIDE_HAS_ALARM = "override.minAlarmOffsetMs IS NOT NULL"
+
+        /** An absolute trigger names a fixed instant, so the row is read whether or not it happens near it. */
+        private const val EVENT_ABSOLUTE_ALARM = """(
+            event.minAbsoluteAlarmMs <= :endInstantMs
+              AND event.maxAbsoluteAlarmMs >= :startInstantMs)"""
+
+        private const val OVERRIDE_ABSOLUTE_ALARM = """(
+            event.hasRecurrence = 1
+              AND EXISTS(SELECT 1 FROM event_overrides override
+                WHERE override.masterId = event.id
+                  AND override.minAbsoluteAlarmMs <= :endInstantMs
+                  AND override.maxAbsoluteAlarmMs >= :startInstantMs))"""
+
+        /** [ANCHORED_TIMING] over the alarm window. Its upper bound is inclusive, as `until` is. */
+        private const val ALARMED_ANCHORED_TIMING = """(
+            event.isAllDay = 0
+              AND event.dtStartInstantMs IS NOT NULL
+              AND $EVENT_HAS_ALARM
+              AND event.dtStartInstantMs <= $EVENT_WINDOW_END_MS
+              AND event.dtEndInstantMs >= $EVENT_WINDOW_START_MS)"""
+
+        /** [FLOATING_TIMING] over the alarm window. */
+        private const val ALARMED_FLOATING_TIMING = """(
+            (event.isAllDay = 1 OR event.dtStartInstantMs IS NULL)
+              AND $EVENT_HAS_ALARM
+              AND strftime($WALL_CLOCK, event.dtStart) <= $EVENT_WINDOW_END_WALL
+              AND strftime($WALL_CLOCK, event.dtEndEffective) >= $EVENT_WINDOW_START_WALL)"""
+
+        /** [RECURRING_ANCHORED] over the alarm window. */
+        private const val ALARMED_RECURRING_ANCHORED = """(
+            event.hasRecurrence = 1
+              AND $EVENT_HAS_ALARM
+              AND event.firstOccurrenceInstantMs IS NOT NULL
+              AND event.firstOccurrenceInstantMs <= $EVENT_WINDOW_END_MS
+              AND (event.recurrenceBoundKind != 'Finite'
+                OR event.lastPossibleOccurrenceEndInstantMs >= $EVENT_WINDOW_START_MS))"""
+
+        /** [RECURRING_FLOATING] over the alarm window. */
+        private const val ALARMED_RECURRING_FLOATING = """(
+            event.hasRecurrence = 1
+              AND $EVENT_HAS_ALARM
+              AND event.firstOccurrenceInstantMs IS NULL
+              AND strftime($WALL_CLOCK, event.dtStart) <= $EVENT_WINDOW_END_WALL
+              AND (event.recurrenceBoundKind != 'Finite'
+                OR strftime($WALL_CLOCK, event.lastOccurrenceEndLocalDateTime) >= $EVENT_WINDOW_START_WALL))"""
+
+        /** [OVERRIDE_ANCHORED] over the alarm window, shifted by the override's own alarms. */
+        private const val ALARMED_OVERRIDE_ANCHORED = """(
+            event.hasRecurrence = 1
+              AND EXISTS(SELECT 1 FROM event_overrides override
+                WHERE override.masterId = event.id
+                  AND $OVERRIDE_HAS_ALARM
+                  AND override.dtStartInstantMs IS NOT NULL
+                  AND override.dtStartInstantMs - $ALL_DAY_PADDING <= $OVERRIDE_WINDOW_END_MS
+                  AND override.dtEndInstantMs + $ALL_DAY_PADDING >= $OVERRIDE_WINDOW_START_MS))"""
+
+        /** [OVERRIDE_FLOATING] over the alarm window, shifted by the override's own alarms. */
+        private const val ALARMED_OVERRIDE_FLOATING = """(
+            event.hasRecurrence = 1
+              AND EXISTS(SELECT 1 FROM event_overrides override
+                WHERE override.masterId = event.id
+                  AND $OVERRIDE_HAS_ALARM
+                  AND override.dtStartInstantMs IS NULL
+                  AND strftime($WALL_CLOCK, override.dtStart) <= $OVERRIDE_WINDOW_END_WALL
+                  AND strftime($WALL_CLOCK, override.dtEndEffective) >= $OVERRIDE_WINDOW_START_WALL))"""
     }
 }

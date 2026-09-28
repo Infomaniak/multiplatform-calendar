@@ -85,7 +85,7 @@ class UpcomingAlarmProjectionTest {
             master.occurrenceOn(day = 12),
         )
 
-        val alarms = occurrences.project()
+        val alarms = occurrences.project(storedRows = listOf(master))
 
         assertEquals(
             1,
@@ -93,6 +93,21 @@ class UpcomingAlarmProjectionTest {
             "RFC 5545 §3.8.6.3: an absolute trigger names one point in time, not one per occurrence",
         )
         assertEquals(utc(day = 9, hour = 8), alarms.single().firesAt)
+    }
+
+    @Test
+    fun absoluteTrigger_firesEvenWhenNoOccurrenceStandsInTheWindow() {
+        val alarm = EventAlarm(AlarmAction.Display, AlarmTrigger.Absolute(utc(day = 9, hour = 8)))
+        val master = eventAt(day = 10, alarms = listOf(alarm))
+
+        val alarms = emptyList<Event>().project(storedRows = listOf(master))
+
+        assertEquals(
+            listOf(utc(day = 9, hour = 8)),
+            alarms.map(UpcomingAlarm::firesAt),
+            "a fixed instant answers to the series, not to whichever occurrence the window happens to hold",
+        )
+        assertEquals(master, alarms.single().event)
     }
 
     @Test
@@ -278,12 +293,22 @@ class UpcomingAlarmProjectionTest {
         assertEquals(9, ids.toSet().size, "two alarms would be scheduled under the same notification id")
     }
 
+    /** [storedRows] defaults to the occurrences themselves, as it does for a non-recurring event. */
     private fun List<Event>.project(
+        storedRows: List<Event> = this,
         from: Instant = utc(day = 1, hour = 0),
         until: Instant = utc(day = 28, hour = 0),
         limit: Int = 50,
         actions: Set<AlarmAction> = setOf(AlarmAction.Display, AlarmAction.Audio),
-    ) = upcomingAlarms(from = from, until = until, limit = limit, actions = actions, defaultZone = TimeZone.UTC)
+    ) = upcomingAlarms(
+        occurrences = this,
+        storedRows = storedRows,
+        from = from,
+        until = until,
+        limit = limit,
+        actions = actions,
+        defaultZone = TimeZone.UTC,
+    )
 
     private fun reminder(before: Duration, uid: String? = null) =
         EventAlarm(AlarmAction.Display, AlarmTrigger.Relative(-before, TriggerRelation.Start), uid = uid?.let(AlarmId::Uid))

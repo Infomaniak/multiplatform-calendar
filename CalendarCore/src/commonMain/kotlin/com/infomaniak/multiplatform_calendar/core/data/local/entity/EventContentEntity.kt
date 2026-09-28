@@ -52,6 +52,11 @@ internal data class EventContentEntity(
     val bookableUuid: String? = null,
     /** Parsed `X-INFOMANIAK-ATTACH` custom properties. */
     val attachments: List<EventAttachmentEntity> = emptyList(),
+    /**
+     * An index over [alarms], defaulted from them and from [timing]. Leave it to its default: passing
+     * it in, or `copy`ing the alarm list without it, lets the two drift apart.
+     */
+    @Embedded val alarmBounds: AlarmBoundsEntity = AlarmBoundsEntity.of(alarms, timing),
     /** Packed ARGB, or `null` when the event inherits its calendar's color. */
     val colorArgb: Int? = null,
     /** Original RFC 7986 `COLOR:<name>` kept verbatim so untouched-color edits round-trip byte-exact. */

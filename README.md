@@ -12,6 +12,8 @@
 
 ```
 multiplatform-calendar/
+├── Account/                         # Shared identity types (AccountId, AccessToken)
+│   └── build.gradle.kts             # Account module build (publish)
 ├── CalendarCore/                    # Public KMP library (domain, Room DB, repositories, managers, Apple SDK)
 │   ├── src/commonMain/              # Cross-platform: domain, Room DB, repositories, DI graph contracts/mappers
 │   ├── src/androidMain/             # Android Room database provider (via Metro DI)
@@ -31,6 +33,7 @@ multiplatform-calendar/
 
 | Module               | Purpose                                                                                       |
 |----------------------|-----------------------------------------------------------------------------------------------|
+| **Account**          | Shared identity types (`AccountId`, `AccessToken`) used by CalendarCore                       |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 

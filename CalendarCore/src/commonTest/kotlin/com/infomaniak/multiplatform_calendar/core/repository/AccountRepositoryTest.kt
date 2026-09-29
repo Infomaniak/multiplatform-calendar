@@ -23,10 +23,11 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -155,7 +156,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         val repository = createRepositoryWithLocalAuthCalls(calledPaths = calledPaths)
 
         val credentials = repository.retrieveDavCredential(
-            authToken = "token-1",
+            authToken = AccessToken("token-1"),
             login = "provided_login",
         )
 
@@ -168,7 +169,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         val calledPaths = mutableListOf<String>()
         val repository = createRepositoryWithLocalAuthCalls(calledPaths = calledPaths)
 
-        val credentials = repository.retrieveDavCredential(authToken = "token-2")
+        val credentials = repository.retrieveDavCredential(authToken = AccessToken("token-2"))
 
         assertEquals(DavCredentials(username = "api_login", password = "generated-password"), credentials)
         assertEquals(listOf("profile", "profile/password"), calledPaths)
@@ -181,7 +182,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         }
 
         val exception = assertFailsWith<IllegalStateException> {
-            repository.retrieveDavCredential(authToken = "token-3")
+            repository.retrieveDavCredential(authToken = AccessToken("token-3"))
         }
 
         assertEquals("boom", exception.message)
@@ -194,7 +195,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         }
 
         assertFailsWith<CancellationException> {
-            repository.retrieveDavCredential(authToken = "token-4")
+            repository.retrieveDavCredential(authToken = AccessToken("token-4"))
         }
     }
 

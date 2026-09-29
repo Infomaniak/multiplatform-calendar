@@ -45,6 +45,10 @@ The `MultiplatformCalendar.xcframework` is produced by the **CalendarCore module
 left in the generated header is an **empty** `CaldavClientModule` marker protocol that `CalendarSDK` must conform to for
 DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
 
+`:Account` is an `api` dependency of CalendarCore and **is exported**: `AccountId` and `AccessToken` are part of the
+public Swift API. `:Account` uses the generic `com.infomaniak.multiplatform_core.*` package root, as it is meant to move
+to a shared KMP core.
+
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 
 ```swift

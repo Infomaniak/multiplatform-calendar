@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 
 @Entity(tableName = "accounts")
 internal data class AccountEntity(

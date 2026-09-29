@@ -19,10 +19,11 @@ package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
+import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -52,7 +53,7 @@ public class AccountManager internal constructor(
     }
 
     @Throws(CalendarSdkException::class, CancellationException::class)
-    public suspend fun retrieveDavCredential(authToken: String, login: String? = null): DavCredentials {
+    public suspend fun retrieveDavCredential(authToken: AccessToken, login: String? = null): DavCredentials {
         return sdkCaller.run(operation = "retrieveDavCredential") {
             accountRepository.retrieveDavCredential(authToken, login)
         }

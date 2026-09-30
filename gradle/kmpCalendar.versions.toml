@@ -4,18 +4,18 @@ agp = "9.3.2"
 coroutines = "1.11.0"
 coreKtx = "1.7.0"
 datetime = "0.8.0"
-kotlin = "2.4.10"
+kotlin = "2.4.20"
 ksp = "2.3.11"
-ktor = "3.5.2"
-materialKolor = "4.1.1"
+ktor = "3.6.0"
+materialKolor = "5.0.1"
 metro = "1.4.2" # See https://github.com/ZacSweers/metro/blob/main/docs/compatibility.md.
-room3 = "3.0.2"
-skie = "0.10.14"
-serialization = "1.9.0"
-sqlite = "2.6.2"
+room3 = "3.0.3"
+skie = "0.10.15"
+serialization = "1.11.0"
+sqlite = "2.7.1"
 robolectric = "4.16.1"
 # Rust
-ubiqueUniffi = "1.2.1"
+ubiqueUniffi = "1.2.3"
 
 [libraries]
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }

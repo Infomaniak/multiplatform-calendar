@@ -36,11 +36,14 @@ internal interface ContactDao {
     @Query(
         """
         SELECT * FROM contacts
-        WHERE accountId = :accountId
+        WHERE accountId IN (:accountIds)
         AND (nameNormalized LIKE :likeQuery ESCAPE '\' OR emailNormalized LIKE :likeQuery ESCAPE '\')
         """,
     )
-    suspend fun search(accountId: AccountId, likeQuery: String): List<ContactEntity>
+    suspend fun search(accountIds: Set<AccountId>, likeQuery: String): List<ContactEntity>
+
+    @Query("SELECT id FROM accounts")
+    suspend fun accountIds(): List<AccountId>
 
     @Query("SELECT * FROM accounts WHERE id = :accountId")
     suspend fun account(accountId: AccountId): ContactAccountEntity?

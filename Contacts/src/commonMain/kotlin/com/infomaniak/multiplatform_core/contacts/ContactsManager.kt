@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteData
 import com.infomaniak.multiplatform_core.contacts.data.remote.createContactsHttpClient
 import com.infomaniak.multiplatform_core.contacts.data.repository.ContactsRepository
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
@@ -43,20 +44,29 @@ import kotlin.native.HiddenFromObjC
 public class ContactsManager internal constructor(
     internal val database: ContactsDatabase,
     httpClient: HttpClient,
+    deviceContactsProvider: DeviceContactsProvider,
+    deviceContactsScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     internal val syncScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
 
     private val repository = ContactsRepository(
         database = database,
         remoteDataSource = ContactsRemoteDataSource(httpClient),
+        deviceContactsProvider = deviceContactsProvider,
         tokenStore = TokenStore(),
+        deviceContactsScope = deviceContactsScope,
     )
 
     /**
      * @param databasePath Absolute path of the contacts database file.
+     * @param deviceContactsProvider Platform-specific reader of the device contacts.
      */
-    public constructor(databasePath: String) : this(
+    public constructor(
+        databasePath: String,
+        deviceContactsProvider: DeviceContactsProvider,
+    ) : this(
         database = contactsDatabase(ContactsDatabaseSource.File(databasePath)),
+        deviceContactsProvider = deviceContactsProvider,
         httpClient = createContactsHttpClient(),
     )
 
@@ -81,8 +91,9 @@ public class ContactsManager internal constructor(
     public suspend fun removeAccount(accountId: AccountId): Unit = contactsCall { repository.removeAccount(accountId) }
 
     /**
-     * Returns the locally synced server contacts matching [query], sorted by times contacted, then name.
-     * Contacts without a name or marked `other` come last. Never hits the network.
+     * Returns the contacts matching [query], merging the locally synced server contacts with the device contacts,
+     * sorted by times contacted, then server before device, then name. Contacts without a name or marked `other` come
+     * last. Never hits the network.
      *
      * @param accountIds Accounts to search, or every synced account when empty. A contact found in several of them is
      * returned once, with its contacted times added up.

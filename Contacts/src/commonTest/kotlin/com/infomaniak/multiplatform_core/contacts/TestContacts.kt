@@ -24,6 +24,8 @@ import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabaseSource
 import com.infomaniak.multiplatform_core.contacts.data.local.contactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
@@ -39,6 +41,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.DefaultJson
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.job
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -47,6 +51,22 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 internal val ACCOUNT_ID = AccountId(42L)
+
+internal class FakeDeviceContactsProvider(initialContacts: List<DeviceContact>?) : DeviceContactsProvider {
+
+    var contacts: List<DeviceContact>? = initialContacts
+    var readCount: Int = 0
+        private set
+
+    val systemChanges = MutableSharedFlow<Unit>()
+
+    override val changes = systemChanges.onSubscription { emit(Unit) }
+
+    override suspend fun read(): List<DeviceContact>? {
+        readCount++
+        return contacts
+    }
+}
 
 @OptIn(ExperimentalSerializationApi::class)
 internal fun testJson(): Json = Json(DefaultJson) {
@@ -84,10 +104,12 @@ internal fun testDatabase(): ContactsDatabase =
 internal suspend fun testManager(
     apiContacts: List<ApiContact> = emptyList(),
     etag: String? = "\"etag-1\"",
+    deviceContacts: List<DeviceContact> = emptyList(),
     initAccount: Boolean = true,
     onRequest: (HttpRequestData) -> Unit = {},
 ): ContactsManager = ContactsManager(
     database = testDatabase(),
+    deviceContactsProvider = FakeDeviceContactsProvider(deviceContacts),
     httpClient = testHttpClient(apiContacts, etag, onRequest),
 ).apply { if (initAccount) initTestAccount() }
 

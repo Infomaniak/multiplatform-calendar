@@ -24,8 +24,10 @@ multiplatform-calendar/
 │   ├── src/commonMain/              # RustCaldavBridge, CaldavClientModule, remote models, remote client interface
 │   ├── rust/caldav_bridge/          # Rust crate: CalDAV operations via fast-dav-rs + icalendar
 │   └── build.gradle.kts             # Bridge module build (UniFFI/Cargo, Metro)
-├── Contacts/                        # Standalone KMP contacts module (server address book)
-│   ├── src/commonMain/              # ContactsManager, search/sync logic, Room DB, Ktor remote source
+├── Contacts/                        # Standalone KMP contacts module (server address book + device contacts)
+│   ├── src/commonMain/              # ContactsManager, merge/search/sync logic, Room DB, Ktor remote source
+│   ├── src/androidMain/             # AndroidDeviceContactsProvider (ContactsContract)
+│   ├── src/appleMain/               # AppleDeviceContactsProvider (Contacts framework)
 │   └── build.gradle.kts             # Contacts module build (Room, Ktor, publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
 │   └── build.gradle.kts             # Network module build (publish)
@@ -41,7 +43,7 @@ multiplatform-calendar/
 | **Account**          | Shared identity types (`AccountId`, `AccessToken`) used by CalendarCore and Contacts          |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
-| **Contacts**         | Standalone contacts module: server address book, ETag sync, offline search                    |
+| **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
 ### XCFramework
@@ -112,6 +114,18 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
   inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager`, and inherits `:CalendarKmpDav`'s
   `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via `CalendarSDKProvider.shared.sdk`.
+
+### Contacts permissions
+
+`:Contacts` reads the device contacts but never requests the permission itself: until access is granted, only the
+server address book is searched.
+
+- **Android**: `READ_CONTACTS` is declared by the module and merged into the app manifest; the app requests it at runtime.
+- **Apple**: the app must add `NSContactsUsageDescription` to its `Info.plist` and request access
+  (`CNContactStore.requestAccess(for: .contacts)`).
+
+Request it where the suggestions are first needed, e.g. when the user starts typing an attendee. Nothing else is needed
+once it is granted: the next search reads the device contacts.
 
 ## Prerequisites
 

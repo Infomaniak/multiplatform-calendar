@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_core.contacts
 
 import com.infomaniak.multiplatform_core.contacts.data.local.contactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
 import io.ktor.client.HttpClient
@@ -80,6 +81,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
         val secondContacts = listOf(ApiContact(name = "Jane", emails = listOf("jane@x.com")))
         val manager = ContactsManager(
             database = testDatabase(),
+            deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
             httpClient = HttpClient(MockEngine) {
                 install(ContentNegotiation) { json(testJson()) }
                 engine {
@@ -110,6 +112,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
         val database = testDatabase()
         val manager = ContactsManager(
             database = database,
+            deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
             httpClient = testHttpClient(
                 apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),
                 etag = null,
@@ -159,8 +162,20 @@ class ContactsSyncTest : RobolectricTestsBase() {
         assertFailsWithCause(ContactsErrorCause.Network) { manager.sync(setOf(ACCOUNT_ID)) }
     }
 
+    @Test
+    fun searchStillReturnsDeviceContactsWhenOffline() = runTest {
+        val manager = ContactsManager(
+            database = testDatabase(),
+            deviceContactsProvider = FakeDeviceContactsProvider(listOf(DeviceContact(email = "john@x.com", name = "John"))),
+            httpClient = HttpClient(MockEngine) { engine { addHandler { throw IOException("offline") } } },
+        ).apply { initTestAccount() }
+
+        assertEquals(listOf("John"), manager.search("john", setOf(ACCOUNT_ID)).map { it.name })
+    }
+
     private suspend fun managerWithHandler(handler: MockRequestHandler) = ContactsManager(
         database = testDatabase(),
+        deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
         httpClient = HttpClient(MockEngine) { engine { addHandler(handler) } },
     ).apply { initTestAccount() }
 }

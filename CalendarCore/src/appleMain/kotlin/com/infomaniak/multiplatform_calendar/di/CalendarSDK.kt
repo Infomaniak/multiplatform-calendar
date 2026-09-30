@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.configureCaldavClient
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
+import com.infomaniak.multiplatform_core.contacts.ContactsSettings
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
@@ -43,9 +44,22 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
         fun create(
             @Provides databaseConfig: DatabaseConfig,
             @Provides crashReport: CrashReport,
+            @Provides contactsSettings: ContactsSettings,
         ): CalendarSDK
     }
 }
+
+/**
+ * Settings for the calendar part of the SDK.
+ *
+ * @param databasePath Absolute path of the calendar database file.
+ * @param caldavSettings Tunes every CalDAV connection; passing `null` keeps the current configuration:
+ * the native defaults, or the settings of a previous call.
+ */
+public data class CalendarSettings(
+    val databasePath: String,
+    val caldavSettings: CaldavClientSettings? = null,
+)
 
 /**
  * Entry point for Apple consumers.
@@ -53,27 +67,34 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
  * Usage from Swift:
  * ```swift
  * let sdk = CalendarSDKProvider.shared.sdk(
- *     databasePath: "/path/to/calendar.db",
+ *     calendar: CalendarSettings(
+ *         databasePath: "/path/to/calendar.db",
+ *         caldavSettings: CaldavClientSettings(userAgent: "Infomaniak Calendar/1.0", requestTimeoutSeconds: 30),
+ *     ),
  *     crashReport: crashReport,
- *     caldavSettings: CaldavClientSettings(userAgent: "Infomaniak Calendar/1.0", requestTimeoutSeconds: 30)
+ *     contacts: ContactsSettings(databasePath: "/path/to/contacts.db"),
  * )
  * sdk.accountManager.initAccount(...)
  * sdk.calendarManager.observeCalendars(...)
+ * sdk.contactsManager.search(...)
  * ```
  */
 public object CalendarSDKProvider {
 
     /**
-     * [caldavSettings] tunes every CalDAV connection and is applied process-wide before the graph is
-     * built; passing `null` leaves the native library on its own defaults. Calling this again with
-     * different settings drops the connections cached so far.
+     * [CalendarSettings.caldavSettings] is applied process-wide before the graph is built; calling
+     * this again with different settings drops the connections cached so far.
      */
     public fun sdk(
-        databasePath: String,
+        calendar: CalendarSettings,
         crashReport: CrashReport,
-        caldavSettings: CaldavClientSettings? = null,
+        contacts: ContactsSettings,
     ): CalendarCoreGraph {
-        caldavSettings?.let { configureCaldavClient(it.toBridgeConfig()) }
-        return createGraphFactory<CalendarSDK.Factory>().create(DatabaseConfig(path = databasePath), crashReport)
+        calendar.caldavSettings?.let { configureCaldavClient(it.toBridgeConfig()) }
+        return createGraphFactory<CalendarSDK.Factory>().create(
+            databaseConfig = DatabaseConfig(path = calendar.databasePath),
+            crashReport = crashReport,
+            contactsSettings = contacts,
+        )
     }
 }

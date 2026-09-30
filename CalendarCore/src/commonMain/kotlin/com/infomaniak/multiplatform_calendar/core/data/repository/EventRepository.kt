@@ -27,10 +27,10 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrid
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.recurrenceRuleWithMatchingUntil
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
@@ -46,25 +46,24 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.offsetFromStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
-import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
@@ -77,9 +76,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenc
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.withSeriesChanges
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
-import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -89,13 +88,12 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeve
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import kotlin.time.Clock
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.nanoseconds
-import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -103,6 +101,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Instant
+
 
 @SingleIn(AppScope::class)
 @Inject
@@ -113,7 +117,13 @@ internal class EventRepository(
     private val crashReport: CrashReport,
 ) {
 
-    /** The visible masters of the window, each with the overrides redefining one of its instances. */
+    /**
+     * The visible masters of the window, each with the overrides redefining one of its instances.
+     *
+     * Identical emissions are dropped and bursts of writes are coalesced by [EVENTS_FLOW_DEBOUNCE],
+     * so a sync triggers a single downstream recomputation.
+     */
+    @OptIn(FlowPreview::class)
     private fun observeVisibleEventsWithOverrides(
         accountIds: Set<AccountId>,
         start: Instant,
@@ -133,6 +143,8 @@ internal class EventRepository(
             startLocalDateTime = start.toLocalDateTime(zone),
             endLocalDateTime = end.toLocalDateTime(zone),
         ).map(List<EventWithCalendarEntity>::toDomainEventsWithOverrides)
+            .distinctUntilChanged()
+            .debounce(EVENTS_FLOW_DEBOUNCE)
     }
 
     fun observeVisibleEvents(
@@ -724,6 +736,8 @@ internal class EventRepository(
         end: Instant,
         zone: TimeZone,
     ): Flow<List<EventWithOverrides>> {
+        // Same deduplication and debouncing as [observeVisibleEventsWithOverrides].
+        @OptIn(FlowPreview::class)
         return eventDao.observeAlarmedInRange(
             accountIds = accountIds,
             startInstantMs = start.toEpochMilliseconds(),
@@ -731,10 +745,16 @@ internal class EventRepository(
             startLocalDateTime = start.toLocalDateTime(zone),
             endLocalDateTime = end.toLocalDateTime(zone),
         ).map(List<EventWithCalendarEntity>::toDomainEventsWithOverrides)
+            .distinctUntilChanged()
+            .debounce(EVENTS_FLOW_DEBOUNCE)
     }
 
     private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides?> {
         return eventDao.observeEventWithCalendar(eventId).map { relation -> relation?.toDomainEventWithOverrides() }
+    }
+
+    companion object {
+        private val EVENTS_FLOW_DEBOUNCE = 100.milliseconds
     }
 }
 

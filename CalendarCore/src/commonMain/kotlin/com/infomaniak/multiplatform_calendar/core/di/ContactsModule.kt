@@ -17,27 +17,24 @@
  */
 package com.infomaniak.multiplatform_calendar.core.di
 
-import com.infomaniak.multiplatform_calendar.core.managers.AccountManager
-import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
+import com.infomaniak.multiplatform_core.contacts.ContactsSettings
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
 
-/**
- * Shared contract for the Calendar dependency graph.
- *
- * Automatically merged as a supertype of any `@DependencyGraph(AppScope::class)`:
- * - On Android: merged into the app's `AppGraph`
- * - On Apple: merged into `CalendarSDK`
- *
- * Platform-specific graphs only need to provide the [android.content.Context] (Android)
- * or the database path (Apple) — everything else is wired through `@Inject` classes
- * and `@ContributesTo` modules (`DatabaseModule`, `AndroidDatabaseModule`, `CaldavClientModule`).
- */
 @ContributesTo(AppScope::class)
-public interface CalendarCoreGraph {
-    public val accountManager: AccountManager
-    public val calendarManager: CalendarManager
-    public val contactsManager: ContactsManager
-}
+public interface ContactsModule {
 
+    @SingleIn(AppScope::class)
+    @Provides
+    private fun provideContactsManager(
+        settings: ContactsSettings,
+        deviceContactsProvider: DeviceContactsProvider,
+    ): ContactsManager = ContactsManager(
+        databasePath = settings.databasePath,
+        deviceContactsProvider = deviceContactsProvider,
+    )
+}

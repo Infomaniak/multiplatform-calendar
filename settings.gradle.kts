@@ -60,4 +60,5 @@ include(
     ":Account",
     ":CalendarCore",
     ":CalendarKmpDav",
+    ":CalendarResources",
 )

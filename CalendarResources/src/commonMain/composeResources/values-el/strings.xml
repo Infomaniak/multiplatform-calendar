@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recurrence_at_hour">στην ώρα %1$d</string>
+    <string name="recurrence_at_hours">στις ώρες %1$s</string>
+    <string name="recurrence_at_minute">στο λεπτό %1$d</string>
+    <string name="recurrence_at_minutes">στα λεπτά %1$s</string>
+    <string name="recurrence_at_second">στο δευτερόλεπτο %1$d</string>
+    <string name="recurrence_at_seconds">στα δευτερόλεπτα %1$s</string>
+    <string name="recurrence_clause_join">%1$s, %2$s</string>
+    <string name="recurrence_date">%2$d %1$s %3$d</string>
+    <string name="recurrence_date_month_april">Απριλίου</string>
+    <string name="recurrence_date_month_august">Αυγούστου</string>
+    <string name="recurrence_date_month_december">Δεκεμβρίου</string>
+    <string name="recurrence_date_month_february">Φεβρουαρίου</string>
+    <string name="recurrence_date_month_january">Ιανουαρίου</string>
+    <string name="recurrence_date_month_july">Ιουλίου</string>
+    <string name="recurrence_date_month_june">Ιουνίου</string>
+    <string name="recurrence_date_month_march">Μαρτίου</string>
+    <string name="recurrence_date_month_may">Μαΐου</string>
+    <string name="recurrence_date_month_november">Νοεμβρίου</string>
+    <string name="recurrence_date_month_october">Οκτωβρίου</string>
+    <string name="recurrence_date_month_september">Σεπτεμβρίου</string>
+    <string name="recurrence_every_day">Κάθε μέρα</string>
+    <string name="recurrence_every_hour">Κάθε ώρα</string>
+    <string name="recurrence_every_minute">Κάθε λεπτό</string>
+    <string name="recurrence_every_month">Κάθε μήνα</string>
+    <string name="recurrence_every_second">Κάθε δευτερόλεπτο</string>
+    <string name="recurrence_every_week">Κάθε εβδομάδα</string>
+    <string name="recurrence_every_year">Κάθε χρόνο</string>
+    <string name="recurrence_first_matching_day">την πρώτη ημέρα που αντιστοιχεί (%1$s)</string>
+    <string name="recurrence_in_week_numbers">στην %1$s του έτους</string>
+    <string name="recurrence_last_matching_day">την τελευταία ημέρα που αντιστοιχεί (%1$s)</string>
+    <string name="recurrence_list_append">%1$s, %2$s</string>
+    <string name="recurrence_list_last">%1$s και %2$s</string>
+    <string name="recurrence_list_two">%1$s και %2$s</string>
+    <string name="recurrence_month_april">τον Απρίλιο</string>
+    <string name="recurrence_month_august">τον Αύγουστο</string>
+    <string name="recurrence_month_day">ημέρα %1$d</string>
+    <string name="recurrence_month_day_from_end">ημέρα %1$d από το τέλος</string>
+    <string name="recurrence_month_day_last">η τελευταία ημέρα</string>
+    <string name="recurrence_month_december">τον Δεκέμβριο</string>
+    <string name="recurrence_month_february">τον Φεβρουάριο</string>
+    <string name="recurrence_month_january">τον Ιανουάριο</string>
+    <string name="recurrence_month_july">τον Ιούλιο</string>
+    <string name="recurrence_month_june">τον Ιούνιο</string>
+    <string name="recurrence_month_march">τον Μάρτιο</string>
+    <string name="recurrence_month_may">τον Μάιο</string>
+    <string name="recurrence_month_november">τον Νοέμβριο</string>
+    <string name="recurrence_month_october">τον Οκτώβριο</string>
+    <string name="recurrence_month_september">τον Σεπτέμβριο</string>
+    <string name="recurrence_number">%1$d</string>
+    <string name="recurrence_on_annual_date">στις %2$d %1$s</string>
+    <string name="recurrence_on_month_days">την %1$s του μήνα</string>
+    <string name="recurrence_on_year_days">την %1$s του έτους</string>
+    <string name="recurrence_ordinal_weekday_fifth">την πέμπτη %1$s</string>
+    <string name="recurrence_ordinal_weekday_fifth_last">την πέμπτη %1$s από το τέλος</string>
+    <string name="recurrence_ordinal_weekday_first">την πρώτη %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth">την τέταρτη %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth_last">την τέταρτη %1$s από το τέλος</string>
+    <string name="recurrence_ordinal_weekday_last">την τελευταία %1$s</string>
+    <string name="recurrence_ordinal_weekday_position">την %1$s στη θέση %2$d</string>
+    <string name="recurrence_ordinal_weekday_position_from_end">την %1$s στη θέση %2$d από το τέλος</string>
+    <string name="recurrence_ordinal_weekday_second">τη δεύτερη %1$s</string>
+    <string name="recurrence_ordinal_weekday_second_last">την προτελευταία %1$s</string>
+    <string name="recurrence_ordinal_weekday_third">την τρίτη %1$s</string>
+    <string name="recurrence_ordinal_weekday_third_last">την τρίτη %1$s από το τέλος</string>
+    <string name="recurrence_set_position">θέση %1$d</string>
+    <string name="recurrence_set_position_first">την πρώτη</string>
+    <string name="recurrence_set_position_from_end">θέση %1$d από το τέλος</string>
+    <string name="recurrence_set_position_last">την τελευταία</string>
+    <string name="recurrence_until">έως %1$s</string>
+    <string name="recurrence_using_set_positions">χρησιμοποιώντας %1$s μεταξύ των αντίστοιχων εμφανίσεων</string>
+    <string name="recurrence_week_number">εβδομάδα %1$d</string>
+    <string name="recurrence_week_number_from_end">εβδομάδα %1$d από το τέλος</string>
+    <string name="recurrence_week_number_last">η τελευταία εβδομάδα</string>
+    <string name="recurrence_week_start">με εβδομάδες που ξεκινούν %1$s</string>
+    <string name="recurrence_weekday_friday">την Παρασκευή</string>
+    <string name="recurrence_weekday_monday">τη Δευτέρα</string>
+    <string name="recurrence_weekday_name_friday">Παρασκευή</string>
+    <string name="recurrence_weekday_name_monday">Δευτέρα</string>
+    <string name="recurrence_weekday_name_saturday">Σάββατο</string>
+    <string name="recurrence_weekday_name_sunday">Κυριακή</string>
+    <string name="recurrence_weekday_name_thursday">Πέμπτη</string>
+    <string name="recurrence_weekday_name_tuesday">Τρίτη</string>
+    <string name="recurrence_weekday_name_wednesday">Τετάρτη</string>
+    <string name="recurrence_weekday_saturday">το Σάββατο</string>
+    <string name="recurrence_weekday_sunday">την Κυριακή</string>
+    <string name="recurrence_weekday_thursday">την Πέμπτη</string>
+    <string name="recurrence_weekday_tuesday">την Τρίτη</string>
+    <string name="recurrence_weekday_wednesday">την Τετάρτη</string>
+    <string name="recurrence_year_day">ημέρα %1$d</string>
+    <string name="recurrence_year_day_from_end">ημέρα %1$d από το τέλος</string>
+    <string name="recurrence_year_day_last">η τελευταία ημέρα</string>
+
+    <plurals name="recurrence_every_n_days">
+        <item quantity="one">Κάθε %1$d ημέρα</item>
+        <item quantity="other">Κάθε %1$d ημέρες</item>
+    </plurals>
+    <plurals name="recurrence_every_n_hours">
+        <item quantity="one">Κάθε %1$d ώρα</item>
+        <item quantity="other">Κάθε %1$d ώρες</item>
+    </plurals>
+    <plurals name="recurrence_every_n_minutes">
+        <item quantity="one">Κάθε %1$d λεπτό</item>
+        <item quantity="other">Κάθε %1$d λεπτά</item>
+    </plurals>
+    <plurals name="recurrence_every_n_months">
+        <item quantity="one">Κάθε %1$d μήνα</item>
+        <item quantity="other">Κάθε %1$d μήνες</item>
+    </plurals>
+    <plurals name="recurrence_every_n_seconds">
+        <item quantity="one">Κάθε %1$d δευτερόλεπτο</item>
+        <item quantity="other">Κάθε %1$d δευτερόλεπτα</item>
+    </plurals>
+    <plurals name="recurrence_every_n_weeks">
+        <item quantity="one">Κάθε %1$d εβδομάδα</item>
+        <item quantity="other">Κάθε %1$d εβδομάδες</item>
+    </plurals>
+    <plurals name="recurrence_every_n_years">
+        <item quantity="one">Κάθε %1$d χρόνο</item>
+        <item quantity="other">Κάθε %1$d χρόνια</item>
+    </plurals>
+    <plurals name="recurrence_for_occurrences">
+        <item quantity="one">για %1$d εμφάνιση</item>
+        <item quantity="other">για %1$d εμφανίσεις</item>
+    </plurals>
+</resources>

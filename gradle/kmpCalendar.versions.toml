@@ -1,6 +1,7 @@
 [versions]
 # Keep this version synced with Core's agp version
 agp = "9.3.2"
+compose = "1.12.1"
 coroutines = "1.11.0"
 coreKtx = "1.7.0"
 datetime = "0.8.0"
@@ -22,6 +23,8 @@ android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref
 androidx-room-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room3" }
 androidx-room-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room3" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
+compose-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose" }
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "datetime" }
 kotlinx-serialization = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
@@ -42,6 +45,8 @@ robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectr
 [plugins]
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidx-room = { id = "androidx.room3", version.ref = "room3" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose" }
 ensureNdkVersion = { id = "ensure-ndk-version" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

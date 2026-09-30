@@ -165,10 +165,8 @@ class EventDaySliceTest {
     fun floatingMultiDay_isExpandedOnItsWallClock_regardlessOfGridZone() = runTest {
         // Floating (no zone): wall-clock is taken as-is in the grid, per RFC 5545 FORM #1.
         val slices = EventTiming(
-            start = LocalDateTime(2026, 1, 5, 22, 0),
-            end = LocalDateTime(2026, 1, 6, 2, 0),
-            startTimeZone = null,
-            endTimeZone = null,
+            start = EventDateTime.of(LocalDateTime(2026, 1, 5, 22, 0), null),
+            end = EventDateTime.of(LocalDateTime(2026, 1, 6, 2, 0), null),
             isAllDay = false,
         ).let(::eventOf).expandDaySlices(wideWindow, tokyo)
 
@@ -183,10 +181,8 @@ class EventDaySliceTest {
     fun crossZoneFlight_usesPerSideZonesWhenReprojecting() = runTest {
         // 09:00 New York (UTC-5) → 21:00 Paris (UTC+1), both in January.
         val slices = EventTiming(
-            start = LocalDateTime(2026, 1, 5, 9, 0),
-            end = LocalDateTime(2026, 1, 5, 21, 0),
-            startTimeZone = newYork,
-            endTimeZone = paris,
+            start = EventDateTime.of(LocalDateTime(2026, 1, 5, 9, 0), newYork),
+            end = EventDateTime.of(LocalDateTime(2026, 1, 5, 21, 0), paris),
             isAllDay = false,
         ).let(::eventOf).expandDaySlices(wideWindow, paris)
 
@@ -412,16 +408,14 @@ class EventDaySliceTest {
         LocalDateTime(year, month, day, hour, minute).toInstant(paris)
 
     private fun timed(start: LocalDateTime, end: LocalDateTime, zone: TimeZone, id: String = "event://test") = eventOf(
-        EventTiming(start = start, end = end, startTimeZone = zone, endTimeZone = zone, isAllDay = false),
+        EventTiming(start = EventDateTime.of(start, zone), end = EventDateTime.of(end, zone), isAllDay = false),
         id = id,
     )
 
     private fun allDay(start: LocalDate, endExclusive: LocalDate, id: String = "event://test") = eventOf(
         EventTiming(
-            start = LocalDateTime(start, LocalTime(0, 0)),
-            end = LocalDateTime(endExclusive, LocalTime(0, 0)),
-            startTimeZone = null,
-            endTimeZone = null,
+            start = EventDateTime.of(LocalDateTime(start, LocalTime(0, 0)), null),
+            end = EventDateTime.of(LocalDateTime(endExclusive, LocalTime(0, 0)), null),
             isAllDay = true,
         ),
         id = id,

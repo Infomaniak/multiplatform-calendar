@@ -91,7 +91,7 @@ internal suspend fun EventTiming.splitAt(
         // The rule keeps nothing, so it goes whole — what the dates carry may still stand on its own.
         rDates.any { it.startsBefore(pivotStart, master = this) } -> TruncatedSeries(rule = null)
         // DTSTART is an instance in its own right only when no rule generates it.
-        recurrenceRule == null && start < pivotStart -> TruncatedSeries(rule = null)
+        recurrenceRule == null && startWallClock < pivotStart -> TruncatedSeries(rule = null)
         else -> null
     }
 
@@ -163,10 +163,13 @@ private data class SplitTally(val count: Int, val lastStart: LocalDateTime?, val
  * as RFC 5545 §3.3.10 requires: `DATE` for an all-day master, UTC `DATE-TIME` for an anchored one,
  * floating otherwise.
  */
-private fun EventTiming.untilAt(localStart: LocalDateTime): RecurrenceUntil = when {
-    isAllDay -> RecurrenceUntil.DateOnly(localStart.date)
-    startTimeZone != null -> RecurrenceUntil.DateTimeUtc(localStart.toInstant(startTimeZone))
-    else -> RecurrenceUntil.Floating(localStart)
+private fun EventTiming.untilAt(localStart: LocalDateTime): RecurrenceUntil {
+    val zone = startTimeZone
+    return when {
+        isAllDay -> RecurrenceUntil.DateOnly(localStart.date)
+        zone != null -> RecurrenceUntil.DateTimeUtc(localStart.toInstant(zone))
+        else -> RecurrenceUntil.Floating(localStart)
+    }
 }
 
 /**

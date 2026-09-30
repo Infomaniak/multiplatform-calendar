@@ -17,8 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
@@ -40,10 +45,8 @@ class EventTimingMappersTest {
     @Test
     fun toEntity_allDay_anchorsEpochInUtcRegardlessOfDeviceZone() {
         val entity = timing(
-            start = LocalDateTime(2026, 6, 15, 0, 0),
-            end = LocalDateTime(2026, 6, 16, 0, 0),
-            startTimeZone = null,
-            endTimeZone = null,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 0, 0), null),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 16, 0, 0), null),
             isAllDay = true,
         ).toEntity()
 
@@ -57,10 +60,8 @@ class EventTimingMappersTest {
     @Test
     fun toEntity_zoned_anchorsEpochInDeclaredZone() {
         val entity = timing(
-            start = LocalDateTime(2026, 6, 15, 14, 0),
-            end = LocalDateTime(2026, 6, 15, 15, 0),
-            startTimeZone = paris,
-            endTimeZone = paris,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 14, 0), paris),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 15, 0), paris),
             isAllDay = false,
         ).toEntity()
 
@@ -74,10 +75,8 @@ class EventTimingMappersTest {
     fun toEntity_floating_hasNullEpochAndNullZones() {
         // RFC 5545 FORM #1: no TZID, no Z. No absolute instant exists at insertion time.
         val entity = timing(
-            start = LocalDateTime(2026, 6, 15, 10, 0),
-            end = LocalDateTime(2026, 6, 15, 11, 0),
-            startTimeZone = null,
-            endTimeZone = null,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 10, 0), null),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 11, 0), null),
             isAllDay = false,
         ).toEntity()
 
@@ -91,10 +90,8 @@ class EventTimingMappersTest {
     fun toEntity_crossZoneFlight_resolvesEachEpochInItsOwnZone() {
         // RFC 5545 §3.8.2.2 lets DTSTART and DTEND declare different TZIDs (e.g. flights).
         val entity = timing(
-            start = LocalDateTime(2026, 6, 15, 9, 0),
-            end = LocalDateTime(2026, 6, 15, 21, 0),
-            startTimeZone = newYork,
-            endTimeZone = paris,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 9, 0), newYork),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 21, 0), paris),
             isAllDay = false,
         ).toEntity()
 
@@ -109,10 +106,8 @@ class EventTimingMappersTest {
         // RFC 5545 §3.8.2.5: DTEND and DURATION are mutually exclusive; the edited timing always
         // carries an explicit end, so any pre-existing DURATION must be dropped.
         val entity = timing(
-            start = LocalDateTime(2026, 6, 15, 10, 0),
-            end = LocalDateTime(2026, 6, 15, 12, 30),
-            startTimeZone = paris,
-            endTimeZone = paris,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 10, 0), paris),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 12, 30), paris),
             isAllDay = false,
         ).toEntity()
 
@@ -139,8 +134,8 @@ class EventTimingMappersTest {
 
         assertEquals(paris, domain.startTimeZone)
         assertEquals(paris, domain.endTimeZone)
-        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), domain.start)
-        assertEquals(LocalDateTime(2026, 6, 15, 15, 0), domain.end)
+        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), domain.startWallClock)
+        assertEquals(LocalDateTime(2026, 6, 15, 15, 0), domain.endWallClock)
         assertEquals(false, domain.isAllDay)
     }
 
@@ -179,7 +174,7 @@ class EventTimingMappersTest {
             isAllDay = false,
         ).toDomain()
 
-        assertEquals(LocalDateTime(2026, 6, 15, 11, 0), domain.end)
+        assertEquals(LocalDateTime(2026, 6, 15, 11, 0), domain.endWallClock)
     }
 
     @Test
@@ -203,16 +198,12 @@ class EventTimingMappersTest {
     // ---- Helpers --------------------------------------------------------------------------------
 
     private fun timing(
-        start: LocalDateTime,
-        end: LocalDateTime,
-        startTimeZone: TimeZone?,
-        endTimeZone: TimeZone?,
+        start: EventDateTime,
+        end: EventDateTime,
         isAllDay: Boolean,
     ) = EventTiming(
         start = start,
         end = end,
-        startTimeZone = startTimeZone,
-        endTimeZone = endTimeZone,
         isAllDay = isAllDay,
     )
 }

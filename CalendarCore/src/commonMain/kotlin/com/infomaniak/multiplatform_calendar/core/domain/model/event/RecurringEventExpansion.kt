@@ -359,7 +359,7 @@ private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
 ) {
     if (recurrenceRule != null) return
     buildOccurrenceAt(
-        key = recurrenceKeyAt(start, startInstant(timeZone)),
+        key = recurrenceKeyAt(startWallClock, startInstant(timeZone)),
         masterTiming = masterTiming,
         defaultZone = timeZone,
         rangeStart = rangeStart,
@@ -433,7 +433,7 @@ internal fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? 
     val (localStart, instantStart) = when {
         // A bare DATE designates the occurrence falling on that day, which starts at the master's time.
         this is IcalDateValue.AllDay -> {
-            val local = LocalDateTime(date, master.start.time)
+            val local = LocalDateTime(date, master.startWallClock.time)
             local to local.toInstant(zone ?: TimeZone.UTC)
         }
         // Only a DATE can designate an occurrence of an all-day master.
@@ -446,7 +446,7 @@ internal fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? 
 }
 
 internal fun RecurrenceKey.toLocalStart(master: EventTiming, defaultZone: TimeZone): LocalDateTime? = when (this) {
-    is AllDay -> LocalDateTime(date, master.start.time)
+    is AllDay -> LocalDateTime(date, master.startWallClock.time)
     is Floating -> localDateTime
     is Zoned -> if (master.startTimeZone != null) localDateTime else null
     is Utc -> instant.toLocalDateTime(master.startTimeZone ?: defaultZone)
@@ -483,10 +483,8 @@ private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
     return copy(
         occurrenceId = OccurrenceId.Recurrence(masterEventId, occurrence.key),
         timing = timing.copy(
-            start = occurrence.start,
-            end = occurrence.end,
-            startTimeZone = occurrence.startTimeZone,
-            endTimeZone = occurrence.endTimeZone,
+            start = EventDateTime.of(occurrence.start, occurrence.startTimeZone),
+            end = EventDateTime.of(occurrence.end, occurrence.endTimeZone),
             isAllDay = occurrence.isAllDay,
         ),
     )

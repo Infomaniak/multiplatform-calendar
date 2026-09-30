@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -28,11 +29,9 @@ internal fun EventTimingEntity.toDomain(
     rDates: List<IcalDateValue> = emptyList(),
     exDates: List<IcalDateValue> = emptyList(),
 ): EventTiming = EventTiming(
-    start = dtStart,
+    start = EventDateTime.of(dtStart, startTimeZone?.let(TimeZone::of)),
     // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
-    end = dtEndEffective,
-    startTimeZone = startTimeZone?.let(TimeZone::of),
-    endTimeZone = endTimeZone?.let(TimeZone::of),
+    end = EventDateTime.of(dtEndEffective, endTimeZone?.let(TimeZone::of)),
     isAllDay = isAllDay,
     recurrenceRule = recurrenceRule,
     rDates = rDates,

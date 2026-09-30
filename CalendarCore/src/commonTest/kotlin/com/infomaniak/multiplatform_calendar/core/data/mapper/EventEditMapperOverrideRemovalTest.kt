@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
@@ -77,10 +78,8 @@ class EventEditMapperOverrideRemovalTest {
     @Test
     fun aRecordedOverrideIsAddressedWithTheVeryRecurrenceIdItCarries() {
         val master = EventTiming(
-            start = LocalDateTime(2026, 6, 15, 10, 0),
-            end = LocalDateTime(2026, 6, 15, 11, 0),
-            startTimeZone = TimeZone.of("Europe/Zurich"),
-            endTimeZone = TimeZone.of("Europe/Zurich"),
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 10, 0), TimeZone.of("Europe/Zurich")),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 11, 0), TimeZone.of("Europe/Zurich")),
             isAllDay = false,
         )
         val slot = RecurrenceKey.Zoned(LocalDateTime(2026, 6, 16, 10, 0), "Europe/Zurich")
@@ -138,10 +137,8 @@ class EventEditMapperOverrideRemovalTest {
     private fun editData() = EventEditData(
         title = "Test",
         timing = EventTiming(
-            start = LocalDateTime(2026, 6, 15, 10, 0),
-            end = LocalDateTime(2026, 6, 15, 11, 0),
-            startTimeZone = null,
-            endTimeZone = null,
+            start = EventDateTime.of(LocalDateTime(2026, 6, 15, 10, 0), null),
+            end = EventDateTime.of(LocalDateTime(2026, 6, 15, 11, 0), null),
             isAllDay = false,
         ),
         location = null,

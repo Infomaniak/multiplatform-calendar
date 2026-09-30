@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
@@ -60,18 +61,14 @@ class RecurrenceExpanderTest {
         end: String,
         zone: TimeZone? = utc,
     ) = EventTiming(
-        start = ldt(start),
-        end = ldt(end),
-        startTimeZone = zone,
-        endTimeZone = zone,
+        start = EventDateTime.of(ldt(start), zone),
+        end = EventDateTime.of(ldt(end), zone),
         isAllDay = false,
     )
 
     private fun allDayMaster(startDate: String, spanDays: Int = 1) = EventTiming(
-        start = LocalDateTime(LocalDate.parse(startDate), LocalDateTime.parse("2000-01-01T00:00").time),
-        end = LocalDateTime(LocalDate.parse(startDate).plus(spanDaysPeriod(spanDays)), LocalDateTime.parse("2000-01-01T00:00").time),
-        startTimeZone = null,
-        endTimeZone = null,
+        start = EventDateTime.of(LocalDateTime(LocalDate.parse(startDate), LocalDateTime.parse("2000-01-01T00:00").time), null),
+        end = EventDateTime.of(LocalDateTime(LocalDate.parse(startDate).plus(spanDaysPeriod(spanDays)), LocalDateTime.parse("2000-01-01T00:00").time), null),
         isAllDay = true,
     )
 

@@ -21,8 +21,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
@@ -35,16 +33,16 @@ import kotlin.time.Instant
  * - FORM #3 "with timezone reference" — local wall-clock paired with an IANA `TZID`.
  *
  * The four cases are encoded here as follows (applied independently to start and end):
- * | Case                       | [start]/[end]                  | [startTimeZone]/[endTimeZone] | [isAllDay] |
- * |----------------------------|--------------------------------|-------------------------------|------------|
- * | `DATE` (whole-day)         | wall-clock midnight (time=0)   | `null`                        | `true`     |
- * | `DATE-TIME` UTC            | wall-clock in UTC              | `TimeZone.UTC`                | `false`    |
- * | `DATE-TIME` with `TZID`    | wall-clock in that zone        | the IANA zone                 | `false`    |
- * | `DATE-TIME` floating       | wall-clock                     | `null`                        | `false`    |
+ * | Case                       | [start]/[end]                                            | [isAllDay] |
+ * |----------------------------|----------------------------------------------------------|------------|
+ * | `DATE` (whole-day)         | [EventDateTime.Floating] at midnight (time=0)            | `true`     |
+ * | `DATE-TIME` UTC            | [EventDateTime.Precise] with `TimeZone.UTC`              | `false`    |
+ * | `DATE-TIME` with `TZID`    | [EventDateTime.Precise] with the IANA zone               | `false`    |
+ * | `DATE-TIME` floating       | [EventDateTime.Floating]                                 | `false`    |
  *
  * RFC 5545 §3.8.2.2 allows `DTEND` to carry a `TZID` different from `DTSTART` (e.g. a flight
- * "9:00 America/New_York → 16:00 Europe/Paris"), hence the two zones are kept independent. For
- * all-day events both zones are `null`.
+ * "9:00 America/New_York → 16:00 Europe/Paris"), hence [start] and [end] are independent. For
+ * all-day events both are [EventDateTime.Floating].
  *
  * When [isAllDay] is `true`, consumers should read [start] / [end] as dates only; the time
  * component is meaningless. [end] is exclusive (a single-day event has `end = start + 1d`),
@@ -53,10 +51,8 @@ import kotlin.time.Instant
  * Use [startInstant] / [endInstant] when you need an absolute point in time (display, comparisons).
  */
 public data class EventTiming(
-    val start: LocalDateTime,
-    val end: LocalDateTime,
-    val startTimeZone: TimeZone?,
-    val endTimeZone: TimeZone?,
+    val start: EventDateTime,
+    val end: EventDateTime,
     val isAllDay: Boolean,
     val recurrenceRule: RecurrenceRule? = null,
     val rDates: List<IcalDateValue> = emptyList(),
@@ -65,35 +61,26 @@ public data class EventTiming(
     /**
      * Resolve [EventTiming.start] to an absolute [Instant].
      *
-     * - When [EventTiming.startTimeZone] is set, the wall-clock is anchored in that zone.
+     * - When [EventTiming.start] is [EventDateTime.Precise], its instant is returned.
      * - Otherwise (floating or all-day) it is anchored in [defaultZone] (recipient's local time per
      *   RFC 5545 FORM #1; the call-site supplies the device/user zone).
      */
-    public fun startInstant(defaultZone: TimeZone): Instant =
-        start.toInstant(startTimeZone ?: defaultZone)
+    public fun startInstant(defaultZone: TimeZone): Instant = start.toInstant(defaultZone)
 
-    /** See [startInstant]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-    public fun endInstant(defaultZone: TimeZone): Instant =
-        end.toInstant(endTimeZone ?: defaultZone)
+    /** See [startInstant]. Uses [EventTiming.end] (whose zone can differ from the start one). */
+    public fun endInstant(defaultZone: TimeZone): Instant = end.toInstant(defaultZone)
 
     /**
      * Return [EventTiming.start] as a wall-clock in [targetZone].
      *
-     * - Floating / all-day ([EventTiming.startTimeZone] `== null`): returned as-is (per RFC 5545
-     *   FORM #1, a floating wall-clock is interpreted in the recipient's zone).
-     * - Same zone as [targetZone]: returned as-is (no-op conversion).
-     * - Different zone: reprojected via an absolute [Instant].
+     * - Floating / all-day: returned as-is (per RFC 5545 FORM #1, a floating wall-clock is interpreted
+     *   in the recipient's zone).
+     * - Precise: its instant reprojected in [targetZone].
      */
-    public fun startIn(targetZone: TimeZone): LocalDateTime = when (startTimeZone) {
-        null, targetZone -> start
-        else -> start.toInstant(startTimeZone).toLocalDateTime(targetZone)
-    }
+    public fun startIn(targetZone: TimeZone): LocalDateTime = start.toLocalDateTime(targetZone)
 
-    /** See [startIn]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-    public fun endIn(targetZone: TimeZone): LocalDateTime = when (endTimeZone) {
-        null, targetZone -> end
-        else -> end.toInstant(endTimeZone).toLocalDateTime(targetZone)
-    }
+    /** See [startIn]. Uses [EventTiming.end] (whose zone can differ from the start one). */
+    public fun endIn(targetZone: TimeZone): LocalDateTime = end.toLocalDateTime(targetZone)
 
     /** Shortcut for [startInstant] with the device's current system zone. */
     public fun startInstantLocal(): Instant = startInstant(TimeZone.currentSystemDefault())
@@ -107,3 +94,21 @@ public data class EventTiming(
     /** Shortcut for [endIn] with the device's current system zone. */
     public fun endInLocal(): LocalDateTime = endIn(TimeZone.currentSystemDefault())
 }
+
+/** The wall-clock [EventTiming.start] was described with, see [EventDateTime.wallClock]. */
+internal val EventTiming.startWallClock: LocalDateTime get() = start.wallClock
+
+/** The wall-clock [EventTiming.end] was described with, see [EventDateTime.wallClock]. */
+internal val EventTiming.endWallClock: LocalDateTime get() = end.wallClock
+
+/** This timing moved onto the [start] / [end] wall-clocks, each bound keeping the zone it is described in. */
+internal fun EventTiming.withWallClocks(
+    start: LocalDateTime = startWallClock,
+    end: LocalDateTime = endWallClock,
+): EventTiming = copy(start = EventDateTime.of(start, startTimeZone), end = EventDateTime.of(end, endTimeZone))
+
+/** The zone [EventTiming.start] was described in, `null` when floating or all-day. */
+internal val EventTiming.startTimeZone: TimeZone? get() = start.timeZoneOrNull
+
+/** The zone [EventTiming.end] was described in, `null` when floating or all-day. */
+internal val EventTiming.endTimeZone: TimeZone? get() = end.timeZoneOrNull

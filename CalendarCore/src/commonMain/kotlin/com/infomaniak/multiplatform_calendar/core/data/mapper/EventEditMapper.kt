@@ -25,6 +25,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEd
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.endWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startTimeZone
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -79,9 +83,9 @@ internal fun EventEditData.toRemoteEdit(
     val endZone = timing.endTimeZone
     return RemoteEventEdit(
         summary = title.ifBlank { null },
-        dtStart = timing.start.toICal(timing.isAllDay, startZone),
+        dtStart = timing.startWallClock.toICal(timing.isAllDay, startZone),
         dtStartTzid = startZone.tzidForIcal(timing.isAllDay),
-        dtEnd = timing.end.toICal(timing.isAllDay, endZone),
+        dtEnd = timing.endWallClock.toICal(timing.isAllDay, endZone),
         dtEndTzid = endZone.tzidForIcal(timing.isAllDay),
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
@@ -120,9 +124,9 @@ internal fun EventEditData.toOverrideEdit(
     val endZone = timing.endTimeZone
     return RemoteEventEdit(
         summary = title.ifBlank { null },
-        dtStart = timing.start.toICal(timing.isAllDay, startZone),
+        dtStart = timing.startWallClock.toICal(timing.isAllDay, startZone),
         dtStartTzid = startZone.tzidForIcal(timing.isAllDay),
-        dtEnd = timing.end.toICal(timing.isAllDay, endZone),
+        dtEnd = timing.endWallClock.toICal(timing.isAllDay, endZone),
         dtEndTzid = endZone.tzidForIcal(timing.isAllDay),
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
@@ -338,8 +342,8 @@ private fun TimeZone?.tzidForIcal(isAllDay: Boolean): String? =
  */
 private fun EventTiming.vTimeZones(): List<RemoteVTimeZone> {
     if (isAllDay) return emptyList()
-    val start = startTimeZone.vTimeZone(start)
-    val end = endTimeZone.vTimeZone(end)
+    val start = startTimeZone.vTimeZone(startWallClock)
+    val end = endTimeZone.vTimeZone(endWallClock)
     return when {
         start == null && end == null -> emptyList()
         start != null && end != null && start.tzid == end.tzid -> listOf(start)

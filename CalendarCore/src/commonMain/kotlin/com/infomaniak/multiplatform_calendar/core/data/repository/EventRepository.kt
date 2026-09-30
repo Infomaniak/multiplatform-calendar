@@ -38,7 +38,6 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyDotColors
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
@@ -85,6 +84,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn

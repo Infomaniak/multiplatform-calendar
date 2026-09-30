@@ -18,12 +18,12 @@
 
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceScopesFor
 import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 import kotlin.time.ExperimentalTime

@@ -58,6 +58,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            api(project(":Account"))
             api(project(":CalendarKmpDav"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
@@ -141,5 +142,7 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         // Date and time types cross the framework boundary, so Swift needs the declarations that
         // come with them, down to the NSDate conversions it builds its own values from.
         export(kmpCalendar.kotlinx.datetime)
+        // AccountId and AccessToken are part of the calendar public API.
+        export(project(":Account"))
     }
 }

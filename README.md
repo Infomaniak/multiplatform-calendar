@@ -12,6 +12,8 @@
 
 ```
 multiplatform-calendar/
+├── Account/                         # Shared identity types (AccountId, AccessToken)
+│   └── build.gradle.kts             # Account module build (publish)
 ├── CalendarCore/                    # Public KMP library (domain, Room DB, repositories, managers, Apple SDK)
 │   ├── src/commonMain/              # Cross-platform: domain, Room DB, repositories, DI graph contracts/mappers
 │   ├── src/androidMain/             # Android Room database provider (via Metro DI)
@@ -31,6 +33,7 @@ multiplatform-calendar/
 
 | Module               | Purpose                                                                                       |
 |----------------------|-----------------------------------------------------------------------------------------------|
+| **Account**          | Shared identity types (`AccountId`, `AccessToken`) used by CalendarCore                       |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 
@@ -41,6 +44,10 @@ The `MultiplatformCalendar.xcframework` is produced by the **CalendarCore module
 `DavCredentials` (mapped to the internal `:CalendarKmpDav` `DavAccount` at the repository boundary). The only `:CalendarKmpDav` symbol
 left in the generated header is an **empty** `CaldavClientModule` marker protocol that `CalendarSDK` must conform to for
 DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
+
+`:Account` is an `api` dependency of CalendarCore and **is exported**: `AccountId` and `AccessToken` are part of the
+public Swift API. `:Account` uses the generic `com.infomaniak.multiplatform_core.*` package root, as it is meant to move
+to a shared KMP core.
 
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 

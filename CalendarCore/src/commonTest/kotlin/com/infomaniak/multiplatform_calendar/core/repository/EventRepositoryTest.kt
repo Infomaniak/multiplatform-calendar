@@ -34,7 +34,6 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBounds
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.EventRepositoryColorByDayDataset
 import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
@@ -78,6 +77,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeve
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch

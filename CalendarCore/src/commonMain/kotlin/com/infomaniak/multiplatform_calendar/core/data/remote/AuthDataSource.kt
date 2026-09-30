@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.PasswordResp
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.UserProfileResponse
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.asSuccess
 import com.infomaniak.multiplatform_calendar.core.data.remote.routes.AuthRoutes
+import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -42,18 +43,18 @@ internal class AuthDataSource(
     private val ktorClient: HttpClient,
 ) {
     @OptIn(ExperimentalTime::class)
-    suspend fun exchangeTokenToPassword(authToken: String): PasswordResponse {
+    suspend fun exchangeTokenToPassword(authToken: AccessToken): PasswordResponse {
         return ktorClient.post(AuthRoutes.PASSWORD) {
-            bearerAuth(authToken)
+            bearerAuth(authToken.value)
             setBody(
                 MultiPartFormDataContent(formData { append("name", "calendar - ${now().format(RFC_1123)}") }),
             )
         }.asSuccess()
     }
 
-    suspend fun retrieveUserProfile(authToken: String): UserProfileResponse {
+    suspend fun retrieveUserProfile(authToken: AccessToken): UserProfileResponse {
         return ktorClient.get(AuthRoutes.PROFILE) {
-            bearerAuth(authToken)
+            bearerAuth(authToken.value)
         }.asSuccess()
     }
 }

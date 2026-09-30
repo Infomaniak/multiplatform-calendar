@@ -22,7 +22,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -32,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Participati
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.BeforeTest
 import kotlin.test.Test

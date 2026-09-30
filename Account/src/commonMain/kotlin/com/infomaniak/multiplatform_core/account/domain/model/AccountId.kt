@@ -15,9 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.account
+package com.infomaniak.multiplatform_core.account.domain.model
 
 import kotlin.jvm.JvmInline
 
+/** Identifier of an Infomaniak account. */
 @JvmInline
 public value class AccountId(public val value: Long)

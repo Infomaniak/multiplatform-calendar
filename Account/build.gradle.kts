@@ -15,13 +15,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
-import androidx.room3.Entity
-import androidx.room3.PrimaryKey
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-@Entity(tableName = "accounts")
-internal data class AccountEntity(
-    @PrimaryKey val id: AccountId,
-)
+plugins {
+    alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.kotlin.multiplatform)
+    alias(kmpCalendar.plugins.publish)
+}
+
+kotlin {
+    android {
+        namespace = "com.infomaniak.multiplatform_core.account"
+        compileSdk = property("kmp.compileSdk").toString().toInt()
+        minSdk = property("kmp.minSdk").toString().toInt()
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_21)
+        }
+    }
+
+    iosArm64()
+    iosSimulatorArm64()
+    macosArm64()
+
+    explicitApi()
+}

@@ -35,7 +35,6 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservi
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEntities
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -51,6 +50,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavC
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn

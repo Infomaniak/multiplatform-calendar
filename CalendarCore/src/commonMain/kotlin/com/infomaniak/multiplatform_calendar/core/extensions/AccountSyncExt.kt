@@ -18,8 +18,8 @@
 package com.infomaniak.multiplatform_calendar.core.extensions
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 
 /**
  * Synchronizes all accounts with the provided [syncAction] function.

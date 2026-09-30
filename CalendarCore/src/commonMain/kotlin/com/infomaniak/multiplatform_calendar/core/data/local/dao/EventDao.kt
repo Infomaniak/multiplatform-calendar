@@ -37,10 +37,10 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatc
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDateTime
 

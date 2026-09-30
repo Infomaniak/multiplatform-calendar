@@ -15,13 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.local.entity
+package com.infomaniak.multiplatform_core.account.domain.model
 
-import androidx.room3.Entity
-import androidx.room3.PrimaryKey
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlin.jvm.JvmInline
 
-@Entity(tableName = "accounts")
-internal data class AccountEntity(
-    @PrimaryKey val id: AccountId,
-)
+/** OAuth access token of an Infomaniak account. Never persisted by the library. */
+@JvmInline
+public value class AccessToken(public val value: String)

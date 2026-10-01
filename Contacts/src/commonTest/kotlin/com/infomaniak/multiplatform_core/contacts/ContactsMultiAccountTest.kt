@@ -40,6 +40,30 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
     private val contactsByToken = mutableMapOf<String, List<ApiContact>>()
 
     @Test
+    fun searchWithoutAccountsSearchesEverySyncedAccount() = runTest {
+        contactsByToken[TOKEN_1] = listOf(ApiContact(name = "John", emails = listOf("john@x.com")))
+        contactsByToken[TOKEN_2] = listOf(ApiContact(name = "Jane", emails = listOf("jane@x.com")))
+        val manager = managerWithBothAccounts()
+
+        assertEquals(listOf("Jane", "John"), manager.search("j").map { it.name })
+        assertEquals(listOf("John"), manager.search("j", setOf(ACCOUNT_1)).map { it.name })
+    }
+
+    @Test
+    fun contactFoundInSeveralAccountsIsReturnedOnceWithContactedTimesAddedUp() = runTest {
+        contactsByToken[TOKEN_1] = listOf(
+            ApiContact(name = "Bob", emails = listOf("bob@x.com"), contactedTimes = mapOf("bob@x.com" to 1)),
+            ApiContact(name = "Bea", emails = listOf("bea@x.com"), contactedTimes = mapOf("bea@x.com" to 2)),
+        )
+        contactsByToken[TOKEN_2] = listOf(
+            ApiContact(name = "Bob", emails = listOf("bob@x.com"), contactedTimes = mapOf("bob@x.com" to 2)),
+        )
+        val manager = managerWithBothAccounts()
+
+        assertEquals(listOf("Bob", "Bea"), manager.search("b").map { it.name })
+    }
+
+    @Test
     fun syncWithoutAccountsSyncsEveryInitializedAccount() = runTest {
         val manager = managerWithBothAccounts()
         contactsByToken[TOKEN_1] = listOf(ApiContact(name = "John", emails = listOf("john@x.com")))

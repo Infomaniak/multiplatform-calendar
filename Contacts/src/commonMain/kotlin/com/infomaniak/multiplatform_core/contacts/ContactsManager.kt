@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_core.contacts.data.local.contactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteDataSource
 import com.infomaniak.multiplatform_core.contacts.data.remote.createContactsHttpClient
 import com.infomaniak.multiplatform_core.contacts.data.repository.ContactsRepository
+import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
@@ -80,6 +81,22 @@ public class ContactsManager internal constructor(
     public suspend fun removeAccount(accountId: AccountId): Unit = contactsCall { repository.removeAccount(accountId) }
 
     /**
+     * Returns the locally synced server contacts matching [query], sorted by times contacted, then name.
+     * Contacts without a name or marked `other` come last. Never hits the network.
+     *
+     * @param accountIds Accounts to search, or every synced account when empty. A contact found in several of them is
+     * returned once, with its contacted times added up.
+     */
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
+    @Throws(ContactsException::class, CancellationException::class)
+    public suspend fun search(
+        query: String,
+        accountIds: Set<AccountId> = emptySet(),
+        limit: Int = DEFAULT_SEARCH_LIMIT,
+    ): List<Contact> = contactsCall { repository.search(accountIds, query, limit) }
+
+    /**
      * Syncs the server address books into the local database, in parallel. When some accounts fail, the others still
      * complete, then the first failure is thrown.
      *
@@ -90,4 +107,8 @@ public class ContactsManager internal constructor(
     @HiddenFromObjC
     @Throws(ContactsException::class, CancellationException::class)
     public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = contactsCall { repository.sync(accountIds) }
+
+    internal companion object {
+        const val DEFAULT_SEARCH_LIMIT: Int = 10
+    }
 }

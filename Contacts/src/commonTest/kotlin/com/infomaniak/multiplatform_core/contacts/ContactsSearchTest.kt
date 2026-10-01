@@ -96,6 +96,31 @@ class ContactsSearchTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun ranksStartOfTextThenStartOfWordThenInsideMatches() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "Eduard", emails = listOf("e@x.com")),
+                ApiContact(name = "Martin Dupont", emails = listOf("m@x.com")),
+                ApiContact(name = "Dumas", emails = listOf("d@x.com")),
+            ),
+        )
+
+        assertEquals(listOf("Dumas", "Martin Dupont", "Eduard"), manager.search("du", setOf(ACCOUNT_ID)).map { it.name })
+    }
+
+    @Test
+    fun ranksContactedTimesBeforeMatchQuality() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "Dumas", emails = listOf("d@x.com")),
+                ApiContact(name = "Eduard", emails = listOf("e@x.com"), contactedTimes = mapOf("e@x.com" to 2)),
+            ),
+        )
+
+        assertEquals(listOf("Eduard", "Dumas"), manager.search("du", setOf(ACCOUNT_ID)).map { it.name })
+    }
+
+    @Test
     fun searchIsAccentAndCaseInsensitive() = runTest {
         val manager = testManager(
             apiContacts = listOf(ApiContact(name = "Éléonore Dupont", emails = listOf("eleonore@x.com"))),

@@ -92,8 +92,8 @@ public class ContactsManager internal constructor(
 
     /**
      * Returns the contacts matching [query], merging the locally synced server contacts with the device contacts,
-     * sorted by times contacted, then server before device, then name. Contacts without a name or not in an address
-     * book come last. Never hits the network.
+     * sorted by times contacted, then match quality (start of text, of a word, inside), then server before device,
+     * then name. Contacts without a name or not in an address book come last. Never hits the network.
      *
      * @param accountIds Accounts to search, or every synced account when empty. A contact found in several of them is
      * returned once, with its contacted times added up.

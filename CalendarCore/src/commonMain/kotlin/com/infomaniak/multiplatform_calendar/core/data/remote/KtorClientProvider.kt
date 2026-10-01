@@ -17,41 +17,16 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.remote
 
+import com.infomaniak.multiplatform_core.network.createHttpClient
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import io.ktor.client.HttpClient
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
-import io.ktor.http.URLProtocol
-import io.ktor.http.path
-import io.ktor.serialization.kotlinx.json.DefaultJson
-import io.ktor.serialization.kotlinx.json.json
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonNamingStrategy
 
 @ContributesTo(AppScope::class)
 public interface KtorClientProvider {
-    @OptIn(ExperimentalSerializationApi::class)
     @Provides
     @SingleIn(AppScope::class)
-    private fun provideHttpClient(): HttpClient = HttpClient {
-        install(ContentNegotiation) {
-            json(
-                Json(DefaultJson) {
-                    ignoreUnknownKeys = true
-                    namingStrategy = JsonNamingStrategy.SnakeCase
-                },
-            )
-        }
-        defaultRequest {
-            url {
-                protocol = URLProtocol.HTTPS
-                host = "api.infomaniak.com"
-                path("1/")
-            }
-        }
-    }
+    private fun provideHttpClient(): HttpClient = createHttpClient(host = "api.infomaniak.com", basePath = "1/")
 }

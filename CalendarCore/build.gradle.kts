@@ -60,6 +60,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":Account"))
             api(project(":CalendarKmpDav"))
+            implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
@@ -70,12 +71,7 @@ kotlin {
         }
 
         androidMain.dependencies {
-            implementation(kmpCalendar.ktor.client.okhttp)
             implementation(kmpCalendar.kotlinx.coroutines.android)
-        }
-
-        appleMain.dependencies {
-            implementation(kmpCalendar.ktor.client.darwin)
         }
 
         commonTest.dependencies {

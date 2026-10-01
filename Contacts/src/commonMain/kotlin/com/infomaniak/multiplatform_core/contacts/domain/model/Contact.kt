@@ -15,32 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_core.contacts.data.local.entity
+package com.infomaniak.multiplatform_core.contacts.domain.model
 
-import androidx.room3.Entity
-import androidx.room3.ForeignKey
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-
-/** A server contact, one row per email address. */
-@Entity(
-    tableName = "contacts",
-    primaryKeys = ["accountId", "email", "name"],
-    foreignKeys = [
-        ForeignKey(
-            entity = ContactAccountEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["accountId"],
-            onDelete = ForeignKey.CASCADE,
-        ),
-    ],
-)
-internal data class ContactEntity(
-    val accountId: AccountId,
+/** A contact, ready to be displayed. */
+public data class Contact(
     val email: String,
     val name: String,
     val avatarUrl: String?,
-    val contactedTimes: Int?,
-    val other: Boolean,
-    val nameNormalized: String,
-    val emailNormalized: String,
 )

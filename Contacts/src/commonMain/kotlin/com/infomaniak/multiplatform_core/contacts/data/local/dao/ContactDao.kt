@@ -33,6 +33,18 @@ internal interface ContactDao {
     @Query("DELETE FROM contacts WHERE accountId = :accountId")
     suspend fun deleteContactsForAccount(accountId: AccountId)
 
+    @Query(
+        """
+        SELECT * FROM contacts
+        WHERE accountId IN (:accountIds)
+        AND (nameNormalized LIKE :likeQuery ESCAPE '\' OR emailNormalized LIKE :likeQuery ESCAPE '\')
+        """,
+    )
+    suspend fun search(accountIds: Set<AccountId>, likeQuery: String): List<ContactEntity>
+
+    @Query("SELECT id FROM contactAccounts")
+    suspend fun accountIds(): List<AccountId>
+
     @Query("SELECT * FROM contactAccounts WHERE id = :accountId")
     suspend fun account(accountId: AccountId): ContactAccountEntity?
 

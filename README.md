@@ -24,6 +24,8 @@ multiplatform-calendar/
 │   ├── src/commonMain/              # RustCaldavBridge, CaldavClientModule, remote models, remote client interface
 │   ├── rust/caldav_bridge/          # Rust crate: CalDAV operations via fast-dav-rs + icalendar
 │   └── build.gradle.kts             # Bridge module build (UniFFI/Cargo, Metro)
+├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
+│   └── build.gradle.kts             # Network module build (publish)
 ├── build.gradle.kts                 # Root aggregator (no sources)
 ├── buildRelease                     # Script to build & zip MultiplatformCalendar.xcframework for iOS/macOS release
 └── buildRust                        # Script for standalone Rust compilation (optional, Gradle handles it)
@@ -36,6 +38,7 @@ multiplatform-calendar/
 | **Account**          | Shared identity types (`AccountId`, `AccessToken`) used by CalendarCore                       |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
+| **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
 ### XCFramework
 
@@ -48,6 +51,9 @@ DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
 `:Account` is an `api` dependency of CalendarCore and **is exported**: `AccountId` and `AccessToken` are part of the
 public Swift API. `:Account` uses the generic `com.infomaniak.multiplatform_core.*` package root, as it is meant to move
 to a shared KMP core.
+
+`:Network` is an `implementation` dependency of CalendarCore and is **not** exported. Like `:Account`, it uses the
+`com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 

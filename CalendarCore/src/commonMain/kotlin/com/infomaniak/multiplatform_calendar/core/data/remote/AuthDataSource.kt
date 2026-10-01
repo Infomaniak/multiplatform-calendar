@@ -19,9 +19,9 @@ package com.infomaniak.multiplatform_calendar.core.data.remote
 
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.PasswordResponse
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.UserProfileResponse
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.asSuccess
 import com.infomaniak.multiplatform_calendar.core.data.remote.routes.AuthRoutes
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
+import com.infomaniak.multiplatform_core.network.model.asSuccess
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn

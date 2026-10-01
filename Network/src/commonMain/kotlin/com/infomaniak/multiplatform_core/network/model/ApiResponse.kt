@@ -15,19 +15,22 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote.model
+package com.infomaniak.multiplatform_core.network.model
 
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
 import kotlinx.serialization.Serializable
 
+/** Envelope of every Infomaniak API response. */
 @Serializable
-internal data class ApiResponse<T>(
+public data class ApiResponse<T>(
     val result: String,
     val data: T? = null,
     val error: ApiError? = null,
 ) {
-    internal fun asSuccess(): T = data ?: throw ApiErrorException(this)
+    /** Returns [data], or throws an [ApiErrorException] when the call failed. */
+    public fun asSuccess(): T = data ?: throw ApiErrorException(this)
 }
 
-internal suspend inline fun <reified T> HttpResponse.asSuccess(): T = body<ApiResponse<T>>().asSuccess()
+/** Decodes the [ApiResponse] envelope and returns its data, or throws an [ApiErrorException]. */
+public suspend inline fun <reified T> HttpResponse.asSuccess(): T = body<ApiResponse<T>>().asSuccess()

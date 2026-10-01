@@ -15,9 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote.model
+package com.infomaniak.multiplatform_core.network.model
 
-import kotlinx.serialization.Serializable
-
-@Serializable
-internal data class ApiError(val code: String, val description: String)
+public class ApiErrorException(response: ApiResponse<*>) :
+    Exception("API error: result=${response.result}, error=${response.error}")

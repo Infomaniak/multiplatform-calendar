@@ -19,7 +19,6 @@ package com.infomaniak.multiplatform_core.contacts.data.local
 
 import androidx.room3.ConstructedBy
 import androidx.room3.Database
-import androidx.room3.Room
 import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
 import androidx.sqlite.SQLiteDriver
@@ -48,10 +47,12 @@ internal expect object ContactsDatabaseConstructor : RoomDatabaseConstructor<Con
 internal fun contactsDatabase(
     source: ContactsDatabaseSource,
     driver: SQLiteDriver? = null,
-): ContactsDatabase = when (source) {
-        is ContactsDatabaseSource.File -> Room.databaseBuilder<ContactsDatabase>(name = source.path)
-        ContactsDatabaseSource.InMemory -> Room.inMemoryDatabaseBuilder<ContactsDatabase>()
-    }
-    .setDriver(driver ?: BundledSQLiteDriver())
-    .setQueryCoroutineContext(Dispatchers.IO)
-    .build()
+): ContactsDatabase {
+    return source.databaseBuilder()
+        .setDriver(driver ?: BundledSQLiteDriver())
+        .setQueryCoroutineContext(Dispatchers.IO)
+        .build()
+}
+
+/** Room declares its builders per platform only, with no common declaration to call them through. */
+internal expect fun ContactsDatabaseSource.databaseBuilder(): RoomDatabase.Builder<ContactsDatabase>

@@ -40,7 +40,7 @@ uniffi {
 ensureNdkVersion {
     // The 16 KB page size Android 15+ requires needs NDK r28 (30.x) or newer. Declared as a
     // minimum: a newer installed NDK is reused instead of forcing this exact one to be downloaded.
-    minimumVersion = "30.0.14904198"
+    minimumVersion = "30.0.16248370"
 }
 
 cargo {

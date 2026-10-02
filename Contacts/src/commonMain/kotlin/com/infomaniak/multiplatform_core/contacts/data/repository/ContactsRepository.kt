@@ -32,6 +32,7 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
+import com.infomaniak.multiplatform_core.contacts.utils.MatchTier
 import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
 import com.infomaniak.multiplatform_core.contacts.utils.contactNameComparator
 import com.infomaniak.multiplatform_core.contacts.utils.normalizedForSearch
@@ -73,8 +74,12 @@ internal class ContactsRepository(
             .filter { it.matches(normalizedQuery) }
             .map(DeviceContact::toMergedContact)
 
-        return merge(deviceMatches, apiMatches)
-            .sortedWith(mergedContactComparator())
+        val matches = merge(deviceMatches, apiMatches)
+        val tiers = matches.associateWith {
+            MatchTier.of(normalizedQuery, it.name.normalizedForSearch(), it.email.normalizedForSearch())
+        }
+        return matches
+            .sortedWith(mergedContactComparator(tiers::getValue))
             .take(limit)
             .map(MergedContact::toContact)
     }
@@ -170,8 +175,9 @@ private fun MergedContact.completedWith(apiContact: MergedContact): MergedContac
     isInAddressBook = apiContact.isInAddressBook,
 )
 
-private fun mergedContactComparator(): Comparator<MergedContact> =
+private fun mergedContactComparator(matchTier: (MergedContact) -> MatchTier): Comparator<MergedContact> =
     compareBy<MergedContact> { -relevanceWeight(it) }
+        .thenBy(matchTier)
         .thenBy { if (it.comesFromApi) 0 else 1 }
         .thenComparator { left, right -> contactNameComparator.compare(left.name, right.name) }
 

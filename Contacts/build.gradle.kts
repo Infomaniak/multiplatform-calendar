@@ -16,11 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import co.touchlab.skie.configuration.DefaultArgumentInterop
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFrameworkConfig
 
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
@@ -28,14 +24,12 @@ plugins {
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
-    alias(kmpCalendar.plugins.metro)
-    alias(kmpCalendar.plugins.skie)
     alias(kmpCalendar.plugins.publish)
 }
 
 kotlin {
     android {
-        namespace = "com.infomaniak.multiplatform_calendar.core"
+        namespace = "com.infomaniak.multiplatform_core.contacts"
         compileSdk = property("kmp.compileSdk").toString().toInt()
         minSdk = property("kmp.minSdk").toString().toInt()
 
@@ -43,36 +37,25 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_21)
         }
 
-        // Robolectric tests run on the host. Android resources (res/, AndroidManifest) are left
-        // out to avoid unnecessary test setup overhead; enable only if a test needs them.
+        // Host tests run the common tests on the JVM. Android resources (res/, AndroidManifest)
+        // are left out to avoid unnecessary test setup overhead; enable only if a test needs them.
         withHostTest {
             isIncludeAndroidResources = false
         }
     }
 
-    val xcFrameworkName = "MultiplatformCalendar"
-    val xcf = project.XCFramework(xcFrameworkName)
-    iosArm64 { configXCFramework(xcf, xcFrameworkName) }
-    iosSimulatorArm64 { configXCFramework(xcf, xcFrameworkName) }
-    macosArm64 { configXCFramework(xcf, xcFrameworkName) }
+    iosArm64()
+    iosSimulatorArm64()
+    macosArm64()
 
     sourceSets {
         commonMain.dependencies {
             api(project(":Account"))
-            api(project(":CalendarKmpDav"))
-            api(project(":Contacts"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
-            api(kmpCalendar.kotlinx.datetime)
             implementation(kmpCalendar.bundles.ktor)
-
-            implementation(kmpCalendar.material.kolor)
-        }
-
-        androidMain.dependencies {
-            implementation(kmpCalendar.kotlinx.coroutines.android)
         }
 
         commonTest.dependencies {
@@ -105,18 +88,6 @@ room3 {
     schemaDirectory("$projectDir/schemas")
 }
 
-skie {
-    features {
-        group {
-            DefaultArgumentInterop.Enabled(true)
-            DefaultArgumentInterop.MaximumDefaultArgumentCount(7)
-        }
-    }
-    build {
-        produceDistributableFramework()
-    }
-}
-
 dependencies {
     add("kspAndroid", kmpCalendar.androidx.room.compiler)
     add("kspIosSimulatorArm64", kmpCalendar.androidx.room.compiler)
@@ -127,21 +98,5 @@ dependencies {
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
     tasks.named("compileKotlin$target") {
         dependsOn("kspKotlin$target")
-    }
-}
-
-fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName: String) {
-    binaries.framework {
-        baseName = xcFrameworkName
-        binaryOption("bundleId", "com.infomaniak.multiplatform-calendar.${xcFrameworkName}")
-        xcf.add(this)
-        linkerOpts.add("-lsqlite3")
-        // Date and time types cross the framework boundary, so Swift needs the declarations that
-        // come with them, down to the NSDate conversions it builds its own values from.
-        export(kmpCalendar.kotlinx.datetime)
-        // ContactsManager and its types are part of the public Swift API (CalendarCoreGraph accessor).
-        export(project(":Contacts"))
-        // AccountId and AccessToken are shared by the calendar and contacts public APIs.
-        export(project(":Account"))
     }
 }

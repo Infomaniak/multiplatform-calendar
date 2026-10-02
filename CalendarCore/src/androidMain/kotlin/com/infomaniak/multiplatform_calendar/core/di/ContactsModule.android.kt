@@ -15,9 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote.model
+package com.infomaniak.multiplatform_calendar.core.di
 
-import kotlinx.serialization.Serializable
+import android.content.Context
+import com.infomaniak.multiplatform_core.contacts.AndroidDeviceContactsProvider
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.Provides
 
-@Serializable
-internal data class ApiError(val code: String, val description: String)
+@ContributesTo(AppScope::class)
+public interface AndroidContactsModule {
+
+    @Provides
+    private fun provideDeviceContactsProvider(appContext: Context): DeviceContactsProvider =
+        AndroidDeviceContactsProvider(appContext)
+}

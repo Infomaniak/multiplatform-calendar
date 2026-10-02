@@ -15,18 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote
+package com.infomaniak.multiplatform_core.contacts.domain.model
 
-import com.infomaniak.multiplatform_core.network.createHttpClient
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.SingleIn
-import io.ktor.client.HttpClient
+import kotlinx.coroutines.flow.Flow
 
-@ContributesTo(AppScope::class)
-public interface KtorClientProvider {
-    @Provides
-    @SingleIn(AppScope::class)
-    private fun provideHttpClient(): HttpClient = createHttpClient(host = "api.infomaniak.com", basePath = "1/")
+/** Provides the device contacts that have at least one email address. */
+public interface DeviceContactsProvider {
+
+    /** Returns null when access to the contacts is not granted. */
+    public suspend fun read(): List<DeviceContact>?
+
+    /**
+     * Emits once registered, so that a change made since [read] is not missed, then on every change.
+     * Only collected once [read] succeeded.
+     */
+    public val changes: Flow<Unit>
 }

@@ -15,18 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote
+package com.infomaniak.multiplatform_core.contacts
 
-import com.infomaniak.multiplatform_core.network.createHttpClient
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.SingleIn
-import io.ktor.client.HttpClient
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.driver.AndroidSQLiteDriver
 
-@ContributesTo(AppScope::class)
-public interface KtorClientProvider {
-    @Provides
-    @SingleIn(AppScope::class)
-    private fun provideHttpClient(): HttpClient = createHttpClient(host = "api.infomaniak.com", basePath = "1/")
+internal actual object TestDatabaseFactory {
+    actual fun driver(): SQLiteDriver = AndroidSQLiteDriver()
 }

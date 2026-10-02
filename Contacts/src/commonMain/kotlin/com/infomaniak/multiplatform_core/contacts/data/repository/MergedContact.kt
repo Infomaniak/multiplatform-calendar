@@ -15,19 +15,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote.model
+package com.infomaniak.multiplatform_core.contacts.data.repository
 
-import io.ktor.client.call.body
-import io.ktor.client.statement.HttpResponse
-import kotlinx.serialization.Serializable
+import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 
-@Serializable
-internal data class ApiResponse<T>(
-    val result: String,
-    val data: T? = null,
-    val error: ApiError? = null,
+/** Merged contact used for sorting, before being mapped to [Contact]. */
+internal data class MergedContact(
+    val email: String,
+    val name: String,
+    val avatarUrl: String?,
+    val comesFromApi: Boolean,
+    val contactedTimes: Int?,
+    val isInAddressBook: Boolean,
 ) {
-    internal fun asSuccess(): T = data ?: throw ApiErrorException(this)
-}
+    /** Identity of a contact: the (email, name) pair, emails being case insensitive. */
+    val key: Pair<String, String> get() = email.lowercase() to name
 
-internal suspend inline fun <reified T> HttpResponse.asSuccess(): T = body<ApiResponse<T>>().asSuccess()
+    fun toContact(): Contact = Contact(email = email, name = name, avatarUrl = avatarUrl, comesFromApi = comesFromApi)
+}

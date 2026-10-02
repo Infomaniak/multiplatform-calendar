@@ -15,8 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote.model
+package com.infomaniak.multiplatform_core.contacts.domain.model
 
-internal class ApiErrorException : Exception {
-    constructor(response: ApiResponse<*>) : super("API error: result=${response.result}, error=${response.error}")
-}
+/** A contact read from the device. */
+public data class DeviceContact(
+    val email: String,
+    val name: String,
+)

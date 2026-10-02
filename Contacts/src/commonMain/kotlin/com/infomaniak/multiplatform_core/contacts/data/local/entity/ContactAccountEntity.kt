@@ -15,18 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote
+package com.infomaniak.multiplatform_core.contacts.data.local.entity
 
-import com.infomaniak.multiplatform_core.network.createHttpClient
-import dev.zacsweers.metro.AppScope
-import dev.zacsweers.metro.ContributesTo
-import dev.zacsweers.metro.Provides
-import dev.zacsweers.metro.SingleIn
-import io.ktor.client.HttpClient
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 
-@ContributesTo(AppScope::class)
-public interface KtorClientProvider {
-    @Provides
-    @SingleIn(AppScope::class)
-    private fun provideHttpClient(): HttpClient = createHttpClient(host = "api.infomaniak.com", basePath = "1/")
-}
+/** An account and the sync state of its server address book. Deleting it deletes its contacts. */
+@Entity(tableName = "contactAccounts")
+internal data class ContactAccountEntity(
+    @PrimaryKey val id: AccountId,
+    val etag: String?,
+)

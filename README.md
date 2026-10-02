@@ -54,9 +54,9 @@ The `MultiplatformCalendar.xcframework` is produced by the **CalendarCore module
 left in the generated header is an **empty** `CaldavClientModule` marker protocol that `CalendarSDK` must conform to for
 DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
 
-`:Account` is an `api` dependency of CalendarCore and **is exported**: `AccountId` and `AccessToken` are part of the
-public Swift API. `:Account` uses the generic `com.infomaniak.multiplatform_core.*` package root, as it is meant to move
-to a shared KMP core.
+`:Account` and `:Contacts` are `api` dependencies of CalendarCore and **are exported**: `AccountId`, `AccessToken`,
+`ContactsManager` and its types (`Contact`, …) are part of the public Swift API. `:Account` and `:Contacts` use the
+generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to move to a shared KMP core.
 
 `:Network` is an `implementation` dependency of CalendarCore and Contacts, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
@@ -111,9 +111,13 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 
 - **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core contributes shared graph accessors
   (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The `:CalendarKmpDav` module contributes `CaldavClientModule`.
+  The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); the app only
+  provides `ContactsSettings` (contacts database path). `AccountManager.initAccount` / `removeAccount` also init / remove
+  the account in `ContactsManager`.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager`, and inherits `:CalendarKmpDav`'s
-  `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via `CalendarSDKProvider.shared.sdk`.
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager`, and inherits
+  `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
+  `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`.
 
 ### Contacts permissions
 

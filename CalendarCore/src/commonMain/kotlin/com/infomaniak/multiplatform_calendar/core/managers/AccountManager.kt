@@ -24,10 +24,13 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.Calend
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.contacts.ContactsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -35,20 +38,35 @@ import kotlin.coroutines.cancellation.CancellationException
 @Inject
 public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
+    private val contactsManager: ContactsManager,
     private val sdkCaller: SdkCaller,
 ) {
 
+    /** Makes each [initAccount] / [removeAccount] update the calendar and the contacts as a single step. */
+    private val accountLifecycleMutex = Mutex()
+
+    /** Registers [accountId] for the calendar and the contacts. Call it at startup and on login. */
     @Throws(CalendarSdkException::class, CancellationException::class)
-    public suspend fun initAccount(accountId: AccountId, credentials: DavCredentials): Unit = withContext(Dispatchers.Default) {
+    public suspend fun initAccount(
+        accountId: AccountId,
+        credentials: DavCredentials,
+        accessToken: AccessToken,
+    ): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "initAccount $accountId") {
-            accountRepository.storeCredentials(accountId, credentials.toRemote())
+            accountLifecycleMutex.withLock {
+                accountRepository.storeCredentials(accountId, credentials.toRemote())
+                contactsManager.initAccount(accountId, accessToken)
+            }
         }
     }
 
     @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun removeAccount(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "removeAccount $accountId") {
-            accountRepository.removeCredentials(accountId)
+            accountLifecycleMutex.withLock {
+                accountRepository.removeCredentials(accountId)
+                contactsManager.removeAccount(accountId)
+            }
         }
     }
 

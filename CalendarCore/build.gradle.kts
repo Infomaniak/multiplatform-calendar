@@ -60,6 +60,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":Account"))
             api(project(":CalendarKmpDav"))
+            api(project(":Contacts"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
@@ -138,7 +139,9 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         // Date and time types cross the framework boundary, so Swift needs the declarations that
         // come with them, down to the NSDate conversions it builds its own values from.
         export(kmpCalendar.kotlinx.datetime)
-        // AccountId and AccessToken are part of the calendar public API.
+        // ContactsManager and its types are part of the public Swift API (CalendarCoreGraph accessor).
+        export(project(":Contacts"))
+        // AccountId and AccessToken are shared by the calendar and contacts public APIs.
         export(project(":Account"))
     }
 }

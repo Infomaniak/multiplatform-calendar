@@ -25,7 +25,7 @@ multiplatform-calendar/
 │   ├── rust/caldav_bridge/          # Rust crate: CalDAV operations via fast-dav-rs + icalendar
 │   └── build.gradle.kts             # Bridge module build (UniFFI/Cargo, Metro)
 ├── Contacts/                        # Standalone KMP contacts module (server address book)
-│   ├── src/commonMain/              # ContactsManager, sync logic, Room DB, Ktor remote source
+│   ├── src/commonMain/              # ContactsManager, search/sync logic, Room DB, Ktor remote source
 │   └── build.gradle.kts             # Contacts module build (Room, Ktor, publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
 │   └── build.gradle.kts             # Network module build (publish)
@@ -41,7 +41,7 @@ multiplatform-calendar/
 | **Account**          | Shared identity types (`AccountId`, `AccessToken`) used by CalendarCore and Contacts          |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
-| **Contacts**         | Standalone contacts module: server address book, ETag sync                                    |
+| **Contacts**         | Standalone contacts module: server address book, ETag sync, offline search                    |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
 ### XCFramework

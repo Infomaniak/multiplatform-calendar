@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class ContactsManagerAppleTest {
 
@@ -35,5 +36,13 @@ class ContactsManagerAppleTest {
         assertFailsWithCause(ContactsErrorCause.AccountNotInitialized(AccountId(unknownAccountId))) {
             manager.sync(accountIds = setOf(unknownAccountId))
         }
+    }
+
+    @Test
+    fun searchTakesRawAccountIds() = runTest {
+        val manager = testManager(apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))))
+
+        assertEquals(listOf("John"), manager.search("john", accountIds = setOf(ACCOUNT_ID.value)).map { it.name })
+        assertEquals(emptyList(), manager.search("john", accountIds = setOf(ACCOUNT_ID.value + 1)))
     }
 }

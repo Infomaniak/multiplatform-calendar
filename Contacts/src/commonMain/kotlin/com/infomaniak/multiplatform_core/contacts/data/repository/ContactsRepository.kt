@@ -27,9 +27,12 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsFetch
 import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteDataSource
 import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
+import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
+import com.infomaniak.multiplatform_core.contacts.utils.contactNameComparator
+import com.infomaniak.multiplatform_core.contacts.utils.normalizedForSearch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -46,6 +49,19 @@ internal class ContactsRepository(
     private val dao = database.contactDao()
     private val syncMutexes = mutableMapOf<AccountId, Mutex>()
     private val syncMutexesLock = Mutex()
+
+    /** Searches [accountIds], or every synced account when empty. A contact found in several accounts is returned once. */
+    suspend fun search(accountIds: Set<AccountId>, query: String, limit: Int): List<Contact> {
+        val normalizedQuery = query.normalizedForSearch()
+        if (normalizedQuery.isEmpty()) return emptyList()
+
+        val likeQuery = "%${normalizedQuery.escapeLikeWildcards()}%"
+        return dao.search(accountIds.ifEmpty { dao.accountIds().toSet() }, likeQuery)
+            .mergedAcrossAccounts()
+            .sortedWith(contactComparator())
+            .take(limit)
+            .map(ContactEntity::toContact)
+    }
 
     /**
      * Syncs [accountIds], or every initialized account when empty, in parallel. When some accounts fail, the others
@@ -102,6 +118,30 @@ internal class ContactsRepository(
     }
 }
 
+private fun contactComparator(): Comparator<ContactEntity> =
+    compareBy<ContactEntity> { -relevanceWeight(it) }
+        .thenComparator { left, right -> contactNameComparator.compare(left.name, right.name) }
+
+/** Relevance weight: times contacted, or -1 when the contact is not a real one (no name, or `other`). */
+private fun relevanceWeight(contact: ContactEntity): Int =
+    if (contact.name.isBlank() || contact.other) -1 else contact.contactedTimes ?: 0
+
+/** Contacted times are added up, and the contact is `other` only if it is in every account. */
+private fun List<ContactEntity>.mergedAcrossAccounts(): List<ContactEntity> =
+    groupBy { it.email.lowercase() to it.name }.values.map { it.reduce(ContactEntity::mergedWith) }
+
+private fun ContactEntity.mergedWith(contact: ContactEntity): ContactEntity = copy(
+    avatarUrl = avatarUrl ?: contact.avatarUrl,
+    contactedTimes = contactedTimesSum(contactedTimes, contact.contactedTimes),
+    other = other && contact.other,
+)
+
+/** Null when neither count is known. */
+private fun contactedTimesSum(first: Int?, second: Int?): Int? =
+    if (first == null && second == null) null else (first ?: 0) + (second ?: 0)
+
+private fun ContactEntity.toContact(): Contact = Contact(email = email, name = name, avatarUrl = avatarUrl)
+
 private fun ApiContact.toEntities(accountId: AccountId): List<ContactEntity> {
     val contactName = name.orEmpty()
     return emails.filter { it.isNotBlank() }.map { email ->
@@ -112,6 +152,11 @@ private fun ApiContact.toEntities(accountId: AccountId): List<ContactEntity> {
             avatarUrl = avatar?.let { "https://$MAIL_API_HOST$it" },
             contactedTimes = contactedTimes?.get(email),
             other = other,
+            nameNormalized = contactName.normalizedForSearch(),
+            emailNormalized = email.normalizedForSearch(),
         )
     }
 }
+
+private fun String.escapeLikeWildcards(): String =
+    replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

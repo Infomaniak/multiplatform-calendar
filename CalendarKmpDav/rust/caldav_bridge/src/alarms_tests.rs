@@ -1,8 +1,8 @@
 use crate::alarms::splice_alarms_into_vevent;
 use crate::events::{build_event_ics, parse_ics, patch_event_ics, upsert_override_vevent};
 use crate::models::{
-    AlarmEdit, AlarmEntry, AlarmRepetitionSpec, AlarmsChange, ColorChange, DateListChange, EventEdit,
-    OverrideRemoval, RecurrenceChange, RecurrenceIdSpec, VeventSeed,
+    AlarmEdit, AlarmEntry, AlarmRepetitionSpec, AlarmsChange, AttendeesChange, ColorChange, DateListChange, EventEdit,
+    OrganizerChange, OverrideRemoval, RecurrenceChange, RecurrenceIdSpec, VeventSeed,
 };
 
 fn alarms_of(valarms: &str) -> Vec<AlarmEntry> {
@@ -111,6 +111,8 @@ fn edit(alarms_change: AlarmsChange) -> EventEdit {
         r_date_change: DateListChange::Unchanged,
         override_removal: OverrideRemoval::Unchanged,
         alarms_change,
+        attendees_change: AttendeesChange::Unchanged,
+        organizer_change: OrganizerChange::Unchanged,
         stamp: "20260601T000000Z".into(),
     }
 }

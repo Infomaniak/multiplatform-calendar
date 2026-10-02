@@ -25,6 +25,7 @@ internal data class ApiContact(
     val name: String? = null,
     val emails: List<String> = emptyList(),
     val avatar: String? = null,
+    /** True for an address collected from exchanged emails rather than saved in an address book. */
     val other: Boolean = false,
     val contactedTimes: Map<String, Int>? = null,
 )

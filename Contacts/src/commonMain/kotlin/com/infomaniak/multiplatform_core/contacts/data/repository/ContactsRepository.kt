@@ -167,7 +167,7 @@ private fun MergedContact.completedWith(apiContact: MergedContact): MergedContac
     avatarUrl = avatarUrl ?: apiContact.avatarUrl,
     comesFromApi = true,
     contactedTimes = apiContact.contactedTimes,
-    other = apiContact.other,
+    isInAddressBook = apiContact.isInAddressBook,
 )
 
 private fun mergedContactComparator(): Comparator<MergedContact> =
@@ -175,18 +175,18 @@ private fun mergedContactComparator(): Comparator<MergedContact> =
         .thenBy { if (it.comesFromApi) 0 else 1 }
         .thenComparator { left, right -> contactNameComparator.compare(left.name, right.name) }
 
-/** Relevance weight: times contacted, or -1 when the contact is not a real one (no name, or `other`). */
+/** Relevance weight: times contacted, or -1 when the contact is not a real one (no name, or not in an address book). */
 private fun relevanceWeight(contact: MergedContact): Int =
-    if (contact.name.isBlank() || contact.other) -1 else contact.contactedTimes ?: 0
+    if (contact.name.isBlank() || !contact.isInAddressBook) -1 else contact.contactedTimes ?: 0
 
-/** Contacted times are added up, and the contact is `other` only if it is in every account. */
+/** Contacted times are added up, and the contact is in an address book when any account has it in one. */
 private fun List<ContactEntity>.mergedAcrossAccounts(): List<ContactEntity> =
     groupBy { it.email.lowercase() to it.name }.values.map { it.reduce(ContactEntity::mergedWith) }
 
 private fun ContactEntity.mergedWith(contact: ContactEntity): ContactEntity = copy(
     avatarUrl = avatarUrl ?: contact.avatarUrl,
     contactedTimes = contactedTimesSum(contactedTimes, contact.contactedTimes),
-    other = other && contact.other,
+    isInAddressBook = isInAddressBook || contact.isInAddressBook,
 )
 
 /** Null when neither count is known. */
@@ -199,7 +199,7 @@ private fun ContactEntity.toMergedContact(): MergedContact = MergedContact(
     avatarUrl = avatarUrl,
     comesFromApi = true,
     contactedTimes = contactedTimes,
-    other = other,
+    isInAddressBook = isInAddressBook,
 )
 
 private fun DeviceContact.matches(normalizedQuery: String): Boolean =
@@ -211,7 +211,7 @@ private fun DeviceContact.toMergedContact(): MergedContact = MergedContact(
     avatarUrl = null,
     comesFromApi = false,
     contactedTimes = null,
-    other = false,
+    isInAddressBook = true,
 )
 
 private fun ApiContact.toEntities(accountId: AccountId): List<ContactEntity> {
@@ -223,7 +223,7 @@ private fun ApiContact.toEntities(accountId: AccountId): List<ContactEntity> {
             name = contactName,
             avatarUrl = avatar?.let { "https://$MAIL_API_HOST$it" },
             contactedTimes = contactedTimes?.get(email),
-            other = other,
+            isInAddressBook = !other,
             nameNormalized = contactName.normalizedForSearch(),
             emailNormalized = email.normalizedForSearch(),
         )

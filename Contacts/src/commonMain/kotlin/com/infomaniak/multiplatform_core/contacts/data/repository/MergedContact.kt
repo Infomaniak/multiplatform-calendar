@@ -26,7 +26,7 @@ internal data class MergedContact(
     val avatarUrl: String?,
     val comesFromApi: Boolean,
     val contactedTimes: Int?,
-    val other: Boolean,
+    val isInAddressBook: Boolean,
 ) {
     /** Identity of a contact: the (email, name) pair, emails being case insensitive. */
     val key: Pair<String, String> get() = email.lowercase() to name

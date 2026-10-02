@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "47d22c0b2bea568a97ed49a43b5ff22f",
+    "identityHash": "8a514d0e1fde9b3be860705eb855ecdb",
     "entities": [
       {
         "tableName": "contactAccounts",
@@ -29,7 +29,7 @@
       },
       {
         "tableName": "contacts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` INTEGER NOT NULL, `email` TEXT NOT NULL, `name` TEXT NOT NULL, `avatarUrl` TEXT, `contactedTimes` INTEGER, `other` INTEGER NOT NULL, `nameNormalized` TEXT NOT NULL, `emailNormalized` TEXT NOT NULL, PRIMARY KEY(`accountId`, `email`, `name`), FOREIGN KEY(`accountId`) REFERENCES `contactAccounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` INTEGER NOT NULL, `email` TEXT NOT NULL, `name` TEXT NOT NULL, `avatarUrl` TEXT, `contactedTimes` INTEGER, `isInAddressBook` INTEGER NOT NULL, `nameNormalized` TEXT NOT NULL, `emailNormalized` TEXT NOT NULL, PRIMARY KEY(`accountId`, `email`, `name`), FOREIGN KEY(`accountId`) REFERENCES `contactAccounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "accountId",
@@ -60,8 +60,8 @@
             "affinity": "INTEGER"
           },
           {
-            "fieldPath": "other",
-            "columnName": "other",
+            "fieldPath": "isInAddressBook",
+            "columnName": "isInAddressBook",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -103,7 +103,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '47d22c0b2bea568a97ed49a43b5ff22f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8a514d0e1fde9b3be860705eb855ecdb')"
     ]
   }
 }

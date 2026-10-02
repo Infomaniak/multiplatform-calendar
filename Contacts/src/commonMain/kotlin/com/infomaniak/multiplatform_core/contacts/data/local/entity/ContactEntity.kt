@@ -40,7 +40,7 @@ internal data class ContactEntity(
     val name: String,
     val avatarUrl: String?,
     val contactedTimes: Int?,
-    val other: Boolean,
+    val isInAddressBook: Boolean,
     val nameNormalized: String,
     val emailNormalized: String,
 )

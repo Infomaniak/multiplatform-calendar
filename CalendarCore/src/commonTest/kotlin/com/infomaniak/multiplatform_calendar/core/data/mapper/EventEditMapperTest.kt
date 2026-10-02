@@ -538,6 +538,8 @@ class EventEditMapperTest {
         calendarId = calendarId,
         eventColor = null,
         alarms = AlarmListEdit.Replace(emptyList()),
+        attendees = emptyList(),
+        organizer = null,
     )
 
     private fun editData(recurrence: RecurrenceRule?, isAllDay: Boolean, zone: TimeZone?) = EventEditData(
@@ -556,6 +558,8 @@ class EventEditMapperTest {
         calendarId = calendarId,
         eventColor = null,
         alarms = AlarmListEdit.Replace(emptyList()),
+        attendees = emptyList(),
+        organizer = null,
     )
 
     private fun editData(recurrence: RecurrenceRule?) = EventEditData(
@@ -574,6 +578,8 @@ class EventEditMapperTest {
         calendarId = calendarId,
         eventColor = null,
         alarms = AlarmListEdit.Replace(emptyList()),
+        attendees = emptyList(),
+        organizer = null,
     )
 
     private fun editData(timing: EventTiming) = EventEditData(
@@ -585,6 +591,8 @@ class EventEditMapperTest {
         calendarId = calendarId,
         eventColor = null,
         alarms = AlarmListEdit.Replace(emptyList()),
+        attendees = emptyList(),
+        organizer = null,
     )
 
     private fun editData(eventColor: Int?) = EventEditData(
@@ -602,6 +610,8 @@ class EventEditMapperTest {
         calendarId = calendarId,
         eventColor = eventColor?.let(::EventSourceColor),
         alarms = AlarmListEdit.Replace(emptyList()),
+        attendees = emptyList(),
+        organizer = null,
     )
 
     private fun eventEntity(

@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLeve
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
@@ -471,6 +472,7 @@ internal class EventRepository(
             tail = SeriesTail.of(master, pivotStart, edit = data.statingAlarmsOf(entity), split),
             carried = overrides.mapNotNull { it.carriedAfter(pivotStart, master) },
             source = SeriesSource(sourceIcs, pivotSeed?.toRemoteRecurrenceId(master)),
+            seedContent = pivotSeed?.content ?: entity.content,
         )
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
@@ -499,16 +501,20 @@ internal class EventRepository(
      * Write [tail] as a resource of its own, the [carried] overrides included.
      *
      * Both are seeded from the VEVENTs they stand for in [source], so they keep what [EventEditData]
-     * cannot represent — organizer, attendees, `STATUS`, custom properties.
+     * cannot represent — `STATUS`, custom properties. [seedContent] is the tail's seed as stored.
      */
     private suspend fun createTail(
         credentials: DavAccount,
         tail: SeriesTail,
         carried: List<CarriedOverride>,
         source: SeriesSource,
+        seedContent: EventContentEntity,
     ) {
         val stamp = Clock.System.now().toICalUtcDateTime()
-        val built = caldavClient.buildEventIcs(edit = tail.toRemoteEdit(stamp), seed = source.pivotSeed())
+        val built = caldavClient.buildEventIcs(
+            edit = tail.toRemoteEdit(stamp, seedContent),
+            seed = source.pivotSeed(),
+        )
         val resource = carryOverridesInto(built, carried, tail, stamp, source)
         val calendarId = tail.data.calendarId
 
@@ -543,6 +549,8 @@ internal class EventRepository(
                     stamp = stamp,
                     previousColorArgb = tail.data.eventColor?.argb,
                     previousAlarms = tail.data.alarms.statedAlarms.map(EventAlarm::toEntity),
+                    previousAttendees = override.content.attendees,
+                    previousOrganizer = override.content.organizer,
                 ),
                 // Cloned from the VEVENT it already is, so its own content survives the move.
                 seed = RemoteVeventSeed(source.ics, override.toRemoteRecurrenceId(master = tail.master)),
@@ -631,6 +639,8 @@ internal class EventRepository(
                     stamp = now,
                     previousColorArgb = override.content.colorArgb,
                     previousAlarms = override.content.alarms,
+                    previousAttendees = override.content.attendees,
+                    previousOrganizer = override.content.organizer,
                 ),
             )
         }
@@ -666,7 +676,13 @@ internal class EventRepository(
         val patched = caldavClient.upsertOverrideIcs(
             previousIcs,
             recurrenceId,
-            data.toOverrideEdit(stamp = now, previousColorArgb = shown.colorArgb, previousAlarms = shown.alarms),
+            data.toOverrideEdit(
+                stamp = now,
+                previousColorArgb = shown.colorArgb,
+                previousAlarms = shown.alarms,
+                previousAttendees = shown.attendees,
+                previousOrganizer = shown.organizer,
+            ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
         eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
@@ -854,12 +870,14 @@ private fun EventEditData.tailRuleAfter(split: SeriesSplit, stored: EventTiming,
     return if (edited == stored.recurrenceRuleWithMatchingUntil()) split.tail?.shiftedBy(delta) else edited
 }
 
-/** This tail as the edit creating its resource, the date lists it takes over moved along with it. */
-private fun SeriesTail.toRemoteEdit(stamp: String) = data.toRemoteEdit(
+/** This tail as the edit creating its resource from [seed], the date lists it takes over moved along with it. */
+private fun SeriesTail.toRemoteEdit(stamp: String, seed: EventContentEntity) = data.toRemoteEdit(
     stamp = stamp,
     previous = null,
     exDates = DateListEdit.Set(master.exDates.movedTail(tail = this)),
     rDates = DateListEdit.Set(master.rDates.movedTail(tail = this)),
+    previousAttendees = seed.attendees,
+    previousOrganizer = seed.organizer,
 )
 
 /**

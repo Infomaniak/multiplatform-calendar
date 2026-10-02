@@ -28,8 +28,10 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.EventRepositoryColorByDayDataset
@@ -37,6 +39,7 @@ import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -45,6 +48,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Organizer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -64,6 +68,8 @@ import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
@@ -72,6 +78,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
@@ -1608,6 +1615,128 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val edit = fakeCaldav.overrideUpserts.single().second
         assertEquals("Renamed", edit.summary)
         assertEquals("Room B", edit.location)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_carriesAnInvitedAttendeeOntoOverrides() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val base = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val master = base.copy(content = base.content.copy(attendees = listOf(ALICE), organizer = OWNER))
+        val baseOverride = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        val override = baseOverride.copy(
+            content = baseOverride.content.copy(attendees = listOf(ALICE), organizer = OWNER),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
+            data = editData(
+                title = "Daily recurring",
+                calendarId = calendarId,
+                start = LocalDateTime(2026, 6, 15, 10, 0),
+                end = LocalDateTime(2026, 6, 15, 11, 0),
+                attendees = listOf(ALICE.toEdit(), CAROL),
+                organizer = Organizer(OWNER.email, OWNER.displayName),
+            ),
+        )
+
+        val expected = RemoteAttendeesChange.Set(
+            listOf(
+                RemoteAttendeeEdit.Kept(ALICE.email),
+                RemoteAttendeeEdit.Written(CAROL.email, displayName = null, role = "REQ-PARTICIPANT"),
+            ),
+        )
+        assertEquals(expected, fakeCaldav.patches.single().attendeesChange)
+        val overrideEdit = fakeCaldav.overrideUpserts.single().second
+        assertEquals(expected, overrideEdit.attendeesChange)
+        assertEquals(RemoteOrganizerChange.Unchanged, overrideEdit.organizerChange)
+    }
+
+    @Test
+    fun updateEvent_thisOccurrence_editsTheAttendeesAnExistingOverrideHas() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val base = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val master = base.copy(content = base.content.copy(attendees = listOf(ALICE), organizer = OWNER))
+        val baseOverride = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        // Only this instance invited Carol.
+        val override = baseOverride.copy(
+            content = baseOverride.content.copy(attendees = listOf(ALICE, CAROL_STORED), organizer = OWNER),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
+                RecurrenceScope.ThisOccurrence,
+            ),
+            data = editData(
+                title = "Moved instance",
+                calendarId = calendarId,
+                start = LocalDateTime(2026, 6, 16, 10, 0),
+                end = LocalDateTime(2026, 6, 16, 11, 0),
+                attendees = listOf(CAROL),
+                organizer = Organizer(OWNER.email, OWNER.displayName),
+            ),
+        )
+
+        val edit = fakeCaldav.overrideUpserts.single().second
+        assertEquals(RemoteAttendeesChange.Set(listOf(RemoteAttendeeEdit.Kept(CAROL.email))), edit.attendeesChange)
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_editsTheTailAttendeesFromItsSeed() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val base = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        )
+        val master = base.copy(content = base.content.copy(attendees = listOf(ALICE), organizer = OWNER))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+                RecurrenceScope.ThisAndFollowing,
+            ),
+            data = editData(
+                title = "Tail",
+                calendarId = calendarId,
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+                attendees = listOf(ALICE.toEdit()),
+                organizer = Organizer(OWNER.email, OWNER.displayName),
+            ),
+        )
+
+        // The tail is cloned from the master, which already carries these participants.
+        val built = fakeCaldav.builds.single()
+        assertEquals(RemoteAttendeesChange.Unchanged, built.attendeesChange)
+        assertEquals(RemoteOrganizerChange.Unchanged, built.organizerChange)
     }
 
     @Test
@@ -3397,6 +3526,8 @@ class EventRepositoryTest : RobolectricTestsBase() {
         end: LocalDateTime = LocalDateTime(2026, 6, 15, 11, 0),
         timeZone: TimeZone? = TimeZone.UTC,
         isAllDay: Boolean = false,
+        attendees: List<AttendeeEdit> = emptyList(),
+        organizer: Organizer? = null,
     ) = EventEditData(
         title = title,
         timing = EventTiming(
@@ -3413,9 +3544,26 @@ class EventRepositoryTest : RobolectricTestsBase() {
         calendarId = calendarId,
         eventColor = null,
         alarms = AlarmListEdit.Replace(alarms),
+        attendees = attendees,
+        organizer = organizer,
     )
 
     private fun eventDao() = database.eventDao()
+
+    private companion object {
+        val OWNER = OrganizerEntity(email = "owner@example.com", displayName = "Owner")
+        val ALICE = AttendeeEntity(
+            email = "alice@example.com",
+            status = ParticipationStatus.Accepted,
+            role = AttendeeRole.Requested,
+        )
+        val CAROL = AttendeeEdit(email = "carol@example.com", displayName = null, role = AttendeeRole.Requested)
+        val CAROL_STORED = AttendeeEntity(
+            email = CAROL.email,
+            status = ParticipationStatus.NeedsAction,
+            role = CAROL.role,
+        )
+    }
 }
 
 private fun remoteDavEvent(

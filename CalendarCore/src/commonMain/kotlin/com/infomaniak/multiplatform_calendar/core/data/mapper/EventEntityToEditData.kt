@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -46,6 +47,8 @@ internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     calendarId = calendarId,
     eventColor = content.colorArgb?.let(::EventSourceColor),
     alarms = AlarmListEdit.Preserve,
+    attendees = content.attendees.map(AttendeeEntity::toEdit),
+    organizer = content.organizer?.toDomain(),
 )
 
 /**
@@ -63,4 +66,6 @@ internal fun EventOverrideEntity.toEditData(calendarId: CalendarId): EventEditDa
     calendarId = calendarId,
     eventColor = content.colorArgb?.let(::EventSourceColor),
     alarms = AlarmListEdit.Preserve,
+    attendees = content.attendees.map(AttendeeEntity::toEdit),
+    organizer = content.organizer?.toDomain(),
 )

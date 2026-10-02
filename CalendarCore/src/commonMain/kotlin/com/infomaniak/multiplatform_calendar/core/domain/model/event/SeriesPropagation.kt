@@ -37,6 +37,8 @@ internal fun EventEditData.withSeriesChanges(before: EventEditData, after: Event
     if (after.description != before.description) carried = carried.copy(description = after.description)
     if (after.timeBlocking != before.timeBlocking) carried = carried.copy(timeBlocking = after.timeBlocking)
     if (after.eventColor != before.eventColor) carried = carried.copy(eventColor = after.eventColor)
+    if (after.attendees != before.attendees) carried = carried.copy(attendees = after.attendees)
+    if (after.organizer != before.organizer) carried = carried.copy(organizer = after.organizer)
     // An edit that says nothing of alarms leaves Preserve here, which states no list to carry over.
     val alarms = after.alarms
     if (alarms is AlarmListEdit.Replace && alarms != before.alarms) carried = carried.copy(alarms = alarms)

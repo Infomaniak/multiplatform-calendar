@@ -24,6 +24,7 @@
 uniffi::setup_scaffolding!();
 
 mod alarms;
+mod attendees;
 mod client;
 mod config;
 mod error;
@@ -36,6 +37,8 @@ mod events;
 
 #[cfg(test)]
 mod alarms_tests;
+#[cfg(test)]
+mod attendees_tests;
 #[cfg(test)]
 mod events_tests;
 

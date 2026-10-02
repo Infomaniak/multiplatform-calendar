@@ -336,7 +336,33 @@ pub struct EventEdit {
     pub r_date_change: DateListChange,
     pub override_removal: OverrideRemoval,
     pub alarms_change: AlarmsChange,
+    pub attendees_change: AttendeesChange,
+    pub organizer_change: OrganizerChange,
     pub stamp: String,
+}
+
+/// Requested change to a VEVENT's `ATTENDEE` list. `Set` makes it exactly `attendees`, matched on their email.
+#[derive(uniffi::Enum)]
+pub enum AttendeesChange {
+    Unchanged,
+    Set { attendees: Vec<AttendeeEdit> },
+}
+
+/// One attendee of [`AttendeesChange::Set`].
+#[derive(uniffi::Enum)]
+pub enum AttendeeEdit {
+    /// Keep the stored line verbatim, every parameter included.
+    Kept { email: String },
+    /// Write `CN`/`ROLE` onto the stored line, or add a line awaiting a response.
+    Written { email: String, display_name: Option<String>, role: String },
+}
+
+/// Requested change to a VEVENT's `ORGANIZER`. `Set` on the stored email only rewrites its `CN`.
+#[derive(uniffi::Enum)]
+pub enum OrganizerChange {
+    Unchanged,
+    Set { email: String, display_name: Option<String> },
+    Cleared,
 }
 
 /// Fresh VALARM fields emitted for [`AlarmsChange::Set`]; hand-emitted due to `icalendar::Alarm` limitations.

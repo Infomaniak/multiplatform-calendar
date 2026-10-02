@@ -604,9 +604,9 @@ internal class EventRepository(
      * Apply to the whole series an edit prepared on one of its occurrences: [data] carries that
      * occurrence's slot, so its timing is first expressed back on the master (see [rebasedOnto]).
      *
-     * Detached overrides are VEVENTs of their own, which the master's fields do not reach (see
-     * [withSeriesChanges]); each is replayed the same change in the same resource, so the series and
-     * its exceptions are never left disagreeing between two requests.
+     * [data] starts from what the occurrence showed, a detached override's own fields included, so only
+     * the fields changed from it are written (see [withSeriesChanges]): to the master, and to each
+     * override in the same resource, so the series and its exceptions never disagree between two requests.
      */
     private suspend fun updateSeriesFrom(
         credentials: DavAccount,
@@ -615,23 +615,29 @@ internal class EventRepository(
     ) {
         val masterId = occurrenceId.masterId
         val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
-        // The alarms the master actually stands with, so an edit restating them reads as no change.
         val before = entity.toEditData()
-            .copy(alarms = AlarmListEdit.Replace(entity.content.alarms.mapNotNull(AlarmEntity::toDomain)))
         val masterTiming = before.timing
         val zone = TimeZone.currentSystemDefault()
-        // The start the occurrence was displayed with, which is what the edit was prepared against.
-        val shownStart = eventDao.getOverrideOf(masterId, occurrenceId.recurrenceKey)
-            ?.content?.timing?.dtStart
+        val shownOverride = eventDao.getOverrideOf(masterId, occurrenceId.recurrenceKey)
+        // What the occurrence displayed, which is what the edit was prepared against. Its alarms are
+        // stated, so an edit restating them reads as no change.
+        val shown = (shownOverride?.toEditData(entity.calendarId) ?: before).copy(
+            alarms = AlarmListEdit.Replace(
+                (shownOverride?.content ?: entity.content).alarms.mapNotNull(AlarmEntity::toDomain),
+            ),
+        )
+        val shownStart = shownOverride?.content?.timing?.dtStart
             ?: occurrenceId.recurrenceKey.toLocalStart(masterTiming, zone)
             ?: return
 
         val after = data.copy(timing = data.timing.rebasedOnto(masterTiming, shownStart, defaultZone = zone))
+        val masterBase = before.copy(timing = after.timing, calendarId = after.calendarId)
+        val masterEdit = masterBase.withSeriesChanges(shown, after) ?: masterBase
         val now = Clock.System.now().toICalUtcDateTime()
-        var patched = caldavClient.patchEventIcs(previousIcs, after.toRemoteEdit(stamp = now, previous = entity))
+        var patched = caldavClient.patchEventIcs(previousIcs, masterEdit.toRemoteEdit(stamp = now, previous = entity))
 
         eventDao.getOverridesOf(masterId).forEach { override ->
-            val carried = override.toEditData(entity.calendarId).withSeriesChanges(before, after) ?: return@forEach
+            val carried = override.toEditData(entity.calendarId).withSeriesChanges(shown, after) ?: return@forEach
             patched = caldavClient.upsertOverrideIcs(
                 patched.icsData,
                 override.toRemoteRecurrenceId(masterTiming),
@@ -645,7 +651,7 @@ internal class EventRepository(
             )
         }
 
-        writePatchedEvent(credentials, masterId, entity, after, patched)
+        writePatchedEvent(credentials, masterId, entity, masterEdit, patched)
     }
 
     /**

@@ -1881,6 +1881,125 @@ class EventRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun updateEvent_allOccurrences_fromAnOverriddenOccurrence_leavesTheSeriesWhatOnlyThatOccurrenceHad() = runTest {
+        val master = seedSeriesWithDistinctOverrides()
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+        val shown = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = shown.copy(description = "Agenda"),
+        )
+
+        // The title, room and guests the edit opened on are that occurrence's own, not the series'.
+        val masterEdit = fakeCaldav.patches.single()
+        assertEquals("Daily recurring", masterEdit.summary)
+        assertEquals(null, masterEdit.location)
+        assertEquals("Agenda", masterEdit.description)
+        assertEquals(RemoteAttendeesChange.Unchanged, masterEdit.attendeesChange)
+        assertEquals(RemoteOrganizerChange.Unchanged, masterEdit.organizerChange)
+        val other = fakeCaldav.overrideUpserts.single { (recurrenceId, _) -> recurrenceId.value == "20260617T100000Z" }.second
+        assertEquals("Other instance", other.summary)
+        assertEquals("Room C", other.location)
+        assertEquals("Agenda", other.description)
+        assertEquals(RemoteAttendeesChange.Unchanged, other.attendeesChange)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_fromAnOverriddenOccurrence_carriesWhatTheEditChanged() = runTest {
+        val master = seedSeriesWithDistinctOverrides()
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+        val shown = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = shown.copy(title = "Renamed", attendees = listOf(CAROL)),
+        )
+
+        val expectedAttendees = RemoteAttendeesChange.Set(
+            listOf(RemoteAttendeeEdit.Written(CAROL.email, displayName = null, role = "REQ-PARTICIPANT")),
+        )
+        val masterEdit = fakeCaldav.patches.single()
+        assertEquals("Renamed", masterEdit.summary)
+        assertEquals(null, masterEdit.location)
+        assertEquals(expectedAttendees, masterEdit.attendeesChange)
+        val overrideEdits = fakeCaldav.overrideUpserts.associate { (recurrenceId, edit) -> recurrenceId.value to edit }
+        assertEquals(setOf("20260616T100000Z", "20260617T100000Z"), overrideEdits.keys)
+        overrideEdits.values.forEach { assertEquals("Renamed", it.summary) }
+        assertEquals("Room B", overrideEdits.getValue("20260616T100000Z").location)
+        assertEquals("Room C", overrideEdits.getValue("20260617T100000Z").location)
+        assertEquals(expectedAttendees, overrideEdits.getValue("20260617T100000Z").attendeesChange)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_fromAnOverriddenOccurrence_givesInvitedAttendeesTheirOrganizer() = runTest {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        // Only the 16th has participants: neither the master nor the 17th has an organizer.
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val shownBase = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        val shown = shownBase.copy(content = shownBase.content.copy(attendees = listOf(ALICE), organizer = OWNER))
+        val other = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 17, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(shown, other))))
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+        val edit = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = edit.copy(attendees = edit.attendees + CAROL),
+        )
+
+        // Unchanged on screen, the organizer still has to come along with the attendees it answers for.
+        val expected = RemoteOrganizerChange.Set(OWNER.email, OWNER.displayName)
+        assertEquals(expected, fakeCaldav.patches.single().organizerChange)
+        val otherEdit = fakeCaldav.overrideUpserts.single { (recurrenceId, _) -> recurrenceId.value == "20260617T100000Z" }
+        assertEquals(expected, otherEdit.second.organizerChange)
+    }
+
+    /** A daily series whose 16th and 17th are detached, each with fields the master does not have. */
+    private suspend fun seedSeriesWithDistinctOverrides(): EventEntity {
+        val account = AccountId(1)
+        val calendarId = CalendarId("calendar://main")
+        seedCalendar(account, calendarId)
+        val base = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            calendarId = calendarId,
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val master = base.copy(content = base.content.copy(attendees = listOf(ALICE), organizer = OWNER))
+        val shownBase = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        val shown = shownBase.copy(
+            content = shownBase.content.copy(
+                location = "Room B",
+                attendees = listOf(ALICE, CAROL_STORED),
+                organizer = OWNER,
+            ),
+        )
+        val otherBase = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 17, 10, 0))
+        val other = otherBase.copy(
+            content = otherBase.content.copy(
+                summary = "Other instance",
+                location = "Room C",
+                attendees = listOf(ALICE),
+                organizer = OWNER,
+            ),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(shown, other))))
+
+        return master
+    }
+
+    @Test
     fun updateEvent_thisAndFollowing_countsTheInstancesOnEachSideOfThePivot() = runTest {
         val account = AccountId(1)
         val calendarId = CalendarId("calendar://main")

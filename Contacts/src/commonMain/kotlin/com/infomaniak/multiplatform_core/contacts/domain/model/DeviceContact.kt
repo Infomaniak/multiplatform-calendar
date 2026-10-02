@@ -17,10 +17,8 @@
  */
 package com.infomaniak.multiplatform_core.contacts.domain.model
 
-/** A merged contact, ready to be displayed. */
-public data class Contact(
+/** A contact read from the device. */
+public data class DeviceContact(
     val email: String,
     val name: String,
-    val avatarUrl: String?,
-    val comesFromApi: Boolean,
 )

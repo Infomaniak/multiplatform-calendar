@@ -28,14 +28,18 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteData
 import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
 import com.infomaniak.multiplatform_core.contacts.utils.contactNameComparator
 import com.infomaniak.multiplatform_core.contacts.utils.normalizedForSearch
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
@@ -43,12 +47,17 @@ import kotlin.coroutines.cancellation.CancellationException
 internal class ContactsRepository(
     private val database: ContactsDatabase,
     private val remoteDataSource: ContactsRemoteDataSource,
+    private val deviceContactsProvider: DeviceContactsProvider,
     private val tokenStore: TokenStore,
+    private val deviceContactsScope: CoroutineScope,
 ) {
 
     private val dao = database.contactDao()
     private val syncMutexes = mutableMapOf<AccountId, Mutex>()
     private val syncMutexesLock = Mutex()
+    private val deviceContactsMutex = Mutex()
+    private var deviceContacts: List<DeviceContact>? = null
+    private var isObservingDeviceContacts = false
 
     /** Searches [accountIds], or every synced account when empty. A contact found in several accounts is returned once. */
     suspend fun search(accountIds: Set<AccountId>, query: String, limit: Int): List<Contact> {
@@ -56,11 +65,18 @@ internal class ContactsRepository(
         if (normalizedQuery.isEmpty()) return emptyList()
 
         val likeQuery = "%${normalizedQuery.escapeLikeWildcards()}%"
-        return dao.search(accountIds.ifEmpty { dao.accountIds().toSet() }, likeQuery)
+        val apiMatches = dao.search(accountIds.ifEmpty { dao.accountIds().toSet() }, likeQuery)
             .mergedAcrossAccounts()
-            .sortedWith(contactComparator())
+            .map(ContactEntity::toMergedContact)
+
+        val deviceMatches = cachedDeviceContacts()
+            .filter { it.matches(normalizedQuery) }
+            .map(DeviceContact::toMergedContact)
+
+        return merge(deviceMatches, apiMatches)
+            .sortedWith(mergedContactComparator())
             .take(limit)
-            .map(ContactEntity::toContact)
+            .map(MergedContact::toContact)
     }
 
     /**
@@ -116,31 +132,87 @@ internal class ContactsRepository(
     private suspend fun syncMutex(accountId: AccountId): Mutex = syncMutexesLock.withLock {
         syncMutexes.getOrPut(accountId) { Mutex() }
     }
+
+    /**
+     * Device contacts are read once then cached until the system reports a change. A read denied for lack of permission is
+     * not cached, so contacts show up as soon as the app gets the permission.
+     */
+    private suspend fun cachedDeviceContacts(): List<DeviceContact> = deviceContactsMutex.withLock {
+        deviceContacts ?: deviceContactsProvider.read()?.also {
+            deviceContacts = it
+            observeDeviceContactsChanges()
+        }.orEmpty()
+    }
+
+    /** Starts after a granted read, as observing the contacts requires the permission on Android. */
+    private fun observeDeviceContactsChanges() {
+        if (isObservingDeviceContacts) return
+        isObservingDeviceContacts = true
+        deviceContactsScope.launch {
+            deviceContactsProvider.changes.collect { deviceContactsMutex.withLock { deviceContacts = null } }
+        }
+    }
 }
 
-private fun contactComparator(): Comparator<ContactEntity> =
-    compareBy<ContactEntity> { -relevanceWeight(it) }
+private fun merge(deviceContacts: List<MergedContact>, apiContacts: List<MergedContact>): List<MergedContact> {
+    val mergedByKey = deviceContacts.associateByTo(mutableMapOf(), MergedContact::key)
+    apiContacts.forEach { apiContact ->
+        mergedByKey[apiContact.key] = mergedByKey[apiContact.key]?.completedWith(apiContact) ?: apiContact
+    }
+    return mergedByKey.values.toList()
+}
+
+/** The device contact, completed with what only the API knows: its avatar if it has none, and its ranking. */
+private fun MergedContact.completedWith(apiContact: MergedContact): MergedContact = copy(
+    avatarUrl = avatarUrl ?: apiContact.avatarUrl,
+    comesFromApi = true,
+    contactedTimes = apiContact.contactedTimes,
+    isInAddressBook = apiContact.isInAddressBook,
+)
+
+private fun mergedContactComparator(): Comparator<MergedContact> =
+    compareBy<MergedContact> { -relevanceWeight(it) }
+        .thenBy { if (it.comesFromApi) 0 else 1 }
         .thenComparator { left, right -> contactNameComparator.compare(left.name, right.name) }
 
-/** Relevance weight: times contacted, or -1 when the contact is not a real one (no name, or `other`). */
-private fun relevanceWeight(contact: ContactEntity): Int =
-    if (contact.name.isBlank() || contact.other) -1 else contact.contactedTimes ?: 0
+/** Relevance weight: times contacted, or -1 when the contact is not a real one (no name, or not in an address book). */
+private fun relevanceWeight(contact: MergedContact): Int =
+    if (contact.name.isBlank() || !contact.isInAddressBook) -1 else contact.contactedTimes ?: 0
 
-/** Contacted times are added up, and the contact is `other` only if it is in every account. */
+/** Contacted times are added up, and the contact is in an address book when any account has it in one. */
 private fun List<ContactEntity>.mergedAcrossAccounts(): List<ContactEntity> =
     groupBy { it.email.lowercase() to it.name }.values.map { it.reduce(ContactEntity::mergedWith) }
 
 private fun ContactEntity.mergedWith(contact: ContactEntity): ContactEntity = copy(
     avatarUrl = avatarUrl ?: contact.avatarUrl,
     contactedTimes = contactedTimesSum(contactedTimes, contact.contactedTimes),
-    other = other && contact.other,
+    isInAddressBook = isInAddressBook || contact.isInAddressBook,
 )
 
 /** Null when neither count is known. */
 private fun contactedTimesSum(first: Int?, second: Int?): Int? =
     if (first == null && second == null) null else (first ?: 0) + (second ?: 0)
 
-private fun ContactEntity.toContact(): Contact = Contact(email = email, name = name, avatarUrl = avatarUrl)
+private fun ContactEntity.toMergedContact(): MergedContact = MergedContact(
+    email = email,
+    name = name,
+    avatarUrl = avatarUrl,
+    comesFromApi = true,
+    contactedTimes = contactedTimes,
+    isInAddressBook = isInAddressBook,
+)
+
+private fun DeviceContact.matches(normalizedQuery: String): Boolean =
+    email.isNotBlank() && (name.normalizedForSearch().contains(normalizedQuery) || email.normalizedForSearch().contains(normalizedQuery))
+
+private fun DeviceContact.toMergedContact(): MergedContact = MergedContact(
+    email = email,
+    name = name,
+    avatarUrl = null,
+    comesFromApi = false,
+    contactedTimes = null,
+    isInAddressBook = true,
+)
 
 private fun ApiContact.toEntities(accountId: AccountId): List<ContactEntity> {
     val contactName = name.orEmpty()
@@ -151,7 +223,7 @@ private fun ApiContact.toEntities(accountId: AccountId): List<ContactEntity> {
             name = contactName,
             avatarUrl = avatar?.let { "https://$MAIL_API_HOST$it" },
             contactedTimes = contactedTimes?.get(email),
-            other = other,
+            isInAddressBook = !other,
             nameNormalized = contactName.normalizedForSearch(),
             emailNormalized = email.normalizedForSearch(),
         )

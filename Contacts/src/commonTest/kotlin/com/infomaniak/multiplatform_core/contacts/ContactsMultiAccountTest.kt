@@ -98,7 +98,11 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
     }
 
     /** Inits both accounts and waits for their background syncs. */
-    private suspend fun managerWithBothAccounts() = ContactsManager(database = testDatabase(), httpClient = httpClient()).apply {
+    private suspend fun managerWithBothAccounts() = ContactsManager(
+        database = testDatabase(),
+        deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
+        httpClient = httpClient(),
+    ).apply {
         initAccount(ACCOUNT_1, AccessToken(TOKEN_1))
         initAccount(ACCOUNT_2, AccessToken(TOKEN_2))
         syncScope.coroutineContext.job.children.forEach { it.join() }

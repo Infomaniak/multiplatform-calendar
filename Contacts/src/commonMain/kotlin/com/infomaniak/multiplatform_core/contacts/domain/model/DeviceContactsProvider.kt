@@ -17,10 +17,17 @@
  */
 package com.infomaniak.multiplatform_core.contacts.domain.model
 
-/** A merged contact, ready to be displayed. */
-public data class Contact(
-    val email: String,
-    val name: String,
-    val avatarUrl: String?,
-    val comesFromApi: Boolean,
-)
+import kotlinx.coroutines.flow.Flow
+
+/** Provides the device contacts that have at least one email address. */
+public interface DeviceContactsProvider {
+
+    /** Returns null when access to the contacts is not granted. */
+    public suspend fun read(): List<DeviceContact>?
+
+    /**
+     * Emits once registered, so that a change made since [read] is not missed, then on every change.
+     * Only collected once [read] succeeded.
+     */
+    public val changes: Flow<Unit>
+}

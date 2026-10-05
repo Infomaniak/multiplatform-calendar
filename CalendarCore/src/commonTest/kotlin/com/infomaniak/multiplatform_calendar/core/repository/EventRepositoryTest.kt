@@ -1659,6 +1659,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
                     CAROL.email,
                     displayName = RemoteNameChange.Unchanged,
                     role = "REQ-PARTICIPANT",
+                    userType = null,
                 ),
             ),
         )
@@ -1924,7 +1925,14 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
 
         val expectedAttendees = RemoteAttendeesChange.Set(
-            listOf(RemoteAttendeeEdit.Written(CAROL.email, RemoteNameChange.Unchanged, role = "REQ-PARTICIPANT")),
+            listOf(
+                RemoteAttendeeEdit.Written(
+                    CAROL.email,
+                    displayName = RemoteNameChange.Unchanged,
+                    role = "REQ-PARTICIPANT",
+                    userType = null,
+                ),
+            ),
         )
         val masterEdit = fakeCaldav.patches.single()
         assertEquals("Renamed", masterEdit.summary)

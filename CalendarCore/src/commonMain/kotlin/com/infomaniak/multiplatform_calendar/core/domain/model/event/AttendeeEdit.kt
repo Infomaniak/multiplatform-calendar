@@ -21,5 +21,9 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 public data class AttendeeEdit(
     val email: String,
     val displayName: String?,
-    val role: AttendeeRole,
+    val type: AttendeeType = AttendeeType.Individual,
+    val role: AttendeeRole = when (type) {
+        AttendeeType.Room, AttendeeType.Resource -> AttendeeRole.NonParticipant
+        else -> AttendeeRole.Requested
+    },
 )

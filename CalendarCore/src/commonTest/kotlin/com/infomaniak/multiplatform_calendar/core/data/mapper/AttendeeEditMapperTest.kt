@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Organizer
@@ -70,8 +71,8 @@ class AttendeeEditMapperTest {
 
         val expected = listOf(
             RemoteAttendeeEdit.Kept("alice@example.com"),
-            RemoteAttendeeEdit.Written("bob@example.com", RemoteNameChange.Set("Bob"), role = null),
-            RemoteAttendeeEdit.Written("carol@example.com", RemoteNameChange.Unchanged, "CHAIR"),
+            RemoteAttendeeEdit.Written("bob@example.com", RemoteNameChange.Set("Bob"), role = null, userType = null),
+            RemoteAttendeeEdit.Written("carol@example.com", RemoteNameChange.Unchanged, "CHAIR", userType = null),
         )
         assertEquals(RemoteAttendeesChange.Set(expected), change)
     }
@@ -80,16 +81,31 @@ class AttendeeEditMapperTest {
     fun editedAttendee_writesOnlyWhatChanged() {
         val edited = listOf(
             alice.toEdit().copy(displayName = null),
-            bob.toEdit().copy(role = AttendeeRole.Chair),
+            bob.toEdit().copy(role = AttendeeRole.Chair, type = AttendeeType.Group),
         )
 
         val change = editData(attendees = edited).resolveAttendeesChange(listOf(alice, bob))
 
         val expected = listOf(
-            RemoteAttendeeEdit.Written("alice@example.com", RemoteNameChange.Cleared, role = null),
-            RemoteAttendeeEdit.Written("bob@example.com", RemoteNameChange.Unchanged, "CHAIR"),
+            RemoteAttendeeEdit.Written("alice@example.com", RemoteNameChange.Cleared, role = null, userType = null),
+            RemoteAttendeeEdit.Written("bob@example.com", RemoteNameChange.Unchanged, "CHAIR", "GROUP"),
         )
         assertEquals(RemoteAttendeesChange.Set(expected), change)
+    }
+
+    @Test
+    fun newRoom_isWrittenWithItsTypeAndAsNonParticipant() {
+        val room = AttendeeEdit(email = "room@example.com", displayName = "Jules Verne", type = AttendeeType.Room)
+
+        val change = editData(attendees = listOf(room)).resolveAttendeesChange(emptyList())
+
+        val expected = RemoteAttendeeEdit.Written(
+            "room@example.com",
+            RemoteNameChange.Set("Jules Verne"),
+            role = "NON-PARTICIPANT",
+            userType = "ROOM",
+        )
+        assertEquals(RemoteAttendeesChange.Set(listOf(expected)), change)
     }
 
     @Test
@@ -105,7 +121,7 @@ class AttendeeEditMapperTest {
 
         val change = editData(attendees = listOf(alice.toEdit(), shouting)).resolveAttendeesChange(emptyList())
 
-        val expected = RemoteAttendeeEdit.Written("alice@example.com", RemoteNameChange.Set("Alice"), "REQ-PARTICIPANT")
+        val expected = RemoteAttendeeEdit.Written("alice@example.com", RemoteNameChange.Set("Alice"), "REQ-PARTICIPANT", userType = null)
         assertEquals(RemoteAttendeesChange.Set(listOf(expected)), change)
     }
 

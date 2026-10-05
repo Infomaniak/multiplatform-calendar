@@ -356,7 +356,7 @@ pub enum AttendeeEdit {
     /// Keep the stored line verbatim, every parameter included.
     Kept { email: String },
     /// Write the given parameters onto the stored line, or add a line awaiting a response. `None` leaves one as is.
-    Written { email: String, display_name: NameChange, role: Option<String> },
+    Written { email: String, display_name: NameChange, role: Option<String>, user_type: Option<String> },
 }
 
 /// Requested change to the `CN` of an [`AttendeeEdit::Written`].

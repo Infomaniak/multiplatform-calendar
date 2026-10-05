@@ -21,13 +21,16 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
 
-internal fun AttendeeEntity.toEdit(): AttendeeEdit = AttendeeEdit(email = email, displayName = displayName, role = role)
+internal fun AttendeeEntity.toEdit(): AttendeeEdit {
+    return AttendeeEdit(email = email, displayName = displayName, type = type, role = role)
+}
 
 /**
  * Attendees stated as stored are [kept][RemoteAttendeeEdit.Kept], the others [written][RemoteAttendeeEdit.Written]
@@ -65,6 +68,7 @@ private fun AttendeeEdit.toNewWritten() = RemoteAttendeeEdit.Written(
     email = email,
     displayName = displayName?.let(RemoteNameChange::Set) ?: RemoteNameChange.Unchanged,
     role = role.toIcal(),
+    userType = type.takeUnless { it == AttendeeType.Individual }?.toIcal(),
 )
 
 private fun AttendeeEdit.toWrittenOver(stored: AttendeeEdit) = RemoteAttendeeEdit.Written(
@@ -75,6 +79,7 @@ private fun AttendeeEdit.toWrittenOver(stored: AttendeeEdit) = RemoteAttendeeEdi
         else -> RemoteNameChange.Set(displayName)
     },
     role = role.takeUnless { it == stored.role }?.toIcal(),
+    userType = type.takeUnless { it == stored.type }?.toIcal(),
 )
 
 /** An event with attendees has an organizer (RFC 5546 §3.2). */
@@ -87,4 +92,12 @@ private fun AttendeeRole.toIcal(): String = when (this) {
     AttendeeRole.Requested -> "REQ-PARTICIPANT"
     AttendeeRole.Optional -> "OPT-PARTICIPANT"
     AttendeeRole.NonParticipant -> "NON-PARTICIPANT"
+}
+
+private fun AttendeeType.toIcal(): String = when (this) {
+    AttendeeType.Individual -> "INDIVIDUAL"
+    AttendeeType.Group -> "GROUP"
+    AttendeeType.Resource -> "RESOURCE"
+    AttendeeType.Room -> "ROOM"
+    AttendeeType.Unknown -> "UNKNOWN"
 }

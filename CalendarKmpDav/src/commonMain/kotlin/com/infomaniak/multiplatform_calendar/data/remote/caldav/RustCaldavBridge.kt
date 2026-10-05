@@ -326,7 +326,7 @@ private fun RemoteAttendeesChange.toRust(): AttendeesChange = when (this) {
 
 private fun RemoteAttendeeEdit.toRust(): AttendeeEdit = when (this) {
     is RemoteAttendeeEdit.Kept -> AttendeeEdit.Kept(email)
-    is RemoteAttendeeEdit.Written -> AttendeeEdit.Written(email, displayName.toRust(), role)
+    is RemoteAttendeeEdit.Written -> AttendeeEdit.Written(email, displayName.toRust(), role, userType)
 }
 
 private fun RemoteNameChange.toRust(): NameChange = when (this) {

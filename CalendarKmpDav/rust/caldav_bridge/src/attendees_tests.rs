@@ -54,7 +54,7 @@ fn written(email: &str, display_name: Option<&str>, role: &str) -> AttendeeEdit 
         Some(name) => NameChange::Set { name: name.into() },
         None => NameChange::Cleared,
     };
-    AttendeeEdit::Written { email: email.into(), display_name, role: Some(role.into()) }
+    AttendeeEdit::Written { email: email.into(), display_name, role: Some(role.into()), user_type: None }
 }
 
 fn attendees(change: Vec<AttendeeEdit>) -> AttendeesChange {
@@ -195,11 +195,13 @@ fn written_leaves_the_parameters_it_does_not_change() {
             email: "eve@x.com".into(),
             display_name: NameChange::Set { name: "Eva".into() },
             role: None,
+            user_type: None,
         },
         AttendeeEdit::Written {
             email: "bob@x.com".into(),
             display_name: NameChange::Unchanged,
             role: Some("REQ-PARTICIPANT".into()),
+            user_type: None,
         },
     ]);
 
@@ -211,6 +213,26 @@ fn written_leaves_the_parameters_it_does_not_change() {
     assert!(
         ics.contains("ATTENDEE;CN=Bob;PARTSTAT=DECLINED;ROLE=REQ-PARTICIPANT;SCHEDULE-STATUS=2.0:mailto:Bob@x.com"),
         "{ics}",
+    );
+}
+
+#[test]
+fn written_adds_a_room_with_its_user_type() {
+    let change = attendees(vec![AttendeeEdit::Written {
+        email: "jules-verne@x.com".into(),
+        display_name: NameChange::Set { name: "Jules Verne".into() },
+        role: Some("NON-PARTICIPANT".into()),
+        user_type: Some("ROOM".into()),
+    }]);
+
+    let patched = patch_event_ics(&event_ics(""), edit(change, OrganizerChange::Unchanged)).unwrap();
+
+    assert!(
+        unfolded(&patched).contains(
+            "ATTENDEE;CN=Jules Verne;CUTYPE=ROOM;PARTSTAT=NEEDS-ACTION;ROLE=NON-PARTICIPANT;RSVP=TRUE:mailto:jules-verne@x.com"
+        ),
+        "{}",
+        patched.ics_data,
     );
 }
 

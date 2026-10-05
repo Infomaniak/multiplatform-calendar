@@ -165,7 +165,7 @@ pub struct EventSyncDelta {
 }
 
 /// A single ATTENDEE participant parsed from a VEVENT. Raw iCal parameter values
-/// (PARTSTAT/ROLE) are kept verbatim and mapped to domain enums Kotlin-side.
+/// (PARTSTAT/ROLE/CUTYPE) are kept verbatim and mapped to domain enums Kotlin-side.
 #[derive(uniffi::Record)]
 pub struct AttendeeEntry {
     pub email: String,
@@ -174,6 +174,8 @@ pub struct AttendeeEntry {
     pub status: Option<String>,
     /// Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT").
     pub role: Option<String>,
+    /// Raw `CUTYPE` (e.g. "INDIVIDUAL", "ROOM").
+    pub user_type: Option<String>,
     /// `RSVP=TRUE`: a response is expected from this attendee.
     pub response_needed: bool,
 }
@@ -353,8 +355,16 @@ pub enum AttendeesChange {
 pub enum AttendeeEdit {
     /// Keep the stored line verbatim, every parameter included.
     Kept { email: String },
-    /// Write `CN`/`ROLE` onto the stored line, or add a line awaiting a response.
-    Written { email: String, display_name: Option<String>, role: String },
+    /// Write the given parameters onto the stored line, or add a line awaiting a response. `None` leaves one as is.
+    Written { email: String, display_name: NameChange, role: Option<String>, user_type: Option<String> },
+}
+
+/// Requested change to the `CN` of an [`AttendeeEdit::Written`].
+#[derive(uniffi::Enum)]
+pub enum NameChange {
+    Unchanged,
+    Set { name: String },
+    Cleared,
 }
 
 /// Requested change to a VEVENT's `ORGANIZER`. `Set` on the stored email only rewrites its `CN`.

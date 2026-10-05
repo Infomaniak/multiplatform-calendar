@@ -24,6 +24,14 @@ sealed interface RemoteAttendeeEdit {
     /** Keep the stored line verbatim, every parameter included. */
     data class Kept(override val email: String) : RemoteAttendeeEdit
 
-    /** Write `CN`/`ROLE` onto the stored line, or add a line awaiting a response. [role] is the raw `ROLE`. */
-    data class Written(override val email: String, val displayName: String?, val role: String) : RemoteAttendeeEdit
+    /**
+     * Write the given parameters onto the stored line, or add a line awaiting a response.
+     * [role] and [userType] are the raw `ROLE` and `CUTYPE`; `null` leaves them as stored.
+     */
+    data class Written(
+        override val email: String,
+        val displayName: RemoteNameChange,
+        val role: String?,
+        val userType: String?,
+    ) : RemoteAttendeeEdit
 }

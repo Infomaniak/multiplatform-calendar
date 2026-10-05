@@ -25,6 +25,7 @@ internal fun AttendeeEntity.toDomain(isOrganizer: Boolean = false): Attendee = A
     displayName = displayName,
     status = status,
     role = role,
+    type = type,
     isOrganizer = isOrganizer,
     responseNeeded = responseNeeded,
 )

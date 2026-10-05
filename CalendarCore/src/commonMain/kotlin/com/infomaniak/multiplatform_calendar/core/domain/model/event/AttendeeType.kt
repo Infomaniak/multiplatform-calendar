@@ -21,10 +21,18 @@ import kotlinx.serialization.Serializable
 
 /** What an attendee is (iCal `CUTYPE`, RFC 5545 §3.2.3). */
 @Serializable
-public enum class AttendeeType {
-    Individual,
-    Group,
-    Resource,
-    Room,
-    Unknown;
+public enum class AttendeeType(internal val icalValue: String) {
+    Individual("INDIVIDUAL"),
+    Group("GROUP"),
+    Resource("RESOURCE"),
+    Room("ROOM"),
+    Unknown("UNKNOWN");
+
+    internal companion object {
+        /** [Individual] when absent, [Unknown] when unrecognised, as RFC 5545 defines it. */
+        fun fromIcal(raw: String?): AttendeeType {
+            if (raw == null) return Individual
+            return entries.firstOrNull { it.icalValue.equals(raw, ignoreCase = true) } ?: Unknown
+        }
+    }
 }

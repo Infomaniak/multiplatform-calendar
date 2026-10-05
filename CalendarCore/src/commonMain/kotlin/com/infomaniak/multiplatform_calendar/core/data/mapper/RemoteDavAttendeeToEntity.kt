@@ -26,34 +26,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavA
 internal fun RemoteDavAttendee.toEntity(): AttendeeEntity = AttendeeEntity(
     email = email,
     displayName = displayName,
-    status = parseStatus(status),
-    role = parseRole(role),
-    type = parseType(userType),
+    status = ParticipationStatus.fromIcal(status),
+    role = AttendeeRole.fromIcal(role),
+    type = AttendeeType.fromIcal(userType),
     responseNeeded = responseNeeded,
 )
-
-// Maps raw iCal PARTSTAT to the persisted status (defaults to NeedsAction).
-private fun parseStatus(raw: String?): ParticipationStatus = when (raw?.uppercase()) {
-    "ACCEPTED" -> ParticipationStatus.Accepted
-    "DECLINED" -> ParticipationStatus.Declined
-    "TENTATIVE" -> ParticipationStatus.Tentative
-    "DELEGATED" -> ParticipationStatus.Delegated
-    else -> ParticipationStatus.NeedsAction
-}
-
-// Maps raw iCal ROLE to the persisted role (defaults to Requested). CHAIR is the meeting
-// chair (RFC 5545), distinct from the organizer which is a separate ORGANIZER property.
-private fun parseRole(raw: String?): AttendeeRole = when (raw?.uppercase()) {
-    "CHAIR" -> AttendeeRole.Chair
-    "OPT-PARTICIPANT" -> AttendeeRole.Optional
-    "NON-PARTICIPANT" -> AttendeeRole.NonParticipant
-    else -> AttendeeRole.Requested
-}
-
-private fun parseType(raw: String?): AttendeeType = when (raw?.uppercase()) {
-    null, "INDIVIDUAL" -> AttendeeType.Individual
-    "GROUP" -> AttendeeType.Group
-    "RESOURCE" -> AttendeeType.Resource
-    "ROOM" -> AttendeeType.Room
-    else -> AttendeeType.Unknown
-}

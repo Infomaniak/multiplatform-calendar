@@ -30,7 +30,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Trigg
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -48,20 +47,17 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** Guards the widened read window [observeUpcomingAlarms] needs: a reminder can long precede its event. */
     @Test
     fun observeUpcomingAlarms_findsAReminderSetLongBeforeAnEventBeyondTheHorizon() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = dtStart,
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-20).days)),
         )
 
         val from = LocalDateTime(2026, 5, 20, 0, 0).toInstant(TimeZone.UTC)
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = from,
             horizon = 10.days,
             limit = 10,
@@ -76,18 +72,15 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** A reminder further out than the fixed slack the read window used to be widened by. */
     @Test
     fun observeUpcomingAlarms_findsAReminderSetFurtherAheadThanAnyFixedMargin() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-40).days)),
         )
 
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = LocalDateTime(2026, 5, 1, 0, 0).toInstant(TimeZone.UTC),
             horizon = 10.days,
             limit = 10,
@@ -105,19 +98,16 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** The wall-clock branches: a floating event has no absolute instant to shift the window against. */
     @Test
     fun observeUpcomingAlarms_findsAFarReminderOnAFloatingEvent() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-40).days)),
             zone = null,
         )
 
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = LocalDateTime(2026, 5, 1, 0, 0).toInstant(TimeZone.UTC),
             horizon = 10.days,
             limit = 10,
@@ -135,12 +125,9 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** All-day rows take the wall-clock branch too, being rendered as-is in the reader's zone. */
     @Test
     fun observeUpcomingAlarms_findsAFarReminderOnAnAllDayEvent() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 0, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-40).days)),
             zone = null,
@@ -148,7 +135,7 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
         )
 
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = LocalDateTime(2026, 5, 1, 0, 0).toInstant(TimeZone.UTC),
             horizon = 10.days,
             limit = 10,
@@ -165,12 +152,9 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** The floating recurrence branch, whose series bounds are wall-clock as well. */
     @Test
     fun observeUpcomingAlarms_findsAFarReminderOnAFloatingSeries() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-40).days)),
             id = EventId("event://floating-weekly"),
@@ -179,7 +163,7 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
         )
 
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = LocalDateTime(2026, 5, 1, 0, 0).toInstant(TimeZone.UTC),
             horizon = 10.days,
             limit = 10,
@@ -200,12 +184,9 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
      */
     @Test
     fun observeUpcomingAlarms_findsTheRemindersOfADenseSeriesStartingLongBeforeTheWindow() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 1, 1, 0, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-5).minutes)),
             id = EventId("event://secondly"),
@@ -214,7 +195,7 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
 
         val from = LocalDateTime(2026, 6, 1, 0, 0).toInstant(TimeZone.UTC)
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = from,
             horizon = 30.days,
             limit = 10,
@@ -229,19 +210,16 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** An absolute trigger names an instant of its own: the event it hangs off may be nowhere near it. */
     @Test
     fun observeUpcomingAlarms_findsAnAbsoluteReminderFiringFarFromItsEvent() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         val firesAt = LocalDateTime(2026, 6, 3, 8, 0).toInstant(TimeZone.UTC)
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 8, 15, 10, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerAbsolute = firesAt)),
         )
 
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = LocalDateTime(2026, 6, 1, 0, 0).toInstant(TimeZone.UTC),
             horizon = 5.days,
             limit = 10,
@@ -255,20 +233,17 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** The same, on a series: the reminder answers to the master, no occurrence needs to stand in the window. */
     @Test
     fun observeUpcomingAlarms_findsAnAbsoluteReminderOnASeriesWithNoOccurrenceInTheWindow() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         val firesAt = LocalDateTime(2026, 6, 3, 8, 0).toInstant(TimeZone.UTC)
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 8, 15, 10, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerAbsolute = firesAt)),
             rrule = RecurrenceRule(freq = Frequency.Daily),
         )
 
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = LocalDateTime(2026, 6, 1, 0, 0).toInstant(TimeZone.UTC),
             horizon = 5.days,
             limit = 10,
@@ -282,12 +257,9 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     /** The read window is half-open where the expander's is, so its last instant must still be covered. */
     @Test
     fun observeUpcomingAlarms_findsAReminderFiringOnTheLastInstantOfTheHorizon() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 1, 10, 0),
             alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-15).minutes)),
             rrule = RecurrenceRule(freq = Frequency.Daily),
@@ -296,7 +268,7 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
         val from = LocalDateTime(2026, 6, 1, 0, 0).toInstant(TimeZone.UTC)
         val lastFiring = LocalDateTime(2026, 6, 3, 9, 45).toInstant(TimeZone.UTC)
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = from,
             horizon = lastFiring - from,
             limit = 10,
@@ -314,12 +286,9 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
      */
     @Test
     fun observeUpcomingAlarms_findsAReminderCountedFromTheEndOfAFloatingEventSpanningAClockChange() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 3, 29, 1, 30),
             dtEnd = LocalDateTime(2026, 3, 29, 3, 30),
             alarms = listOf(
@@ -332,7 +301,7 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
         val from = LocalDateTime(2026, 3, 28, 0, 0).toInstant(paris)
         val firesAt = LocalDateTime(2026, 3, 28, 23, 30).toInstant(paris)
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = from,
             horizon = firesAt - from,
             limit = 10,
@@ -345,13 +314,10 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeUpcomingAlarms_onlyReturnsTheRequestedActions() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
         seedAlarmedEvent(
-            calendarId = calendarId,
             dtStart = dtStart,
             alarms = listOf(
                 AlarmEntity(action = "EMAIL", triggerRelative = (-30).minutes),
@@ -361,7 +327,7 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
 
         val from = LocalDateTime(2026, 6, 1, 0, 0).toInstant(TimeZone.UTC)
         val alarms = repository.observeUpcomingAlarms(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             from = from,
             horizon = 30.days,
             limit = 10,
@@ -377,7 +343,7 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
     }
 
     private suspend fun seedAlarmedEvent(
-        calendarId: CalendarId,
+        calendarId: CalendarId = CALENDAR_ID,
         dtStart: LocalDateTime,
         alarms: List<AlarmEntity>,
         id: EventId = EventId("event://alarmed"),

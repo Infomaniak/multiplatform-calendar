@@ -54,6 +54,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -170,7 +171,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
 
     protected fun recurringColorMaster(
         eventId: EventId,
-        calendarId: CalendarId,
+        calendarId: CalendarId = CALENDAR_ID,
         dtStart: LocalDateTime,
         rrule: RecurrenceRule? = null,
         rDates: List<IcalDateValue> = emptyList(),
@@ -207,8 +208,8 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
     }
 
     protected suspend fun seedCalendar(
-        accountId: AccountId,
-        calendarId: CalendarId,
+        accountId: AccountId = ACCOUNT_ID,
+        calendarId: CalendarId = CALENDAR_ID,
         color: CalendarSourceColor? = null,
     ) {
         database.accountDao().insert(AccountEntity(id = accountId))
@@ -227,7 +228,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
 
     protected fun editData(
         title: String,
-        calendarId: CalendarId,
+        calendarId: CalendarId = CALENDAR_ID,
         recurrence: RecurrenceRule? = null,
         alarms: List<EventAlarm> = emptyList(),
         start: LocalDateTime = LocalDateTime(2026, 6, 15, 10, 0),
@@ -259,6 +260,9 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
     protected fun eventDao() = database.eventDao()
 
     protected companion object {
+        val ACCOUNT_ID = AccountId(1)
+        val CALENDAR_ID = CalendarId("calendar://main")
+        val CREDENTIALS = DavAccount(baseUrl = "https://cal/", username = "u", password = "p")
         val OWNER = OrganizerEntity(email = "owner@example.com", displayName = "Owner")
         val ALICE = AttendeeEntity(
             email = "alice@example.com",

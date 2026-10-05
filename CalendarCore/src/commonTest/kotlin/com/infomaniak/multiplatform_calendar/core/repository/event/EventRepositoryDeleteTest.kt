@@ -19,7 +19,6 @@ package com.infomaniak.multiplatform_calendar.core.repository.event
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -27,11 +26,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
@@ -43,12 +40,9 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisOccurrence_excludesTheDateAndDropsItsOverride() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         )
@@ -56,7 +50,7 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
@@ -71,12 +65,9 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisOccurrence_dropsTheOverrideUnderTheFormItWasWrittenIn() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         )
@@ -88,7 +79,7 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
@@ -100,20 +91,17 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisOccurrence_keepsTheRestOfTheSeriesUntouched() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3)
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = rrule,
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
@@ -130,19 +118,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_allOccurrences_deletesTheWholeResource() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.AllOccurrences),
         )
 
@@ -153,12 +138,9 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_onAMasterId_deletesTheWholeResourceWhateverTheScope() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         )
@@ -166,7 +148,7 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
         // A master designates no instance, so there is nothing to exclude: only the series as a whole.
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(OccurrenceId.Master(master.id), RecurrenceScope.ThisOccurrence),
         )
 
@@ -175,19 +157,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_boundsACountedRuleOnThePrecedingInstance() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
@@ -199,19 +178,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_leavesTheSeriesAloneOnASlotItNeverHad() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily),
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             // 10:30 on a series that only ever runs at 10:00.
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 30)), RecurrenceScope.ThisAndFollowing),
         )
@@ -222,19 +198,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisOccurrence_leavesTheSeriesAloneOnAnAlreadyExcludedSlot() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily),
         ).copy(exDates = listOf(icalUtc(2026, 6, 18)))
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 
@@ -243,19 +216,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_boundsASeriesTooDenseToMaterialise() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Minutely),
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             // Past the 100_000 instances an expansion may hand back, which a rank has no reason to obey.
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 9, 15, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
@@ -266,19 +236,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_boundsAnEndlessRuleWithUntil() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily),
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
@@ -289,12 +256,9 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_dropsWhatTheCutTailCarried() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 10),
         ).copy(
@@ -308,7 +272,7 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", overrides)))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 18, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
@@ -322,12 +286,9 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_onTheFirstInstance_deletesTheWholeResource() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
         )
@@ -335,7 +296,7 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
         // Cutting at DTSTART leaves no instance, and no rule can express an empty series.
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
@@ -345,12 +306,9 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_onTheFirstInstanceOfARDateOnlySeries_deletesTheWholeResource() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rDates = listOf(icalUtc(2026, 6, 17), icalUtc(2026, 6, 20)),
         )
@@ -358,7 +316,7 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
         // DTSTART is an instance of a series carried by RDATE alone, so cutting there leaves nothing.
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
@@ -368,19 +326,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisAndFollowing_onARDateOnlySeries_keepsWhatPrecedesThePivot() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rDates = listOf(icalUtc(2026, 6, 17), icalUtc(2026, 6, 20)),
         )
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 20, 10, 0)), RecurrenceScope.ThisAndFollowing),
         )
 
@@ -392,19 +347,16 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
     @Test
     fun deleteEvent_thisOccurrence_leavesTheSeriesAlarmsAlone() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
         ).let { it.copy(content = it.content.copy(alarms = listOf(AlarmEntity(action = "DISPLAY")))) }
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         repository.deleteEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.ThisOccurrence),
         )
 

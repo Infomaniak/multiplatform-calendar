@@ -36,10 +36,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
@@ -57,14 +55,11 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
      */
     @Test
     fun getEditData_handedBackUntouched_writesNeitherColourNorAlarms() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
         // The calendar is coloured, the event is not: reading the event's colour resolved against its
         // calendar would hand the calendar's colour back as if the event owned it.
-        seedCalendar(account, calendarId, CalendarSourceColor(0xFF8E24AA.toInt()))
+        seedCalendar(color = CalendarSourceColor(0xFF8E24AA.toInt()))
         val master = recurringColorMaster(
             eventId = EventId("https://cal/main/series.ics"),
-            calendarId = calendarId,
             dtStart = LocalDateTime(2026, 6, 15, 10, 0),
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
             // No trigger the domain can read: projecting the alarms would drop this one.
@@ -73,7 +68,7 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
 
         val data = assertNotNull(repository.getEditData(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))))
         repository.updateEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.AllOccurrences),
             data = data,
         )
@@ -93,10 +88,8 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
      */
     @Test
     fun getEditData_carriesTheOccurrenceSlotAndTheMastersRule() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("https://cal/main/daily.ics"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("https://cal/main/daily.ics"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
 
         val data = assertNotNull(repository.getEditData(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0))))
@@ -114,10 +107,8 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
      */
     @Test
     fun getEditData_endsTheOccurrenceWhereTheExpansionShowsIt() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dstStraddlingMasterEntity(EventId("https://cal/main/dst.ics"), calendarId)
+        seedCalendar()
+        val master = dstStraddlingMasterEntity(EventId("https://cal/main/dst.ics"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
         val occurrence = parisOccurrenceOf(master.id, LocalDateTime(2025, 11, 2, 1, 0))
 
@@ -130,16 +121,14 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
     /** The counterpart of [getEditData_endsTheOccurrenceWhereTheExpansionShowsIt]: a no-op save moves nothing. */
     @Test
     fun getEditData_onADstStraddlingSeries_handedBackUntouched_leavesTheMastersEndAlone() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dstStraddlingMasterEntity(EventId("https://cal/main/dst.ics"), calendarId)
+        seedCalendar()
+        val master = dstStraddlingMasterEntity(EventId("https://cal/main/dst.ics"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
         val occurrence = parisOccurrenceOf(master.id, LocalDateTime(2025, 11, 2, 1, 0))
 
         val data = assertNotNull(repository.getEditData(occurrence))
         repository.updateEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences),
             data = data,
         )
@@ -152,10 +141,8 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
     /** An overridden instance is redefined by its own VEVENT: the edit must describe it, not its slot. */
     @Test
     fun getEditData_readsAnOverriddenInstanceFromItsOverride() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("https://cal/main/overridden.ics"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("https://cal/main/overridden.ics"), CALENDAR_ID)
         val override = overrideEntity(
             masterId = master.id,
             originalStart = LocalDateTime(2026, 6, 17, 10, 0),

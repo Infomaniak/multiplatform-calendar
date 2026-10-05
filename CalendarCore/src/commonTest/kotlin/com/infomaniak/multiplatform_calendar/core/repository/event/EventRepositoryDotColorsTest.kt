@@ -31,7 +31,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
@@ -46,13 +45,12 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_groupsByDay_andDeduplicatesPerCalendarAndColor() = runTest {
-        val account = AccountId(1)
         val calendarA = CalendarId("calendar://a")
         val calendarB = CalendarId("calendar://b")
         val red = CalendarSourceColor(0xFFE53935.toInt())
         val blue = CalendarSourceColor(0xFF1E88E5.toInt())
-        seedCalendar(account, calendarA, red)
-        seedCalendar(account, calendarB, blue)
+        seedCalendar(calendarId = calendarA, color = red)
+        seedCalendar(calendarId = calendarB, color = blue)
 
         val events = EventRepositoryColorByDayDataset.groupingScenario(calendarA, calendarB)
         eventDao().upsert(
@@ -70,7 +68,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         )
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -96,11 +94,10 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_dotsEventOwnColor_besideItsCalendarColoredSibling() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://mixed-colors")
         val calendarColor = CalendarSourceColor(0xFF1E88E5.toInt())
         val eventColor = 0xFFE53935.toInt()
-        seedCalendar(account, calendarId, calendarColor)
+        seedCalendar(calendarId = calendarId, color = calendarColor)
 
         eventDao().upsert(
             listOf(
@@ -127,7 +124,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         )
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 16, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -142,10 +139,9 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_expandsRecurringMasterIntoOccurrenceDays() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://rrule")
         val green = CalendarSourceColor(0xFF43A047.toInt())
-        seedCalendar(account, calendarId, green)
+        seedCalendar(calendarId = calendarId, color = green)
 
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
         val dtEnd = LocalDateTime(2026, 6, 15, 11, 0)
@@ -178,7 +174,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -201,10 +197,9 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_movedOverrideDotsTheDayItLandedOn() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
-        seedCalendar(account, calendarId, green)
+        seedCalendar(calendarId = calendarId, color = green)
 
         // DAILY×3 from 06-15, with the 06-16 instance pushed to 06-19: the month grid must follow the
         // planning view and dot 06-19, leaving 06-16 bare.
@@ -222,7 +217,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -240,10 +235,9 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_overrideMovedPastTheSeriesEndStillDotsItsDay() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
-        seedCalendar(account, calendarId, green)
+        seedCalendar(calendarId = calendarId, color = green)
 
         // The whole series ends in June, so only the override range branch can bring the master back
         // for an August window.
@@ -261,7 +255,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 8, 17, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 8, 24, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -276,10 +270,9 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_cancelledOverrideClearsItsDay() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
-        seedCalendar(account, calendarId, green)
+        seedCalendar(calendarId = calendarId, color = green)
 
         val master = recurringColorMaster(
             eventId = EventId("event://override-cancelled"),
@@ -295,7 +288,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -310,10 +303,9 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_movedFloatingOverrideDotsItsWallClockDayInAnyZone() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
         val green = CalendarSourceColor(0xFF43A047.toInt())
-        seedCalendar(account, calendarId, green)
+        seedCalendar(calendarId = calendarId, color = green)
 
         // Floating series (no zone at all) whose 06-16 instance is pushed to 08-20, read from a zone far
         // from UTC: a floating instance is rendered as wall-clock, so 08-20 is dotted there too.
@@ -334,7 +326,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
         val zone = TimeZone.of("Pacific/Honolulu") // UTC-10, no DST
         val movedDayColors = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 8, 17, 0, 0).toInstant(zone),
             end = LocalDateTime(2026, 8, 24, 0, 0).toInstant(zone),
             timeZone = zone,
@@ -347,7 +339,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         )
 
         val vacatedDayColors = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 16, 0, 0).toInstant(zone),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(zone),
             timeZone = zone,
@@ -358,9 +350,8 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_overrideOutsideAPartialDayWindowIsNotDotted() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://override-colors")
-        seedCalendar(account, calendarId, CalendarSourceColor(0xFF43A047.toInt()))
+        seedCalendar(calendarId = calendarId, color = CalendarSourceColor(0xFF43A047.toInt()))
 
         // The relation carries every override of a selected master, so a window narrower than a day must
         // still be honoured: nothing happens between 12:00 and 13:00 on 06-19.
@@ -378,7 +369,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 19, 12, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 19, 13, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -389,11 +380,10 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_reprojectsAnchoredEventAcrossDateBoundary() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://tz")
         val purple = CalendarSourceColor(0xFF8E24AA.toInt())
         val displayZone = TimeZone.of("Europe/Paris")
-        seedCalendar(account, calendarId, purple)
+        seedCalendar(calendarId = calendarId, color = purple)
 
         eventDao().upsert(
             listOf(
@@ -410,7 +400,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         )
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(TimeZone.UTC),
             timeZone = displayZone,
@@ -423,11 +413,10 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_keepsFloatingWallClockPlacementInDisplayZone() = runTest {
-        val account = AccountId(1)
         val calendarId = CalendarId("calendar://floating")
         val amber = CalendarSourceColor(0xFFFFB300.toInt())
         val displayZone = TimeZone.of("Europe/Paris")
-        seedCalendar(account, calendarId, amber)
+        seedCalendar(calendarId = calendarId, color = amber)
 
         eventDao().upsert(
             listOf(
@@ -444,7 +433,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         )
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(displayZone),
             end = LocalDateTime(2026, 6, 17, 0, 0).toInstant(displayZone),
             timeZone = displayZone,
@@ -459,13 +448,12 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDotColorsByDay_ordersColorsLikePerDayEventSlices() = runTest {
-        val account = AccountId(1)
         val floatingCalendarId = CalendarId("calendar://floating-08")
         val anchoredCalendarId = CalendarId("calendar://anchored-09")
         val floatingColor = CalendarSourceColor(0xFFFFB300.toInt())
         val anchoredColor = CalendarSourceColor(0xFF1E88E5.toInt())
-        seedCalendar(account, floatingCalendarId, floatingColor)
-        seedCalendar(account, anchoredCalendarId, anchoredColor)
+        seedCalendar(calendarId = floatingCalendarId, color = floatingColor)
+        seedCalendar(calendarId = anchoredCalendarId, color = anchoredColor)
 
         eventDao().upsert(
             listOf(
@@ -491,7 +479,7 @@ internal class EventRepositoryDotColorsTest : EventRepositoryTestBase() {
         )
 
         val colorsByDay = repository.observeVisibleDotColorsByDay(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 16, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,

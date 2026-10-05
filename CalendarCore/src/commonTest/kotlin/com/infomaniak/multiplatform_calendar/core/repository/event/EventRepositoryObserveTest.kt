@@ -32,7 +32,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -56,12 +55,10 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
      */
     @Test
     fun observeVisibleEvents_usesProvidedZoneForFloatingBounds() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         // Floating event: wall-clock 10:00 → 11:00, no zone (dtStartInstantMs = null).
-        eventDao().upsert(listOf(EventWithRawIcs(floatingEvent(calendarId), "")))
+        eventDao().upsert(listOf(EventWithRawIcs(floatingEvent(CALENDAR_ID), "")))
 
         // Same absolute Instant range, but interpreted in different zones for the SQL wall-clock bounds:
         //  - UTC:                    10:00-10:30 wall → OVERLAPS the 10:00-11:00 floating event
@@ -70,13 +67,13 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         val rangeEnd = LocalDateTime(2026, 6, 15, 10, 30).toInstant(TimeZone.UTC)
 
         val utcResult = repository.observeVisibleEvents(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = rangeStart,
             end = rangeEnd,
             zone = TimeZone.UTC,
         ).first()
         val parisResult = repository.observeVisibleEvents(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = rangeStart,
             end = rangeEnd,
             zone = TimeZone.of("Europe/Paris"),
@@ -93,15 +90,13 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
      */
     @Test
     fun observeVisibleDaySlices_expandsDailyRecurringMasterIntoOccurrences() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
         val dtEnd = LocalDateTime(2026, 6, 15, 11, 0)
         val master = EventEntity(
             id = EventId("event://daily"),
-            calendarId = calendarId,
+            calendarId = CALENDAR_ID,
             content = EventContentEntity(
                 summary = "Daily 10-11",
                 timing = EventTimingEntity(
@@ -123,7 +118,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val slicesByDay = repository.observeVisibleDaySlices(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -143,17 +138,15 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
      */
     @Test
     fun observeVisibleDaySlices_rendersAStoredOverrideInPlaceOfItsOccurrence() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
-        val master = dailyMasterEntity(EventId("event://daily-overridden"), calendarId)
+        val master = dailyMasterEntity(EventId("event://daily-overridden"), CALENDAR_ID)
         val overriddenSlot = LocalDateTime(2026, 6, 17, 10, 0)
         val override = overrideEntity(master.id, originalStart = overriddenSlot, movedTo = LocalDateTime(2026, 6, 17, 15, 0))
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val slicesByDay = repository.observeVisibleDaySlices(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -175,11 +168,9 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDaySlices_dropsAStoredCancelledOverride() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
-        val master = dailyMasterEntity(EventId("event://daily-cancelled"), calendarId)
+        val master = dailyMasterEntity(EventId("event://daily-cancelled"), CALENDAR_ID)
         val override = overrideEntity(
             master.id,
             originalStart = LocalDateTime(2026, 6, 17, 10, 0),
@@ -188,7 +179,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
 
         val slicesByDay = repository.observeVisibleDaySlices(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
@@ -201,10 +192,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeOccurrence_withMasterIdReturnsMaster() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("event://master-occurrence"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://master-occurrence"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val observed = repository.observeOccurrence(
@@ -218,10 +207,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeOccurrence_emitsNullWhenSeriesBecomesNonRecurring() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("event://series-to-plain"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://series-to-plain"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val requested = OccurrenceId.Recurrence(
@@ -252,11 +239,9 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeOccurrence_emitsNullWhenRuleNoLongerContainsOccurrence() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
-        val initial = dailyMasterEntity(EventId("event://rule-shrinks"), calendarId).copy(
+        val initial = dailyMasterEntity(EventId("event://rule-shrinks"), CALENDAR_ID).copy(
             rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 10),
         )
         eventDao().upsert(listOf(EventWithRawIcs(initial, "")))
@@ -286,10 +271,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeOccurrence_switchesFromGeneratedOccurrenceToOverride() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("event://override-add"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://override-add"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val keyStart = LocalDateTime(2026, 6, 17, 10, 0)
@@ -317,10 +300,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeOccurrence_emitsNullWhenOverrideBecomesCancelled() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("event://override-cancel"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://override-cancel"), CALENDAR_ID)
         val slot = LocalDateTime(2026, 6, 17, 10, 0)
         val initialOverride = overrideEntity(master.id, originalStart = slot)
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(initialOverride))))
@@ -347,10 +328,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeOccurrence_fallsBackToGeneratedOccurrenceWhenOverrideIsRemoved() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("event://override-removed"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://override-removed"), CALENDAR_ID)
         val slot = LocalDateTime(2026, 6, 17, 10, 0)
         val initialOverride = overrideEntity(master.id, originalStart = slot, movedTo = LocalDateTime(2026, 6, 17, 15, 0))
         eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(initialOverride))))
@@ -377,10 +356,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeOccurrence_emitsNullWhenMasterIsDeleted() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("event://deleted-master"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://deleted-master"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val requested = OccurrenceId.Recurrence(
@@ -407,10 +384,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeEvent_eventIdPathStillReturnsMasterAndThenNullOnDelete() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
-        val master = dailyMasterEntity(EventId("event://legacy-event-id"), calendarId)
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://legacy-event-id"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val emissions = mutableListOf<com.infomaniak.multiplatform_calendar.core.domain.model.event.Event?>()
@@ -432,9 +407,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
     @Test
     fun observeVisibleDaySlices_expandsAllDayRecurringMasterIntoPerDayOccurrences() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         // All-day series through the whole read stack: padded bounds (via the real mapper) → range match →
         // all-day expansion anchored in UTC → per-day slicing. Distinct from the timed case above.
@@ -453,7 +426,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         val rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3)
         val master = EventEntity(
             id = EventId("event://all-day"),
-            calendarId = calendarId,
+            calendarId = CALENDAR_ID,
             content = EventContentEntity(
                 summary = "All-day daily",
                 timing = timing,
@@ -471,7 +444,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
         val slicesByDay = repository.observeVisibleDaySlices(
-            accountIds = setOf(account),
+            accountIds = setOf(ACCOUNT_ID),
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,

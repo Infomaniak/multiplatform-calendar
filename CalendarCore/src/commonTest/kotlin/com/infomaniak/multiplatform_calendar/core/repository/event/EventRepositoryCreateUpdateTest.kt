@@ -37,10 +37,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
@@ -61,11 +59,10 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
      */
     @Test
     fun updateEvent_crossCalendarMove_preservesServerOnlyFields_andRebindsRow() = runTest {
-        val account = AccountId(1)
         val source = CalendarId("calendar://source")
         val target = CalendarId("calendar://target")
-        seedCalendar(account, source)
-        seedCalendar(account, target)
+        seedCalendar(calendarId = source)
+        seedCalendar(calendarId = target)
 
         val oldId = EventId("https://cal/source/event.ics")
         eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = oldId, calendarId = source, etag = "etag-old"), "BEGIN:VEVENT")))
@@ -98,7 +95,7 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
 
         repository.updateEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             eventId = oldId,
             data = editData(title = "Renamed", calendarId = target),
         )
@@ -141,11 +138,10 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
      */
     @Test
     fun updateEvent_crossCalendarMove_persistsIcalColorNameFromPatchedIcs() = runTest {
-        val account = AccountId(1)
         val source = CalendarId("calendar://source")
         val target = CalendarId("calendar://target")
-        seedCalendar(account, source)
-        seedCalendar(account, target)
+        seedCalendar(calendarId = source)
+        seedCalendar(calendarId = target)
 
         val oldId = EventId("https://cal/source/event.ics")
         eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = oldId, calendarId = source, etag = "etag-old"), "BEGIN:VEVENT")))
@@ -157,7 +153,7 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
 
         repository.updateEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             eventId = oldId,
             data = editData(title = "Original", calendarId = target),
         )
@@ -172,15 +168,13 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
      */
     @Test
     fun updateEvent_sameCalendar_persistsRefreshedRevisionFromPatchedIcs() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         val eventId = EventId("https://cal/main/event.ics")
         eventDao().upsert(
             listOf(
                 EventWithRawIcs(
-                    richEvent(id = eventId, calendarId = calendarId, etag = "etag-old"),
+                    richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"),
                     "BEGIN:VEVENT",
                 ),
             ),
@@ -195,9 +189,9 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         )
 
         repository.updateEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             eventId = eventId,
-            data = editData(title = "Renamed", calendarId = calendarId),
+            data = editData(title = "Renamed"),
         )
 
         val updated = database.eventDao().getEvent(eventId)!!
@@ -211,9 +205,7 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
     /** createEvent persists the built event reparsed from its ICS, bound to the server ref. */
     @Test
     fun createEvent_persistsBuiltEventBoundToServerRef() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         fakeCaldav.patchedEvent = remoteDavEvent(
             icsData = "BEGIN:VEVENT\nUID:new\nSUMMARY:Fresh\nEND:VEVENT",
@@ -224,13 +216,13 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/main/new.ics", etag = "etag-1")
 
         repository.createEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
-            data = editData(title = "Fresh", calendarId = calendarId),
+            credentials = CREDENTIALS,
+            data = editData(title = "Fresh"),
         )
 
         assertEquals(listOf("calendar://main" to fakeCaldav.patchedEvent.icsData), fakeCaldav.creates)
         val created = database.eventDao().getEvent(EventId("https://cal/main/new.ics"))!!
-        assertEquals(calendarId, created.calendarId)
+        assertEquals(CALENDAR_ID, created.calendarId)
         assertEquals("etag-1", created.etag)
         assertEquals("Fresh", created.content.summary)
         assertEquals(0, created.content.sequence)
@@ -244,18 +236,15 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
      */
     @Test
     fun createEvent_persistsEditedRecurrenceRuleAndAlarm() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
         fakeCaldav.applyEdit = ::bridgeApplyingEdit
         fakeCaldav.patchedEvent = remoteDavEvent(icsData = "BEGIN:VEVENT\nUID:new\nEND:VEVENT", summary = "Fresh")
         fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/main/new.ics", etag = "etag-1")
 
         repository.createEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             data = editData(
                 title = "Fresh",
-                calendarId = calendarId,
                 recurrence = RecurrenceRule(freq = Frequency.Daily),
                 alarms = listOf(
                     EventAlarm(
@@ -282,15 +271,13 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
      */
     @Test
     fun updateEvent_persistsClearedRecurrenceRule() = runTest {
-        val account = AccountId(1)
-        val calendarId = CalendarId("calendar://main")
-        seedCalendar(account, calendarId)
+        seedCalendar()
 
         val eventId = EventId("https://cal/main/event.ics")
         eventDao().upsert(
             listOf(
                 EventWithRawIcs(
-                    richEvent(id = eventId, calendarId = calendarId, etag = "etag-old"),
+                    richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"),
                     "BEGIN:VEVENT",
                 ),
             ),
@@ -305,9 +292,9 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         )
 
         repository.updateEvent(
-            credentials = DavAccount(baseUrl = "https://cal/", username = "u", password = "p"),
+            credentials = CREDENTIALS,
             eventId = eventId,
-            data = editData(title = "Renamed", calendarId = calendarId), // no recurrence, no alarms
+            data = editData(title = "Renamed"), // no recurrence, no alarms
         )
 
         assertNull(eventDao().getEvent(eventId)!!.rrule, "cleared recurrence must not survive in the DB")

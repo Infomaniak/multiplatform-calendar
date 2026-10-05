@@ -35,7 +35,6 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -46,7 +45,6 @@ public class ContactsManager internal constructor(
     httpClient: HttpClient,
     deviceContactsProvider: DeviceContactsProvider,
     deviceContactsScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-    internal val syncScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
 
     private val repository = ContactsRepository(
@@ -71,20 +69,12 @@ public class ContactsManager internal constructor(
     )
 
     /**
-     * Registers [accountId] with its [accessToken], kept in memory only, then syncs its address book in the background.
-     * Call it at startup and on login. A failed background sync is ignored; the next one retries.
+     * Registers [accountId] with its [accessToken], kept in memory only. Call it at startup and on login; it does not
+     * sync, call [sync] for that.
      */
     @Throws(ContactsException::class, CancellationException::class)
-    public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit = contactsCall {
-        repository.initAccount(accountId, accessToken)
-        syncScope.launch {
-            try {
-                repository.sync(setOf(accountId))
-            } catch (_: Exception) {
-                // Local data stays usable; the next sync retries.
-            }
-        }
-    }
+    public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
+        contactsCall { repository.initAccount(accountId, accessToken) }
 
     /** Forgets the token of [accountId] and deletes its local contacts. */
     @Throws(ContactsException::class, CancellationException::class)

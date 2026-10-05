@@ -30,7 +30,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -44,6 +43,7 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
         contactsByToken[TOKEN_1] = listOf(ApiContact(name = "John", emails = listOf("john@x.com")))
         contactsByToken[TOKEN_2] = listOf(ApiContact(name = "Jane", emails = listOf("jane@x.com")))
         val manager = managerWithBothAccounts()
+        manager.sync()
 
         assertEquals(listOf("Jane", "John"), manager.search("j").map { it.name })
         assertEquals(listOf("John"), manager.search("j", setOf(ACCOUNT_1)).map { it.name })
@@ -59,6 +59,7 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
             ApiContact(name = "Bob", emails = listOf("bob@x.com"), contactedTimes = mapOf("bob@x.com" to 2)),
         )
         val manager = managerWithBothAccounts()
+        manager.sync()
 
         assertEquals(listOf("Bob", "Bea"), manager.search("b").map { it.name })
     }
@@ -97,7 +98,7 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
         assertEquals(listOf("John"), manager.storedContactNames(ACCOUNT_1))
     }
 
-    /** Inits both accounts and waits for their background syncs. */
+    /** Inits both accounts, without syncing them. */
     private suspend fun managerWithBothAccounts() = ContactsManager(
         database = testDatabase(),
         deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
@@ -105,7 +106,6 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
     ).apply {
         initAccount(ACCOUNT_1, AccessToken(TOKEN_1))
         initAccount(ACCOUNT_2, AccessToken(TOKEN_2))
-        syncScope.coroutineContext.job.children.forEach { it.join() }
     }
 
     /** Answers with the contacts of the request token, or a server error for an unknown token. */

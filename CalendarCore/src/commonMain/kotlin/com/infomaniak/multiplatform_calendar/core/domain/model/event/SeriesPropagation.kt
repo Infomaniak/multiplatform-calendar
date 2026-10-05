@@ -18,17 +18,18 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 /**
- * This override, carrying the fields a series edit changed between [before] and [after].
+ * This master or override, carrying the fields a series edit changed between [before] — what the
+ * edited occurrence showed — and [after].
  *
  * iCalendar has no inheritance: an override is a VEVENT of its own, complete enough to repeat the
  * master's `SUMMARY` (RFC 4791 §4.1). A field the series changes therefore reaches it only by being
- * written again, and one the edit left alone must stay as the override has it — hence carrying the
+ * written again, and one the edit left alone must stay as each VEVENT has it — hence carrying the
  * *difference* rather than the whole of [after].
  *
- * Returns `null` when nothing the override holds is affected, leaving it untouched.
+ * Returns `null` when nothing it holds is affected, leaving it untouched.
  *
- * Timing and recurrence are left out: moving the series moves the slots `RECURRENCE-ID` addresses,
- * which is a question of its own. [calendarId] too — an override has no resource to move.
+ * Timing, recurrence and [calendarId][EventEditData.calendarId] are left out: the master takes them
+ * from [after] itself, while an override keeps the slot that `RECURRENCE-ID` addresses and has no resource to move.
  */
 internal fun EventEditData.withSeriesChanges(before: EventEditData, after: EventEditData): EventEditData? {
     var carried = this
@@ -39,6 +40,9 @@ internal fun EventEditData.withSeriesChanges(before: EventEditData, after: Event
     if (after.eventColor != before.eventColor) carried = carried.copy(eventColor = after.eventColor)
     if (after.attendees != before.attendees) carried = carried.copy(attendees = after.attendees)
     if (after.organizer != before.organizer) carried = carried.copy(organizer = after.organizer)
+    // Attendees need an organizer (RFC 5546 §3.2): a VEVENT that has none takes the edit's along with them.
+    val attendeesCarried = after.attendees != before.attendees && after.attendees.isNotEmpty()
+    if (attendeesCarried && carried.organizer == null) carried = carried.copy(organizer = after.organizer)
     // An edit that says nothing of alarms leaves Preserve here, which states no list to carry over.
     val alarms = after.alarms
     if (alarms is AlarmListEdit.Replace && alarms != before.alarms) carried = carried.copy(alarms = alarms)

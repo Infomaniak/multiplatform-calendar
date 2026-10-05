@@ -4,7 +4,7 @@ use icalendar::{Component, Property};
 
 use crate::events::strip_mailto;
 use crate::ical_components::ATTENDEE;
-use crate::models::{AttendeeEdit, AttendeesChange, OrganizerChange};
+use crate::models::{AttendeeEdit, AttendeesChange, NameChange, OrganizerChange};
 
 const ORGANIZER: &str = "ORGANIZER";
 const CN_PARAM: &str = "CN";
@@ -21,8 +21,7 @@ pub(crate) fn apply_attendees_change(event: &mut icalendar::Event, change: &Atte
         let line = match attendee {
             AttendeeEdit::Kept { email } => stored_line(email).cloned().unwrap_or_else(|| new_attendee(email)),
             AttendeeEdit::Written { email, display_name, role } => {
-                let line = stored_line(email).cloned().unwrap_or_else(|| new_attendee(email));
-                with_param(&with_param(&line, CN_PARAM, display_name.as_deref()), ROLE_PARAM, Some(role))
+                written_attendee(stored_line(email), email, display_name, role.as_deref())
             }
         };
         event.append_multi_property(line);
@@ -44,6 +43,25 @@ pub(crate) fn apply_organizer_change(event: &mut icalendar::Event, change: &Orga
                 .unwrap_or_else(|| Property::new(ORGANIZER, mailto(email)));
             event.append_property(with_param(&line, CN_PARAM, display_name.as_deref()));
         }
+    }
+}
+
+/// The line of an [`AttendeeEdit::Written`]: the stored one, or a new one, with the parameters it changes.
+fn written_attendee(
+    stored: Option<&Property>,
+    email: &str,
+    display_name: &NameChange,
+    role: Option<&str>,
+) -> Property {
+    let line = stored.cloned().unwrap_or_else(|| new_attendee(email));
+    let line = match display_name {
+        NameChange::Unchanged => line,
+        NameChange::Set { name } => with_param(&line, CN_PARAM, Some(name)),
+        NameChange::Cleared => with_param(&line, CN_PARAM, None),
+    };
+    match role {
+        Some(role) => with_param(&line, ROLE_PARAM, Some(role)),
+        None => line,
     }
 }
 

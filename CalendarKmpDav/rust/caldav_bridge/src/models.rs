@@ -355,8 +355,16 @@ pub enum AttendeesChange {
 pub enum AttendeeEdit {
     /// Keep the stored line verbatim, every parameter included.
     Kept { email: String },
-    /// Write `CN`/`ROLE` onto the stored line, or add a line awaiting a response.
-    Written { email: String, display_name: Option<String>, role: String },
+    /// Write the given parameters onto the stored line, or add a line awaiting a response. `None` leaves one as is.
+    Written { email: String, display_name: NameChange, role: Option<String> },
+}
+
+/// Requested change to the `CN` of an [`AttendeeEdit::Written`].
+#[derive(uniffi::Enum)]
+pub enum NameChange {
+    Unchanged,
+    Set { name: String },
+    Cleared,
 }
 
 /// Requested change to a VEVENT's `ORGANIZER`. `Set` on the stored email only rewrites its `CN`.

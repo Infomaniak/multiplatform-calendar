@@ -70,6 +70,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
@@ -1654,7 +1655,11 @@ class EventRepositoryTest : RobolectricTestsBase() {
         val expected = RemoteAttendeesChange.Set(
             listOf(
                 RemoteAttendeeEdit.Kept(ALICE.email),
-                RemoteAttendeeEdit.Written(CAROL.email, displayName = null, role = "REQ-PARTICIPANT"),
+                RemoteAttendeeEdit.Written(
+                    CAROL.email,
+                    displayName = RemoteNameChange.Unchanged,
+                    role = "REQ-PARTICIPANT",
+                ),
             ),
         )
         assertEquals(expected, fakeCaldav.patches.single().attendeesChange)
@@ -1919,7 +1924,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
         )
 
         val expectedAttendees = RemoteAttendeesChange.Set(
-            listOf(RemoteAttendeeEdit.Written(CAROL.email, displayName = null, role = "REQ-PARTICIPANT")),
+            listOf(RemoteAttendeeEdit.Written(CAROL.email, RemoteNameChange.Unchanged, role = "REQ-PARTICIPANT")),
         )
         val masterEdit = fakeCaldav.patches.single()
         assertEquals("Renamed", masterEdit.summary)

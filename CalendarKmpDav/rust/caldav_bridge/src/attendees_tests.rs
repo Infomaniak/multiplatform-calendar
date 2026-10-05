@@ -1,12 +1,13 @@
 use crate::events::{build_event_ics, patch_event_ics, upsert_override_vevent};
 use crate::models::{
-    AlarmsChange, AttendeeEdit, AttendeesChange, ColorChange, DateListChange, EventEdit, EventEntry, OrganizerChange,
-    OverrideRemoval, RecurrenceChange, RecurrenceIdSpec,
+    AlarmsChange, AttendeeEdit, AttendeesChange, ColorChange, DateListChange, EventEdit, EventEntry, NameChange,
+    OrganizerChange, OverrideRemoval, RecurrenceChange, RecurrenceIdSpec,
 };
 
 const ROOM: &str = "ATTENDEE;CUTYPE=ROOM;PARTSTAT=ACCEPTED;X-VENDOR=v:mailto:room@x.com";
 const BOB: &str = "ATTENDEE;CN=Bob;PARTSTAT=DECLINED;ROLE=OPT-PARTICIPANT;SCHEDULE-STATUS=2.0:mailto:Bob@x.com";
 const CAROL: &str = "ATTENDEE;CN=Carol;PARTSTAT=ACCEPTED:mailto:carol@x.com";
+const EVE: &str = "ATTENDEE;CN=Eve;PARTSTAT=ACCEPTED;ROLE=X-REVIEWER:mailto:eve@x.com";
 const ORGANIZER: &str = "ORGANIZER;CN=Boss;SENT-BY=\"mailto:assistant@x.com\":mailto:boss@x.com";
 
 fn event_ics(participants: &str) -> String {
@@ -49,7 +50,11 @@ fn kept(email: &str) -> AttendeeEdit {
 }
 
 fn written(email: &str, display_name: Option<&str>, role: &str) -> AttendeeEdit {
-    AttendeeEdit::Written { email: email.into(), display_name: display_name.map(Into::into), role: role.into() }
+    let display_name = match display_name {
+        Some(name) => NameChange::Set { name: name.into() },
+        None => NameChange::Cleared,
+    };
+    AttendeeEdit::Written { email: email.into(), display_name, role: Some(role.into()) }
 }
 
 fn attendees(change: Vec<AttendeeEdit>) -> AttendeesChange {
@@ -181,6 +186,32 @@ fn detaching_an_occurrence_edits_the_attendees_it_takes_from_the_master() {
     assert!(master.contains(BOB) && master.contains(CAROL), "the master keeps its own list: {master}");
     assert!(detached.contains(ROOM) && detached.contains(ORGANIZER), "{detached}");
     assert!(detached.contains("mailto:dave@x.com") && !detached.contains("carol@x.com"), "{detached}");
+}
+
+#[test]
+fn written_leaves_the_parameters_it_does_not_change() {
+    let change = attendees(vec![
+        AttendeeEdit::Written {
+            email: "eve@x.com".into(),
+            display_name: NameChange::Set { name: "Eva".into() },
+            role: None,
+        },
+        AttendeeEdit::Written {
+            email: "bob@x.com".into(),
+            display_name: NameChange::Unchanged,
+            role: Some("REQ-PARTICIPANT".into()),
+        },
+    ]);
+
+    let patched = patch_event_ics(&event_ics(&format!("{BOB}\r\n{EVE}\r\n")), edit(change, OrganizerChange::Unchanged))
+        .unwrap();
+
+    let ics = unfolded(&patched);
+    assert!(ics.contains("ATTENDEE;CN=Eva;PARTSTAT=ACCEPTED;ROLE=X-REVIEWER:mailto:eve@x.com"), "{ics}");
+    assert!(
+        ics.contains("ATTENDEE;CN=Bob;PARTSTAT=DECLINED;ROLE=REQ-PARTICIPANT;SCHEDULE-STATUS=2.0:mailto:Bob@x.com"),
+        "{ics}",
+    );
 }
 
 #[test]

@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Organizer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -69,8 +70,24 @@ class AttendeeEditMapperTest {
 
         val expected = listOf(
             RemoteAttendeeEdit.Kept("alice@example.com"),
-            RemoteAttendeeEdit.Written("bob@example.com", "Bob", "OPT-PARTICIPANT"),
-            RemoteAttendeeEdit.Written("carol@example.com", null, "CHAIR"),
+            RemoteAttendeeEdit.Written("bob@example.com", RemoteNameChange.Set("Bob"), role = null),
+            RemoteAttendeeEdit.Written("carol@example.com", RemoteNameChange.Unchanged, "CHAIR"),
+        )
+        assertEquals(RemoteAttendeesChange.Set(expected), change)
+    }
+
+    @Test
+    fun editedAttendee_writesOnlyWhatChanged() {
+        val edited = listOf(
+            alice.toEdit().copy(displayName = null),
+            bob.toEdit().copy(role = AttendeeRole.Chair),
+        )
+
+        val change = editData(attendees = edited).resolveAttendeesChange(listOf(alice, bob))
+
+        val expected = listOf(
+            RemoteAttendeeEdit.Written("alice@example.com", RemoteNameChange.Cleared, role = null),
+            RemoteAttendeeEdit.Written("bob@example.com", RemoteNameChange.Unchanged, "CHAIR"),
         )
         assertEquals(RemoteAttendeesChange.Set(expected), change)
     }
@@ -88,7 +105,7 @@ class AttendeeEditMapperTest {
 
         val change = editData(attendees = listOf(alice.toEdit(), shouting)).resolveAttendeesChange(emptyList())
 
-        val expected = RemoteAttendeeEdit.Written("alice@example.com", "Alice", "REQ-PARTICIPANT")
+        val expected = RemoteAttendeeEdit.Written("alice@example.com", RemoteNameChange.Set("Alice"), "REQ-PARTICIPANT")
         assertEquals(RemoteAttendeesChange.Set(listOf(expected)), change)
     }
 

@@ -17,20 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-/** One attendee of [RemoteAttendeesChange.Set]. Mirrors the Rust `AttendeeEdit` enum at the FFI boundary. */
-sealed interface RemoteAttendeeEdit {
-    val email: String
-
-    /** Keep the stored line verbatim, every parameter included. */
-    data class Kept(override val email: String) : RemoteAttendeeEdit
-
-    /**
-     * Write the given parameters onto the stored line, or add a line awaiting a response.
-     * [role] is the raw `ROLE`; `null` leaves it as stored.
-     */
-    data class Written(
-        override val email: String,
-        val displayName: RemoteNameChange,
-        val role: String?,
-    ) : RemoteAttendeeEdit
+/** Requested change to the `CN` of a [RemoteAttendeeEdit.Written]. Mirrors the Rust `NameChange` enum. */
+sealed interface RemoteNameChange {
+    data object Unchanged : RemoteNameChange
+    data class Set(val name: String) : RemoteNameChange
+    data object Cleared : RemoteNameChange
 }

@@ -40,6 +40,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
@@ -70,6 +71,7 @@ import uniffi.caldav_bridge.EventOverrideEntry
 import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
 import uniffi.caldav_bridge.InfomaniakAttachEntry
+import uniffi.caldav_bridge.NameChange
 import uniffi.caldav_bridge.OrganizerChange
 import uniffi.caldav_bridge.OrganizerEntry
 import uniffi.caldav_bridge.OverrideRemoval
@@ -324,7 +326,13 @@ private fun RemoteAttendeesChange.toRust(): AttendeesChange = when (this) {
 
 private fun RemoteAttendeeEdit.toRust(): AttendeeEdit = when (this) {
     is RemoteAttendeeEdit.Kept -> AttendeeEdit.Kept(email)
-    is RemoteAttendeeEdit.Written -> AttendeeEdit.Written(email, displayName, role)
+    is RemoteAttendeeEdit.Written -> AttendeeEdit.Written(email, displayName.toRust(), role)
+}
+
+private fun RemoteNameChange.toRust(): NameChange = when (this) {
+    RemoteNameChange.Unchanged -> NameChange.Unchanged
+    is RemoteNameChange.Set -> NameChange.Set(name)
+    RemoteNameChange.Cleared -> NameChange.Cleared
 }
 
 private fun RemoteOrganizerChange.toRust(): OrganizerChange = when (this) {

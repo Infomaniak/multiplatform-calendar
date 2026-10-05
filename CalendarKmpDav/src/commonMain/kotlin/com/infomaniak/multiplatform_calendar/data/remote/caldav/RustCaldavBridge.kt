@@ -417,6 +417,7 @@ private fun AttendeeEntry.toRemote() = RemoteDavAttendee(
     displayName = displayName,
     status = status,
     role = role,
+    userType = userType,
     responseNeeded = responseNeeded,
 )
 

@@ -18,6 +18,8 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
@@ -61,11 +63,34 @@ class RemoteDavEventToEntityAttendeeTest {
         assertEquals("boss@example.com", entity.attendees.single().email)
     }
 
-    private fun attendee(email: String) = RemoteDavAttendee(
+    @Test
+    fun userType_isMapped_individualWhenAbsent_unknownWhenUnrecognised() {
+        val entity = remoteEvent(
+            organizer = null,
+            attendees = listOf(
+                attendee("room@example.com", userType = "room"),
+                attendee("guest@example.com"),
+                attendee("bot@example.com", userType = "X-BOT"),
+            ),
+        ).toEntity(calendarId).content
+
+        assertEquals(listOf(AttendeeType.Room, AttendeeType.Individual, AttendeeType.Unknown), entity.attendees.map { it.type })
+    }
+
+    @Test
+    fun delegatedStatus_isMapped() {
+        val entity = remoteEvent(organizer = null, attendees = listOf(attendee("guest@example.com", status = "DELEGATED")))
+            .toEntity(calendarId).content
+
+        assertEquals(ParticipationStatus.Delegated, entity.attendees.single().status)
+    }
+
+    private fun attendee(email: String, status: String = "ACCEPTED", userType: String? = null) = RemoteDavAttendee(
         email = email,
         displayName = null,
-        status = "ACCEPTED",
+        status = status,
         role = "REQ-PARTICIPANT",
+        userType = userType,
         responseNeeded = false,
     )
 

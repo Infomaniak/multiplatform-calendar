@@ -182,3 +182,15 @@ fn detaching_an_occurrence_edits_the_attendees_it_takes_from_the_master() {
     assert!(detached.contains(ROOM) && detached.contains(ORGANIZER), "{detached}");
     assert!(detached.contains("mailto:dave@x.com") && !detached.contains("carol@x.com"), "{detached}");
 }
+
+#[test]
+fn parsing_reads_the_user_type() {
+    let patched = patch_event_ics(
+        &event_ics(&stored_participants()),
+        edit(AttendeesChange::Unchanged, OrganizerChange::Unchanged),
+    )
+    .unwrap();
+
+    let user_types: Vec<_> = patched.content.attendees.iter().map(|attendee| attendee.user_type.as_deref()).collect();
+    assert_eq!(user_types, [Some("ROOM"), None, None]);
+}

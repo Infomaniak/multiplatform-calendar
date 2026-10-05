@@ -302,7 +302,7 @@ fn parse_organizer(ev: &icalendar::Event) -> Option<OrganizerEntry> {
     })
 }
 
-/// Build an [`AttendeeEntry`] from an ATTENDEE [`Property`], extracting CN/PARTSTAT/ROLE/RSVP.
+/// Build an [`AttendeeEntry`] from an ATTENDEE [`Property`], extracting CN/PARTSTAT/ROLE/CUTYPE/RSVP.
 fn attendee_from_prop(p: &Property) -> AttendeeEntry {
     let param = |key: &str| p.get_param_as(key, |s| Some(s.to_string()));
     AttendeeEntry {
@@ -310,6 +310,7 @@ fn attendee_from_prop(p: &Property) -> AttendeeEntry {
         display_name: param("CN"),
         status: param("PARTSTAT"),
         role: param("ROLE"),
+        user_type: param("CUTYPE"),
         response_needed: param("RSVP").is_some_and(|v| v.eq_ignore_ascii_case("TRUE")),
     }
 }

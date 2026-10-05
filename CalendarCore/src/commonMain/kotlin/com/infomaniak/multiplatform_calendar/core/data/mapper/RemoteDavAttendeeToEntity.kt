@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 
@@ -27,6 +28,7 @@ internal fun RemoteDavAttendee.toEntity(): AttendeeEntity = AttendeeEntity(
     displayName = displayName,
     status = parseStatus(status),
     role = parseRole(role),
+    type = parseType(userType),
     responseNeeded = responseNeeded,
 )
 
@@ -35,6 +37,7 @@ private fun parseStatus(raw: String?): ParticipationStatus = when (raw?.uppercas
     "ACCEPTED" -> ParticipationStatus.Accepted
     "DECLINED" -> ParticipationStatus.Declined
     "TENTATIVE" -> ParticipationStatus.Tentative
+    "DELEGATED" -> ParticipationStatus.Delegated
     else -> ParticipationStatus.NeedsAction
 }
 
@@ -45,4 +48,12 @@ private fun parseRole(raw: String?): AttendeeRole = when (raw?.uppercase()) {
     "OPT-PARTICIPANT" -> AttendeeRole.Optional
     "NON-PARTICIPANT" -> AttendeeRole.NonParticipant
     else -> AttendeeRole.Requested
+}
+
+private fun parseType(raw: String?): AttendeeType = when (raw?.uppercase()) {
+    null, "INDIVIDUAL" -> AttendeeType.Individual
+    "GROUP" -> AttendeeType.Group
+    "RESOURCE" -> AttendeeType.Resource
+    "ROOM" -> AttendeeType.Room
+    else -> AttendeeType.Unknown
 }

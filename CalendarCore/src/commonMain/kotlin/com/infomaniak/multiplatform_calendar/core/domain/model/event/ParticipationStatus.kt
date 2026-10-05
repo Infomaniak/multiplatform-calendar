@@ -25,5 +25,6 @@ public enum class ParticipationStatus {
     Accepted,
     Declined,
     Tentative,
-    NeedsAction;
+    NeedsAction,
+    Delegated;
 }

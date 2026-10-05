@@ -25,6 +25,8 @@ data class RemoteDavAttendee(
     val status: String?,
     /** Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT"). */
     val role: String?,
+    /** Raw `CUTYPE` (e.g. "INDIVIDUAL", "ROOM"). */
+    val userType: String?,
     /** `RSVP=TRUE`: a response is expected. */
     val responseNeeded: Boolean,
 )

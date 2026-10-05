@@ -2925,6 +2925,7 @@ class EventRepositoryTest : RobolectricTestsBase() {
                     displayName = null,
                     status = "ACCEPTED",
                     role = "REQ-PARTICIPANT",
+                    userType = null,
                     responseNeeded = false,
                 ),
             ),

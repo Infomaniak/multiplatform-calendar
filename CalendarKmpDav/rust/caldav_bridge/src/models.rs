@@ -165,7 +165,7 @@ pub struct EventSyncDelta {
 }
 
 /// A single ATTENDEE participant parsed from a VEVENT. Raw iCal parameter values
-/// (PARTSTAT/ROLE) are kept verbatim and mapped to domain enums Kotlin-side.
+/// (PARTSTAT/ROLE/CUTYPE) are kept verbatim and mapped to domain enums Kotlin-side.
 #[derive(uniffi::Record)]
 pub struct AttendeeEntry {
     pub email: String,
@@ -174,6 +174,8 @@ pub struct AttendeeEntry {
     pub status: Option<String>,
     /// Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT").
     pub role: Option<String>,
+    /// Raw `CUTYPE` (e.g. "INDIVIDUAL", "ROOM").
+    pub user_type: Option<String>,
     /// `RSVP=TRUE`: a response is expected from this attendee.
     pub response_needed: bool,
 }

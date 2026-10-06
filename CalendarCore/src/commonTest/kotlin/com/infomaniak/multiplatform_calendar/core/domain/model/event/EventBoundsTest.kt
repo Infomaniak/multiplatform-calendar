@@ -77,6 +77,28 @@ class EventBoundsTest {
     }
 
     @Test
+    fun movedTo_keepsTheFormAndZones() {
+        val start = LocalDateTime(2026, 7, 1, 9, 0)
+        val end = LocalDateTime(2026, 7, 2, 10, 0)
+
+        assertEquals(
+            EventBounds.AllDay(LocalDate(2026, 7, 1), LocalDate(2026, 7, 2)),
+            EventBounds.AllDay(LocalDate(2026, 6, 15), LocalDate(2026, 6, 16)).movedTo(start, end),
+        )
+        assertEquals(
+            EventBounds.Floating(start, end),
+            EventBounds.Floating(START, END).movedTo(start, end),
+        )
+        assertEquals(
+            EventBounds.Zoned(ZonedWallClock(start, NEW_YORK), ZonedWallClock(end, PARIS)),
+            EventBounds.Zoned(
+                start = ZonedWallClock(LocalDateTime(2026, 6, 15, 18, 0), NEW_YORK),
+                end = ZonedWallClock(LocalDateTime(2026, 6, 16, 8, 0), PARIS),
+            ).movedTo(start, end),
+        )
+    }
+
+    @Test
     fun eventBounds_withAFloatingStartAndAZonedEnd_isFloating() {
         val bounds = eventBounds(START, END, startZone = null, endZone = PARIS, isAllDay = false)
 

@@ -89,3 +89,13 @@ internal fun EventBounds.startZoneOr(defaultZone: TimeZone): TimeZone = when (th
     is EventBounds.Unanchored -> defaultZone
     is EventBounds.Zoned -> start.timeZone
 }
+
+/** These bounds moved onto the [start] / [end] wall-clocks, keeping their form and zones. */
+internal fun EventBounds.movedTo(start: LocalDateTime, end: LocalDateTime): EventBounds = when (this) {
+    is EventBounds.AllDay -> EventBounds.AllDay(start.date, end.date)
+    is EventBounds.Floating -> EventBounds.Floating(start, end)
+    is EventBounds.Zoned -> EventBounds.Zoned(
+        start = ZonedWallClock(start, this.start.timeZone),
+        end = ZonedWallClock(end, this.end.timeZone),
+    )
+}

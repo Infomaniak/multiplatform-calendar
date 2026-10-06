@@ -304,7 +304,7 @@ internal suspend fun EventTiming.expandRecurrenceOccurrencesInWindow(
     )
     removeExDateOccurrences(target = occurrencesByKey)
 
-    target += occurrencesByKey.values.sortedBy(Occurrence::start)
+    target += occurrencesByKey.values.sortedBy { it.bounds.startWallClock }
     if (outcome != Completed) onExpansionTruncated(masterId, outcome)
     return true
 }
@@ -412,13 +412,7 @@ private fun EventTiming.buildOccurrenceAt(
     val (localEnd, instantEnd) = masterTiming.occurrenceEnd(localStart, instantStart)
     if (instantStart >= rangeEnd || instantEnd <= rangeStart) return null
 
-    return Occurrence(
-        key = key,
-        start = localStart,
-        end = localEnd,
-        startTimeZone = startTimeZone,
-        endTimeZone = endTimeZone,
-    )
+    return Occurrence(key = key, bounds = bounds.movedTo(localStart, localEnd))
 }
 
 /**
@@ -484,10 +478,10 @@ private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
     return copy(
         occurrenceId = OccurrenceId.Recurrence(masterEventId, occurrence.key),
         timing = timing.copy(
-            start = occurrence.start,
-            end = occurrence.end,
-            startTimeZone = occurrence.startTimeZone,
-            endTimeZone = occurrence.endTimeZone,
+            start = occurrence.bounds.startWallClock,
+            end = occurrence.bounds.endWallClock,
+            startTimeZone = (occurrence.bounds as? EventBounds.Zoned)?.start?.timeZone,
+            endTimeZone = (occurrence.bounds as? EventBounds.Zoned)?.end?.timeZone,
             isAllDay = occurrence.isAllDay,
         ),
     )

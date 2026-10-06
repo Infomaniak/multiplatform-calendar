@@ -169,8 +169,8 @@ private suspend fun DotOrderByDay.recordRuleOccurrences(
         currentCoroutineContext().ensureActive()
         if (occurrence.key.canonical in overriddenKeys) continue
         recordCoveredDays(
-            start = occurrence.start.projectInto(occurrence.startTimeZone, timeZone),
-            end = occurrence.end.projectInto(occurrence.endTimeZone, timeZone),
+            start = occurrence.bounds.startIn(timeZone),
+            end = occurrence.bounds.endIn(timeZone),
             visibleDays = visibleDays,
             dotColor = dotColor,
             isAllDay = occurrence.isAllDay,
@@ -295,13 +295,3 @@ private fun DotOrderByDay.recordCoveredDays(
 }
 
 private val MIDNIGHT = LocalTime(0, 0)
-
-/**
- * Reproject a stored wall-clock into [targetZone], matching `EventTiming.startIn`/`endIn`:
- * a `null` source zone (floating or all-day) is interpreted directly in [targetZone]; any other zone is
- * reprojected through an absolute instant.
- */
-private fun LocalDateTime.projectInto(sourceZone: TimeZone?, targetZone: TimeZone): LocalDateTime {
-    if (sourceZone == null || sourceZone == targetZone) return this
-    return toInstant(sourceZone).toLocalDateTime(targetZone)
-}

@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -91,10 +92,7 @@ internal object RecurrenceExpander {
     ) { startLocal, startInstant, endLocal ->
         target += Occurrence(
             key = master.recurrenceKeyAt(startLocal, startInstant),
-            start = startLocal,
-            end = endLocal,
-            startTimeZone = master.startTimeZone,
-            endTimeZone = master.endTimeZone,
+            bounds = master.bounds.movedTo(startLocal, endLocal),
         )
     }
 

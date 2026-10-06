@@ -17,10 +17,17 @@
  */
 package com.infomaniak.multiplatform_core.contacts.domain.model
 
-/** A merged contact, ready to be displayed. */
-public data class Contact(
-    val email: String,
-    val name: String,
-    val avatar: ContactAvatar?,
-    val comesFromApi: Boolean,
-)
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
+
+public sealed interface ContactAvatar {
+
+    /** An image of the Infomaniak API, to be fetched with the token of [accountId]. */
+    @OptIn(ExperimentalObjCRefinement::class)
+    public data class Remote(
+        val url: String,
+        @HiddenFromObjC
+        val accountId: AccountId,
+    ) : ContactAvatar
+}

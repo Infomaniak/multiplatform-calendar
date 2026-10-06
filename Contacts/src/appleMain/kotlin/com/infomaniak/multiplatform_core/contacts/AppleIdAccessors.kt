@@ -15,22 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_core.contacts.data.repository
+package com.infomaniak.multiplatform_core.contacts
 
-import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 
-/** Merged contact used for sorting, before being mapped to [Contact]. */
-internal data class MergedContact(
-    val email: String,
-    val name: String,
-    val avatar: ContactAvatar?,
-    val comesFromApi: Boolean,
-    val contactedTimes: Int?,
-    val isInAddressBook: Boolean,
-) {
-    /** Identity of a contact: the (email, name) pair, emails being case insensitive. */
-    val key: Pair<String, String> get() = email.lowercase() to name
-
-    fun toContact(): Contact = Contact(email = email, name = name, avatar = avatar, comesFromApi = comesFromApi)
-}
+public val ContactAvatar.Remote.accountIdValue: Long get() = accountId.value

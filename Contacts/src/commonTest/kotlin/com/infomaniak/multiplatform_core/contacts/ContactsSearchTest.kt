@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_core.contacts
 import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +52,7 @@ class ContactsSearchTest : RobolectricTestsBase() {
                 Contact(
                     email = "john@x.com",
                     name = "John Doe",
-                    avatarUrl = "https://$MAIL_API_HOST/avatar/john.png",
+                    avatar = ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/john.png", accountId = ACCOUNT_ID),
                     comesFromApi = true,
                 ),
             ),

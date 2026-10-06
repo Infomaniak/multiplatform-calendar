@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteData
 import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
@@ -67,8 +68,8 @@ internal class ContactsRepository(
 
         val likeQuery = "%${normalizedQuery.escapeLikeWildcards()}%"
         val apiMatches = dao.search(accountIds.ifEmpty { dao.accountIds().toSet() }, likeQuery)
-            .mergedAcrossAccounts()
             .map(ContactEntity::toMergedContact)
+            .mergedAcrossAccounts()
 
         val deviceMatches = cachedDeviceContacts()
             .filter { it.matches(normalizedQuery) }
@@ -169,7 +170,7 @@ private fun merge(deviceContacts: List<MergedContact>, apiContacts: List<MergedC
 
 /** The device contact, completed with what only the API knows: its avatar if it has none, and its ranking. */
 private fun MergedContact.completedWith(apiContact: MergedContact): MergedContact = copy(
-    avatarUrl = avatarUrl ?: apiContact.avatarUrl,
+    avatar = avatar ?: apiContact.avatar,
     comesFromApi = true,
     contactedTimes = apiContact.contactedTimes,
     isInAddressBook = apiContact.isInAddressBook,
@@ -185,12 +186,15 @@ private fun mergedContactComparator(matchTier: (MergedContact) -> MatchTier): Co
 private fun relevanceWeight(contact: MergedContact): Int =
     if (contact.name.isBlank() || !contact.isInAddressBook) -1 else contact.contactedTimes ?: 0
 
-/** Contacted times are added up, and the contact is in an address book when any account has it in one. */
-private fun List<ContactEntity>.mergedAcrossAccounts(): List<ContactEntity> =
-    groupBy { it.email.lowercase() to it.name }.values.map { it.reduce(ContactEntity::mergedWith) }
+/**
+ * Contacted times are added up, and the contact is in an address book when any account has it in one. The avatar is
+ * the first one found, with the account it comes from.
+ */
+private fun List<MergedContact>.mergedAcrossAccounts(): List<MergedContact> =
+    groupBy(MergedContact::key).values.map { it.reduce(MergedContact::mergedWith) }
 
-private fun ContactEntity.mergedWith(contact: ContactEntity): ContactEntity = copy(
-    avatarUrl = avatarUrl ?: contact.avatarUrl,
+private fun MergedContact.mergedWith(contact: MergedContact): MergedContact = copy(
+    avatar = avatar ?: contact.avatar,
     contactedTimes = contactedTimesSum(contactedTimes, contact.contactedTimes),
     isInAddressBook = isInAddressBook || contact.isInAddressBook,
 )
@@ -202,7 +206,7 @@ private fun contactedTimesSum(first: Int?, second: Int?): Int? =
 private fun ContactEntity.toMergedContact(): MergedContact = MergedContact(
     email = email,
     name = name,
-    avatarUrl = avatarUrl,
+    avatar = avatarUrl?.let { ContactAvatar.Remote(url = it, accountId = accountId) },
     comesFromApi = true,
     contactedTimes = contactedTimes,
     isInAddressBook = isInAddressBook,
@@ -214,7 +218,7 @@ private fun DeviceContact.matches(normalizedQuery: String): Boolean =
 private fun DeviceContact.toMergedContact(): MergedContact = MergedContact(
     email = email,
     name = name,
-    avatarUrl = null,
+    avatar = null,
     comesFromApi = false,
     contactedTimes = null,
     isInAddressBook = true,

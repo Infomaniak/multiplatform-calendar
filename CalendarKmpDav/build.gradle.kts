@@ -95,7 +95,7 @@ kotlin {
 // commonized cinterops of in-build projects, not those of published libraries like the runtime. Without
 // them, the commonizer drops every function using these types and `compileNativeMainKotlinMetadata`
 // fails with unresolved `uniffi_caldav_bridge_*` references. Feed it the runtime's cinterop metadata klib.
-// TODO: Delete when resolve : https://github.com/UbiqueInnovation/uniffi-kotlin-multiplatform-bindings/issues/29
+// TODO: Delete when resolved : https://github.com/UbiqueInnovation/uniffi-kotlin-multiplatform-bindings/issues/29#issuecomment-6016263813
 val uniffiRuntimeCInteropMetadata = files(layout.buildDirectory.dir("kotlinTransformedCInteropMetadataLibraries/nativeMain"))
     .builtBy("transformNativeMainCInteropDependenciesMetadata")
     .asFileTree

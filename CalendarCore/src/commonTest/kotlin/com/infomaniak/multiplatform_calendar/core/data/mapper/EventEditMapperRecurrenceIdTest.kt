@@ -101,10 +101,12 @@ class EventEditMapperRecurrenceIdTest {
     }
 
     private fun timing(zone: TimeZone?, isAllDay: Boolean = false) = EventTiming(
-        start = LocalDateTime(2026, 6, 15, 10, 0),
-        end = LocalDateTime(2026, 6, 15, 11, 0),
-        startTimeZone = zone,
-        endTimeZone = zone,
-        isAllDay = isAllDay,
+        eventBounds(
+            start = LocalDateTime(2026, 6, 15, 10, 0),
+            end = LocalDateTime(2026, 6, 15, 11, 0),
+            startZone = zone,
+            endZone = zone,
+            isAllDay = isAllDay,
+        ),
     )
 }

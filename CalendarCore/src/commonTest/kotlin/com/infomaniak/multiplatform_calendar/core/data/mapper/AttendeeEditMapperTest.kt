@@ -25,9 +25,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdi
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Organizer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
@@ -169,13 +169,7 @@ class AttendeeEditMapperTest {
         organizer: Organizer? = this.organizer,
     ) = EventEditData(
         title = "Test",
-        timing = EventTiming(
-            start = LocalDateTime(2026, 6, 15, 10, 0),
-            end = LocalDateTime(2026, 6, 15, 11, 0),
-            startTimeZone = TimeZone.UTC,
-            endTimeZone = TimeZone.UTC,
-            isAllDay = false,
-        ),
+        timing = zonedTiming(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 11, 0), TimeZone.UTC),
         location = null,
         description = null,
         timeBlocking = null,

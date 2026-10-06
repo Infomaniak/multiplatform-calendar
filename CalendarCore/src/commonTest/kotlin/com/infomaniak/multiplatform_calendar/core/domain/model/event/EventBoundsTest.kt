@@ -99,6 +99,12 @@ class EventBoundsTest {
     }
 
     @Test
+    fun eventTiming_isAllDay_followsItsBounds() {
+        assertEquals(true, allDayTiming(LocalDate(2026, 6, 15), LocalDate(2026, 6, 16)).isAllDay)
+        assertEquals(false, floatingTiming(START, END).isAllDay)
+    }
+
+    @Test
     fun eventBounds_withAFloatingStartAndAZonedEnd_isFloating() {
         val bounds = eventBounds(START, END, startZone = null, endZone = PARIS, isAllDay = false)
 

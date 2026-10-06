@@ -31,6 +31,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedBounds
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -158,10 +160,14 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         val expectedId = "occurrence#${RecurrenceKey.Utc(overriddenSlot.toInstant(TimeZone.UTC)).canonical}#${master.id.url}"
         val rendered = events.single { it.occurrenceId.value == expectedId }
         assertEquals("Moved instance", rendered.title, "the override's own content must reach the rendered occurrence")
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), rendered.timing.start, "and its own, moved timing")
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 15, 0), LocalDateTime(2026, 6, 17, 16, 0), TimeZone.UTC),
+            rendered.timing.bounds,
+            "and its own, moved timing",
+        )
         assertEquals(
             1,
-            events.count { it.timing.start.date == LocalDateTime(2026, 6, 17, 0, 0).date },
+            events.count { it.timing.bounds.startWallClock.date == LocalDateTime(2026, 6, 17, 0, 0).date },
             "the theoretical 10:00 slot must be gone, not doubled",
         )
     }
@@ -185,7 +191,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             timeZone = TimeZone.UTC,
         ).first()
 
-        val days = slicesByDay.values.flatten().map { it.event.timing.start.date }
+        val days = slicesByDay.values.flatten().map { it.event.timing.bounds.startWallClock.date }
         assertEquals(4, days.size, "a cancelled override deletes its occurrence")
         assertTrue(LocalDateTime(2026, 6, 17, 0, 0).date !in days, "and it is the overridden day that disappears")
     }
@@ -293,8 +299,14 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         }
         job.join()
 
-        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[0]?.timing?.start)
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[1]?.timing?.start)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 10, 0), LocalDateTime(2026, 6, 17, 11, 0), TimeZone.UTC),
+            emissions[0]?.timing?.bounds,
+        )
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 15, 0), LocalDateTime(2026, 6, 17, 16, 0), TimeZone.UTC),
+            emissions[1]?.timing?.bounds,
+        )
         assertEquals(requested, emissions[1]?.occurrenceId)
     }
 
@@ -349,8 +361,14 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         }
         job.join()
 
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), emissions[0]?.timing?.start)
-        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), emissions[1]?.timing?.start)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 15, 0), LocalDateTime(2026, 6, 17, 16, 0), TimeZone.UTC),
+            emissions[0]?.timing?.bounds,
+        )
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 10, 0), LocalDateTime(2026, 6, 17, 11, 0), TimeZone.UTC),
+            emissions[1]?.timing?.bounds,
+        )
         assertEquals(requested, emissions[1]?.occurrenceId)
     }
 

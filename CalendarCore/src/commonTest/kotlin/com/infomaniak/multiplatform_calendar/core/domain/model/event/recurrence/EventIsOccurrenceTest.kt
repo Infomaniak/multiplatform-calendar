@@ -32,6 +32,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOv
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
@@ -100,7 +101,7 @@ class EventIsOccurrenceTest {
         // and neither of the two is the master any more.
         assertEquals(
             listOf(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 20, 10, 0)),
-            occurrences.map { it.timing.start },
+            occurrences.map { it.timing.bounds.startWallClock },
         )
         assertTrue(occurrences.all { it.isOccurrence })
     }

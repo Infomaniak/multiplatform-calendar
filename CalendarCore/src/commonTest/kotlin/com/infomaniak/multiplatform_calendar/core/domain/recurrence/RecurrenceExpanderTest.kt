@@ -19,12 +19,14 @@ package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.allDayTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
@@ -60,21 +62,12 @@ class RecurrenceExpanderTest {
     private fun timedMaster(
         start: String,
         end: String,
-        zone: TimeZone? = utc,
-    ) = EventTiming(
-        start = ldt(start),
-        end = ldt(end),
-        startTimeZone = zone,
-        endTimeZone = zone,
-        isAllDay = false,
-    )
+        zone: TimeZone = utc,
+    ) = zonedTiming(start = ldt(start), end = ldt(end), zone = zone)
 
-    private fun allDayMaster(startDate: String, spanDays: Int = 1) = EventTiming(
-        start = LocalDateTime(LocalDate.parse(startDate), LocalDateTime.parse("2000-01-01T00:00").time),
-        end = LocalDateTime(LocalDate.parse(startDate).plus(spanDaysPeriod(spanDays)), LocalDateTime.parse("2000-01-01T00:00").time),
-        startTimeZone = null,
-        endTimeZone = null,
-        isAllDay = true,
+    private fun allDayMaster(startDate: String, spanDays: Int = 1) = allDayTiming(
+        start = LocalDate.parse(startDate),
+        end = LocalDate.parse(startDate).plus(spanDaysPeriod(spanDays)),
     )
 
     private fun spanDaysPeriod(days: Int) = kotlinx.datetime.DatePeriod(days = days)

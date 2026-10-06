@@ -123,11 +123,13 @@ internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
 
 /** The [EventTiming] this row describes, resolving its zone ids through [zoneCache]. */
 private fun EventDotColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTiming(
-    start = dtStart,
-    end = dtEndEffective,
-    startTimeZone = startZoneId?.let { zoneCache.zoneOf(it) },
-    endTimeZone = endZoneId?.let { zoneCache.zoneOf(it) },
-    isAllDay = isAllDay,
+    bounds = eventBounds(
+        start = dtStart,
+        end = dtEndEffective,
+        startZone = startZoneId?.let { zoneCache.zoneOf(it) },
+        endZone = endZoneId?.let { zoneCache.zoneOf(it) },
+        isAllDay = isAllDay,
+    ),
     recurrenceRule = rrule,
     rDates = rDates,
     exDates = exDates,

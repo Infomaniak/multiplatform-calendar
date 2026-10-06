@@ -44,5 +44,5 @@ internal fun EventTiming.rebasedOnto(master: EventTiming, shownStart: LocalDateT
     val edited = MasterTiming.of(master = this, defaultZone = defaultZone)
     val (rebasedEnd, _) = edited.occurrenceEnd(rebasedStart, edited.resolvedStartInstant(rebasedStart))
 
-    return copy(start = rebasedStart, end = rebasedEnd)
+    return copy(bounds = bounds.movedTo(rebasedStart, rebasedEnd))
 }

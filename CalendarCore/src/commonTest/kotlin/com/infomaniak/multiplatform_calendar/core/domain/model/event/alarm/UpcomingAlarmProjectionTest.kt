@@ -21,9 +21,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -117,7 +118,9 @@ class UpcomingAlarmProjectionTest {
         val onTime = master.occurrenceOn(day = 11)
         // Same slot, hence the same occurrenceId, but the occurrence itself was moved four hours later.
         val moved = onTime.copy(
-            timing = onTime.timing.copy(start = at(day = 11, hour = 14), end = at(day = 11, hour = 15)),
+            timing = onTime.timing.copy(
+                bounds = onTime.timing.bounds.movedTo(at(day = 11, hour = 14), at(day = 11, hour = 15)),
+            ),
         )
 
         assertEquals(onTime.occurrenceId, moved.occurrenceId, "moving an occurrence leaves its RECURRENCE-ID alone")
@@ -322,13 +325,7 @@ class UpcomingAlarmProjectionTest {
             calendarId = CalendarId("calendar://test"),
             accountId = AccountId(1L),
             title = "Test",
-            timing = EventTiming(
-                start = at(day, hour = 10),
-                end = at(day, hour = 11),
-                startTimeZone = TimeZone.UTC,
-                endTimeZone = TimeZone.UTC,
-                isAllDay = false,
-            ),
+            timing = zonedTiming(start = at(day, hour = 10), end = at(day, hour = 11), zone = TimeZone.UTC),
             colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
             canEdit = true,
             alarms = alarms,
@@ -338,7 +335,7 @@ class UpcomingAlarmProjectionTest {
     /** What the expansion hands us: the master re-timed onto one of its slots. */
     private fun Event.occurrenceOn(day: Int): Event = copy(
         occurrenceId = OccurrenceId.Recurrence(masterEventId, RecurrenceKey.Utc(utc(day, hour = 10))),
-        timing = timing.copy(start = at(day, hour = 10), end = at(day, hour = 11)),
+        timing = timing.copy(bounds = timing.bounds.movedTo(at(day, hour = 10), at(day, hour = 11))),
     )
 
     private fun at(day: Int, hour: Int, minute: Int = 0) = LocalDateTime(2026, 2, day, hour, minute)

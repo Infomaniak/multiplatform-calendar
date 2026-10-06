@@ -477,12 +477,6 @@ private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
     // Copying keeps all master fields (title, colors, attendees, …) while overriding identity and timing.
     return copy(
         occurrenceId = OccurrenceId.Recurrence(masterEventId, occurrence.key),
-        timing = timing.copy(
-            start = occurrence.bounds.startWallClock,
-            end = occurrence.bounds.endWallClock,
-            startTimeZone = (occurrence.bounds as? EventBounds.Zoned)?.start?.timeZone,
-            endTimeZone = (occurrence.bounds as? EventBounds.Zoned)?.end?.timeZone,
-            isAllDay = occurrence.isAllDay,
-        ),
+        timing = timing.copy(bounds = occurrence.bounds),
     )
 }

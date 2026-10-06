@@ -35,11 +35,13 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedBounds
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -94,8 +96,11 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
 
         val data = assertNotNull(repository.getEditData(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0))))
 
-        assertEquals(LocalDateTime(2026, 6, 17, 10, 0), data.timing.start, "the slot the occurrence is shown on")
-        assertEquals(LocalDateTime(2026, 6, 17, 11, 0), data.timing.end, "the master's duration, carried over")
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 10, 0), LocalDateTime(2026, 6, 17, 11, 0), TimeZone.UTC),
+            data.timing.bounds,
+            "the slot the occurrence is shown on, for the master's duration",
+        )
         assertEquals(master.rrule, data.timing.recurrenceRule, "the rule lives on the master")
         assertEquals(AlarmListEdit.Preserve, data.alarms)
     }
@@ -114,8 +119,11 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
 
         val data = assertNotNull(repository.getEditData(occurrence))
 
-        assertEquals(LocalDateTime(2025, 11, 2, 1, 0), data.timing.start, "the slot the occurrence is shown on")
-        assertEquals(LocalDateTime(2025, 11, 2, 6, 0), data.timing.end, "the five hours the expansion shows")
+        assertEquals(
+            zonedBounds(LocalDateTime(2025, 11, 2, 1, 0), LocalDateTime(2025, 11, 2, 6, 0), PARIS),
+            data.timing.bounds,
+            "the slot the occurrence is shown on, for the five hours the expansion shows",
+        )
     }
 
     /** The counterpart of [getEditData_endsTheOccurrenceWhereTheExpansionShowsIt]: a no-op save moves nothing. */
@@ -153,7 +161,11 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         val data = assertNotNull(repository.getEditData(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0))))
 
         assertEquals("Moved instance", data.title, "the override redefines the instance")
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 0), data.timing.start, "where the override moved it")
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 15, 0), LocalDateTime(2026, 6, 17, 16, 0), TimeZone.UTC),
+            data.timing.bounds,
+            "where the override moved it",
+        )
         assertEquals(master.rrule, data.timing.recurrenceRule, "an override carries no rule: the master's stands")
     }
 

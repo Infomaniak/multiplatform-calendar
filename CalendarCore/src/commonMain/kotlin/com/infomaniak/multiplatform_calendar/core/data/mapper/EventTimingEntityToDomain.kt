@@ -31,12 +31,14 @@ internal fun EventTimingEntity.toDomain(
     rDates: List<IcalDateValue> = emptyList(),
     exDates: List<IcalDateValue> = emptyList(),
 ): EventTiming = EventTiming(
-    start = dtStart,
-    // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
-    end = dtEndEffective,
-    startTimeZone = startTimeZone?.let(TimeZone::of),
-    endTimeZone = endTimeZone?.let(TimeZone::of),
-    isAllDay = isAllDay,
+    bounds = eventBounds(
+        start = dtStart,
+        // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
+        end = dtEndEffective,
+        startZone = startTimeZone?.let(TimeZone::of),
+        endZone = endTimeZone?.let(TimeZone::of),
+        isAllDay = isAllDay,
+    ),
     recurrenceRule = recurrenceRule,
     rDates = rDates,
     exDates = exDates,

@@ -60,6 +60,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.offse
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -598,7 +599,7 @@ internal class EventRepository(
         val masterTiming = MasterTiming.of(master.timing, defaultZone = zone)
         val (end, _) = masterTiming.occurrenceEnd(start, masterTiming.resolvedStartInstant(start))
 
-        return master.copy(timing = master.timing.copy(start = start, end = end))
+        return master.copy(timing = master.timing.copy(bounds = master.timing.bounds.movedTo(start, end)))
     }
 
     /**

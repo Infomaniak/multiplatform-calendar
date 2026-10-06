@@ -90,6 +90,21 @@ kotlin {
     }
 }
 
+// Since UniFFI 1.3.0, the crate's cinterop reuses the FFI types (`RustBuffer`, `UniffiRustCallStatus`, ...)
+// declared by the runtime's own cinterop. For shared native targets, KGP only hands the commonizer the
+// commonized cinterops of in-build projects, not those of published libraries like the runtime. Without
+// them, the commonizer drops every function using these types and `compileNativeMainKotlinMetadata`
+// fails with unresolved `uniffi_caldav_bridge_*` references. Feed it the runtime's cinterop metadata klib.
+// TODO: Delete when resolved : https://github.com/UbiqueInnovation/uniffi-kotlin-multiplatform-bindings/issues/29#issuecomment-6016263813
+val uniffiRuntimeCInteropMetadata = files(layout.buildDirectory.dir("kotlinTransformedCInteropMetadataLibraries/nativeMain"))
+    .builtBy("transformNativeMainCInteropDependenciesMetadata")
+    .asFileTree
+    .matching { include("**/ch.ubique.uniffi_runtime-cinterop-*.klib") }
+// Every shared native source set needs it, intermediate ones included: what `iosMain` loses is lost for `nativeMain` too.
+configurations.matching { it.name in setOf("iosMainCInterop", "appleMainCInterop", "nativeMainCInterop") }.configureEach {
+    dependencies.add(project.dependencies.create(uniffiRuntimeCInteropMetadata))
+}
+
 // Ensure KSP tasks depend on UniFFI binding generation
 tasks.configureEach {
     if (name.startsWith("ksp") && name.contains("Kotlin")) {

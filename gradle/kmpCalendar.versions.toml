@@ -3,7 +3,9 @@
 agp = "9.3.2"
 coroutines = "1.11.0"
 coreKtx = "1.7.0"
-datetime = "0.8.0"
+# Ktor 3.6+ pulls in 0.8.0-0.6.x-compat (via ktor-openapi-schema), which Gradle ranks above 0.8.0.
+# Pin the same version so export(kotlinx.datetime) matches the resolved one, otherwise the iOS framework link fails.
+datetime = "0.8.0-0.6.x-compat"
 kotlin = "2.4.20"
 ksp = "2.3.11"
 ktor = "3.6.0"

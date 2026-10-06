@@ -18,9 +18,12 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ZonedWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 
 internal fun EventTimingEntity.toDomain(
@@ -38,3 +41,19 @@ internal fun EventTimingEntity.toDomain(
     rDates = rDates,
     exDates = exDates,
 )
+
+/**
+ * The [EventBounds] of stored wall-clocks and zones. Their form follows `DTSTART`: a floating start with a zoned
+ * end, which RFC 5545 forbids, is read as floating.
+ */
+internal fun eventBounds(
+    start: LocalDateTime,
+    end: LocalDateTime,
+    startZone: TimeZone?,
+    endZone: TimeZone?,
+    isAllDay: Boolean,
+): EventBounds = when {
+    isAllDay -> EventBounds.AllDay(start.date, end.date)
+    startZone == null -> EventBounds.Floating(start, end)
+    else -> EventBounds.Zoned(ZonedWallClock(start, startZone), ZonedWallClock(end, endZone ?: startZone))
+}

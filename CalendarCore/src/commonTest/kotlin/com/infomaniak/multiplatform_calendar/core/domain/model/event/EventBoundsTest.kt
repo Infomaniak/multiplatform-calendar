@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.data.mapper.eventBounds
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -73,6 +74,27 @@ class EventBoundsTest {
         assertEquals(LocalDateTime(2026, 6, 15, 0, 0), bounds.startIn(NEW_YORK))
         assertEquals(LocalDateTime(2026, 6, 17, 0, 0), bounds.endIn(NEW_YORK))
         assertEquals(Instant.parse("2026-06-16T22:00:00Z"), bounds.endInstant(defaultZone = PARIS))
+    }
+
+    @Test
+    fun eventBounds_withAFloatingStartAndAZonedEnd_isFloating() {
+        val bounds = eventBounds(START, END, startZone = null, endZone = PARIS, isAllDay = false)
+
+        assertEquals(EventBounds.Floating(START, END), bounds)
+    }
+
+    @Test
+    fun eventBounds_withoutEndZone_endsInTheStartZone() {
+        val bounds = eventBounds(START, END, startZone = PARIS, endZone = null, isAllDay = false)
+
+        assertEquals(EventBounds.Zoned(ZonedWallClock(START, PARIS), ZonedWallClock(END, PARIS)), bounds)
+    }
+
+    @Test
+    fun eventBounds_allDay_ignoresZones() {
+        val bounds = eventBounds(START, END, startZone = PARIS, endZone = PARIS, isAllDay = true)
+
+        assertEquals(EventBounds.AllDay(START.date, END.date), bounds)
     }
 
     private companion object {

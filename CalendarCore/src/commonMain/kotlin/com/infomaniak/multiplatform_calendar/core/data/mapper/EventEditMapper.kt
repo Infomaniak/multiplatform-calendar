@@ -25,8 +25,10 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEnt
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ZonedWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -35,6 +37,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
@@ -81,19 +85,19 @@ internal fun EventEditData.toRemoteEdit(
     previousAttendees: List<AttendeeEntity> = previous?.content?.attendees.orEmpty(),
     previousOrganizer: OrganizerEntity? = previous?.content?.organizer,
 ): RemoteEventEdit {
-    val startZone = timing.startTimeZone
-    val endZone = timing.endTimeZone
+    val dtStart = timing.bounds.icalStart()
+    val dtEnd = timing.bounds.icalEnd()
     return RemoteEventEdit(
         summary = title.ifBlank { null },
-        dtStart = timing.start.toICal(timing.isAllDay, startZone),
-        dtStartTzid = startZone.tzidForIcal(timing.isAllDay),
-        dtEnd = timing.end.toICal(timing.isAllDay, endZone),
-        dtEndTzid = endZone.tzidForIcal(timing.isAllDay),
+        dtStart = dtStart.value,
+        dtStartTzid = dtStart.tzid,
+        dtEnd = dtEnd.value,
+        dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
         description = description?.ifBlank { null },
         transp = timeBlocking?.toIcalString(),
-        timeZones = timing.vTimeZones(),
+        timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previous?.content?.colorArgb),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
         exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
@@ -126,19 +130,19 @@ internal fun EventEditData.toOverrideEdit(
     previousAttendees: List<AttendeeEntity>,
     previousOrganizer: OrganizerEntity?,
 ): RemoteEventEdit {
-    val startZone = timing.startTimeZone
-    val endZone = timing.endTimeZone
+    val dtStart = timing.bounds.icalStart()
+    val dtEnd = timing.bounds.icalEnd()
     return RemoteEventEdit(
         summary = title.ifBlank { null },
-        dtStart = timing.start.toICal(timing.isAllDay, startZone),
-        dtStartTzid = startZone.tzidForIcal(timing.isAllDay),
-        dtEnd = timing.end.toICal(timing.isAllDay, endZone),
-        dtEndTzid = endZone.tzidForIcal(timing.isAllDay),
+        dtStart = dtStart.value,
+        dtStartTzid = dtStart.tzid,
+        dtEnd = dtEnd.value,
+        dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
         description = description?.ifBlank { null },
         transp = timeBlocking?.toIcalString(),
-        timeZones = timing.vTimeZones(),
+        timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previousColorArgb),
         recurrenceChange = Unchanged,
         exDateChange = RemoteDateListChange.Unchanged,
@@ -207,10 +211,10 @@ private fun EventEditData.resolveRecurrenceChange(previousRule: RecurrenceRule?)
 internal fun EventTiming.recurrenceRuleWithMatchingUntil(): RecurrenceRule? {
     val rule = recurrenceRule ?: return null
     val current = rule.until ?: return rule
-    val normalized = when {
-        isAllDay -> DateOnly(current.calendarDate())
-        startTimeZone == null -> Floating(current.calendarDateTime())
-        else -> DateTimeUtc(current.calendarDateTime().toInstant(UTC))
+    val normalized = when (bounds) {
+        is EventBounds.AllDay -> DateOnly(current.calendarDate())
+        is EventBounds.Floating -> Floating(current.calendarDateTime())
+        is EventBounds.Zoned -> DateTimeUtc(current.calendarDateTime().toInstant(UTC))
     }
     return if (normalized == current) rule else rule.copy(until = normalized)
 }
@@ -247,16 +251,16 @@ private fun EventTiming.resolveDateListChange(
     }
     // The values designate occurrences of the master as it stands *before* this edit.
     val reference = previous?.content?.timing?.toDomain() ?: this
-    val coerced = values.mapNotNull { it.coercedToDtStartForm(reference, isAllDay, startTimeZone) }
+    val coerced = values.mapNotNull { it.coercedToDtStartForm(reference, target = this) }
     return when {
         coerced == previousValues.orEmpty() -> RemoteDateListChange.Unchanged
         coerced.isEmpty() -> RemoteDateListChange.Cleared
         else -> RemoteDateListChange.Set(
             lines = listOf(
                 RemoteDateListLine(
-                    tzid = startTimeZone.tzidForIcal(isAllDay),
+                    tzid = bounds.icalStart().tzid,
                     isDateOnly = isAllDay,
-                    values = coerced.map { it.calendarDateTime().toICal(isAllDay, startTimeZone) },
+                    values = coerced.map { bounds.icalStartAt(it.calendarDateTime()).value },
                 ),
             ),
         )
@@ -264,7 +268,7 @@ private fun EventTiming.resolveDateListChange(
 }
 
 /**
- * This value re-expressed in the form a `DTSTART` described by [isAllDay]/[zone] requires, still
+ * This value re-expressed in the form [target]'s `DTSTART` requires, still
  * designating the occurrence it designated on [reference] (the master as stored before this edit).
  *
  * A value only excludes — or adds — an occurrence when it equals that occurrence's start, so the
@@ -274,18 +278,8 @@ private fun EventTiming.resolveDateListChange(
  *
  * Returns `null` when the value designates nothing on [reference] — the expander ignores it too.
  */
-private fun IcalDateValue.coercedToDtStartForm(
-    reference: EventTiming,
-    isAllDay: Boolean,
-    zone: TimeZone?,
-): IcalDateValue? {
-    val localStart = toRecurrenceKey(reference)?.toLocalStart(reference, defaultZone = UTC) ?: return null
-    return when {
-        isAllDay -> IcalDateValue.AllDay(localStart.date)
-        zone == null -> IcalDateValue.Floating(localStart)
-        else -> IcalDateValue.Zoned(localStart.toInstant(zone), zone.id)
-    }
-}
+private fun IcalDateValue.coercedToDtStartForm(reference: EventTiming, target: EventTiming): IcalDateValue? =
+    toRecurrenceKey(reference)?.toLocalStart(reference, defaultZone = UTC)?.toIcalDateValue(target)
 
 private fun IcalDateValue.calendarDateTime(): LocalDateTime = when (this) {
     is IcalDateValue.AllDay -> date.atTime(0, 0)
@@ -316,64 +310,50 @@ internal fun RecurrenceKey.toRemoteRecurrenceId(master: EventTiming): RemoteRecu
  * here against the one it lands on, so it goes on designating the same instance when the two differ
  * in form — a zoned override moving onto a floating tail, say.
  */
-internal fun LocalDateTime.toRemoteRecurrenceId(master: EventTiming) = RemoteRecurrenceId(
-    tzid = master.startTimeZone.tzidForIcal(master.isAllDay),
-    isDateOnly = master.isAllDay,
-    value = toICal(master.isAllDay, master.startTimeZone),
-)
-
-/**
- * Serialize a calendar-face [LocalDateTime] as an RFC 5545 value:
- * - All-day      → `DATE` (`YYYYMMDD`).
- * - `zone` UTC   → FORM #2 (`...Z` suffix).
- * - `zone` set   → FORM #3 (no suffix; caller emits a `TZID` parameter alongside).
- * - `zone` null  → FORM #1 floating (no suffix, no `TZID`).
- */
-private fun LocalDateTime.toICal(isAllDay: Boolean, zone: TimeZone?): String = when {
-    isAllDay -> date.toICalDate()
-    zone == UTC -> toInstant(UTC).toICalUtcDateTime()
-    else -> toICalLocalDateTime()
+internal fun LocalDateTime.toRemoteRecurrenceId(master: EventTiming): RemoteRecurrenceId {
+    val ical = master.bounds.icalStartAt(this)
+    return RemoteRecurrenceId(tzid = ical.tzid, isDateOnly = master.isAllDay, value = ical.value)
 }
 
-/** The `TZID` parameter to emit alongside a `DATE-TIME` value, or `null` when none applies. */
-private fun TimeZone?.tzidForIcal(isAllDay: Boolean): String? =
-    if (isAllDay) null else explicitInIcal()?.id
+/** An RFC 5545 `DATE` / `DATE-TIME` value, with the `TZID` parameter to emit alongside it, if any. */
+private data class IcalValue(val value: String, val tzid: String? = null)
+
+private fun EventBounds.icalStart(): IcalValue = icalStartAt(startWallClock)
+
+private fun EventBounds.icalEnd(): IcalValue = when (this) {
+    is EventBounds.AllDay -> IcalValue(end.toICalDate())
+    is EventBounds.Floating -> IcalValue(end.toICalLocalDateTime())
+    is EventBounds.Zoned -> end.toIcal()
+}
+
+/** The calendar-face [wallClock] in the form of these bounds' `DTSTART`. */
+private fun EventBounds.icalStartAt(wallClock: LocalDateTime): IcalValue = when (this) {
+    is EventBounds.AllDay -> IcalValue(wallClock.date.toICalDate())
+    is EventBounds.Floating -> IcalValue(wallClock.toICalLocalDateTime())
+    is EventBounds.Zoned -> ZonedWallClock(wallClock, start.timeZone).toIcal()
+}
+
+/** FORM #2 (`...Z` suffix) in UTC, FORM #3 (local value + `TZID`) in any other zone. */
+private fun ZonedWallClock.toIcal(): IcalValue = when (timeZone) {
+    UTC -> IcalValue(instant.toICalUtcDateTime())
+    else -> IcalValue(wallClock.toICalLocalDateTime(), tzid = timeZone.id)
+}
 
 /**
  * `VTIMEZONE` definitions to embed so the emitted iCalendar references self-contained zones
- * (RFC 5545 §3.6.5). Only FORM #3 (a real IANA `TZID`) needs one; all-day, UTC and floating
- * events emit no `TZID` and therefore need no `VTIMEZONE`.
+ * (RFC 5545 §3.6.5). Only a `TZID` (FORM #3) needs one: all-day, floating and UTC bounds need none.
  *
  * `DTSTART` and `DTEND` can reference different `TZID`s (RFC 5545 §3.8.2.2), so both zones are
  * emitted when distinct. Each offset is sampled at its own wall-clock — a single-offset
  * approximation that resolves this event's wall-clocks correctly everywhere (see [RemoteVTimeZone]).
  */
-private fun EventTiming.vTimeZones(): List<RemoteVTimeZone> {
-    if (isAllDay) return emptyList()
-    val start = startTimeZone.vTimeZone(start)
-    val end = endTimeZone.vTimeZone(end)
-    return when {
-        start == null && end == null -> emptyList()
-        start != null && end != null && start.tzid == end.tzid -> listOf(start)
-        else -> listOfNotNull(start, end)
-    }
+private fun EventBounds.vTimeZones(): List<RemoteVTimeZone> = when (this) {
+    is EventBounds.Unanchored -> emptyList()
+    is EventBounds.Zoned -> listOfNotNull(start.vTimeZone(), end.vTimeZone()).distinctBy(RemoteVTimeZone::tzid)
 }
 
-private fun TimeZone?.vTimeZone(local: LocalDateTime): RemoteVTimeZone? {
-    val zone = explicitInIcal() ?: return null
-    return RemoteVTimeZone(tzid = zone.id, offset = zone.icalOffsetAt(local))
-}
-
-/**
- * This zone if it must be referenced explicitly in iCal (RFC 5545 FORM #3 — a real IANA regional
- * zone), else `null`. Excludes:
- * - `null` (floating FORM #1 or all-day): no `TZID` parameter is emitted.
- * - `TimeZone.UTC` (FORM #2): the `Z` suffix is used instead of a `TZID`.
- *
- * Zones returned here are exactly those that require both a `TZID=` parameter on their
- * DATE-TIME value **and** a matching `VTIMEZONE` block in the emitted iCalendar.
- */
-private fun TimeZone?.explicitInIcal(): TimeZone? = this?.takeUnless { it == UTC }
+private fun ZonedWallClock.vTimeZone(): RemoteVTimeZone? =
+    timeZone.takeUnless { it == UTC }?.let { RemoteVTimeZone(tzid = it.id, offset = it.icalOffsetAt(wallClock)) }
 
 /**
  * Format the UTC offset valid at [local] in this zone as an RFC 5545 `TZOFFSETTO` value (e.g. "+0200").

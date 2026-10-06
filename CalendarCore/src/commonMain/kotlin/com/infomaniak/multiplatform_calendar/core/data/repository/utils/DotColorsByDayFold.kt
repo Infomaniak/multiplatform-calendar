@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.mapper.eventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
@@ -143,8 +144,8 @@ private fun DotOrderByDay.recordPlainEvent(
     timeZone: TimeZone,
 ) {
     recordCoveredDays(
-        start = timing.start.projectInto(timing.startTimeZone, timeZone),
-        end = timing.end.projectInto(timing.endTimeZone, timeZone),
+        start = timing.startIn(timeZone),
+        end = timing.endIn(timeZone),
         visibleDays = visibleDays,
         dotColor = dotColor,
         isAllDay = row.isAllDay,
@@ -204,8 +205,15 @@ private suspend fun DotOrderByDay.recordOverriddenInstances(
             continue
         }
 
-        val start = override.dtStart.projectInto(override.startTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)
-        val end = override.dtEndEffective.projectInto(override.endTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)
+        val bounds = eventBounds(
+            start = override.dtStart,
+            end = override.dtEndEffective,
+            startZone = override.startTimeZone?.let { zoneCache.zoneOf(it) },
+            endZone = override.endTimeZone?.let { zoneCache.zoneOf(it) },
+            isAllDay = override.isAllDay,
+        )
+        val start = bounds.startIn(timeZone)
+        val end = bounds.endIn(timeZone)
         // The relation carries *every* override of the master, and the range branches are a deliberate
         // superset, so re-apply the `[rangeStart, rangeEnd[` overlap rule the planning flow uses.
         if (start.toInstant(timeZone) >= rangeEnd || end.toInstant(timeZone) <= rangeStart) continue

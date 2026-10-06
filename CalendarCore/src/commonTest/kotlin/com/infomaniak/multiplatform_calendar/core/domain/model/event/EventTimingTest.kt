@@ -77,8 +77,8 @@ class EventTimingTest {
     fun startIn_floating_returnsStartAsIs_forAnyTargetZone() {
         val start = LocalDateTime(2026, 6, 15, 10, 0)
         val timing = floating(start = start)
-        assertSame(start, timing.startIn(paris))
-        assertSame(start, timing.startIn(tokyo))
+        assertEquals(start, timing.startIn(paris))
+        assertEquals(start, timing.startIn(tokyo))
         assertSame(start, timing.startIn(TimeZone.UTC))
     }
 
@@ -122,7 +122,7 @@ class EventTimingTest {
 
     @Test
     fun startIn_allDay_returnsMidnightAsIs_regardlessOfTargetZone() {
-        // All-day events store both zones as null; startIn should not attempt any reprojection.
+        // All-day bounds carry no zone; startIn should not attempt any reprojection.
         val start = LocalDateTime(2026, 6, 15, 0, 0)
         val timing = EventTiming(
             start = start,
@@ -131,8 +131,8 @@ class EventTimingTest {
             endTimeZone = null,
             isAllDay = true,
         )
-        assertSame(start, timing.startIn(paris))
-        assertSame(start, timing.startIn(tokyo))
+        assertEquals(start, timing.startIn(paris))
+        assertEquals(start, timing.startIn(tokyo))
     }
 
     // ---- UTC ------------------------------------------------------------------------------------

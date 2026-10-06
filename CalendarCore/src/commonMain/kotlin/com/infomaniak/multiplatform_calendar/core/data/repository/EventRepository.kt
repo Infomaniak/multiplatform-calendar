@@ -68,6 +68,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.statedAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
@@ -849,7 +850,7 @@ private data class SeriesTail(
 ) {
     companion object {
         fun of(master: EventTiming, pivotStart: LocalDateTime, edit: EventEditData, split: SeriesSplit): SeriesTail {
-            val delta = wallClockShift(from = pivotStart, to = edit.timing.start)
+            val delta = wallClockShift(from = pivotStart, to = edit.timing.bounds.startWallClock)
             val timing = edit.timing.copy(recurrenceRule = edit.tailRuleAfter(split, stored = master, delta))
 
             return SeriesTail(

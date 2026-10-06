@@ -359,7 +359,7 @@ private fun EventTiming.addMasterOccurrenceWhenRDateOnly(
 ) {
     if (recurrenceRule != null) return
     buildOccurrenceAt(
-        key = recurrenceKeyAt(start, startInstant(timeZone)),
+        key = recurrenceKeyAt(bounds.startWallClock, startInstant(timeZone)),
         masterTiming = masterTiming,
         defaultZone = timeZone,
         rangeStart = rangeStart,
@@ -429,27 +429,31 @@ private fun EventTiming.buildOccurrenceAt(
  * business, hence the delegation to [recurrenceKeyAt].
  */
 internal fun IcalDateValue.toRecurrenceKey(master: EventTiming): RecurrenceKey? {
-    val zone = master.startTimeZone
-    val (localStart, instantStart) = when {
+    val bounds = master.bounds
+    val (localStart, instantStart) = when (this) {
         // A bare DATE designates the occurrence falling on that day, which starts at the master's time.
-        this is IcalDateValue.AllDay -> {
-            val local = LocalDateTime(date, master.start.time)
-            local to local.toInstant(zone ?: TimeZone.UTC)
+        is IcalDateValue.AllDay -> {
+            val local = LocalDateTime(date, bounds.startWallClock.time)
+            local to local.toInstant(bounds.startZoneOr(TimeZone.UTC))
         }
         // Only a DATE can designate an occurrence of an all-day master.
-        master.isAllDay -> return null
-        this is IcalDateValue.Floating && zone == null -> localDateTime to localDateTime.toInstant(TimeZone.UTC)
-        this is IcalDateValue.Zoned && zone != null -> instant.toLocalDateTime(zone) to instant
-        else -> return null
+        is IcalDateValue.Floating -> when (bounds) {
+            is EventBounds.Floating -> localDateTime to localDateTime.toInstant(TimeZone.UTC)
+            is EventBounds.AllDay, is EventBounds.Zoned -> return null
+        }
+        is IcalDateValue.Zoned -> when (bounds) {
+            is EventBounds.Zoned -> instant.toLocalDateTime(bounds.start.timeZone) to instant
+            is EventBounds.Unanchored -> return null
+        }
     }
     return master.recurrenceKeyAt(localStart, instantStart)
 }
 
 internal fun RecurrenceKey.toLocalStart(master: EventTiming, defaultZone: TimeZone): LocalDateTime? = when (this) {
-    is AllDay -> LocalDateTime(date, master.start.time)
+    is AllDay -> LocalDateTime(date, master.bounds.startWallClock.time)
     is Floating -> localDateTime
-    is Zoned -> if (master.startTimeZone != null) localDateTime else null
-    is Utc -> instant.toLocalDateTime(master.startTimeZone ?: defaultZone)
+    is Zoned -> if (master.bounds is EventBounds.Zoned) localDateTime else null
+    is Utc -> instant.toLocalDateTime(master.bounds.startZoneOr(defaultZone))
 }
 
 /**
@@ -468,13 +472,10 @@ internal fun RecurrenceKey.toIcalDateValue(master: EventTiming): IcalDateValue? 
  * Splitting a series resolves a value against the master it comes from and re-encodes it here against
  * the one it lands on, so an exception goes on designating the same slot when the two differ in form.
  */
-internal fun LocalDateTime.toIcalDateValue(master: EventTiming): IcalDateValue {
-    val zone = master.startTimeZone
-    return when {
-        master.isAllDay -> IcalDateValue.AllDay(date)
-        zone == null -> IcalDateValue.Floating(this)
-        else -> IcalDateValue.Zoned(toInstant(zone), zone.id)
-    }
+internal fun LocalDateTime.toIcalDateValue(master: EventTiming): IcalDateValue = when (val bounds = master.bounds) {
+    is EventBounds.AllDay -> IcalDateValue.AllDay(date)
+    is EventBounds.Floating -> IcalDateValue.Floating(this)
+    is EventBounds.Zoned -> bounds.start.timeZone.let { zone -> IcalDateValue.Zoned(toInstant(zone), zone.id) }
 }
 
 /** Materialise one [occurrence] of this recurring master into a concrete synthetic [Event]. */

@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey.AllDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey.Floating
@@ -111,9 +112,12 @@ internal sealed class RecurrenceKey {
  *
  * Shared by the expander and the sync path: a stored override key must match the slot it replaces.
  */
-internal fun EventTiming.recurrenceKeyAt(localStart: LocalDateTime, instantStart: Instant): RecurrenceKey = when {
-    isAllDay -> AllDay(localStart.date)
-    startTimeZone == TimeZone.UTC -> Utc(instantStart)
-    startTimeZone != null -> Zoned(localStart, startTimeZone.id)
-    else -> Floating(localStart)
-}
+internal fun EventTiming.recurrenceKeyAt(localStart: LocalDateTime, instantStart: Instant): RecurrenceKey =
+    when (val bounds = bounds) {
+        is EventBounds.AllDay -> AllDay(localStart.date)
+        is EventBounds.Floating -> Floating(localStart)
+        is EventBounds.Zoned -> when (val zone = bounds.start.timeZone) {
+            TimeZone.UTC -> Utc(instantStart)
+            else -> Zoned(localStart, zone.id)
+        }
+    }

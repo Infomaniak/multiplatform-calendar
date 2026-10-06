@@ -17,12 +17,11 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.data.mapper.eventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toInstant
-import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
@@ -62,38 +61,20 @@ public data class EventTiming(
     val rDates: List<IcalDateValue> = emptyList(),
     val exDates: List<IcalDateValue> = emptyList(),
 ) {
-    /**
-     * Resolve [EventTiming.start] to an absolute [Instant].
-     *
-     * - When [EventTiming.startTimeZone] is set, the wall-clock is anchored in that zone.
-     * - Otherwise (floating or all-day) it is anchored in [defaultZone] (recipient's local time per
-     *   RFC 5545 FORM #1; the call-site supplies the device/user zone).
-     */
-    public fun startInstant(defaultZone: TimeZone): Instant =
-        start.toInstant(startTimeZone ?: defaultZone)
+    /** [start] / [end] typed by their RFC 5545 form. */
+    val bounds: EventBounds = eventBounds(start, end, startTimeZone, endTimeZone, isAllDay)
 
-    /** See [startInstant]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-    public fun endInstant(defaultZone: TimeZone): Instant =
-        end.toInstant(endTimeZone ?: defaultZone)
+    /** See [EventBounds.startInstant]. */
+    public fun startInstant(defaultZone: TimeZone): Instant = bounds.startInstant(defaultZone)
 
-    /**
-     * Return [EventTiming.start] as a wall-clock in [targetZone].
-     *
-     * - Floating / all-day ([EventTiming.startTimeZone] `== null`): returned as-is (per RFC 5545
-     *   FORM #1, a floating wall-clock is interpreted in the recipient's zone).
-     * - Same zone as [targetZone]: returned as-is (no-op conversion).
-     * - Different zone: reprojected via an absolute [Instant].
-     */
-    public fun startIn(targetZone: TimeZone): LocalDateTime = when (startTimeZone) {
-        null, targetZone -> start
-        else -> start.toInstant(startTimeZone).toLocalDateTime(targetZone)
-    }
+    /** See [EventBounds.endInstant]. */
+    public fun endInstant(defaultZone: TimeZone): Instant = bounds.endInstant(defaultZone)
 
-    /** See [startIn]. Uses [EventTiming.endTimeZone] (which can differ from the start zone). */
-    public fun endIn(targetZone: TimeZone): LocalDateTime = when (endTimeZone) {
-        null, targetZone -> end
-        else -> end.toInstant(endTimeZone).toLocalDateTime(targetZone)
-    }
+    /** See [EventBounds.startIn]. */
+    public fun startIn(targetZone: TimeZone): LocalDateTime = bounds.startIn(targetZone)
+
+    /** See [EventBounds.endIn]. */
+    public fun endIn(targetZone: TimeZone): LocalDateTime = bounds.endIn(targetZone)
 
     /** Shortcut for [startInstant] with the device's current system zone. */
     public fun startInstantLocal(): Instant = startInstant(TimeZone.currentSystemDefault())

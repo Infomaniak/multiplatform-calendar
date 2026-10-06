@@ -83,3 +83,9 @@ internal val EventBounds.endWallClock: LocalDateTime
         is EventBounds.Floating -> end
         is EventBounds.Zoned -> end.wallClock
     }
+
+/** The zone `DTSTART` is anchored in: its own when [EventBounds.Zoned], [defaultZone] (the reader's) otherwise. */
+internal fun EventBounds.startZoneOr(defaultZone: TimeZone): TimeZone = when (this) {
+    is EventBounds.Unanchored -> defaultZone
+    is EventBounds.Zoned -> start.timeZone
+}

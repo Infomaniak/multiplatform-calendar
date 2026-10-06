@@ -305,7 +305,7 @@ internal abstract class EventDao {
          * Non-recurring / master timing overlap on wall-clock strings.
          *
          * Covers floating DATE-TIME rows **and all-day rows**: both render zone-independently
-         * (`EventTiming.startIn` returns their wall-clock as-is when `startTimeZone` is null), so
+         * (`EventBounds.startIn` returns the wall-clock of `Unanchored` bounds as-is), so
          * matching them on the UTC-midnight instants they are stored at would disagree with what the
          * caller ends up displaying.
          */

@@ -21,6 +21,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavBridgeExce
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmRepetition
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
@@ -38,7 +40,9 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
@@ -52,7 +56,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.AlarmEntry
 import uniffi.caldav_bridge.AlarmRepetitionSpec
+import uniffi.caldav_bridge.AttendeeEdit
 import uniffi.caldav_bridge.AttendeeEntry
+import uniffi.caldav_bridge.AttendeesChange
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
 import uniffi.caldav_bridge.ColorChange
@@ -65,6 +71,8 @@ import uniffi.caldav_bridge.EventOverrideEntry
 import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
 import uniffi.caldav_bridge.InfomaniakAttachEntry
+import uniffi.caldav_bridge.NameChange
+import uniffi.caldav_bridge.OrganizerChange
 import uniffi.caldav_bridge.OrganizerEntry
 import uniffi.caldav_bridge.OverrideRemoval
 import uniffi.caldav_bridge.RecurrenceChange
@@ -290,6 +298,8 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     rDateChange = rDateChange.toRust(),
     overrideRemoval = overrideRemoval.toRust(),
     alarmsChange = alarms.toRustAlarmsChange(),
+    attendeesChange = attendeesChange.toRust(),
+    organizerChange = organizerChange.toRust(),
     stamp = stamp,
 )
 
@@ -308,6 +318,28 @@ private fun RemoteAlarmEdit.toRust() = RustAlarmEdit(
     attach = attach,
     repetition = repetition?.let { AlarmRepetitionSpec(count = it.count.toUInt(), interval = it.interval) },
 )
+
+private fun RemoteAttendeesChange.toRust(): AttendeesChange = when (this) {
+    RemoteAttendeesChange.Unchanged -> AttendeesChange.Unchanged
+    is RemoteAttendeesChange.Set -> AttendeesChange.Set(attendees.map { it.toRust() })
+}
+
+private fun RemoteAttendeeEdit.toRust(): AttendeeEdit = when (this) {
+    is RemoteAttendeeEdit.Kept -> AttendeeEdit.Kept(email)
+    is RemoteAttendeeEdit.Written -> AttendeeEdit.Written(email, displayName.toRust(), role, userType)
+}
+
+private fun RemoteNameChange.toRust(): NameChange = when (this) {
+    RemoteNameChange.Unchanged -> NameChange.Unchanged
+    is RemoteNameChange.Set -> NameChange.Set(name)
+    RemoteNameChange.Cleared -> NameChange.Cleared
+}
+
+private fun RemoteOrganizerChange.toRust(): OrganizerChange = when (this) {
+    RemoteOrganizerChange.Unchanged -> OrganizerChange.Unchanged
+    is RemoteOrganizerChange.Set -> OrganizerChange.Set(email, displayName)
+    RemoteOrganizerChange.Cleared -> OrganizerChange.Cleared
+}
 
 private fun RemoteColorChange.toRust(): ColorChange = when (this) {
     RemoteColorChange.Unchanged -> ColorChange.Unchanged
@@ -393,6 +425,7 @@ private fun AttendeeEntry.toRemote() = RemoteDavAttendee(
     displayName = displayName,
     status = status,
     role = role,
+    userType = userType,
     responseNeeded = responseNeeded,
 )
 

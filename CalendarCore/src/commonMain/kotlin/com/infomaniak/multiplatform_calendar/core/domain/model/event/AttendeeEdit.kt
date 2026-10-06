@@ -1,6 +1,6 @@
 /*
- * Infomaniak Core - Android
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,17 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-public data class Attendee(
+/** An attendee as an edit states it. Its answer is not editable: a new attendee is asked for one. */
+public data class AttendeeEdit(
     val email: String,
-    val displayName: String? = null,
-    val status: ParticipationStatus,
-    val role: AttendeeRole,
-    val isOrganizer: Boolean = false,
-    val responseNeeded: Boolean = false,
+    val displayName: String?,
     val type: AttendeeType = AttendeeType.Individual,
-) {
-    val key: String inline get() = "$email#$displayName"
-}
+    val role: AttendeeRole = when (type) {
+        AttendeeType.Room, AttendeeType.Resource -> AttendeeRole.NonParticipant
+        else -> AttendeeRole.Requested
+    },
+)

@@ -21,9 +21,17 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import kotlinx.serialization.Serializable
 
 @Serializable
-public enum class AttendeeRole {
-    Chair,
-    Requested,
-    Optional,
-    NonParticipant;
+public enum class AttendeeRole(internal val icalValue: String) {
+    /** The meeting chair, distinct from the organizer which is a separate `ORGANIZER` property. */
+    Chair("CHAIR"),
+    Requested("REQ-PARTICIPANT"),
+    Optional("OPT-PARTICIPANT"),
+    NonParticipant("NON-PARTICIPANT");
+
+    internal companion object {
+        /** [Requested] when absent or unrecognised, as RFC 5545 defines it. */
+        fun fromIcal(raw: String?): AttendeeRole {
+            return entries.firstOrNull { it.icalValue.equals(raw, ignoreCase = true) } ?: Requested
+        }
+    }
 }

@@ -6,6 +6,7 @@ use http::Uri;
 use std::collections::HashSet;
 use fast_dav_rs::webdav::normalize_etag;
 use crate::alarms::{is_uneditable_valarm, parse_alarms, splice_alarms_into_vevent, strip_editable_valarms_in_vevent};
+use crate::attendees::{apply_attendees_change, apply_organizer_change};
 use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::ical_components::{is_begin_marker, is_end_marker, VEVENT};
@@ -301,7 +302,7 @@ fn parse_organizer(ev: &icalendar::Event) -> Option<OrganizerEntry> {
     })
 }
 
-/// Build an [`AttendeeEntry`] from an ATTENDEE [`Property`], extracting CN/PARTSTAT/ROLE/RSVP.
+/// Build an [`AttendeeEntry`] from an ATTENDEE [`Property`], extracting CN/PARTSTAT/ROLE/CUTYPE/RSVP.
 fn attendee_from_prop(p: &Property) -> AttendeeEntry {
     let param = |key: &str| p.get_param_as(key, |s| Some(s.to_string()));
     AttendeeEntry {
@@ -309,12 +310,13 @@ fn attendee_from_prop(p: &Property) -> AttendeeEntry {
         display_name: param("CN"),
         status: param("PARTSTAT"),
         role: param("ROLE"),
+        user_type: param("CUTYPE"),
         response_needed: param("RSVP").is_some_and(|v| v.eq_ignore_ascii_case("TRUE")),
     }
 }
 
 /// Strip a `mailto:` (case-insensitive) prefix to yield a bare email address.
-fn strip_mailto(value: &str) -> String {
+pub(crate) fn strip_mailto(value: &str) -> String {
     let prefix = "mailto:";
     if value.len() >= prefix.len() && value[..prefix.len()].eq_ignore_ascii_case(prefix) {
         value[prefix.len()..].to_string()
@@ -611,6 +613,8 @@ fn apply_content_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
     set_or_clear(event, "TRANSP", edit.transp.as_deref());
     apply_color_change(event, &edit.color_change);
+    apply_attendees_change(event, &edit.attendees_change);
+    apply_organizer_change(event, &edit.organizer_change);
 
     event.remove_property("DTSTART");
     event.remove_property("DTEND");

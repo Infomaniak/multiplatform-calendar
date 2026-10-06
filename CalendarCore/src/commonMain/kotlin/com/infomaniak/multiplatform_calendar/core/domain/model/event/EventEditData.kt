@@ -38,4 +38,7 @@ public data class EventEditData(
     val eventColor: EventSourceColor?,
     /** [AlarmListEdit.Preserve] unless the alarms are themselves part of the edit. */
     val alarms: AlarmListEdit,
+    /** The whole list: an attendee left out is removed. Requires an [organizer] when not empty. */
+    val attendees: List<AttendeeEdit>,
+    val organizer: Organizer?,
 )

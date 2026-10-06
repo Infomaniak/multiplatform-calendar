@@ -48,5 +48,7 @@ data class RemoteEventEdit(
     /** Honoured by `patchEventIcs` only: building or overriding a VEVENT never drops one. */
     val overrideRemoval: RemoteOverrideRemoval = RemoteOverrideRemoval.Unchanged,
     val alarms: List<RemoteAlarmEdit>?,
+    val attendeesChange: RemoteAttendeesChange = RemoteAttendeesChange.Unchanged,
+    val organizerChange: RemoteOrganizerChange = RemoteOrganizerChange.Unchanged,
     val stamp: String,
 )

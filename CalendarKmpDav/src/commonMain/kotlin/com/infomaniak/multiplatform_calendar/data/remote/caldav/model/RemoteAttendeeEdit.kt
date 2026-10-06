@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,16 +17,21 @@
  */
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-/** A single participant (ATTENDEE) parsed from a VEVENT. Raw iCal values. */
-data class RemoteDavAttendee(
-    val email: String,
-    val displayName: String?,
-    /** Raw `PARTSTAT` (e.g. "ACCEPTED", "NEEDS-ACTION"). */
-    val status: String?,
-    /** Raw `ROLE` (e.g. "REQ-PARTICIPANT", "OPT-PARTICIPANT"). */
-    val role: String?,
-    /** Raw `CUTYPE` (e.g. "INDIVIDUAL", "ROOM"). */
-    val userType: String?,
-    /** `RSVP=TRUE`: a response is expected. */
-    val responseNeeded: Boolean,
-)
+/** One attendee of [RemoteAttendeesChange.Set]. Mirrors the Rust `AttendeeEdit` enum at the FFI boundary. */
+sealed interface RemoteAttendeeEdit {
+    val email: String
+
+    /** Keep the stored line verbatim, every parameter included. */
+    data class Kept(override val email: String) : RemoteAttendeeEdit
+
+    /**
+     * Write the given parameters onto the stored line, or add a line awaiting a response.
+     * [role] and [userType] are the raw `ROLE` and `CUTYPE`; `null` leaves them as stored.
+     */
+    data class Written(
+        override val email: String,
+        val displayName: RemoteNameChange,
+        val role: String?,
+        val userType: String?,
+    ) : RemoteAttendeeEdit
+}

@@ -21,9 +21,17 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import kotlinx.serialization.Serializable
 
 @Serializable
-public enum class ParticipationStatus {
-    Accepted,
-    Declined,
-    Tentative,
-    NeedsAction;
+public enum class ParticipationStatus(internal val icalValue: String) {
+    Accepted("ACCEPTED"),
+    Declined("DECLINED"),
+    Tentative("TENTATIVE"),
+    NeedsAction("NEEDS-ACTION"),
+    Delegated("DELEGATED");
+
+    internal companion object {
+        /** [NeedsAction] when absent or unrecognised, as RFC 5545 defines it. */
+        fun fromIcal(raw: String?): ParticipationStatus {
+            return entries.firstOrNull { it.icalValue.equals(raw, ignoreCase = true) } ?: NeedsAction
+        }
+    }
 }

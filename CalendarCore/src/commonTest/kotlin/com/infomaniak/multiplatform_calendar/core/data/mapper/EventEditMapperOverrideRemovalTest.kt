@@ -150,6 +150,8 @@ class EventEditMapperOverrideRemovalTest {
         calendarId = CalendarId("calendar://tests"),
         eventColor = null,
         alarms = AlarmListEdit.Replace(emptyList()),
+        attendees = emptyList(),
+        organizer = null,
     )
 }
 

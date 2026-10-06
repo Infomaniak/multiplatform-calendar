@@ -18,8 +18,10 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
@@ -66,6 +68,8 @@ import kotlinx.datetime.toLocalDateTime
  *
  * [droppedOverrides] travels with the patch rather than in a call of its own so a series is never
  * left, between two requests, with overrides its rule no longer generates.
+ *
+ * [previousAttendees] and [previousOrganizer] are the seed's when a resource is built from one.
  */
 internal fun EventEditData.toRemoteEdit(
     stamp: String,
@@ -74,6 +78,8 @@ internal fun EventEditData.toRemoteEdit(
     rDates: DateListEdit = DateListEdit.Preserve,
     droppedOverrides: List<RecurrenceKey> = emptyList(),
     knownOverrides: List<EventOverrideEntity> = emptyList(),
+    previousAttendees: List<AttendeeEntity> = previous?.content?.attendees.orEmpty(),
+    previousOrganizer: OrganizerEntity? = previous?.content?.organizer,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -97,6 +103,8 @@ internal fun EventEditData.toRemoteEdit(
             AlarmListEdit.Preserve -> null
             is AlarmListEdit.Replace -> resolveAlarmEdits(alarmEdit.alarms, previous?.content?.alarms.orEmpty())
         },
+        attendeesChange = resolveAttendeesChange(previousAttendees),
+        organizerChange = resolveOrganizerChange(previousOrganizer),
         stamp = stamp,
     )
 }
@@ -107,14 +115,16 @@ internal fun EventEditData.toRemoteEdit(
  * An override carries no recurrence set of its own (RFC 5545 §3.8.5): the rule and its `EXDATE`/`RDATE`
  * belong to the master, so every recurrence-shaped change is pinned to `Unchanged` here.
  *
- * [previousColorArgb] and [previousAlarms] are what the instance already shows — the override's own
- * when one exists, its master's when this edit is what detaches it — so an untouched colour or alarm
- * list stays untouched in the resource instead of being rewritten.
+ * [previousColorArgb], [previousAlarms], [previousAttendees] and [previousOrganizer] are what the
+ * instance already shows — the override's own when one exists, its master's when this edit is what
+ * detaches it — so an untouched field stays untouched in the resource instead of being rewritten.
  */
 internal fun EventEditData.toOverrideEdit(
     stamp: String,
     previousColorArgb: Int?,
     previousAlarms: List<AlarmEntity>,
+    previousAttendees: List<AttendeeEntity>,
+    previousOrganizer: OrganizerEntity?,
 ): RemoteEventEdit {
     val startZone = timing.startTimeZone
     val endZone = timing.endTimeZone
@@ -138,6 +148,8 @@ internal fun EventEditData.toOverrideEdit(
             AlarmListEdit.Preserve -> null
             is AlarmListEdit.Replace -> resolveAlarmEdits(alarmEdit.alarms, previous = previousAlarms)
         },
+        attendeesChange = resolveAttendeesChange(previousAttendees),
+        organizerChange = resolveOrganizerChange(previousOrganizer),
         stamp = stamp,
     )
 }

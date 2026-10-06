@@ -1,6 +1,6 @@
 /*
- * Infomaniak Core - Android
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,17 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-package com.infomaniak.multiplatform_calendar.core.domain.model.event
+/** Requested change to a VEVENT's `ATTENDEE` list. Mirrors the Rust `AttendeesChange` enum at the FFI boundary. */
+sealed interface RemoteAttendeesChange {
+    data object Unchanged : RemoteAttendeesChange
 
-public data class Attendee(
-    val email: String,
-    val displayName: String? = null,
-    val status: ParticipationStatus,
-    val role: AttendeeRole,
-    val isOrganizer: Boolean = false,
-    val responseNeeded: Boolean = false,
-    val type: AttendeeType = AttendeeType.Individual,
-) {
-    val key: String inline get() = "$email#$displayName"
+    /** Make the list exactly [attendees], matched on their email. */
+    data class Set(val attendees: List<RemoteAttendeeEdit>) : RemoteAttendeesChange
 }

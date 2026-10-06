@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import kotlinx.serialization.Serializable
 
@@ -28,5 +29,6 @@ internal data class AttendeeEntity(
     val displayName: String? = null,
     val status: ParticipationStatus,
     val role: AttendeeRole,
+    val type: AttendeeType = AttendeeType.Individual,
     val responseNeeded: Boolean = false,
 )

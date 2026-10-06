@@ -43,7 +43,6 @@ import io.ktor.serialization.kotlinx.json.DefaultJson
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.onSubscription
-import kotlinx.coroutines.job
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
@@ -111,13 +110,14 @@ internal suspend fun testManager(
     database = testDatabase(),
     deviceContactsProvider = FakeDeviceContactsProvider(deviceContacts),
     httpClient = testHttpClient(apiContacts, etag, onRequest),
-).apply { if (initAccount) initTestAccount() }
-
-/** Inits the test account and waits for its background sync. */
-internal suspend fun ContactsManager.initTestAccount() {
-    initAccount(ACCOUNT_ID, AccessToken("token"))
-    syncScope.coroutineContext.job.children.forEach { it.join() }
+).apply {
+    if (initAccount) {
+        initTestAccount()
+        sync(setOf(ACCOUNT_ID))
+    }
 }
+
+internal suspend fun ContactsManager.initTestAccount() = initAccount(ACCOUNT_ID, AccessToken("token"))
 
 /** Names of the contacts stored for [accountId], sorted. */
 internal suspend fun ContactsManager.storedContactNames(accountId: AccountId = ACCOUNT_ID): List<String> =

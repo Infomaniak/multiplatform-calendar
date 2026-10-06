@@ -41,7 +41,22 @@ import kotlin.test.assertNull
 class ContactsSyncTest : RobolectricTestsBase() {
 
     @Test
-    fun initAccountSyncsInBackground() = runTest {
+    fun initAccountDoesNotSync() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val manager = testManager(
+            apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),
+            initAccount = false,
+            onRequest = { requests.add(it) },
+        )
+
+        manager.initTestAccount()
+
+        assertEquals(emptyList(), requests)
+        assertEquals(emptyList(), manager.storedContactNames())
+    }
+
+    @Test
+    fun syncRequestsTheAccountContactsWithEmails() = runTest {
         val requests = mutableListOf<HttpRequestData>()
         val manager = testManager(
             apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),
@@ -101,6 +116,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
             },
         ).apply { initTestAccount() }
 
+        manager.sync(setOf(ACCOUNT_ID))
         assertEquals(listOf("John"), manager.storedContactNames())
         manager.sync(setOf(ACCOUNT_ID))
 
@@ -119,6 +135,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
             ),
         ).apply { initTestAccount() }
 
+        manager.sync(setOf(ACCOUNT_ID))
         assertEquals(listOf("John"), manager.storedContactNames())
         manager.removeAccount(ACCOUNT_ID)
 
@@ -144,6 +161,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
         assertEquals(emptyList(), manager.storedContactNames())
 
         manager.initTestAccount()
+        manager.sync(setOf(ACCOUNT_ID))
 
         assertEquals(listOf("John"), manager.storedContactNames())
     }

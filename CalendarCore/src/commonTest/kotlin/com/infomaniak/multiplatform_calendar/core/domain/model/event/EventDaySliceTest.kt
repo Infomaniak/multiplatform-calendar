@@ -24,7 +24,6 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.toInstant
@@ -164,12 +163,9 @@ class EventDaySliceTest {
     @Test
     fun floatingMultiDay_isExpandedOnItsWallClock_regardlessOfGridZone() = runTest {
         // Floating (no zone): wall-clock is taken as-is in the grid, per RFC 5545 FORM #1.
-        val slices = EventTiming(
+        val slices = floatingTiming(
             start = LocalDateTime(2026, 1, 5, 22, 0),
             end = LocalDateTime(2026, 1, 6, 2, 0),
-            startTimeZone = null,
-            endTimeZone = null,
-            isAllDay = false,
         ).let(::eventOf).expandDaySlices(wideWindow, tokyo)
 
         assertEquals(2, slices.size)
@@ -182,12 +178,11 @@ class EventDaySliceTest {
     @Test
     fun crossZoneFlight_usesPerSideZonesWhenReprojecting() = runTest {
         // 09:00 New York (UTC-5) → 21:00 Paris (UTC+1), both in January.
-        val slices = EventTiming(
+        val slices = zonedTiming(
             start = LocalDateTime(2026, 1, 5, 9, 0),
             end = LocalDateTime(2026, 1, 5, 21, 0),
-            startTimeZone = newYork,
-            endTimeZone = paris,
-            isAllDay = false,
+            zone = newYork,
+            endZone = paris,
         ).let(::eventOf).expandDaySlices(wideWindow, paris)
 
         val slice = slices.single()
@@ -412,18 +407,12 @@ class EventDaySliceTest {
         LocalDateTime(year, month, day, hour, minute).toInstant(paris)
 
     private fun timed(start: LocalDateTime, end: LocalDateTime, zone: TimeZone, id: String = "event://test") = eventOf(
-        EventTiming(start = start, end = end, startTimeZone = zone, endTimeZone = zone, isAllDay = false),
+        zonedTiming(start = start, end = end, zone = zone),
         id = id,
     )
 
     private fun allDay(start: LocalDate, endExclusive: LocalDate, id: String = "event://test") = eventOf(
-        EventTiming(
-            start = LocalDateTime(start, LocalTime(0, 0)),
-            end = LocalDateTime(endExclusive, LocalTime(0, 0)),
-            startTimeZone = null,
-            endTimeZone = null,
-            isAllDay = true,
-        ),
+        allDayTiming(start = start, end = endExclusive),
         id = id,
     )
 

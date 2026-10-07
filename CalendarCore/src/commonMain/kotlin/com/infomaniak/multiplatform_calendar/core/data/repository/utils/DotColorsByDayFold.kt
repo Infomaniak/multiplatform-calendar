@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.repository.utils
 
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.mapper.eventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
@@ -122,11 +123,13 @@ internal suspend fun List<EventDotColorInRange>.foldToDailyDotColors(
 
 /** The [EventTiming] this row describes, resolving its zone ids through [zoneCache]. */
 private fun EventDotColorInRange.toTiming(zoneCache: MutableMap<String, TimeZone>) = EventTiming(
-    start = dtStart,
-    end = dtEndEffective,
-    startTimeZone = startZoneId?.let { zoneCache.zoneOf(it) },
-    endTimeZone = endZoneId?.let { zoneCache.zoneOf(it) },
-    isAllDay = isAllDay,
+    bounds = eventBounds(
+        start = dtStart,
+        end = dtEndEffective,
+        startZone = startZoneId?.let { zoneCache.zoneOf(it) },
+        endZone = endZoneId?.let { zoneCache.zoneOf(it) },
+        isAllDay = isAllDay,
+    ),
     recurrenceRule = rrule,
     rDates = rDates,
     exDates = exDates,
@@ -143,8 +146,8 @@ private fun DotOrderByDay.recordPlainEvent(
     timeZone: TimeZone,
 ) {
     recordCoveredDays(
-        start = timing.start.projectInto(timing.startTimeZone, timeZone),
-        end = timing.end.projectInto(timing.endTimeZone, timeZone),
+        start = timing.startIn(timeZone),
+        end = timing.endIn(timeZone),
         visibleDays = visibleDays,
         dotColor = dotColor,
         isAllDay = row.isAllDay,
@@ -168,8 +171,8 @@ private suspend fun DotOrderByDay.recordRuleOccurrences(
         currentCoroutineContext().ensureActive()
         if (occurrence.key.canonical in overriddenKeys) continue
         recordCoveredDays(
-            start = occurrence.start.projectInto(occurrence.startTimeZone, timeZone),
-            end = occurrence.end.projectInto(occurrence.endTimeZone, timeZone),
+            start = occurrence.bounds.startIn(timeZone),
+            end = occurrence.bounds.endIn(timeZone),
             visibleDays = visibleDays,
             dotColor = dotColor,
             isAllDay = occurrence.isAllDay,
@@ -204,8 +207,15 @@ private suspend fun DotOrderByDay.recordOverriddenInstances(
             continue
         }
 
-        val start = override.dtStart.projectInto(override.startTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)
-        val end = override.dtEndEffective.projectInto(override.endTimeZone?.let { zoneCache.zoneOf(it) }, timeZone)
+        val bounds = eventBounds(
+            start = override.dtStart,
+            end = override.dtEndEffective,
+            startZone = override.startTimeZone?.let { zoneCache.zoneOf(it) },
+            endZone = override.endTimeZone?.let { zoneCache.zoneOf(it) },
+            isAllDay = override.isAllDay,
+        )
+        val start = bounds.startIn(timeZone)
+        val end = bounds.endIn(timeZone)
         // The relation carries *every* override of the master, and the range branches are a deliberate
         // superset, so re-apply the `[rangeStart, rangeEnd[` overlap rule the planning flow uses.
         if (start.toInstant(timeZone) >= rangeEnd || end.toInstant(timeZone) <= rangeStart) continue
@@ -287,13 +297,3 @@ private fun DotOrderByDay.recordCoveredDays(
 }
 
 private val MIDNIGHT = LocalTime(0, 0)
-
-/**
- * Reproject a stored wall-clock into [targetZone], matching `EventTiming.startIn`/`endIn`:
- * a `null` source zone (floating or all-day) is interpreted directly in [targetZone]; any other zone is
- * reprojected through an absolute instant.
- */
-private fun LocalDateTime.projectInto(sourceZone: TimeZone?, targetZone: TimeZone): LocalDateTime {
-    if (sourceZone == null || sourceZone == targetZone) return this
-    return toInstant(sourceZone).toLocalDateTime(targetZone)
-}

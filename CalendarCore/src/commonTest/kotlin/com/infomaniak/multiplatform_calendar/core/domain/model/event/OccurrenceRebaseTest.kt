@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
@@ -37,8 +38,10 @@ class OccurrenceRebaseTest {
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 15, 10, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 6, 15, 11, 0), rebased.end)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 11, 0), TimeZone.UTC),
+            rebased.bounds,
+        )
     }
 
     @Test
@@ -49,9 +52,11 @@ class OccurrenceRebaseTest {
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 17, 14, 0), rebased.start)
         // The duration is the edit's own, not the one the master used to have.
-        assertEquals(LocalDateTime(2026, 6, 17, 15, 30), rebased.end)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 17, 14, 0), LocalDateTime(2026, 6, 17, 15, 30), TimeZone.UTC),
+            rebased.bounds,
+        )
     }
 
     @Test
@@ -64,51 +69,48 @@ class OccurrenceRebaseTest {
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 3, 28, 10, 0), defaultZone = TimeZone.UTC)
 
         // Measured in absolute time that drag is 47 hours, and would land the series on 09:00.
-        assertEquals(LocalDateTime(2026, 1, 7, 10, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 1, 7, 11, 0), rebased.end)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 1, 7, 10, 0), LocalDateTime(2026, 1, 7, 11, 0), zurich),
+            rebased.bounds,
+        )
     }
 
     @Test
     fun rebasedOnto_aFloatingEvent_shiftsItWithoutAnchoringItAnywhere() {
-        val master = timing(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 11, 0), zone = null)
-        val edited = timing(LocalDateTime(2026, 6, 17, 16, 0), LocalDateTime(2026, 6, 17, 17, 0), zone = null)
+        val master = floatingTiming(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 11, 0))
+        val edited = floatingTiming(LocalDateTime(2026, 6, 17, 16, 0), LocalDateTime(2026, 6, 17, 17, 0))
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 15, 16, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 6, 15, 17, 0), rebased.end)
-        assertEquals(null, rebased.startTimeZone)
+        assertEquals(
+            EventBounds.Floating(LocalDateTime(2026, 6, 15, 16, 0), LocalDateTime(2026, 6, 15, 17, 0)),
+            rebased.bounds,
+        )
     }
 
     @Test
     fun rebasedOnto_anAllDayEvent_movesItByWholeDays() {
-        val master = timing(LocalDateTime(2026, 6, 15, 0, 0), LocalDateTime(2026, 6, 16, 0, 0), zone = null)
-            .copy(isAllDay = true)
-        val edited = timing(LocalDateTime(2026, 6, 19, 0, 0), LocalDateTime(2026, 6, 20, 0, 0), zone = null)
-            .copy(isAllDay = true)
+        val master = allDayTiming(LocalDate(2026, 6, 15), LocalDate(2026, 6, 16))
+        val edited = allDayTiming(LocalDate(2026, 6, 19), LocalDate(2026, 6, 20))
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 0, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 17, 0, 0), rebased.start)
-        assertEquals(LocalDateTime(2026, 6, 18, 0, 0), rebased.end)
-        assertEquals(true, rebased.isAllDay)
+        assertEquals(EventBounds.AllDay(LocalDate(2026, 6, 17), LocalDate(2026, 6, 18)), rebased.bounds)
     }
 
     @Test
     fun rebasedOnto_endInAnotherZone_keepsTheZonesTheEditCameWith() {
-        val master = timing(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 8, 0), zurich)
-            .copy(endTimeZone = newYork)
+        val master = zonedTiming(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 8, 0), zurich, newYork)
         // A flight: it leaves Zurich at 14:00 and lands in New York at 12:00 the same day.
-        val edited = timing(LocalDateTime(2026, 6, 17, 14, 0), LocalDateTime(2026, 6, 17, 12, 0), zurich)
-            .copy(endTimeZone = newYork)
+        val edited = zonedTiming(LocalDateTime(2026, 6, 17, 14, 0), LocalDateTime(2026, 6, 17, 12, 0), zurich, newYork)
 
         val rebased = edited.rebasedOnto(master, shownStart = LocalDateTime(2026, 6, 17, 10, 0), defaultZone = TimeZone.UTC)
 
-        assertEquals(LocalDateTime(2026, 6, 15, 14, 0), rebased.start)
         // The faces are shifted as they stand, so the zone each one is read in is left untouched.
-        assertEquals(LocalDateTime(2026, 6, 15, 12, 0), rebased.end)
-        assertEquals(zurich, rebased.startTimeZone)
-        assertEquals(newYork, rebased.endTimeZone)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 6, 15, 14, 0), LocalDateTime(2026, 6, 15, 12, 0), zurich, newYork),
+            rebased.bounds,
+        )
     }
 
     @Test
@@ -126,12 +128,10 @@ class OccurrenceRebaseTest {
     private fun timing(
         start: LocalDateTime,
         end: LocalDateTime,
-        zone: TimeZone? = TimeZone.UTC,
-    ) = EventTiming(
+        zone: TimeZone = TimeZone.UTC,
+    ) = zonedTiming(
         start = start,
         end = end,
-        startTimeZone = zone,
-        endTimeZone = zone,
-        isAllDay = false,
+        zone = zone,
     )
 }

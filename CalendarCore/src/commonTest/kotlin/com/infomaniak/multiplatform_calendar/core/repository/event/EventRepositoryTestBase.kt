@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.mapper.eventBounds
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
@@ -240,11 +241,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
     ) = EventEditData(
         title = title,
         timing = EventTiming(
-            start = start,
-            end = end,
-            startTimeZone = timeZone,
-            endTimeZone = timeZone,
-            isAllDay = isAllDay,
+            bounds = eventBounds(start, end, startZone = timeZone, endZone = timeZone, isAllDay = isAllDay),
             recurrenceRule = recurrence,
         ),
         location = null,

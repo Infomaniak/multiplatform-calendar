@@ -60,6 +60,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.offse
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -68,6 +69,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startsBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.statedAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
@@ -597,7 +599,7 @@ internal class EventRepository(
         val masterTiming = MasterTiming.of(master.timing, defaultZone = zone)
         val (end, _) = masterTiming.occurrenceEnd(start, masterTiming.resolvedStartInstant(start))
 
-        return master.copy(timing = master.timing.copy(start = start, end = end))
+        return master.copy(timing = master.timing.copy(bounds = master.timing.bounds.movedTo(start, end)))
     }
 
     /**
@@ -849,7 +851,7 @@ private data class SeriesTail(
 ) {
     companion object {
         fun of(master: EventTiming, pivotStart: LocalDateTime, edit: EventEditData, split: SeriesSplit): SeriesTail {
-            val delta = wallClockShift(from = pivotStart, to = edit.timing.start)
+            val delta = wallClockShift(from = pivotStart, to = edit.timing.bounds.startWallClock)
             val timing = edit.timing.copy(recurrenceRule = edit.tailRuleAfter(split, stored = master, delta))
 
             return SeriesTail(

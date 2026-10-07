@@ -24,8 +24,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.floatingTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -76,12 +77,10 @@ class EventEditMapperOverrideRemovalTest {
 
     @Test
     fun aRecordedOverrideIsAddressedWithTheVeryRecurrenceIdItCarries() {
-        val master = EventTiming(
+        val master = zonedTiming(
             start = LocalDateTime(2026, 6, 15, 10, 0),
             end = LocalDateTime(2026, 6, 15, 11, 0),
-            startTimeZone = TimeZone.of("Europe/Zurich"),
-            endTimeZone = TimeZone.of("Europe/Zurich"),
-            isAllDay = false,
+            zone = TimeZone.of("Europe/Zurich"),
         )
         val slot = RecurrenceKey.Zoned(LocalDateTime(2026, 6, 16, 10, 0), "Europe/Zurich")
 
@@ -137,13 +136,7 @@ class EventEditMapperOverrideRemovalTest {
 
     private fun editData() = EventEditData(
         title = "Test",
-        timing = EventTiming(
-            start = LocalDateTime(2026, 6, 15, 10, 0),
-            end = LocalDateTime(2026, 6, 15, 11, 0),
-            startTimeZone = null,
-            endTimeZone = null,
-            isAllDay = false,
-        ),
+        timing = floatingTiming(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 11, 0)),
         location = null,
         description = null,
         timeBlocking = null,

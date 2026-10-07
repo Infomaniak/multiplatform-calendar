@@ -17,12 +17,16 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.allDayTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
@@ -58,21 +62,12 @@ class RecurrenceExpanderTest {
     private fun timedMaster(
         start: String,
         end: String,
-        zone: TimeZone? = utc,
-    ) = EventTiming(
-        start = ldt(start),
-        end = ldt(end),
-        startTimeZone = zone,
-        endTimeZone = zone,
-        isAllDay = false,
-    )
+        zone: TimeZone = utc,
+    ) = zonedTiming(start = ldt(start), end = ldt(end), zone = zone)
 
-    private fun allDayMaster(startDate: String, spanDays: Int = 1) = EventTiming(
-        start = LocalDateTime(LocalDate.parse(startDate), LocalDateTime.parse("2000-01-01T00:00").time),
-        end = LocalDateTime(LocalDate.parse(startDate).plus(spanDaysPeriod(spanDays)), LocalDateTime.parse("2000-01-01T00:00").time),
-        startTimeZone = null,
-        endTimeZone = null,
-        isAllDay = true,
+    private fun allDayMaster(startDate: String, spanDays: Int = 1) = allDayTiming(
+        start = LocalDate.parse(startDate),
+        end = LocalDate.parse(startDate).plus(spanDaysPeriod(spanDays)),
     )
 
     private fun spanDaysPeriod(days: Int) = kotlinx.datetime.DatePeriod(days = days)
@@ -108,7 +103,7 @@ class RecurrenceExpanderTest {
         assertEquals(ExpansionOutcome.Completed, outcome)
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-02T09:00"), ldt("2024-01-03T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -122,7 +117,7 @@ class RecurrenceExpanderTest {
             windowEnd = instant("2024-02-01T00:00"),
         )
         assertEquals(1, occ.size)
-        assertEquals(ldt("2024-01-01T09:00"), occ.single().start)
+        assertEquals(ldt("2024-01-01T09:00"), occ.single().bounds.startWallClock)
     }
 
     @Test
@@ -136,7 +131,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-03T09:00"), ldt("2024-01-05T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -151,7 +146,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(ExpansionOutcome.Completed, outcome)
         assertEquals(3, occ.size)
-        assertEquals(ldt("2024-01-03T09:00"), occ.last().start)
+        assertEquals(ldt("2024-01-03T09:00"), occ.last().bounds.startWallClock)
     }
 
     @Test
@@ -182,7 +177,7 @@ class RecurrenceExpanderTest {
         assertEquals(ExpansionOutcome.Completed, outcome)
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-02T09:00"), ldt("2024-01-03T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -201,7 +196,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(ExpansionOutcome.Completed, outcome)
         assertEquals(3, occ.size)
-        assertEquals(ldt("2024-01-03T09:00"), occ.last().start)
+        assertEquals(ldt("2024-01-03T09:00"), occ.last().bounds.startWallClock)
     }
 
     @Test
@@ -215,7 +210,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-04-10T09:00"), ldt("2024-07-19T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -231,7 +226,7 @@ class RecurrenceExpanderTest {
         assertEquals(ExpansionOutcome.Completed, outcome)
         assertEquals(
             listOf(LocalDate.parse("2024-01-01"), LocalDate.parse("2024-01-02"), LocalDate.parse("2024-01-03")),
-            occ.map { it.start.date },
+            occ.map { it.bounds.startWallClock.date },
         )
     }
 
@@ -246,7 +241,7 @@ class RecurrenceExpanderTest {
             windowEnd = instant("2024-02-01T00:00", paris),
         )
         assertEquals(ExpansionOutcome.Completed, outcome)
-        assertEquals(listOf(ldt("2024-01-01T09:00"), ldt("2024-01-02T09:00")), occ.map { it.start })
+        assertEquals(listOf(ldt("2024-01-01T09:00"), ldt("2024-01-02T09:00")), occ.map { it.bounds.startWallClock })
     }
 
     // endregion
@@ -269,7 +264,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-01T21:00"),
                 ldt("2024-01-02T03:00"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -284,7 +279,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-01T09:00:00"), ldt("2024-01-01T09:00:01"), ldt("2024-01-01T09:00:02")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -301,7 +296,7 @@ class RecurrenceExpanderTest {
             windowStart = instant("2024-01-01T00:00"),
             windowEnd = instant("2025-01-01T00:00"),
         )
-        val starts = occ.map { it.start }
+        val starts = occ.map { it.bounds.startWallClock }
         assertEquals(30, starts.size)
         assertEquals(starts.sorted(), starts) // monotonic non-decreasing
         assertEquals(starts.distinct(), starts) // no duplicates -> strictly increasing
@@ -322,7 +317,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-10T09:00"), ldt("2024-01-11T09:00"), ldt("2024-01-12T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -337,7 +332,7 @@ class RecurrenceExpanderTest {
             windowEnd = instant("2024-01-04T00:00"),
         )
         assertEquals(1, occ.size)
-        assertEquals(ldt("2024-01-01T09:00"), occ.single().start)
+        assertEquals(ldt("2024-01-01T09:00"), occ.single().bounds.startWallClock)
     }
 
     // endregion
@@ -356,7 +351,7 @@ class RecurrenceExpanderTest {
         // Jan, Mar, May, Jul (Feb/Apr/Jun skipped — no 31st).
         assertEquals(
             listOf(ldt("2024-01-31T09:00"), ldt("2024-03-31T09:00"), ldt("2024-05-31T09:00"), ldt("2024-07-31T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -371,7 +366,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-02-29T09:00"), ldt("2028-02-29T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -392,7 +387,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-03-30T09:00"), ldt("2024-03-31T09:00"), ldt("2024-04-01T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -442,7 +437,7 @@ class RecurrenceExpanderTest {
             windowEnd = instant("2999-01-01T00:00"),
             limits = ExpansionLimits(maxScannedPeriods = 50),
         )
-        assertEquals(listOf(ldt("2024-01-01T09:00")), occ.map { it.start })
+        assertEquals(listOf(ldt("2024-01-01T09:00")), occ.map { it.bounds.startWallClock })
         assertEquals(ExpansionOutcome.StoppedByConsecutiveEmptyPeriods, outcome)
     }
 
@@ -494,8 +489,10 @@ class RecurrenceExpanderTest {
         )
         assertEquals(2, occ.size)
         assertTrue(occ.all { it.isAllDay })
-        assertEquals(LocalDate.parse("2024-01-01"), occ.first().start.date)
-        assertEquals(LocalDate.parse("2024-01-02"), occ.first().end.date)
+        assertEquals(
+            EventBounds.AllDay(LocalDate.parse("2024-01-01"), LocalDate.parse("2024-01-02")),
+            occ.first().bounds,
+        )
     }
 
     // endregion
@@ -518,7 +515,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-03T09:00"), ldt("2024-01-05T09:00"),
                 ldt("2024-01-08T09:00"), ldt("2024-01-10T09:00"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -537,7 +534,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-01T09:00"), ldt("2024-01-03T09:00"), ldt("2024-01-05T09:00"),
                 ldt("2024-01-08T09:00"), ldt("2024-01-10T09:00"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -557,7 +554,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-06T09:00"), ldt("2024-01-07T09:00"),
                 ldt("2024-01-13T09:00"), ldt("2024-01-14T09:00"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -572,7 +569,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-02-05T09:00"), ldt("2024-03-04T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -587,7 +584,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-26T09:00"), ldt("2024-02-23T09:00"), ldt("2024-03-29T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -602,7 +599,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-15T09:00"), ldt("2024-02-01T09:00"), ldt("2024-02-15T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -617,7 +614,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-31T09:00"), ldt("2024-02-29T09:00"), ldt("2024-03-31T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -633,7 +630,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-09-13T09:00"), ldt("2024-12-13T09:00"), ldt("2025-06-13T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -648,7 +645,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-10T09:00"), ldt("2024-06-10T09:00"), ldt("2024-12-10T09:00"), ldt("2025-01-10T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -664,7 +661,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-08T09:00"), ldt("2024-01-15T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -680,7 +677,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-10T09:00"), ldt("2024-01-15T09:00"), ldt("2024-02-01T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -696,7 +693,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-20T09:00"), ldt("2024-02-01T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -718,7 +715,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-01T09:00"), ldt("2024-01-01T14:00"),
                 ldt("2024-01-02T09:00"), ldt("2024-01-02T14:00"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -736,7 +733,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-01T09:00"), ldt("2024-01-01T09:30"),
                 ldt("2024-01-01T10:00"), ldt("2024-01-01T10:30"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -754,7 +751,7 @@ class RecurrenceExpanderTest {
             windowEnd = instant("2026-06-01T00:00"),
         )
         // DTSTART is always emitted first (§7.8), then the conforming last-day-of-year instances.
-        assertEquals(listOf(ldt("2024-01-01T08:00"), ldt("2024-12-31T08:00")), occ.map { it.start })
+        assertEquals(listOf(ldt("2024-01-01T08:00"), ldt("2024-12-31T08:00")), occ.map { it.bounds.startWallClock })
     }
 
     @Test
@@ -769,7 +766,7 @@ class RecurrenceExpanderTest {
         // ISO week 1 Mondays: 2024-01-01, 2024-12-30 (week 1 of 2025), 2025-12-29 (week 1 of 2026).
         assertEquals(
             listOf(ldt("2024-01-01T08:00"), ldt("2024-12-30T08:00"), ldt("2025-12-29T08:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -783,7 +780,7 @@ class RecurrenceExpanderTest {
             windowEnd = instant("2026-06-01T00:00"),
         )
         // Monday of the last ISO week: 2024-W52-1 = 2024-12-23, 2025-W52-1 = 2025-12-22.
-        assertEquals(listOf(ldt("2024-12-23T08:00"), ldt("2025-12-22T08:00")), occ.map { it.start })
+        assertEquals(listOf(ldt("2024-12-23T08:00"), ldt("2025-12-22T08:00")), occ.map { it.bounds.startWallClock })
     }
 
     @Test
@@ -798,7 +795,7 @@ class RecurrenceExpanderTest {
         // No BYDAY: RFC 5545 §3.3.10 keeps only DTSTART's weekday (Monday), not all 7 days of week 1.
         assertEquals(
             listOf(ldt("2024-01-01T08:00"), ldt("2024-12-30T08:00"), ldt("2025-12-29T08:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -812,7 +809,7 @@ class RecurrenceExpanderTest {
             windowEnd = instant("2026-06-01T00:00"),
         )
         // Day 60 is Feb 29 in the leap year 2024, then March 1 in the common year 2025.
-        assertEquals(listOf(ldt("2024-02-29T08:00"), ldt("2025-03-01T08:00")), occ.map { it.start })
+        assertEquals(listOf(ldt("2024-02-29T08:00"), ldt("2025-03-01T08:00")), occ.map { it.bounds.startWallClock })
     }
 
     // endregion
@@ -831,7 +828,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2024-01-31T10:00"), ldt("2024-02-29T10:00"), ldt("2024-03-29T10:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -848,7 +845,7 @@ class RecurrenceExpanderTest {
         // 1st and 3rd weekday: Jan Mon 1 / Wed 3, Feb Thu 1 / Mon 5.
         assertEquals(
             listOf(ldt("2024-01-01T10:00"), ldt("2024-01-03T10:00"), ldt("2024-02-01T10:00"), ldt("2024-02-05T10:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -873,7 +870,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("1997-08-05T09:00"), ldt("1997-08-10T09:00"), ldt("1997-08-19T09:00"), ldt("1997-08-24T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -894,7 +891,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("1997-08-05T09:00"), ldt("1997-08-17T09:00"), ldt("1997-08-19T09:00"), ldt("1997-08-31T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -916,7 +913,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-01T09:00"), ldt("2024-01-01T09:30"),
                 ldt("2024-01-01T10:00"), ldt("2024-01-01T10:30"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -934,7 +931,7 @@ class RecurrenceExpanderTest {
                 ldt("2024-01-01T09:00:00"), ldt("2024-01-01T09:00:30"),
                 ldt("2024-01-01T09:01:00"), ldt("2024-01-01T09:01:30"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -950,7 +947,7 @@ class RecurrenceExpanderTest {
         // 09:00 (DTSTART), 12:00, then next day's 09:00.
         assertEquals(
             listOf(ldt("2024-01-01T09:00"), ldt("2024-01-01T12:00"), ldt("2024-01-02T09:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -966,7 +963,7 @@ class RecurrenceExpanderTest {
         // BYMINUTE limits MINUTELY: 09:00 (DTSTART), 09:15, then next hour's 10:00.
         assertEquals(
             listOf(ldt("2024-01-01T09:00:00"), ldt("2024-01-01T09:15:00"), ldt("2024-01-01T10:00:00")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -986,7 +983,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2025-03-28T02:30"), ldt("2025-03-29T02:30"), ldt("2025-03-31T02:30")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -1008,7 +1005,7 @@ class RecurrenceExpanderTest {
             limits = ExpansionLimits(maxScannedPeriods = 50),
         )
         assertEquals(Completed, outcome)
-        assertEquals(emptyList<LocalDateTime>(), occ.map { it.start })
+        assertEquals(emptyList<LocalDateTime>(), occ.map { it.bounds.startWallClock })
     }
 
     @Test
@@ -1029,7 +1026,7 @@ class RecurrenceExpanderTest {
                 ldt("2025-03-31T02:30"),
                 ldt("2025-04-01T02:30"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -1045,7 +1042,7 @@ class RecurrenceExpanderTest {
         )
         assertEquals(
             listOf(ldt("2025-10-25T02:30"), ldt("2025-10-26T02:30"), ldt("2025-10-27T02:30")),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -1068,7 +1065,7 @@ class RecurrenceExpanderTest {
                 ldt("2025-01-01T00:00:03"),
                 ldt("2025-01-01T00:00:04"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -1089,7 +1086,7 @@ class RecurrenceExpanderTest {
                 ldt("2020-01-01T00:00:01"),
                 ldt("2020-01-01T00:00:02"),
             ),
-            occ.map { it.start },
+            occ.map { it.bounds.startWallClock },
         )
     }
 
@@ -1100,7 +1097,9 @@ class RecurrenceExpanderTest {
     private fun ny(start: String) = timedMaster(start, start, zone = newYork)
 
     private suspend fun starts(master: EventTiming, rule: RecurrenceRule): List<LocalDateTime> =
-        expand(master, rule, instant("1996-01-01T00:00", newYork), instant("2010-01-01T00:00", newYork)).first.map { it.start }
+        expand(master, rule, instant("1996-01-01T00:00", newYork), instant("2010-01-01T00:00", newYork))
+            .first
+            .map { it.bounds.startWallClock }
 
     private fun weekDay(ordinal: Int, dayOfWeek: DayOfWeek) = WeekDayNum(ordinal = ordinal, dayOfWeek = dayOfWeek)
 
@@ -1473,7 +1472,7 @@ class RecurrenceExpanderTest {
             windowStart = instant("2025-10-26T00:00", paris),
             windowEnd = instant("2025-10-27T00:00", paris),
         )
-        assertEquals(instant("2025-10-26T00:30", utc), occ.single().start.toInstant(paris))
+        assertEquals(instant("2025-10-26T00:30", utc), occ.single().bounds.startInstant(paris))
     }
 
     // endregion

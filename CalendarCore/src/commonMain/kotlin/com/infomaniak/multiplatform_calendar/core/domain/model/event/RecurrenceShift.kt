@@ -31,7 +31,7 @@ import kotlin.time.Duration
 
 /** This timing moved whole by [delta], both ends together, so it keeps the length it had. */
 internal fun EventTiming.shiftedBy(delta: Duration): EventTiming =
-    copy(start = start.shiftedBy(delta), end = end.shiftedBy(delta))
+    copy(bounds = bounds.movedTo(bounds.startWallClock.shiftedBy(delta), bounds.endWallClock.shiftedBy(delta)))
 
 /**
  * This value moved by [delta], so it goes on designating the occurrence it designated before the

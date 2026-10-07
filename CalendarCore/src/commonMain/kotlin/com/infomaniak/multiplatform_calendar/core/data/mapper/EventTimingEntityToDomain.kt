@@ -18,9 +18,12 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ZonedWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 
 internal fun EventTimingEntity.toDomain(
@@ -28,13 +31,31 @@ internal fun EventTimingEntity.toDomain(
     rDates: List<IcalDateValue> = emptyList(),
     exDates: List<IcalDateValue> = emptyList(),
 ): EventTiming = EventTiming(
-    start = dtStart,
-    // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
-    end = dtEndEffective,
-    startTimeZone = startTimeZone?.let(TimeZone::of),
-    endTimeZone = endTimeZone?.let(TimeZone::of),
-    isAllDay = isAllDay,
+    bounds = eventBounds(
+        start = dtStart,
+        // dtEndEffective already resolves DTEND/DURATION (and defaults to +1 day for AllDay).
+        end = dtEndEffective,
+        startZone = startTimeZone?.let(TimeZone::of),
+        endZone = endTimeZone?.let(TimeZone::of),
+        isAllDay = isAllDay,
+    ),
     recurrenceRule = recurrenceRule,
     rDates = rDates,
     exDates = exDates,
 )
+
+/**
+ * The [EventBounds] of stored wall-clocks and zones. Their form follows `DTSTART`: a floating start with a zoned
+ * end, which RFC 5545 forbids, is read as floating.
+ */
+internal fun eventBounds(
+    start: LocalDateTime,
+    end: LocalDateTime,
+    startZone: TimeZone?,
+    endZone: TimeZone?,
+    isAllDay: Boolean,
+): EventBounds = when {
+    isAllDay -> EventBounds.AllDay(start.date, end.date)
+    startZone == null -> EventBounds.Floating(start, end)
+    else -> EventBounds.Zoned(ZonedWallClock(start, startZone), ZonedWallClock(end, endZone ?: startZone))
+}

@@ -39,10 +39,10 @@ import kotlinx.datetime.TimeZone.Companion.UTC
  * edit's own and stays as given.
  */
 internal fun EventTiming.rebasedOnto(master: EventTiming, shownStart: LocalDateTime, defaultZone: TimeZone): EventTiming {
-    val shift = wallClockShift(from = shownStart, to = start)
-    val rebasedStart = master.start.shiftedBy(shift)
+    val shift = wallClockShift(from = shownStart, to = bounds.startWallClock)
+    val rebasedStart = master.bounds.startWallClock.shiftedBy(shift)
     val edited = MasterTiming.of(master = this, defaultZone = defaultZone)
     val (rebasedEnd, _) = edited.occurrenceEnd(rebasedStart, edited.resolvedStartInstant(rebasedStart))
 
-    return copy(start = rebasedStart, end = rebasedEnd)
+    return copy(bounds = bounds.movedTo(rebasedStart, rebasedEnd))
 }

@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -27,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Secondly
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Weekly
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.isExceededBy
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.StoppedByConsecutiveEmptyPeriods
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.StoppedByScannedInstanceCap
@@ -90,10 +92,7 @@ internal object RecurrenceExpander {
     ) { startLocal, startInstant, endLocal ->
         target += Occurrence(
             key = master.recurrenceKeyAt(startLocal, startInstant),
-            start = startLocal,
-            end = endLocal,
-            startTimeZone = master.startTimeZone,
-            endTimeZone = master.endTimeZone,
+            bounds = master.bounds.movedTo(startLocal, endLocal),
         )
     }
 
@@ -116,7 +115,7 @@ internal object RecurrenceExpander {
         onInstance: (startLocal: LocalDateTime, startInstant: Instant, endLocal: LocalDateTime) -> Unit,
     ): ExpansionOutcome {
         val masterTiming = MasterTiming.of(master, defaultZone)
-        val dtStart = master.start
+        val dtStart = master.bounds.startWallClock
 
         var count = 0
         var generated = 0

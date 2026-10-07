@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.recurrence
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
@@ -69,12 +70,32 @@ internal class MasterTiming private constructor(
     }
 
     companion object {
-        fun of(master: EventTiming, defaultZone: TimeZone) = MasterTiming(
-            startZone = if (master.isAllDay) defaultZone else (master.startTimeZone ?: defaultZone),
-            endZone = if (master.isAllDay) defaultZone else (master.endTimeZone ?: defaultZone),
-            isAllDay = master.isAllDay,
-            nominalDuration = master.endInstant(defaultZone) - master.startInstant(defaultZone),
-            allDaySpanDays = if (master.isAllDay) master.start.date.daysUntil(master.end.date) else 0,
-        )
+        fun of(master: EventTiming, defaultZone: TimeZone): MasterTiming {
+            val bounds = master.bounds
+            val nominalDuration = bounds.endInstant(defaultZone) - bounds.startInstant(defaultZone)
+            return when (bounds) {
+                is EventBounds.AllDay -> MasterTiming(
+                    startZone = defaultZone,
+                    endZone = defaultZone,
+                    isAllDay = true,
+                    nominalDuration = nominalDuration,
+                    allDaySpanDays = bounds.start.daysUntil(bounds.end),
+                )
+                is EventBounds.Floating -> MasterTiming(
+                    startZone = defaultZone,
+                    endZone = defaultZone,
+                    isAllDay = false,
+                    nominalDuration = nominalDuration,
+                    allDaySpanDays = 0,
+                )
+                is EventBounds.Zoned -> MasterTiming(
+                    startZone = bounds.start.timeZone,
+                    endZone = bounds.end.timeZone,
+                    isAllDay = false,
+                    nominalDuration = nominalDuration,
+                    allDaySpanDays = 0,
+                )
+            }
+        }
     }
 }

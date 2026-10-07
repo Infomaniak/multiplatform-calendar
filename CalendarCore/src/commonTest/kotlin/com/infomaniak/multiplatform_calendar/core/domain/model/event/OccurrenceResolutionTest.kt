@@ -56,7 +56,10 @@ class OccurrenceResolutionTest {
         val resolved = resolve(EventWithOverrides(master), requested)
 
         assertEquals(requested, resolved?.occurrenceId)
-        assertEquals(LocalDateTime(2026, 1, 2, 10, 0), resolved?.timing?.start)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 1, 2, 10, 0), LocalDateTime(2026, 1, 2, 11, 0), TimeZone.UTC),
+            resolved?.timing?.bounds,
+        )
         assertEquals(master.title, resolved?.title)
         assertEquals(master.calendarId, resolved?.calendarId)
         assertEquals(master.colors, resolved?.colors)
@@ -133,7 +136,7 @@ class OccurrenceResolutionTest {
         val resolved = resolve(EventWithOverrides(master), requested)
 
         assertEquals(requested, resolved?.occurrenceId)
-        assertEquals(rDate, resolved?.timing?.start)
+        assertEquals(zonedBounds(rDate, LocalDateTime(2026, 1, 10, 11, 0), TimeZone.UTC), resolved?.timing?.bounds)
     }
 
     @Test
@@ -200,7 +203,10 @@ class OccurrenceResolutionTest {
 
         assertEquals(requested, resolved?.occurrenceId)
         assertEquals("Moved instance", resolved?.title)
-        assertEquals(LocalDateTime(2026, 1, 2, 15, 0), resolved?.timing?.start)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 1, 2, 15, 0), LocalDateTime(2026, 1, 2, 16, 0), TimeZone.UTC),
+            resolved?.timing?.bounds,
+        )
     }
 
     @Test
@@ -218,8 +224,14 @@ class OccurrenceResolutionTest {
             recurrenceId(master.masterEventId, LocalDateTime(2026, 1, 3, 10, 0)),
         )
 
-        assertEquals(LocalDateTime(2026, 1, 3, 9, 0), moved?.timing?.start)
-        assertEquals(LocalDateTime(2026, 1, 3, 10, 0), jan3?.timing?.start)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 1, 3, 9, 0), LocalDateTime(2026, 1, 3, 10, 0), TimeZone.UTC),
+            moved?.timing?.bounds,
+        )
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 1, 3, 10, 0), LocalDateTime(2026, 1, 3, 11, 0), TimeZone.UTC),
+            jan3?.timing?.bounds,
+        )
     }
 
     @Test
@@ -365,7 +377,10 @@ class OccurrenceResolutionTest {
         val resolved = resolve(EventWithOverrides(master), requested, timeZone = TimeZone.UTC)
 
         assertEquals(requested, resolved?.occurrenceId)
-        assertEquals(LocalDateTime(2026, 1, 2, 10, 0), resolved?.timing?.start)
+        assertEquals(
+            zonedBounds(LocalDateTime(2026, 1, 2, 10, 0), LocalDateTime(2026, 1, 2, 11, 0), zone),
+            resolved?.timing?.bounds,
+        )
     }
 
     @Test
@@ -376,7 +391,10 @@ class OccurrenceResolutionTest {
         val resolved = resolve(EventWithOverrides(master), requested, timeZone = TimeZone.of("Pacific/Honolulu"))
 
         assertEquals(requested, resolved?.occurrenceId)
-        assertEquals(LocalDateTime(2026, 1, 2, 10, 0), resolved?.timing?.start)
+        assertEquals(
+            EventBounds.Floating(LocalDateTime(2026, 1, 2, 10, 0), LocalDateTime(2026, 1, 2, 11, 0)),
+            resolved?.timing?.bounds,
+        )
     }
 
     @Test
@@ -562,12 +580,10 @@ class OccurrenceResolutionTest {
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",
-        timing = EventTiming(
+        timing = zonedTiming(
             start = LocalDateTime(2026, 1, 1, 10, 0),
             end = LocalDateTime(2026, 1, 1, 11, 0),
-            startTimeZone = TimeZone.UTC,
-            endTimeZone = TimeZone.UTC,
-            isAllDay = false,
+            zone = TimeZone.UTC,
             recurrenceRule = rule,
         ),
         colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
@@ -585,12 +601,10 @@ class OccurrenceResolutionTest {
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",
-        timing = EventTiming(
+        timing = zonedTiming(
             start = start,
             end = LocalDateTime(start.date, LocalTime(start.hour + 1, start.minute)),
-            startTimeZone = zone,
-            endTimeZone = zone,
-            isAllDay = false,
+            zone = zone,
             recurrenceRule = rule,
         ),
         colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
@@ -603,12 +617,9 @@ class OccurrenceResolutionTest {
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",
-        timing = EventTiming(
+        timing = floatingTiming(
             start = LocalDateTime(2026, 1, 1, 10, 0),
             end = LocalDateTime(2026, 1, 1, 11, 0),
-            startTimeZone = null,
-            endTimeZone = null,
-            isAllDay = false,
             recurrenceRule = rule,
         ),
         colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
@@ -621,12 +632,9 @@ class OccurrenceResolutionTest {
         calendarId = CalendarId("calendar://test"),
         accountId = AccountId(1L),
         title = "Test",
-        timing = EventTiming(
-            start = LocalDateTime(2026, 1, 1, 0, 0),
-            end = LocalDateTime(2026, 1, 2, 0, 0),
-            startTimeZone = null,
-            endTimeZone = null,
-            isAllDay = true,
+        timing = allDayTiming(
+            start = LocalDate(2026, 1, 1),
+            end = LocalDate(2026, 1, 2),
             recurrenceRule = rule,
         ),
         colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),
@@ -655,8 +663,10 @@ class OccurrenceResolutionTest {
             title = "Moved instance",
             status = status,
             timing = timing.copy(
-                start = movedTo,
-                end = LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute)),
+                bounds = timing.bounds.movedTo(
+                    start = movedTo,
+                    end = LocalDateTime(movedTo.date, LocalTime(movedTo.hour + 1, movedTo.minute)),
+                ),
                 recurrenceRule = null,
             ),
         )

@@ -17,20 +17,22 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
-
 /**
- * A stored event together with the instances that redefine it, i.e. everything the expander needs to
- * materialise its occurrences. [T] is the form the events are read in.
- *
- * Kept apart from the public models so they never carry overrides: an event is always a single
- * renderable thing, be it a plain event, a master or one materialised occurrence.
- *
- * [overridesByOccurrenceKey] is keyed by the *theoretical* slot the override replaces, never the position
- * it was moved to. Each value is a materialised occurrence, ready to be emitted as-is.
+ * How the recurrence expansion reads the events of type [T] it expands, and copies a master into one of its
+ * occurrences.
  */
-internal data class EventWithOverrides<T>(
-    val master: T,
-    val overridesByOccurrenceKey: Map<RecurrenceKey, T> = emptyMap(),
+internal class ExpansionAccess<T>(
+    val idOf: (T) -> EventId,
+    val timingOf: (T) -> EventTiming,
+    val isCancelled: (T) -> Boolean,
+    val occurrenceOf: (master: T, occurrenceId: OccurrenceId.Recurrence, bounds: EventBounds) -> T,
 )
 
+internal val EventExpansionAccess = ExpansionAccess<Event>(
+    idOf = Event::masterEventId,
+    timingOf = Event::timing,
+    isCancelled = { it.status == EventStatus.CANCELLED },
+    occurrenceOf = { master, occurrenceId, bounds ->
+        master.copy(occurrenceId = occurrenceId, timing = master.timing.copy(bounds = bounds))
+    },
+)

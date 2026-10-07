@@ -41,15 +41,14 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
- * Replace every recurring master in this list by the concrete [Event] occurrences its `RRULE`
- * generates within `[rangeStart, rangeEnd[` (see [RecurrenceExpander]), leaving non-recurring events
- * untouched. Runs **before** the day split ([groupDaySlicesByDay]) so each occurrence is then sliced
- * like any other event.
+ * Replace every recurring master in this list by the concrete occurrences its `RRULE` generates within
+ * `[rangeStart, rangeEnd[` (see [RecurrenceExpander]), leaving non-recurring events untouched. Runs
+ * **before** the day split ([groupDaySlicesByDay]) so each occurrence is then sliced like any other event.
  *
- * Each occurrence is a synthetic [Event] whose [Event.occurrenceId] is an [OccurrenceId.Recurrence]
- * (stable per instance) and whose timing is the occurrence's own (wall-clock preserved across DST,
- * `end` exclusive). The master's `RRULE` is kept on the instance's timing so consumers can still tell
- * it belongs to a series — the expander is never re-run on an already-materialised occurrence.
+ * Each occurrence is a copy of its master made by [ExpansionAccess.occurrenceOf], identified by an
+ * [OccurrenceId.Recurrence] (stable per instance) and timed at the occurrence's own bounds (wall-clock
+ * preserved across DST, `end` exclusive). The master's `RRULE` is kept on the instance's timing so consumers
+ * can still tell it belongs to a series — the expander is never re-run on an already-materialised occurrence.
  *
  * Applies the recurrence set semantics `(RRULE ∪ RDATE ∪ {DTSTART for RDATE-only}) − EXDATE`.
  *
@@ -63,21 +62,24 @@ import kotlin.time.Instant
  * [onOrphanOverrideDropped] reports each override [addOverriddenInstances] rejected, so corrupt server
  * data surfaces instead of being silently hidden.
  */
-internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
+internal suspend fun <T> List<EventWithOverrides<T>>.expandRecurrencesInWindow(
+    access: ExpansionAccess<T>,
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
     limits: ExpansionLimits = ExpansionLimits(),
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
     onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit = { _, _ -> },
-): List<Event> {
-    val expanded = ArrayList<Event>(size)
+): List<T> {
+    val expanded = ArrayList<T>(size)
     val occurrences = ArrayList<Occurrence>()
     for ((event, overrides) in this) {
         currentCoroutineContext().ensureActive()
+        val masterId = access.idOf(event)
         occurrences.clear()
-        val hasRecurringExpansion = event.timing.expandRecurrenceOccurrencesInWindow(
-            masterId = event.masterEventId,
+        val masterTiming = access.timingOf(event)
+        val hasRecurringExpansion = masterTiming.expandRecurrenceOccurrencesInWindow(
+            masterId = masterId,
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             timeZone = timeZone,
@@ -89,8 +91,17 @@ internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
             expanded += event
             continue
         }
-        expanded.addRuleOccurrences(event, occurrences, overrides)
-        expanded.addOverriddenInstances(event, overrides, rangeStart, rangeEnd, timeZone, onOrphanOverrideDropped)
+        expanded.addRuleOccurrences(access, masterId, event, occurrences, overrides)
+        expanded.addOverriddenInstances(
+            access = access,
+            masterId = masterId,
+            masterTiming = masterTiming,
+            overrides = overrides,
+            rangeStart = rangeStart,
+            rangeEnd = rangeEnd,
+            timeZone = timeZone,
+            onOrphanOverrideDropped = onOrphanOverrideDropped,
+        )
     }
     return expanded
 }
@@ -107,15 +118,16 @@ internal suspend fun List<EventWithOverrides>.expandRecurrencesInWindow(
  *
  * Returns null when the requested occurrence no longer belongs to the series.
  */
-internal suspend fun EventWithOverrides.resolveOccurrence(
+internal suspend fun EventWithOverrides<Event>.resolveOccurrence(
     occurrenceId: OccurrenceId.Recurrence,
     timeZone: TimeZone,
     limits: ExpansionLimits = ExpansionLimits(),
     onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit,
     onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
 ): Event? {
-    check(occurrenceId.masterId == master.masterEventId) {
-        "Occurrence $occurrenceId does not belong to master ${master.masterEventId}"
+    val masterId = master.masterEventId
+    check(occurrenceId.masterId == masterId) {
+        "Occurrence $occurrenceId does not belong to master $masterId"
     }
 
     // A stale OccurrenceId may still be held by the UI after the event has
@@ -125,8 +137,9 @@ internal suspend fun EventWithOverrides.resolveOccurrence(
 
     overridesByOccurrenceKey[recurrenceKey]?.let { override ->
         return override.takeIf {
-            master.shouldIncludeOverride(
-                override = it,
+            shouldIncludeOverride(
+                masterId = masterId,
+                isCancelled = it.status == EventStatus.CANCELLED,
                 recurrenceKey = recurrenceKey,
                 seriesEnd = { SeriesEndFilter.of(master = master.timing, timeZone = timeZone) },
                 onOrphanOverrideDropped = onOrphanOverrideDropped,
@@ -172,22 +185,27 @@ private suspend fun Event.resolveRuleOccurrence(
     )
 
     val occurrence = occurrences.firstOrNull { it.key == recurrenceKey } ?: return null
-    return toOccurrenceEvent(occurrence)
+    return copy(
+        occurrenceId = OccurrenceId.Recurrence(masterEventId, occurrence.key),
+        timing = timing.copy(bounds = occurrence.bounds),
+    )
 }
 
 /**
  * Add the occurrences [master]'s rule generated, skipping every slot one of [overrides] claims: the
  * override *is* that instance, and [addOverriddenInstances] adds it in its place.
  */
-private suspend fun MutableList<Event>.addRuleOccurrences(
-    master: Event,
+private suspend fun <T> MutableList<T>.addRuleOccurrences(
+    access: ExpansionAccess<T>,
+    masterId: EventId,
+    master: T,
     occurrences: List<Occurrence>,
-    overrides: Map<RecurrenceKey, Event>,
+    overrides: Map<RecurrenceKey, T>,
 ) {
     for (occurrence in occurrences) {
         currentCoroutineContext().ensureActive()
         if (occurrence.key in overrides) continue
-        this += master.toOccurrenceEvent(occurrence)
+        this += access.occurrenceOf(master, OccurrenceId.Recurrence(masterId, occurrence.key), occurrence.bounds)
     }
 }
 
@@ -201,41 +219,45 @@ private suspend fun MutableList<Event>.addRuleOccurrences(
  *
  * An override whose slot is no longer part of the series is dropped too, see [SeriesEndFilter].
  */
-private suspend fun MutableList<Event>.addOverriddenInstances(
-    master: Event,
-    overrides: Map<RecurrenceKey, Event>,
+private suspend fun <T> MutableList<T>.addOverriddenInstances(
+    access: ExpansionAccess<T>,
+    masterId: EventId,
+    masterTiming: EventTiming,
+    overrides: Map<RecurrenceKey, T>,
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
     onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
 ) {
     if (overrides.isEmpty()) return
-    val seriesEnd = SeriesEndFilter.of(master.timing, timeZone)
+    val seriesEnd = SeriesEndFilter.of(masterTiming, timeZone)
 
     for ((slot, override) in overrides) {
         currentCoroutineContext().ensureActive()
-        val shouldIncludeOverride = master.shouldIncludeOverride(
-            override = override,
+        val shouldIncludeOverride = shouldIncludeOverride(
+            masterId = masterId,
+            isCancelled = access.isCancelled(override),
             recurrenceKey = slot,
             seriesEnd = { seriesEnd },
             onOrphanOverrideDropped = onOrphanOverrideDropped,
         )
         if (!shouldIncludeOverride) continue
 
-        if (override.timing.overlaps(rangeStart, rangeEnd, timeZone)) this += override
+        if (access.timingOf(override).overlaps(rangeStart, rangeEnd, timeZone)) this += override
     }
 }
 
-private fun Event.shouldIncludeOverride(
-    override: Event,
+private fun shouldIncludeOverride(
+    masterId: EventId,
+    isCancelled: Boolean,
     recurrenceKey: RecurrenceKey,
     seriesEnd: () -> SeriesEndFilter?,
     onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit,
 ): Boolean {
-    if (override.status == EventStatus.CANCELLED) return false
+    if (isCancelled) return false
 
     if (seriesEnd()?.isOrphan(recurrenceKey) == true) {
-        onOrphanOverrideDropped(masterEventId, recurrenceKey)
+        onOrphanOverrideDropped(masterId, recurrenceKey)
         return false
     }
 
@@ -470,13 +492,4 @@ internal fun LocalDateTime.toIcalDateValue(master: EventTiming): IcalDateValue =
     is EventBounds.AllDay -> IcalDateValue.AllDay(date)
     is EventBounds.Floating -> IcalDateValue.Floating(this)
     is EventBounds.Zoned -> bounds.start.timeZone.let { zone -> IcalDateValue.Zoned(toInstant(zone), zone.id) }
-}
-
-/** Materialise one [occurrence] of this recurring master into a concrete synthetic [Event]. */
-private fun Event.toOccurrenceEvent(occurrence: Occurrence): Event {
-    // Copying keeps all master fields (title, colors, attendees, …) while overriding identity and timing.
-    return copy(
-        occurrenceId = OccurrenceId.Recurrence(masterEventId, occurrence.key),
-        timing = timing.copy(bounds = occurrence.bounds),
-    )
 }

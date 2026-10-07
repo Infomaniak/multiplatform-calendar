@@ -84,12 +84,14 @@ internal abstract class EventDao {
         """
         SELECT event.id AS id,
                calendar.color AS calendarColorArgb,
+               account.emails AS accountEmails,
                event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
                event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
                event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
                event.rrule, event.rDates, event.exDates
         FROM events event
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        INNER JOIN accounts account ON calendar.accountId = account.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND (
@@ -127,12 +129,14 @@ internal abstract class EventDao {
         """
         SELECT event.id AS id,
                calendar.color AS calendarColorArgb,
+               account.emails AS accountEmails,
                event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
                event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
                event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
                event.rrule, event.rDates, event.exDates
         FROM events event
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        INNER JOIN accounts account ON calendar.accountId = account.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND (

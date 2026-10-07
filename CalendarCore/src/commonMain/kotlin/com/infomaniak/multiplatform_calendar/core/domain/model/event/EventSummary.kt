@@ -31,4 +31,6 @@ public data class EventSummary(
     val colors: EventColors,
     val timing: EventTiming,
     val hasAttendees: Boolean,
+    /** The answer of the user to the invitation, `null` when they are not among the attendees. */
+    val myStatus: ParticipationStatus?,
 )

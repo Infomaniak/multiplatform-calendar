@@ -19,8 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
 
-/** This event as listed. */
-internal fun Event.toSummary(): EventSummary = EventSummary(
+/** This event as listed for a user with the given [accountEmails]. */
+internal fun Event.toSummary(accountEmails: List<String> = listOf("me@example.com")): EventSummary = EventSummary(
     occurrenceId = occurrenceId,
     title = title,
     location = location,
@@ -28,6 +28,9 @@ internal fun Event.toSummary(): EventSummary = EventSummary(
     colors = colors,
     timing = timing,
     hasAttendees = attendees.isNotEmpty(),
+    myStatus = attendees.firstOrNull { attendee ->
+        accountEmails.any { it.equals(attendee.email, ignoreCase = true) }
+    }?.status,
 )
 
 internal fun Event.toAlarmedEvent(): EventSummaryWithAlarms = EventSummaryWithAlarms(toSummary(), alarms)

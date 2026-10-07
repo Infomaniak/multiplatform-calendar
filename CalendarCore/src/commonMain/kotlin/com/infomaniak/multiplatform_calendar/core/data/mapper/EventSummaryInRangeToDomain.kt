@@ -32,11 +32,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
     val calendarSourceColor = CalendarColors.from(calendarColorArgb).sourceColor
     return EventWithOverrides(
-        master = content.toDomain(OccurrenceId.Master(id), calendarSourceColor, rrule, rDates, exDates),
+        master = content.toDomain(OccurrenceId.Master(id), calendarSourceColor, accountEmails, rrule, rDates, exDates),
         overridesByOccurrenceKey = overrides.associate { override ->
             override.recurrenceKey to override.content.toDomain(
                 occurrenceId = OccurrenceId.Recurrence(id, override.recurrenceKey),
                 calendarSourceColor = calendarSourceColor,
+                accountEmails = accountEmails,
             )
         },
     )
@@ -58,6 +59,7 @@ internal fun EventSummaryInRange.toDomainWithAlarms(): EventWithOverrides<EventS
 private fun EventSummaryContent.toDomain(
     occurrenceId: OccurrenceId,
     calendarSourceColor: Int,
+    accountEmails: List<String>,
     recurrenceRule: RecurrenceRule? = null,
     rDates: List<IcalDateValue> = emptyList(),
     exDates: List<IcalDateValue> = emptyList(),
@@ -69,4 +71,7 @@ private fun EventSummaryContent.toDomain(
     colors = EventColors.from(colorArgb, calendarSourceColor),
     timing = timing.toDomain(recurrenceRule = recurrenceRule, rDates = rDates, exDates = exDates),
     hasAttendees = attendees.isNotEmpty(),
+    myStatus = attendees.firstOrNull { attendee ->
+        accountEmails.any { it.equals(attendee.email, ignoreCase = true) }
+    }?.status,
 )

@@ -24,10 +24,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 
-/** An event listed in a range, with the addresses of the user of its account. */
+/** An event listed in a range, with the emails of the user of its account. */
 internal data class EventSummaryInRange(
     val id: EventId,
     val calendarColorArgb: Int?,
+    val accountEmails: List<String>,
     @Embedded val content: EventSummaryContent,
     val rrule: RecurrenceRule?,
     val rDates: List<IcalDateValue>,

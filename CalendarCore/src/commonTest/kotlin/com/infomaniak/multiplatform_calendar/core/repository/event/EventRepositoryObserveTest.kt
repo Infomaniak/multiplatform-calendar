@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
@@ -479,12 +480,44 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
     }
 
     @Test
+    fun observeVisibleEvents_findsTheUserAmongTheAttendeesByTheirAddressIgnoringCase() = runTest {
+        seedCalendar()
+        val me = ALICE.copy(email = "USER@example.com", status = ParticipationStatus.Tentative)
+
+        val summary = observeSingleListedEvent(attendees = listOf(ALICE, me))
+
+        assertTrue(summary.hasAttendees)
+        assertEquals(ParticipationStatus.Tentative, summary.myStatus)
+    }
+
+    @Test
+    fun observeVisibleEvents_findsTheUserAmongTheAttendeesByAnAlias() = runTest {
+        seedCalendar()
+        val me = ALICE.copy(email = "alias@example.com", status = ParticipationStatus.Declined)
+
+        val summary = observeSingleListedEvent(attendees = listOf(ALICE, me))
+
+        assertEquals(ParticipationStatus.Declined, summary.myStatus)
+    }
+
+    @Test
+    fun observeVisibleEvents_hasNoStatusOfTheUserWhenTheyAreNotInvited() = runTest {
+        seedCalendar()
+
+        val summary = observeSingleListedEvent(attendees = listOf(ALICE))
+
+        assertTrue(summary.hasAttendees)
+        assertNull(summary.myStatus)
+    }
+
+    @Test
     fun observeVisibleEvents_hasNoAttendeesForAnEventWithoutGuests() = runTest {
         seedCalendar()
 
         val summary = observeSingleListedEvent(attendees = emptyList())
 
         assertFalse(summary.hasAttendees)
+        assertNull(summary.myStatus)
     }
 
     private suspend fun observeSingleListedEvent(attendees: List<AttendeeEntity>): EventSummary {

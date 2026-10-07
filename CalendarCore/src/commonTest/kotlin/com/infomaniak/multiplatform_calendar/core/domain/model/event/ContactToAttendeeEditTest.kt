@@ -18,16 +18,25 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
-/** An attendee as an edit states it. Its answer is not editable: a new attendee is asked for one. */
-public data class AttendeeEdit(
-    val email: String,
-    val displayName: String?,
-    val type: AttendeeType = AttendeeType.Individual,
-    val role: AttendeeRole = when (type) {
-        AttendeeType.Room, AttendeeType.Resource -> AttendeeRole.NonParticipant
-        else -> AttendeeRole.Requested
-    },
-)
+class ContactToAttendeeEditTest {
 
-public fun Contact.toAttendeeEdit(): AttendeeEdit = AttendeeEdit(email = email, displayName = name.ifBlank { null })
+    @Test
+    fun aContactIsInvitedUnderItsEmailAndName() {
+        val contact = Contact(email = "alice@example.com", name = "Alice", avatar = null, comesFromApi = true)
+
+        assertEquals(
+            AttendeeEdit(email = "alice@example.com", displayName = "Alice", role = AttendeeRole.Requested),
+            contact.toAttendeeEdit(),
+        )
+    }
+
+    @Test
+    fun aContactWithoutNameIsInvitedWithoutDisplayName() {
+        val contact = Contact(email = "alice@example.com", name = " ", avatar = null, comesFromApi = false)
+
+        assertEquals(null, contact.toAttendeeEdit().displayName)
+    }
+}

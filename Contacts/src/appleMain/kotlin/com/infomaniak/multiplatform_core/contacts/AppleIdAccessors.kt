@@ -15,12 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_core.contacts.domain.model
+package com.infomaniak.multiplatform_core.contacts
 
-/** A merged contact, ready to be displayed. */
-public data class Contact(
-    val email: String,
-    val name: String,
-    val avatar: ContactAvatar?,
-    val comesFromApi: Boolean,
-)
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
+
+public val ContactAvatar.Remote.accountIdValue: Long get() = accountId.value

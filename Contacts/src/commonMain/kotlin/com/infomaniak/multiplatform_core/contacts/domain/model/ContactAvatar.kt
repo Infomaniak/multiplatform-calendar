@@ -15,21 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_core.contacts.data.repository
+package com.infomaniak.multiplatform_core.contacts.domain.model
 
-import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
-/** Merged contact used for sorting, before being mapped to [Contact]. */
-internal data class MergedContact(
-    val email: String,
-    val name: String,
-    val avatarUrl: String?,
-    val comesFromApi: Boolean,
-    val contactedTimes: Int?,
-    val isInAddressBook: Boolean,
-) {
-    /** Identity of a contact: the (email, name) pair, emails being case insensitive. */
-    val key: Pair<String, String> get() = email.lowercase() to name
+public sealed interface ContactAvatar {
 
-    fun toContact(): Contact = Contact(email = email, name = name, avatarUrl = avatarUrl, comesFromApi = comesFromApi)
+    /** An image of the Infomaniak API, to be fetched with the token of [accountId]. */
+    @OptIn(ExperimentalObjCRefinement::class)
+    public data class Remote(
+        val url: String,
+        @HiddenFromObjC
+        val accountId: AccountId,
+    ) : ContactAvatar
 }

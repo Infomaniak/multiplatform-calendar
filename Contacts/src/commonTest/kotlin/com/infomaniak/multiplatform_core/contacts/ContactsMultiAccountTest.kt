@@ -19,7 +19,9 @@ package com.infomaniak.multiplatform_core.contacts
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
 import io.ktor.client.HttpClient
@@ -62,6 +64,19 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
         manager.sync()
 
         assertEquals(listOf("Bob", "Bea"), manager.search("b").map { it.name })
+    }
+
+    @Test
+    fun avatarOfAContactFoundInSeveralAccountsKeepsTheAccountItComesFrom() = runTest {
+        contactsByToken[TOKEN_1] = listOf(ApiContact(name = "Bob", emails = listOf("bob@x.com")))
+        contactsByToken[TOKEN_2] = listOf(ApiContact(name = "Bob", emails = listOf("bob@x.com"), avatar = "/avatar/bob.png"))
+        val manager = managerWithBothAccounts()
+        manager.sync()
+
+        assertEquals(
+            listOf(ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/bob.png", accountId = ACCOUNT_2)),
+            manager.search("bob").map { it.avatar },
+        )
     }
 
     @Test

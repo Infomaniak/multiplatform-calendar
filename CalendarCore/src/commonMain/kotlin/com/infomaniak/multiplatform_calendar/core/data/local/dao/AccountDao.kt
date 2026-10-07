@@ -36,6 +36,9 @@ internal interface AccountDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(account: AccountEntity)
 
+    @Query("UPDATE accounts SET emails = :emails WHERE id = :accountId")
+    suspend fun updateEmails(accountId: AccountId, emails: List<String>)
+
     @Query(
         """
         SELECT calendars.accountId FROM events

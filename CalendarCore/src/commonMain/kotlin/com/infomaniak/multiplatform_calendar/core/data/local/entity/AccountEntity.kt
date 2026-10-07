@@ -24,4 +24,6 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 @Entity(tableName = "accounts")
 internal data class AccountEntity(
     @PrimaryKey val id: AccountId,
+    /** The emails of the user, how they are found among the attendees; empty until the calendars are first synced. */
+    val emails: List<String> = emptyList(),
 )

@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarTypeConverters
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
@@ -113,6 +114,28 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             }
         }
         return CalendarTypeConverters().toStringList(json)
+    }
+
+    fun showOnlyCalendar_hidesEveryOtherCalendarAcrossAccounts() = runTest {
+        val accounts = listOf(AccountId(10), AccountId(11))
+        accounts.forEach { database.accountDao().insert(AccountEntity(it)) }
+        val ids = listOf("a", "b", "c").map { CalendarId("https://dav.example/cal/$it/") }
+        ids.forEachIndexed { index, id ->
+            database.calendarDao().insert(
+                CalendarEntity(id = id, accountId = accounts[index % 2], displayName = id.url, color = null),
+            )
+        }
+        val repository = CalendarRepository(
+            FakeCalendarSyncRemoteSource(calendars = emptyList()),
+            database.calendarDao(),
+            CrashReportProvider.noOp,
+            database.eventDao(),
+        )
+
+        repository.showOnlyCalendar(ids[1])
+
+        val visibility = ids.associateWith { database.calendarDao().findById(it)?.isVisible }
+        assertEquals(mapOf(ids[0] to false, ids[1] to true, ids[2] to false), visibility)
     }
 
     @Test

@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRaw
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
@@ -37,7 +38,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedBounds
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -213,6 +216,38 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
         assertEquals(OccurrenceId.Master(master.id), observed?.occurrenceId)
         assertEquals(master.content.summary, observed?.title)
+    }
+
+    @Test
+    fun observeOccurrence_carriesTheContactsOfTheAttendeesAndOfTheOrganizer() = runTest {
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://with-contacts"), CALENDAR_ID)
+        eventDao().upsert(listOf(EventWithRawIcs(master.withPeople(), "")))
+        val alice = Contact(email = ALICE.email, name = "Alice", avatar = null, comesFromApi = true)
+        val owner = Contact(email = OWNER.email, name = "Owner", avatar = null, comesFromApi = false)
+        contactsLookup.contacts.value = listOf(alice, owner)
+
+        val observed = repository.observeOccurrence(OccurrenceId.Master(master.id), TimeZone.UTC).first()
+
+        assertEquals(listOf(alice), observed?.attendees?.map { it.contact })
+        assertEquals(owner, observed?.organizer?.contact)
+        assertEquals(listOf(ACCOUNT_ID), contactsLookup.preferredAccountIds, "the account of the event goes first")
+    }
+
+    @Test
+    fun observeOccurrence_followsTheContacts() = runTest {
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://contacts-changing"), CALENDAR_ID)
+        eventDao().upsert(listOf(EventWithRawIcs(master.withPeople(), "")))
+        val emissions = Channel<Event?>(Channel.UNLIMITED)
+        backgroundScope.launch {
+            repository.observeOccurrence(OccurrenceId.Master(master.id), TimeZone.UTC).collect(emissions::send)
+        }
+
+        assertNull(emissions.receive()?.attendees?.single()?.contact)
+        val alice = Contact(email = ALICE.email, name = "Alice", avatar = null, comesFromApi = true)
+        contactsLookup.contacts.value = listOf(alice)
+        assertEquals(alice, emissions.receive()?.attendees?.single()?.contact)
     }
 
     @Test
@@ -531,6 +566,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             zone = TimeZone.UTC,
         ).first().single()
     }
+
+    private fun EventEntity.withPeople() = copy(content = content.copy(attendees = listOf(ALICE), organizer = OWNER))
 
     private fun floatingEvent(calendarId: CalendarId): EventEntity {
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)

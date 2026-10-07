@@ -70,6 +70,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
     protected lateinit var database: CalendarDatabase
     protected lateinit var repository: EventRepository
     protected lateinit var fakeCaldav: FakeCaldavClient
+    protected lateinit var contactsLookup: FakeContactsLookup
     private lateinit var crashReport: RecordingCrashReport
 
     @BeforeTest
@@ -81,11 +82,13 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         )
         fakeCaldav = FakeCaldavClient()
         crashReport = RecordingCrashReport()
+        contactsLookup = FakeContactsLookup()
         repository = EventRepository(
             accountDao = database.accountDao(),
             caldavClient = fakeCaldav,
             eventDao = database.eventDao(),
             crashReport = crashReport,
+            contactsLookup = contactsLookup,
         )
     }
 

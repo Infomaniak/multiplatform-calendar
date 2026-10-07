@@ -1,6 +1,6 @@
 /*
- * Infomaniak Core - Android
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,20 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package com.infomaniak.multiplatform_calendar.core.data.repository
 
-package com.infomaniak.multiplatform_calendar.core.domain.model.event
-
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
-import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
+import kotlinx.coroutines.flow.Flow
 
-/**
- * The ORGANIZER of an event (RFC 5545 §3.8.4.3). Distinct from an [Attendee]: an organizer is not
- * necessarily a participant, so it carries no participation status, role or RSVP.
- */
-public data class Organizer(
-    val email: String,
-    val displayName: String? = null,
-    val contact: Contact? = null,
-) {
-    val avatar: ContactAvatar? inline get() = contact?.avatar
+internal fun interface ContactsLookup {
+    fun observeContacts(emails: Set<String>, preferredAccountId: AccountId): Flow<Map<String, Contact>>
 }

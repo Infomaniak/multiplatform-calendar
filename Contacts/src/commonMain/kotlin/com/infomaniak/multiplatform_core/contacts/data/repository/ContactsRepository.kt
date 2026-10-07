@@ -68,21 +68,21 @@ internal class ContactsRepository(
 
         val likeQuery = "%${normalizedQuery.escapeLikeWildcards()}%"
         val apiMatches = dao.search(accountIds.ifEmpty { dao.accountIds().toSet() }, likeQuery)
-            .map(ContactEntity::toMergedContact)
+            .map(ContactEntity::toContactMatch)
             .mergedAcrossAccounts()
 
         val deviceMatches = cachedDeviceContacts()
             .filter { it.matches(normalizedQuery) }
-            .map(DeviceContact::toMergedContact)
+            .map(DeviceContact::toContactMatch)
 
         val matches = merge(deviceMatches, apiMatches)
         val tiers = matches.associateWith {
             MatchTier.of(normalizedQuery, it.name.normalizedForSearch(), it.email.normalizedForSearch())
         }
         return matches
-            .sortedWith(mergedContactComparator(tiers::getValue))
+            .sortedWith(contactMatchComparator(tiers::getValue))
             .take(limit)
-            .map(MergedContact::toContact)
+            .map(ContactMatch::toContact)
     }
 
     /**
@@ -160,8 +160,8 @@ internal class ContactsRepository(
     }
 }
 
-private fun merge(deviceContacts: List<MergedContact>, apiContacts: List<MergedContact>): List<MergedContact> {
-    val mergedByKey = deviceContacts.associateByTo(mutableMapOf(), MergedContact::key)
+private fun merge(deviceContacts: List<ContactMatch>, apiContacts: List<ContactMatch>): List<ContactMatch> {
+    val mergedByKey = deviceContacts.associateByTo(mutableMapOf(), ContactMatch::key)
     apiContacts.forEach { apiContact ->
         mergedByKey[apiContact.key] = mergedByKey[apiContact.key]?.completedWith(apiContact) ?: apiContact
     }
@@ -169,31 +169,31 @@ private fun merge(deviceContacts: List<MergedContact>, apiContacts: List<MergedC
 }
 
 /** The device contact, completed with what only the API knows: its avatar if it has none, and its ranking. */
-private fun MergedContact.completedWith(apiContact: MergedContact): MergedContact = copy(
+private fun ContactMatch.completedWith(apiContact: ContactMatch): ContactMatch = copy(
     avatar = avatar ?: apiContact.avatar,
     comesFromApi = true,
     contactedTimes = apiContact.contactedTimes,
     isInAddressBook = apiContact.isInAddressBook,
 )
 
-private fun mergedContactComparator(matchTier: (MergedContact) -> MatchTier): Comparator<MergedContact> =
-    compareBy<MergedContact> { -relevanceWeight(it) }
+private fun contactMatchComparator(matchTier: (ContactMatch) -> MatchTier): Comparator<ContactMatch> =
+    compareBy<ContactMatch> { -relevanceWeight(it) }
         .thenBy(matchTier)
         .thenBy { if (it.comesFromApi) 0 else 1 }
         .thenComparator { left, right -> contactNameComparator.compare(left.name, right.name) }
 
 /** Relevance weight: times contacted, or -1 when the contact is not a real one (no name, or not in an address book). */
-private fun relevanceWeight(contact: MergedContact): Int =
+private fun relevanceWeight(contact: ContactMatch): Int =
     if (contact.name.isBlank() || !contact.isInAddressBook) -1 else contact.contactedTimes ?: 0
 
 /**
  * Contacted times are added up, and the contact is in an address book when any account has it in one. The avatar is
  * the first one found, with the account it comes from.
  */
-private fun List<MergedContact>.mergedAcrossAccounts(): List<MergedContact> =
-    groupBy(MergedContact::key).values.map { it.reduce(MergedContact::mergedWith) }
+private fun List<ContactMatch>.mergedAcrossAccounts(): List<ContactMatch> =
+    groupBy(ContactMatch::key).values.map { it.reduce(ContactMatch::mergedWith) }
 
-private fun MergedContact.mergedWith(contact: MergedContact): MergedContact = copy(
+private fun ContactMatch.mergedWith(contact: ContactMatch): ContactMatch = copy(
     avatar = avatar ?: contact.avatar,
     contactedTimes = contactedTimesSum(contactedTimes, contact.contactedTimes),
     isInAddressBook = isInAddressBook || contact.isInAddressBook,
@@ -203,7 +203,7 @@ private fun MergedContact.mergedWith(contact: MergedContact): MergedContact = co
 private fun contactedTimesSum(first: Int?, second: Int?): Int? =
     if (first == null && second == null) null else (first ?: 0) + (second ?: 0)
 
-private fun ContactEntity.toMergedContact(): MergedContact = MergedContact(
+private fun ContactEntity.toContactMatch(): ContactMatch = ContactMatch(
     email = email,
     name = name,
     avatar = avatarUrl?.let { ContactAvatar.Remote(url = it, accountId = accountId) },
@@ -215,7 +215,7 @@ private fun ContactEntity.toMergedContact(): MergedContact = MergedContact(
 private fun DeviceContact.matches(normalizedQuery: String): Boolean =
     email.isNotBlank() && (name.normalizedForSearch().contains(normalizedQuery) || email.normalizedForSearch().contains(normalizedQuery))
 
-private fun DeviceContact.toMergedContact(): MergedContact = MergedContact(
+private fun DeviceContact.toContactMatch(): ContactMatch = ContactMatch(
     email = email,
     name = name,
     avatar = null,

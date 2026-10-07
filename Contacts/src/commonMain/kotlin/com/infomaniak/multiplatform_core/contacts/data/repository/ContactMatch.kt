@@ -20,8 +20,8 @@ package com.infomaniak.multiplatform_core.contacts.data.repository
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 
-/** Merged contact used for sorting, before being mapped to [Contact]. */
-internal data class MergedContact(
+/** A contact matching a search query, carrying what ranks it until it is mapped to [Contact]. */
+internal data class ContactMatch(
     val email: String,
     val name: String,
     val avatar: ContactAvatar?,

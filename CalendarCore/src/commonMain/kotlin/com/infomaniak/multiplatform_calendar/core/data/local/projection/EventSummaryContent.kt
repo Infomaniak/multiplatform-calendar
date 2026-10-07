@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.local.projection
 
 import androidx.room3.Embedded
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
@@ -30,4 +31,5 @@ internal data class EventSummaryContent(
     val status: EventStatus?,
     val attendees: List<AttendeeEntity>,
     val colorArgb: Int?,
+    val alarms: List<AlarmEntity>,
 )

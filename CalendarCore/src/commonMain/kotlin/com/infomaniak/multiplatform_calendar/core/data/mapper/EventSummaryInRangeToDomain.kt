@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryContent
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
@@ -24,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 
@@ -35,6 +37,19 @@ internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
             override.recurrenceKey to override.content.toDomain(
                 occurrenceId = OccurrenceId.Recurrence(id, override.recurrenceKey),
                 calendarSourceColor = calendarSourceColor,
+            )
+        },
+    )
+}
+
+internal fun EventSummaryInRange.toDomainWithAlarms(): EventWithOverrides<EventSummaryWithAlarms> {
+    val summaries = toDomain()
+    return EventWithOverrides(
+        master = EventSummaryWithAlarms(summaries.master, content.alarms.mapNotNull(AlarmEntity::toDomain)),
+        overridesByOccurrenceKey = overrides.associate { override ->
+            override.recurrenceKey to EventSummaryWithAlarms(
+                summary = summaries.overridesByOccurrenceKey.getValue(override.recurrenceKey),
+                alarms = override.content.alarms.mapNotNull(AlarmEntity::toDomain),
             )
         },
     )

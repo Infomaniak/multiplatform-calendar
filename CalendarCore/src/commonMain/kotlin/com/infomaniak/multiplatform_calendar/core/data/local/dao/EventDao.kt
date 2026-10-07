@@ -84,7 +84,7 @@ internal abstract class EventDao {
         """
         SELECT event.id AS id,
                calendar.color AS calendarColorArgb,
-               event.summary, event.location, event.status, event.attendees, event.colorArgb,
+               event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
                event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
                event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
                event.rrule, event.rDates, event.exDates
@@ -112,7 +112,7 @@ internal abstract class EventDao {
     ): Flow<List<EventSummaryInRange>>
 
     /**
-     * Events (with their parent calendar) from all *visible* calendars of [accountIds] whose alarms may go
+     * Events from all *visible* calendars of [accountIds] whose alarms may go
      * off in the [`[startInstantMs, endInstantMs]`] window.
      *
      * An alarm does not go off when its event happens, so the branches of [observeVisibleInRange] are
@@ -125,7 +125,13 @@ internal abstract class EventDao {
     @Transaction
     @Query(
         """
-        SELECT event.* FROM events event
+        SELECT event.id AS id,
+               calendar.color AS calendarColorArgb,
+               event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
+               event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
+               event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
+               event.rrule, event.rDates, event.exDates
+        FROM events event
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
@@ -148,7 +154,7 @@ internal abstract class EventDao {
         endInstantMs: Long,
         startLocalDateTime: LocalDateTime,
         endLocalDateTime: LocalDateTime,
-    ): Flow<List<EventWithCalendarEntity>>
+    ): Flow<List<EventSummaryInRange>>
 
     /**
      * Same *visible calendars* + *range overlap* filter as [observeVisibleInRange], but returns only the

@@ -15,19 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event
+package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 
-/** This event as listed. */
-internal fun Event.toSummary(): EventSummary = EventSummary(
-    occurrenceId = occurrenceId,
-    title = title,
-    location = location,
-    status = status,
-    colors = colors,
-    timing = timing,
-    hasAttendees = attendees.isNotEmpty(),
+internal data class EventSummaryWithAlarms(
+    val summary: EventSummary,
+    val alarms: List<EventAlarm>,
 )
-
-internal fun Event.toAlarmedEvent(): EventSummaryWithAlarms = EventSummaryWithAlarms(toSummary(), alarms)

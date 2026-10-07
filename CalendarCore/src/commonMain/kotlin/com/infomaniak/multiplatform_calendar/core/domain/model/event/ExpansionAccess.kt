@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
+
 /**
  * How the recurrence expansion reads the events of type [T] it expands, and copies a master into one of its
  * occurrences.
@@ -28,20 +30,20 @@ internal class ExpansionAccess<T>(
     val occurrenceOf: (master: T, occurrenceId: OccurrenceId.Recurrence, bounds: EventBounds) -> T,
 )
 
-internal val EventExpansionAccess = ExpansionAccess<Event>(
-    idOf = Event::masterEventId,
-    timingOf = Event::timing,
-    isCancelled = { it.status == EventStatus.CANCELLED },
-    occurrenceOf = { master, occurrenceId, bounds ->
-        master.copy(occurrenceId = occurrenceId, timing = master.timing.copy(bounds = bounds))
-    },
-)
-
 internal val EventSummaryExpansionAccess = ExpansionAccess<EventSummary>(
     idOf = { it.occurrenceId.masterId },
     timingOf = EventSummary::timing,
     isCancelled = { it.status == EventStatus.CANCELLED },
     occurrenceOf = { master, occurrenceId, bounds ->
         master.copy(occurrenceId = occurrenceId, timing = master.timing.copy(bounds = bounds))
+    },
+)
+
+internal val EventSummaryWithAlarmsExpansionAccess = ExpansionAccess<EventSummaryWithAlarms>(
+    idOf = { EventSummaryExpansionAccess.idOf(it.summary) },
+    timingOf = { it.summary.timing },
+    isCancelled = { EventSummaryExpansionAccess.isCancelled(it.summary) },
+    occurrenceOf = { master, occurrenceId, bounds ->
+        master.copy(summary = EventSummaryExpansionAccess.occurrenceOf(master.summary, occurrenceId, bounds))
     },
 )

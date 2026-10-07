@@ -139,6 +139,29 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun showOnlyCalendar_withUnknownCalendarId_keepsVisibilityUnchanged() = runTest {
+        val accountId = AccountId(10)
+        database.accountDao().insert(AccountEntity(accountId))
+        val ids = listOf("a", "b").map { CalendarId("https://dav.example/cal/$it/") }
+        ids.forEach { id ->
+            database.calendarDao().insert(
+                CalendarEntity(id = id, accountId = accountId, displayName = id.url, color = null),
+            )
+        }
+        val repository = CalendarRepository(
+            FakeCalendarSyncRemoteSource(calendars = emptyList()),
+            database.calendarDao(),
+            CrashReportProvider.noOp,
+            database.eventDao(),
+        )
+
+        repository.showOnlyCalendar(CalendarId("https://dav.example/cal/missing/"))
+
+        val visibility = ids.associateWith { database.calendarDao().findById(it)?.isVisible }
+        assertEquals(mapOf(ids[0] to true, ids[1] to true), visibility)
+    }
+
+    @Test
     fun syncEvents_upsertsChanged_deletesRemoved_andUpdatesSyncToken() = runTest {
         val accountId = AccountId(3)
         database.accountDao().insert(AccountEntity(accountId))

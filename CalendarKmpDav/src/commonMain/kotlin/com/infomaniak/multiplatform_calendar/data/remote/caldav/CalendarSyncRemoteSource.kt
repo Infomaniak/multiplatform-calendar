@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_calendar.data.remote.caldav
 
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavDiscovery
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
@@ -36,9 +36,9 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 interface CalendarSyncRemoteSource {
 
-    /** Discover all calendars for the given credentials. */
+    /** Discover the user's emails and all calendars for the given credentials. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
-    suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar>
+    suspend fun discover(credentials: DavAccount): RemoteDavDiscovery
 
     /** Update editable CalDAV properties on a calendar collection (PROPPATCH). No-op if [edit] has no changes. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

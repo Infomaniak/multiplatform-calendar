@@ -2,18 +2,22 @@
 
 use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
-use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount};
+use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount, DiscoveryEntry};
+use crate::principal::user_emails;
 use crate::props::{access_level, collection_props, normalize_href};
 use roxmltree::Document;
 
-/// Discover all calendars for the given credentials.
+/// Discover the user's emails and all calendars for the given credentials.
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavError> {
+pub async fn discover(account: DavAccount) -> Result<DiscoveryEntry, CaldavError> {
     let cli = client(&account)?;
 
     let principal = cli.discover_current_user_principal().await
         .map_err(|error| map_fast_dav_error("Principal", error))?
         .ok_or_else(|| bridge_error("Principal", "no current-user-principal"))?;
+
+    // Best-effort: the emails only serve to find the user among the attendees.
+    let user_emails = user_emails(&cli, &principal).await.ok();
 
     let homes = cli.discover_calendar_home_set(&principal).await
         .map_err(|error| map_fast_dav_error("HomeSet", error))?;
@@ -46,7 +50,7 @@ pub async fn discover(account: DavAccount) -> Result<Vec<CalendarEntry>, CaldavE
             });
         }
     }
-    Ok(calendars)
+    Ok(DiscoveryEntry { user_emails, calendars })
 }
 
 /// Update editable properties on a calendar collection (PROPPATCH).

@@ -30,6 +30,7 @@ mod config;
 mod error;
 mod ical_components;
 mod models;
+mod principal;
 mod props;
 
 mod calendars;
@@ -41,4 +42,6 @@ mod alarms_tests;
 mod attendees_tests;
 #[cfg(test)]
 mod events_tests;
+#[cfg(test)]
+mod principal_tests;
 

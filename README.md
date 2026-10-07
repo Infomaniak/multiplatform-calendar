@@ -206,7 +206,7 @@ bindings that carry `@Throws(CaldavException, CancellationException)`, so cancel
 the calling coroutine drops the Rust future, which drops the underlying reqwest
 request.
 
-- **Reads** (`discoverCalendars`, `getEvents`, `getEventsInRange`, `syncCollection`,
+- **Reads** (`discover`, `getEvents`, `getEventsInRange`, `syncCollection`,
   `getEventsByUrls`) are fully cancellable and safe to cancel at any time.
 - **Writes** (`updateCalendar`, `createEvent`, `updateEvent`, `deleteEvent`) are best-effort cancellable:
   cancelling after the request has been dispatched to the server leaves the outcome
@@ -224,6 +224,11 @@ request.
 `rust/caldav_bridge/src/props.rs`).
 Parsing matches on **local names** so it is agnostic to the server's namespace prefix, and is **best-effort**: a missing or
 unsupported property never breaks calendar discovery. To fetch a new property, add it to `PROPS_BODY` and to `CollectionProps`.
+
+Discovery also reads the principal's `calendar-user-address-set` (RFC 6638) with a `Depth: 0` PROPFIND
+(`rust/caldav_bridge/src/principal.rs`). Only its `mailto:` entries are kept, without their scheme: they are the user's
+emails, matched against the attendees of an event. This request is best-effort: when it fails, discovery goes on
+without the emails.
 
 ### Rust build profiles & binary size
 

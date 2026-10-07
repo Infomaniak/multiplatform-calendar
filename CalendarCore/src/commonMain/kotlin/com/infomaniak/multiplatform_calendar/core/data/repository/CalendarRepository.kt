@@ -79,7 +79,7 @@ internal class CalendarRepository(
 
     suspend fun getCalendars(
         credentials: DavAccount,
-    ): List<RemoteDavCalendar> = caldavClient.discoverCalendars(credentials).excludeScheduling()
+    ): List<RemoteDavCalendar> = caldavClient.discover(credentials).calendars.excludeScheduling()
 
     suspend fun getCalendar(calendarId: CalendarId): Calendar {
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")

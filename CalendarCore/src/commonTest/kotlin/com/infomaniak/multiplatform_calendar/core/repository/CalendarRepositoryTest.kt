@@ -33,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemo
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavDiscovery
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
@@ -386,7 +387,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         var lastMultigetUrls: List<String> = emptyList()
         var onGetEventsInRange: (suspend () -> Unit)? = null
 
-        override suspend fun discoverCalendars(credentials: DavAccount) = calendars
+        override suspend fun discover(credentials: DavAccount) = RemoteDavDiscovery(emptyList(), calendars)
 
         override suspend fun getEventsInRange(
             credentials: DavAccount,

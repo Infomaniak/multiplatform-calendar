@@ -18,19 +18,24 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionLimits
+import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
+import kotlinx.datetime.TimeZone
+import kotlin.time.Instant
 
-/**
- * A stored event together with the instances that redefine it, i.e. everything the expander needs to
- * materialise its occurrences. [T] is the form the events are read in.
- *
- * Kept apart from the public models so they never carry overrides: an event is always a single
- * renderable thing, be it a plain event, a master or one materialised occurrence.
- *
- * [overridesByOccurrenceKey] is keyed by the *theoretical* slot the override replaces, never the position
- * it was moved to. Each value is a materialised occurrence, ready to be emitted as-is.
- */
-internal data class EventWithOverrides<T>(
-    val master: T,
-    val overridesByOccurrenceKey: Map<RecurrenceKey, T> = emptyMap(),
+internal suspend fun List<EventWithOverrides<Event>>.expandRecurrencesInWindow(
+    rangeStart: Instant,
+    rangeEnd: Instant,
+    timeZone: TimeZone,
+    limits: ExpansionLimits = ExpansionLimits(),
+    onExpansionTruncated: (masterId: EventId, outcome: ExpansionOutcome) -> Unit = { _, _ -> },
+    onOrphanOverrideDropped: (masterId: EventId, slot: RecurrenceKey) -> Unit = { _, _ -> },
+): List<Event> = expandRecurrencesInWindow(
+    access = EventExpansionAccess,
+    rangeStart = rangeStart,
+    rangeEnd = rangeEnd,
+    timeZone = timeZone,
+    limits = limits,
+    onExpansionTruncated = onExpansionTruncated,
+    onOrphanOverrideDropped = onOrphanOverrideDropped,
 )
-

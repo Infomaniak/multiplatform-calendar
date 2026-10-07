@@ -159,7 +159,7 @@ class RecurringEventExpansionTest {
 
     @Test
     fun emptyInputYieldsEmptyResult() = runTest {
-        val result = emptyList<EventWithOverrides>().expandRecurrencesInWindow(
+        val result = emptyList<EventWithOverrides<Event>>().expandRecurrencesInWindow(
             rangeStart = utc(2026, 1, 1),
             rangeEnd = utc(2026, 1, 11),
             timeZone = TimeZone.UTC,

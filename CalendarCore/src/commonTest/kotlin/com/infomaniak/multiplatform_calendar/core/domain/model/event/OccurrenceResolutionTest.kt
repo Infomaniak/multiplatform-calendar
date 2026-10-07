@@ -554,7 +554,7 @@ class OccurrenceResolutionTest {
     }
 
     private suspend fun resolve(
-        series: EventWithOverrides,
+        series: EventWithOverrides<Event>,
         occurrenceId: OccurrenceId.Recurrence,
         timeZone: TimeZone = TimeZone.UTC,
         limits: ExpansionLimits = ExpansionLimits(),

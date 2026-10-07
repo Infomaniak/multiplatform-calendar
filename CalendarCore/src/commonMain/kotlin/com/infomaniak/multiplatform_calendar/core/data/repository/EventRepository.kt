@@ -48,6 +48,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventExpansionAccess
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -132,7 +133,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<EventWithOverrides>> {
+    ): Flow<List<EventWithOverrides<Event>>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
         // - Absolute epoch ms for anchored events (zoned / UTC).
         // - Wall-clock strings for floating and all-day events, re-interpreted in [zone] so they stay
@@ -156,7 +157,7 @@ internal class EventRepository(
         end: Instant,
         zone: TimeZone,
     ): Flow<List<Event>> = observeVisibleEventsWithOverrides(accountIds, start, end, zone)
-        .map { events -> events.map(EventWithOverrides::master) }
+        .map { events -> events.map(EventWithOverrides<Event>::master) }
 
     /**
      * Like [observeVisibleEvents], but recurring masters are first expanded into their occurrences
@@ -179,6 +180,7 @@ internal class EventRepository(
             .mapLatest { eventsWithOverrides ->
                 eventsWithOverrides
                     .expandRecurrencesInWindow(
+                        access = EventExpansionAccess,
                         rangeStart = start,
                         rangeEnd = end,
                         timeZone = timeZone,
@@ -733,6 +735,7 @@ internal class EventRepository(
                 val occurrences = eventsWithOverrides.flatMap { eventWithOverrides ->
                     val window = eventWithOverrides.alarmWindow(from, until, timeZone)
                     listOf(eventWithOverrides).expandRecurrencesInWindow(
+                        access = EventExpansionAccess,
                         rangeStart = window.start,
                         rangeEnd = window.endExclusive,
                         timeZone = timeZone,
@@ -743,7 +746,7 @@ internal class EventRepository(
 
                 upcomingAlarms(
                     occurrences = occurrences,
-                    storedRows = eventsWithOverrides.flatMap(EventWithOverrides::ringingRows),
+                    storedRows = eventsWithOverrides.flatMap { it.ringingRows() },
                     from = from,
                     until = until,
                     limit = limit,
@@ -759,7 +762,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<EventWithOverrides>> {
+    ): Flow<List<EventWithOverrides<Event>>> {
         // Same deduplication and debouncing as [observeVisibleEventsWithOverrides].
         @OptIn(FlowPreview::class)
         return eventDao.observeAlarmedInRange(
@@ -773,7 +776,7 @@ internal class EventRepository(
             .debounce(EVENTS_FLOW_DEBOUNCE)
     }
 
-    private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides?> {
+    private fun observeEventWithOverrides(eventId: EventId): Flow<EventWithOverrides<Event>?> {
         return eventDao.observeEventWithCalendar(eventId).map { relation -> relation?.toDomainEventWithOverrides() }
     }
 
@@ -787,7 +790,7 @@ internal class EventRepository(
  * pendant of the shift the query applies, overrides included, since their alarms are their own. Only
  * relative triggers widen it — an absolute one rings off [ringingRows], unexpanded.
  */
-private fun EventWithOverrides.alarmWindow(from: Instant, until: Instant, zone: TimeZone): OpenEndRange<Instant> {
+private fun EventWithOverrides<Event>.alarmWindow(from: Instant, until: Instant, zone: TimeZone): OpenEndRange<Instant> {
     var minOffset = Duration.ZERO
     var maxOffset = Duration.ZERO
 
@@ -810,7 +813,7 @@ private fun EventWithOverrides.alarmWindow(from: Instant, until: Instant, zone: 
  * The rows an absolute trigger may ring from: the event as stored, plus the overrides holding an
  * instance of it. A `STATUS:CANCELLED` override holds none, so its alarms have nothing to announce.
  */
-private fun EventWithOverrides.ringingRows(): List<Event> {
+private fun EventWithOverrides<Event>.ringingRows(): List<Event> {
     return listOf(master) + overridesByOccurrenceKey.values.filter { it.status != EventStatus.CANCELLED }
 }
 

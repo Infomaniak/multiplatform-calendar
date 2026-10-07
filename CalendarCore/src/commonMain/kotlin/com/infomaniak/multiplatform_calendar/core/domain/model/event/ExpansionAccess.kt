@@ -36,3 +36,12 @@ internal val EventExpansionAccess = ExpansionAccess<Event>(
         master.copy(occurrenceId = occurrenceId, timing = master.timing.copy(bounds = bounds))
     },
 )
+
+internal val EventSummaryExpansionAccess = ExpansionAccess<EventSummary>(
+    idOf = { it.occurrenceId.masterId },
+    timingOf = EventSummary::timing,
+    isCancelled = { it.status == EventStatus.CANCELLED },
+    occurrenceOf = { master, occurrenceId, bounds ->
+        master.copy(occurrenceId = occurrenceId, timing = master.timing.copy(bounds = bounds))
+    },
+)

@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.recurrenceRuleWithMatchingUntil
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
@@ -49,6 +50,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventExpansionAccess
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryExpansionAccess
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -133,7 +136,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<EventWithOverrides<Event>>> {
+    ): Flow<List<EventWithOverrides<EventSummary>>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
         // - Absolute epoch ms for anchored events (zoned / UTC).
         // - Wall-clock strings for floating and all-day events, re-interpreted in [zone] so they stay
@@ -146,7 +149,7 @@ internal class EventRepository(
             endInstantMs = end.toEpochMilliseconds(),
             startLocalDateTime = start.toLocalDateTime(zone),
             endLocalDateTime = end.toLocalDateTime(zone),
-        ).map(List<EventWithCalendarEntity>::toDomainEventsWithOverrides)
+        ).map { rows -> rows.map(EventSummaryInRange::toDomain) }
             .distinctUntilChanged()
             .debounce(EVENTS_FLOW_DEBOUNCE)
     }
@@ -156,8 +159,8 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<Event>> = observeVisibleEventsWithOverrides(accountIds, start, end, zone)
-        .map { events -> events.map(EventWithOverrides<Event>::master) }
+    ): Flow<List<EventSummary>> = observeVisibleEventsWithOverrides(accountIds, start, end, zone)
+        .map { events -> events.map(EventWithOverrides<EventSummary>::master) }
 
     /**
      * Like [observeVisibleEvents], but recurring masters are first expanded into their occurrences
@@ -180,7 +183,7 @@ internal class EventRepository(
             .mapLatest { eventsWithOverrides ->
                 eventsWithOverrides
                     .expandRecurrencesInWindow(
-                        access = EventExpansionAccess,
+                        access = EventSummaryExpansionAccess,
                         rangeStart = start,
                         rangeEnd = end,
                         timeZone = timeZone,

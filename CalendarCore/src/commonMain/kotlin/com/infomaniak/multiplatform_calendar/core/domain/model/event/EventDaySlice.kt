@@ -32,12 +32,11 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
- * One day's worth of an [Event], as seen on a planning grid.
+ * One day's worth of an event ([EventSummary]), as seen on a planning grid.
  *
  * An event that spans several days (all-day or timed) is split into one [EventDaySlice] per day it
  * covers. A single-day event yields exactly one slice. This is the **only** consumer-facing type
- * for planning: recurrence (RRULE), when added later, will expand a master [Event] into synthetic
- * per-instance [Event]s *before* the day split, so the day-split contract below never changes.
+ * for planning: a recurring event is expanded into its occurrences *before* the day split.
  *
  * All fields are expressed in the `timeZone` passed to [expandDaySlicesInto]:
  * - [displayStart] / [displayEnd] are always full `date + time`, clamped to this [date] (never null,
@@ -51,7 +50,7 @@ import kotlin.time.Instant
  * are derived properties, not stored, so they can never drift out of sync with the data.
  */
 public data class EventDaySlice(
-    val event: Event,
+    val event: EventSummary,
     val date: LocalDate,
     val displayStart: LocalDateTime,
     val displayEnd: LocalDateTime,
@@ -109,7 +108,7 @@ public data class EventDaySlice(
  * CPU-bound `suspend` function: cancellation is checked before each event so a caller using
  * `mapLatest` (see `EventRepository.observeVisibleDaySlices`) can abandon a stale grouping.
  */
-internal suspend fun List<Event>.groupDaySlicesByDay(
+internal suspend fun List<EventSummary>.groupDaySlicesByDay(
     rangeStart: Instant,
     rangeEnd: Instant,
     timeZone: TimeZone,
@@ -151,7 +150,7 @@ internal suspend fun List<Event>.groupDaySlicesByDay(
  * pass. The slices within a bucket are **unsorted**; cancellation is checked before each day so a long
  * expansion stops promptly when the caller's `mapLatest` abandons it.
  */
-internal suspend fun Event.expandDaySlicesInto(
+internal suspend fun EventSummary.expandDaySlicesInto(
     buckets: Array<MutableList<EventDaySlice>?>,
     visibleDays: ClosedRange<LocalDate>,
     timeZone: TimeZone,

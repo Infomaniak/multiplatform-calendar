@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_core.contacts.data.local.dao
 import androidx.room3.Dao
 import androidx.room3.Query
 import androidx.room3.Upsert
+import kotlinx.coroutines.flow.Flow
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
@@ -41,6 +42,9 @@ internal interface ContactDao {
         """,
     )
     suspend fun search(accountIds: Set<AccountId>, likeQuery: String): List<ContactEntity>
+
+    @Query("SELECT * FROM contacts WHERE emailNormalized IN (:normalizedEmails)")
+    fun observeByEmails(normalizedEmails: Set<String>): Flow<List<ContactEntity>>
 
     @Query("SELECT id FROM contactAccounts")
     suspend fun accountIds(): List<AccountId>

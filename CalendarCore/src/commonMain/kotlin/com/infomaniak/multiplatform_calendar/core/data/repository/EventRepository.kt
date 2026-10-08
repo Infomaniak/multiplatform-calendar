@@ -48,10 +48,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySli
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryWithAlarmsExpansionAccess
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryExpansionAccess
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryWithAlarmsExpansionAccess
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -63,6 +63,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.offsetFromStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.contactEmails
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.groupDaySlicesByDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
@@ -81,6 +82,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateV
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.withContacts
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.withSeriesChanges
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
@@ -102,6 +104,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -123,6 +127,7 @@ internal class EventRepository(
     private val caldavClient: CalendarSyncRemoteSource,
     private val eventDao: EventDao,
     private val crashReport: CrashReport,
+    private val contactsLookup: ContactsLookup,
 ) {
 
     /**
@@ -265,12 +270,13 @@ internal class EventRepository(
         )
     }
 
+    /** This occurrence, with the contacts of its attendees and of its organizer. */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeOccurrence(
         occurrenceId: OccurrenceId,
         timeZone: TimeZone,
     ): Flow<Event?> {
-        return when (occurrenceId) {
+        val occurrence = when (occurrenceId) {
             is OccurrenceId.Master -> observeEvent(occurrenceId.masterId)
             is OccurrenceId.Recurrence -> observeEventWithOverrides(occurrenceId.masterId).mapLatest { eventWithOverrides ->
                 eventWithOverrides?.resolveOccurrence(
@@ -280,6 +286,9 @@ internal class EventRepository(
                     onOrphanOverrideDropped = ::logOrphanOverride,
                 )
             }.flowOn(Dispatchers.Default)
+        }
+        return occurrence.flatMapLatest { event ->
+            event?.let { contactsLookup.observeContacts(it.contactEmails, it.accountId).map(it::withContacts) } ?: flowOf(null)
         }
     }
 

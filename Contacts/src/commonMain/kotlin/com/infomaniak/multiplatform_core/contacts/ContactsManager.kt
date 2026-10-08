@@ -35,6 +35,8 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -96,6 +98,23 @@ public class ContactsManager internal constructor(
         accountIds: Set<AccountId> = emptySet(),
         limit: Int = DEFAULT_SEARCH_LIMIT,
     ): List<Contact> = contactsCall { repository.search(accountIds, query, limit) }
+
+    /**
+     * The local contact of each of these [emails] that has one, updated on every sync or device contacts change.
+     * Accounts are merged as in [search], [preferredAccountId] first; among contacts sharing an email, the best ranked
+     * one wins.
+     */
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
+    public fun observeContacts(
+        emails: Set<String>,
+        preferredAccountId: AccountId? = null,
+    ): Flow<Map<String, Contact>> = repository.observeContacts(emails, preferredAccountId).flowOn(Dispatchers.Default)
+
+    /** To call once the access to the device contacts is granted, so that [observeContacts] reads them. */
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
+    public fun onDeviceContactsAccessGranted(): Unit = repository.onDeviceContactsAccessGranted()
 
     /**
      * Syncs the server address books into the local database, in parallel. When some accounts fail, the others still

@@ -18,6 +18,9 @@
 
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
+
 public data class Attendee(
     val email: String,
     val displayName: String? = null,
@@ -26,6 +29,8 @@ public data class Attendee(
     val isOrganizer: Boolean = false,
     val responseNeeded: Boolean = false,
     val type: AttendeeType = AttendeeType.Individual,
+    val contact: Contact? = null,
 ) {
     val key: String inline get() = "$email#$displayName"
+    val avatar: ContactAvatar? inline get() = contact?.avatar
 }

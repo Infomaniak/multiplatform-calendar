@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.di
 
+import com.infomaniak.multiplatform_calendar.core.data.repository.ContactsLookup
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
 import com.infomaniak.multiplatform_core.contacts.ContactsSettings
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
@@ -37,4 +38,8 @@ public interface ContactsModule {
         databasePath = settings.databasePath,
         deviceContactsProvider = deviceContactsProvider,
     )
+
+    @Provides
+    private fun provideContactsLookup(contactsManager: ContactsManager): ContactsLookup =
+        ContactsLookup(contactsManager::observeContacts)
 }

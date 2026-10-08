@@ -32,6 +32,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,6 +78,20 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
             listOf(ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/bob.png", accountId = ACCOUNT_2)),
             manager.search("bob").map { it.avatar },
         )
+    }
+
+    @Test
+    fun observedContactTakesTheAvatarOfThePreferredAccount() = runTest {
+        contactsByToken[TOKEN_1] = listOf(ApiContact(name = "Bob", emails = listOf("bob@x.com"), avatar = "/avatar/1.png"))
+        contactsByToken[TOKEN_2] = listOf(ApiContact(name = "Bob", emails = listOf("bob@x.com"), avatar = "/avatar/2.png"))
+        val manager = managerWithBothAccounts()
+        manager.sync()
+
+        for (accountId in listOf(ACCOUNT_1, ACCOUNT_2)) {
+            val avatar = manager.observeContacts(setOf("bob@x.com"), preferredAccountId = accountId).first()
+                .getValue("bob@x.com").avatar
+            assertEquals(accountId, (avatar as ContactAvatar.Remote).accountId)
+        }
     }
 
     @Test

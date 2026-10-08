@@ -41,6 +41,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -60,6 +67,7 @@ internal class ContactsRepository(
     private val deviceContactsMutex = Mutex()
     private var deviceContacts: List<DeviceContact>? = null
     private var isObservingDeviceContacts = false
+    private val deviceContactsVersion = MutableStateFlow(0)
 
     /** Searches [accountIds], or every synced account when empty. A contact found in several accounts is returned once. */
     suspend fun search(accountIds: Set<AccountId>, query: String, limit: Int): List<Contact> {
@@ -85,6 +93,19 @@ internal class ContactsRepository(
             .map(ContactMatch::toContact)
     }
 
+    fun observeContacts(emails: Set<String>, preferredAccountId: AccountId?): Flow<Map<String, Contact>> {
+        if (emails.isEmpty()) return flowOf(emptyMap())
+
+        return combine(
+            observeApiMatches(emails, preferredAccountId),
+            observeDeviceMatches(emails),
+        ) { apiMatches, deviceMatches ->
+            bestContactsByEmail(emails, merge(deviceMatches, apiMatches))
+        }.distinctUntilChanged()
+    }
+
+    fun onDeviceContactsAccessGranted() = deviceContactsVersion.update { it + 1 }
+
     /**
      * Syncs [accountIds], or every initialized account when empty, in parallel. When some accounts fail, the others
      * still complete, then the first failure is thrown with the next ones suppressed.
@@ -109,6 +130,24 @@ internal class ContactsRepository(
         syncMutex(accountId).withLock {
             tokenStore.remove(accountId)
             dao.deleteAccount(accountId)
+        }
+    }
+
+    private fun observeApiMatches(emails: Set<String>, preferredAccountId: AccountId?): Flow<List<ContactMatch>> {
+        return dao.observeByEmails(emails.mapTo(mutableSetOf()) { it.normalizedForSearch() }).map { entities ->
+            entities
+                .sortedByDescending { it.accountId == preferredAccountId }
+                .map(ContactEntity::toContactMatch)
+                .mergedAcrossAccounts()
+        }
+    }
+
+    private fun observeDeviceMatches(emails: Set<String>): Flow<List<ContactMatch>> {
+        val lowercaseEmails = emails.mapTo(mutableSetOf()) { it.lowercase() }
+        return deviceContactsVersion.map {
+            cachedDeviceContacts()
+                .filter { it.email.lowercase() in lowercaseEmails }
+                .map(DeviceContact::toContactMatch)
         }
     }
 
@@ -155,7 +194,10 @@ internal class ContactsRepository(
         if (isObservingDeviceContacts) return
         isObservingDeviceContacts = true
         deviceContactsScope.launch {
-            deviceContactsProvider.changes.collect { deviceContactsMutex.withLock { deviceContacts = null } }
+            deviceContactsProvider.changes.collect {
+                deviceContactsMutex.withLock { deviceContacts = null }
+                deviceContactsVersion.update { it + 1 }
+            }
         }
     }
 }
@@ -175,6 +217,17 @@ private fun ContactMatch.completedWith(apiContact: ContactMatch): ContactMatch =
     contactedTimes = apiContact.contactedTimes,
     isInAddressBook = apiContact.isInAddressBook,
 )
+
+private fun bestContactsByEmail(emails: Set<String>, matches: List<ContactMatch>): Map<String, Contact> {
+    if (matches.isEmpty()) return emptyMap()
+
+    val matchesByEmail = matches.groupBy { it.email.lowercase() }
+    return emails.mapNotNull { email ->
+        matchesByEmail[email.lowercase()]?.let { email to it.bestRanked().toContact() }
+    }.toMap()
+}
+
+private fun List<ContactMatch>.bestRanked(): ContactMatch = minWith(contactMatchComparator { MatchTier.None })
 
 private fun contactMatchComparator(matchTier: (ContactMatch) -> MatchTier): Comparator<ContactMatch> =
     compareBy<ContactMatch> { -relevanceWeight(it) }

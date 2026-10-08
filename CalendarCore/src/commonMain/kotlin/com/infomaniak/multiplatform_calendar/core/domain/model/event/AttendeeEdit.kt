@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+
 /** An attendee as an edit states it. Its answer is not editable: a new attendee is asked for one. */
 public data class AttendeeEdit(
     val email: String,
@@ -27,3 +29,5 @@ public data class AttendeeEdit(
         else -> AttendeeRole.Requested
     },
 )
+
+public fun Contact.toAttendeeEdit(): AttendeeEdit = AttendeeEdit(email = email, displayName = name.ifBlank { null })

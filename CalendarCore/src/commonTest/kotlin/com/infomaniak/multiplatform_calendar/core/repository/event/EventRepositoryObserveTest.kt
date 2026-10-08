@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.repository.event
 
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
@@ -26,7 +27,9 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
@@ -43,6 +46,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
@@ -473,6 +477,59 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
         assertTrue(occurrenceIds.all { it.endsWith("#event://all-day") }, "ids must name their master")
         assertEquals(3, slicesByDay.keys.size, "each all-day occurrence lands on its own day")
+    }
+
+    @Test
+    fun observeVisibleEvents_findsTheUserAmongTheAttendeesByTheirAddressIgnoringCase() = runTest {
+        seedCalendar()
+        val me = ALICE.copy(email = "USER@example.com", status = ParticipationStatus.Tentative)
+
+        val summary = observeSingleListedEvent(attendees = listOf(ALICE, me))
+
+        assertTrue(summary.hasAttendees)
+        assertEquals(ParticipationStatus.Tentative, summary.myStatus)
+    }
+
+    @Test
+    fun observeVisibleEvents_findsTheUserAmongTheAttendeesByAnAlias() = runTest {
+        seedCalendar()
+        val me = ALICE.copy(email = "alias@example.com", status = ParticipationStatus.Declined)
+
+        val summary = observeSingleListedEvent(attendees = listOf(ALICE, me))
+
+        assertEquals(ParticipationStatus.Declined, summary.myStatus)
+    }
+
+    @Test
+    fun observeVisibleEvents_hasNoStatusOfTheUserWhenTheyAreNotInvited() = runTest {
+        seedCalendar()
+
+        val summary = observeSingleListedEvent(attendees = listOf(ALICE))
+
+        assertTrue(summary.hasAttendees)
+        assertNull(summary.myStatus)
+    }
+
+    @Test
+    fun observeVisibleEvents_hasNoAttendeesForAnEventWithoutGuests() = runTest {
+        seedCalendar()
+
+        val summary = observeSingleListedEvent(attendees = emptyList())
+
+        assertFalse(summary.hasAttendees)
+        assertNull(summary.myStatus)
+    }
+
+    private suspend fun observeSingleListedEvent(attendees: List<AttendeeEntity>): EventSummary {
+        val event = floatingEvent(CALENDAR_ID)
+        eventDao().upsert(listOf(EventWithRawIcs(event.copy(content = event.content.copy(attendees = attendees)), "")))
+
+        return repository.observeVisibleEvents(
+            accountIds = setOf(ACCOUNT_ID),
+            start = LocalDateTime(2026, 6, 15, 10, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 15, 10, 30).toInstant(TimeZone.UTC),
+            zone = TimeZone.UTC,
+        ).first().single()
     }
 
     private fun floatingEvent(calendarId: CalendarId): EventEntity {

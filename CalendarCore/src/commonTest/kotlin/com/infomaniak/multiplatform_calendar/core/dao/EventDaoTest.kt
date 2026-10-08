@@ -229,8 +229,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 29, 12, 0),
         ).first()
 
-        assertEquals(listOf(inRangeVisible.id), observed.map { it.event.id })
-        assertEquals(listOf(visibleCalendar), observed.map { it.calendar.id })
+        assertEquals(listOf(inRangeVisible.id), observed.map { it.id })
     }
 
     @Test
@@ -273,7 +272,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = queryEnd,
         ).first()
 
-        assertEquals(listOf(inRange.id), observed.map { it.event.id })
+        assertEquals(listOf(inRange.id), observed.map { it.id })
     }
 
     @Test
@@ -312,7 +311,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 29, 12, 0),
         ).first()
 
-        assertEquals(listOf(inRange.id), observed.map { it.event.id })
+        assertEquals(listOf(inRange.id), observed.map { it.id })
     }
 
     @Test
@@ -353,10 +352,10 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = queryEnd,
         ).first()
 
-        assertTrue(observed.map { it.event.id }.containsAll(listOf(zoned.id, floating.id)))
+        assertTrue(observed.map { it.id }.containsAll(listOf(zoned.id, floating.id)))
         assertEquals(2, observed.size)
         // Anchored (non-null dtStartInstantMs) sorts before floating regardless of wall-clock.
-        assertEquals(listOf(zoned.id, floating.id), observed.map { it.event.id })
+        assertEquals(listOf(zoned.id, floating.id), observed.map { it.id })
     }
 
     @Test
@@ -411,7 +410,7 @@ class EventDaoTest : RobolectricTestsBase() {
         // ...yet floatingEarly still comes after both anchored events (anchored group is always first).
         assertEquals(
             listOf(anchoredEarly.id, anchoredLate.id, floatingEarly.id, floatingLate.id),
-            observed.map { it.event.id },
+            observed.map { it.id },
         )
     }
 
@@ -544,7 +543,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 30, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -633,7 +632,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 16, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -662,7 +661,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 30, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -690,7 +689,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2027, 1, 2, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -738,7 +737,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 14, 20, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -778,7 +777,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 7, 11, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -818,7 +817,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 11, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -850,7 +849,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 8, 21, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -883,7 +882,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 4, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -951,9 +950,12 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 6, 4, 0, 0),
         ).first()
 
-        assertEquals(listOf(first.id, second.id), observed.map { it.event.id })
-        assertEquals(listOf(firstOverride), observed.single { it.event.id == first.id }.overrides)
-        assertTrue(observed.single { it.event.id == second.id }.overrides.isEmpty())
+        assertEquals(listOf(first.id, second.id), observed.map { it.id })
+        assertEquals(
+            listOf(firstOverride.recurrenceKey),
+            observed.single { it.id == first.id }.overrides.map { it.recurrenceKey },
+        )
+        assertTrue(observed.single { it.id == second.id }.overrides.isEmpty())
     }
 
     @Test
@@ -1006,7 +1008,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = end.toLocalDateTime(zone),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
+        assertEquals(listOf(master.id), observed.map { it.id })
     }
 
     @Test
@@ -1047,8 +1049,8 @@ class EventDaoTest : RobolectricTestsBase() {
             endLocalDateTime = LocalDateTime(2026, 8, 21, 0, 0),
         ).first()
 
-        assertEquals(listOf(master.id), observed.map { it.event.id })
-        assertEquals(listOf(moved), observed.single().overrides)
+        assertEquals(listOf(master.id), observed.map { it.id })
+        assertEquals(listOf(moved.recurrenceKey), observed.single().overrides.map { it.recurrenceKey })
     }
 
     @Test
@@ -1118,7 +1120,7 @@ class EventDaoTest : RobolectricTestsBase() {
             endInstantMs = end.toEpochMilliseconds(),
             startLocalDateTime = from,
             endLocalDateTime = to,
-        ).first().map { it.event.id }
+        ).first().map { it.id }
     }
 
     private fun createEvent(

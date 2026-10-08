@@ -23,6 +23,15 @@ import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOut
 import kotlinx.datetime.TimeZone
 import kotlin.time.Instant
 
+private val EventExpansionAccess = ExpansionAccess<Event>(
+    idOf = Event::masterEventId,
+    timingOf = Event::timing,
+    isCancelled = { it.status == EventStatus.CANCELLED },
+    occurrenceOf = { master, occurrenceId, bounds ->
+        master.copy(occurrenceId = occurrenceId, timing = master.timing.copy(bounds = bounds))
+    },
+)
+
 internal suspend fun List<EventWithOverrides<Event>>.expandRecurrencesInWindow(
     rangeStart: Instant,
     rangeEnd: Instant,

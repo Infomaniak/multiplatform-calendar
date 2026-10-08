@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.jvm.JvmInline
 import kotlin.native.HiddenFromObjC
@@ -45,5 +45,5 @@ public data class UpcomingAlarm(
     val id: UpcomingAlarmId,
     val firesAt: Instant,
     val alarm: EventAlarm,
-    val event: Event,
+    val event: EventSummary,
 )

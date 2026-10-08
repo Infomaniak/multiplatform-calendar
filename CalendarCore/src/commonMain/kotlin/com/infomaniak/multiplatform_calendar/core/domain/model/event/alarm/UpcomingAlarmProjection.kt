@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import kotlinx.datetime.TimeZone
 import kotlin.time.Duration
@@ -36,8 +36,8 @@ import kotlin.time.Instant
  * each trigger is read from one only.
  */
 internal fun upcomingAlarms(
-    occurrences: List<Event>,
-    storedRows: List<Event>,
+    occurrences: List<EventSummaryWithAlarms>,
+    storedRows: List<EventSummaryWithAlarms>,
     from: Instant,
     until: Instant,
     limit: Int,
@@ -55,7 +55,7 @@ internal fun upcomingAlarms(
         .take(limit)
 }
 
-private fun List<Event>.projectInto(
+private fun List<EventSummaryWithAlarms>.projectInto(
     projected: MutableList<UpcomingAlarm>,
     from: Instant,
     until: Instant,
@@ -63,13 +63,13 @@ private fun List<Event>.projectInto(
     defaultZone: TimeZone,
     triggers: (AlarmTrigger) -> Boolean,
 ) {
-    for (event in this) {
+    for ((event, alarms) in this) {
         // Ordinals count within one event, per key, so that reordering an event's alarm list permutes
         // the ordinals of alarms already indistinguishable instead of renaming unrelated ones.
         // Filtering first is safe: alarms sharing a key fire at the very same instant, so no window and
         // no set of actions can ever keep one of a group and drop another.
         val ordinals = HashMap<String, Int>()
-        for (alarm in event.alarms) {
+        for (alarm in alarms) {
             if (!triggers(alarm.trigger) || alarm.action !in actions) continue
             val firesAt = alarm.firesAt(event.timing, defaultZone)
             if (firesAt < from || firesAt > until) continue
@@ -114,9 +114,9 @@ internal fun AlarmTrigger.Relative.offsetFromStart(timing: EventTiming, defaultZ
  * series: keying it on the series is what collapses the copies it was cloned onto the overrides of that
  * series into a single firing.
  */
-private fun EventAlarm.alarmKey(event: Event, firesAt: Instant): String {
+private fun EventAlarm.alarmKey(event: EventSummary, firesAt: Instant): String {
     val scope = when (trigger) {
-        is AlarmTrigger.Absolute -> event.masterEventId.url
+        is AlarmTrigger.Absolute -> event.occurrenceId.masterId.url
         is AlarmTrigger.Relative -> event.occurrenceId.value
     }
     return "$scope|$firesAt|${id.value}"

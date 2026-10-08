@@ -213,7 +213,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         calendarId: CalendarId = CALENDAR_ID,
         color: CalendarSourceColor? = null,
     ) {
-        database.accountDao().insert(AccountEntity(id = accountId))
+        database.accountDao().insert(AccountEntity(id = accountId, emails = ACCOUNT_EMAILS))
         database.calendarDao().upsert(
             listOf(
                 CalendarEntity(
@@ -258,6 +258,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
 
     protected companion object {
         val ACCOUNT_ID = AccountId(1)
+        val ACCOUNT_EMAILS = listOf("user@example.com", "alias@example.com")
         val CALENDAR_ID = CalendarId("calendar://main")
         val CREDENTIALS = DavAccount(baseUrl = "https://cal/", username = "u", password = "p")
         val OWNER = OrganizerEntity(email = "owner@example.com", displayName = "Owner")

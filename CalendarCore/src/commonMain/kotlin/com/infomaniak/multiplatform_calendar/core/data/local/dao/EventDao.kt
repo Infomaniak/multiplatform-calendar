@@ -35,6 +35,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRaw
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEventRef
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -51,7 +52,7 @@ internal abstract class EventDao {
     abstract fun observeEvents(calendarId: CalendarId): Flow<List<EventEntity>>
 
     /**
-     * Events (with their parent calendar) from all *visible* calendars of [accountId] that overlap
+     * Events from all *visible* calendars of [accountIds] that overlap
      * the [`[startInstantMs, endInstantMs[`] range. An event overlaps when it starts before [endInstantMs]
      * and its resolved end ([EventTimingEntity.dtEndInstantMs], which already accounts for `DTEND`/`DURATION`)
      * is at/after [startInstantMs].
@@ -81,8 +82,16 @@ internal abstract class EventDao {
     @Transaction
     @Query(
         """
-        SELECT event.* FROM events event
+        SELECT event.id AS id,
+               calendar.color AS calendarColorArgb,
+               account.emails AS accountEmails,
+               event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
+               event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
+               event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
+               event.rrule, event.rDates, event.exDates
+        FROM events event
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        INNER JOIN accounts account ON calendar.accountId = account.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND (
@@ -102,10 +111,10 @@ internal abstract class EventDao {
         endInstantMs: Long,
         startLocalDateTime: LocalDateTime,
         endLocalDateTime: LocalDateTime,
-    ): Flow<List<EventWithCalendarEntity>>
+    ): Flow<List<EventSummaryInRange>>
 
     /**
-     * Events (with their parent calendar) from all *visible* calendars of [accountIds] whose alarms may go
+     * Events from all *visible* calendars of [accountIds] whose alarms may go
      * off in the [`[startInstantMs, endInstantMs]`] window.
      *
      * An alarm does not go off when its event happens, so the branches of [observeVisibleInRange] are
@@ -118,8 +127,16 @@ internal abstract class EventDao {
     @Transaction
     @Query(
         """
-        SELECT event.* FROM events event
+        SELECT event.id AS id,
+               calendar.color AS calendarColorArgb,
+               account.emails AS accountEmails,
+               event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
+               event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
+               event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
+               event.rrule, event.rDates, event.exDates
+        FROM events event
         INNER JOIN calendars calendar ON event.calendarId = calendar.id
+        INNER JOIN accounts account ON calendar.accountId = account.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
           AND (
@@ -141,7 +158,7 @@ internal abstract class EventDao {
         endInstantMs: Long,
         startLocalDateTime: LocalDateTime,
         endLocalDateTime: LocalDateTime,
-    ): Flow<List<EventWithCalendarEntity>>
+    ): Flow<List<EventSummaryInRange>>
 
     /**
      * Same *visible calendars* + *range overlap* filter as [observeVisibleInRange], but returns only the

@@ -26,12 +26,13 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
+import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.recurrenceRuleWithMatchingUntil
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventsWithOverrides
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainWithAlarms
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
@@ -47,8 +48,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySli
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryWithAlarmsExpansionAccess
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventExpansionAccess
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryExpansionAccess
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -56,6 +59,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.offsetFromStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.upcomingAlarms
@@ -133,7 +137,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<EventWithOverrides<Event>>> {
+    ): Flow<List<EventWithOverrides<EventSummary>>> {
         // Range bounds are compared in two ways (see EventDao.observeVisibleInRange):
         // - Absolute epoch ms for anchored events (zoned / UTC).
         // - Wall-clock strings for floating and all-day events, re-interpreted in [zone] so they stay
@@ -146,7 +150,7 @@ internal class EventRepository(
             endInstantMs = end.toEpochMilliseconds(),
             startLocalDateTime = start.toLocalDateTime(zone),
             endLocalDateTime = end.toLocalDateTime(zone),
-        ).map(List<EventWithCalendarEntity>::toDomainEventsWithOverrides)
+        ).map { rows -> rows.map(EventSummaryInRange::toDomain) }
             .distinctUntilChanged()
             .debounce(EVENTS_FLOW_DEBOUNCE)
     }
@@ -156,8 +160,8 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<Event>> = observeVisibleEventsWithOverrides(accountIds, start, end, zone)
-        .map { events -> events.map(EventWithOverrides<Event>::master) }
+    ): Flow<List<EventSummary>> = observeVisibleEventsWithOverrides(accountIds, start, end, zone)
+        .map { events -> events.map(EventWithOverrides<EventSummary>::master) }
 
     /**
      * Like [observeVisibleEvents], but recurring masters are first expanded into their occurrences
@@ -180,7 +184,7 @@ internal class EventRepository(
             .mapLatest { eventsWithOverrides ->
                 eventsWithOverrides
                     .expandRecurrencesInWindow(
-                        access = EventExpansionAccess,
+                        access = EventSummaryExpansionAccess,
                         rangeStart = start,
                         rangeEnd = end,
                         timeZone = timeZone,
@@ -735,7 +739,7 @@ internal class EventRepository(
                 val occurrences = eventsWithOverrides.flatMap { eventWithOverrides ->
                     val window = eventWithOverrides.alarmWindow(from, until, timeZone)
                     listOf(eventWithOverrides).expandRecurrencesInWindow(
-                        access = EventExpansionAccess,
+                        access = EventSummaryWithAlarmsExpansionAccess,
                         rangeStart = window.start,
                         rangeEnd = window.endExclusive,
                         timeZone = timeZone,
@@ -762,7 +766,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         zone: TimeZone,
-    ): Flow<List<EventWithOverrides<Event>>> {
+    ): Flow<List<EventWithOverrides<EventSummaryWithAlarms>>> {
         // Same deduplication and debouncing as [observeVisibleEventsWithOverrides].
         @OptIn(FlowPreview::class)
         return eventDao.observeAlarmedInRange(
@@ -771,7 +775,7 @@ internal class EventRepository(
             endInstantMs = end.toEpochMilliseconds(),
             startLocalDateTime = start.toLocalDateTime(zone),
             endLocalDateTime = end.toLocalDateTime(zone),
-        ).map(List<EventWithCalendarEntity>::toDomainEventsWithOverrides)
+        ).map { rows -> rows.map(EventSummaryInRange::toDomainWithAlarms) }
             .distinctUntilChanged()
             .debounce(EVENTS_FLOW_DEBOUNCE)
     }
@@ -790,13 +794,13 @@ internal class EventRepository(
  * pendant of the shift the query applies, overrides included, since their alarms are their own. Only
  * relative triggers widen it — an absolute one rings off [ringingRows], unexpanded.
  */
-private fun EventWithOverrides<Event>.alarmWindow(from: Instant, until: Instant, zone: TimeZone): OpenEndRange<Instant> {
+private fun EventWithOverrides<EventSummaryWithAlarms>.alarmWindow(from: Instant, until: Instant, zone: TimeZone): OpenEndRange<Instant> {
     var minOffset = Duration.ZERO
     var maxOffset = Duration.ZERO
 
-    fun widenBy(event: Event) {
+    fun widenBy(event: EventSummaryWithAlarms) {
         for (alarm in event.alarms) {
-            val offset = (alarm.trigger as? AlarmTrigger.Relative)?.offsetFromStart(event.timing, zone) ?: continue
+            val offset = (alarm.trigger as? AlarmTrigger.Relative)?.offsetFromStart(event.summary.timing, zone) ?: continue
             minOffset = minOf(minOffset, offset)
             maxOffset = maxOf(maxOffset, offset)
         }
@@ -813,8 +817,8 @@ private fun EventWithOverrides<Event>.alarmWindow(from: Instant, until: Instant,
  * The rows an absolute trigger may ring from: the event as stored, plus the overrides holding an
  * instance of it. A `STATUS:CANCELLED` override holds none, so its alarms have nothing to announce.
  */
-private fun EventWithOverrides<Event>.ringingRows(): List<Event> {
-    return listOf(master) + overridesByOccurrenceKey.values.filter { it.status != EventStatus.CANCELLED }
+private fun EventWithOverrides<EventSummaryWithAlarms>.ringingRows(): List<EventSummaryWithAlarms> {
+    return listOf(master) + overridesByOccurrenceKey.values.filter { it.summary.status != EventStatus.CANCELLED }
 }
 
 /**

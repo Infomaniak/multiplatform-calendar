@@ -24,6 +24,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toAlarmedEvent
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.datetime.LocalDateTime
@@ -108,7 +110,7 @@ class UpcomingAlarmProjectionTest {
             alarms.map(UpcomingAlarm::firesAt),
             "a fixed instant answers to the series, not to whichever occurrence the window happens to hold",
         )
-        assertEquals(master, alarms.single().event)
+        assertEquals(master.toSummary(), alarms.single().event)
     }
 
     @Test
@@ -255,7 +257,7 @@ class UpcomingAlarmProjectionTest {
 
         val alarm = listOf(event).project().single()
 
-        assertEquals(event, alarm.event)
+        assertEquals(event.toSummary(), alarm.event)
         assertEquals(event.alarms.single(), alarm.alarm)
         assertTrue(alarm.id.value.isNotEmpty())
     }
@@ -304,8 +306,8 @@ class UpcomingAlarmProjectionTest {
         limit: Int = 50,
         actions: Set<AlarmAction> = setOf(AlarmAction.Display, AlarmAction.Audio),
     ) = upcomingAlarms(
-        occurrences = this,
-        storedRows = storedRows,
+        occurrences = map(Event::toAlarmedEvent),
+        storedRows = storedRows.map(Event::toAlarmedEvent),
         from = from,
         until = until,
         limit = limit,

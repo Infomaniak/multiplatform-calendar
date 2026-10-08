@@ -233,7 +233,7 @@ class EventDaySliceTest {
             allDay(LocalDate(2026, 1, 6), LocalDate(2026, 1, 7), id = "event://allday"),
         )
 
-        val byDay = events.groupDaySlicesByDay(
+        val byDay = events.map(Event::toSummary).groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 8, 0, 0),
             timeZone = paris,
@@ -257,7 +257,7 @@ class EventDaySliceTest {
             timed(LocalDateTime(2026, 1, 5, 9, 0), LocalDateTime(2026, 1, 5, 10, 0), paris, id = "event://morning"),
         )
 
-        val day = events.groupDaySlicesByDay(
+        val day = events.map(Event::toSummary).groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0),
             timeZone = paris,
@@ -276,7 +276,7 @@ class EventDaySliceTest {
             timed(LocalDateTime(2026, 1, 5, 10, 0), LocalDateTime(2026, 1, 5, 11, 0), paris, id = "event://a"),
         )
 
-        val day = events.groupDaySlicesByDay(
+        val day = events.map(Event::toSummary).groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0),
             timeZone = paris,
@@ -292,7 +292,7 @@ class EventDaySliceTest {
             allDay(LocalDate(2026, 1, 6), LocalDate(2026, 1, 7), id = "event://day6"),
         )
 
-        val byDay = events.groupDaySlicesByDay(
+        val byDay = events.map(Event::toSummary).groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0), // exclusive: day 6 must not appear
             timeZone = paris,
@@ -313,7 +313,7 @@ class EventDaySliceTest {
             timed(LocalDateTime(2026, 1, 6, 9, 0), LocalDateTime(2026, 1, 6, 10, 0), paris, id = "event://b"),
         )
 
-        val result = events.groupDaySlicesByDay(
+        val result = events.map(Event::toSummary).groupDaySlicesByDay(
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 8, 0, 0),
             timeZone = paris,
@@ -345,7 +345,7 @@ class EventDaySliceTest {
         val events = List(50) { allDay(LocalDate(2026, 6, 5), LocalDate(2026, 6, 6), id = "event://$it") }
 
         assertCancels {
-            events.groupDaySlicesByDay(
+            events.map(Event::toSummary).groupDaySlicesByDay(
                 rangeStart = parisInstant(2026, 1, 5, 0, 0),
                 rangeEnd = parisInstant(2026, 1, 6, 0, 0),
                 timeZone = paris,
@@ -399,7 +399,7 @@ class EventDaySliceTest {
     private suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> {
         val dayCount = visibleDays.start.daysUntil(visibleDays.endInclusive) + 1
         val buckets = arrayOfNulls<MutableList<EventDaySlice>>(dayCount)
-        expandDaySlicesInto(buckets, visibleDays, timeZone)
+        toSummary().expandDaySlicesInto(buckets, visibleDays, timeZone)
         return buckets.filterNotNull().flatten()
     }
 

@@ -23,6 +23,15 @@ pub enum CalendarAccessLevel {
     Owner,
 }
 
+/// What discovery finds for an account: the user's own emails and their calendars.
+#[derive(uniffi::Record)]
+pub struct DiscoveryEntry {
+    /// Emails of the user, from the `mailto:` entries of `calendar-user-address-set` (RFC 6638);
+    /// `None` when they could not be read.
+    pub user_emails: Option<Vec<String>>,
+    pub calendars: Vec<CalendarEntry>,
+}
+
 /// Calendar collection record returned by discovery.
 #[derive(uniffi::Record)]
 pub struct CalendarEntry {

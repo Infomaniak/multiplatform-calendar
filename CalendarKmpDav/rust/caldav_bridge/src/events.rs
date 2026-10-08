@@ -318,10 +318,9 @@ fn attendee_from_prop(p: &Property) -> AttendeeEntry {
 /// Strip a `mailto:` (case-insensitive) prefix to yield a bare email address.
 pub(crate) fn strip_mailto(value: &str) -> String {
     let prefix = "mailto:";
-    if value.len() >= prefix.len() && value[..prefix.len()].eq_ignore_ascii_case(prefix) {
-        value[prefix.len()..].to_string()
-    } else {
-        value.to_string()
+    match value.get(..prefix.len()) {
+        Some(scheme) if scheme.eq_ignore_ascii_case(prefix) => value[prefix.len()..].to_string(),
+        _ => value.to_string(),
     }
 }
 

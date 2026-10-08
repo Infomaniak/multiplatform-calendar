@@ -144,12 +144,12 @@ fn text_prop(response: Node, name: &str) -> Option<String> {
 }
 
 /// Lowercased local name (namespace prefix stripped) of an element node.
-fn local_name(node: &Node) -> String {
+pub(crate) fn local_name(node: &Node) -> String {
     node.tag_name().name().to_ascii_lowercase()
 }
 
 /// Whether any ancestor element of `node` has the given local name.
-fn has_ancestor(node: &Node, name: &str) -> bool {
+pub(crate) fn has_ancestor(node: &Node, name: &str) -> bool {
     node.ancestors()
         .skip(1) // skip the node itself
         .any(|a| a.is_element() && a.tag_name().name().eq_ignore_ascii_case(name))

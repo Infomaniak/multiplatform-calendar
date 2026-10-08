@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDate
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavDiscovery
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
@@ -79,7 +80,6 @@ import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.RecurrenceIdSpec
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.VeventSeed
-import uniffi.caldav_bridge.discover
 import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
 import uniffi.caldav_bridge.AlarmsChange as RustAlarmsChange
 import uniffi.caldav_bridge.DavAccount as RustDavAccount
@@ -89,6 +89,7 @@ import uniffi.caldav_bridge.calendarQueryTimerange as rustCalendarQueryTimerange
 import uniffi.caldav_bridge.calendarQueryTimerangeRefs as rustCalendarQueryTimerangeRefs
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
+import uniffi.caldav_bridge.discover as rustDiscover
 import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
 import uniffi.caldav_bridge.syncCollection as rustSyncCollection
 import uniffi.caldav_bridge.updateCalendar as rustUpdateCalendar
@@ -105,21 +106,24 @@ internal class RustCaldavBridge(
     private val cpuDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : CalendarSyncRemoteSource {
 
-    override suspend fun discoverCalendars(credentials: DavAccount): List<RemoteDavCalendar> {
+    override suspend fun discover(credentials: DavAccount): RemoteDavDiscovery {
         try {
-            val entries = discover(account = credentials.toRust())
-            return entries.map { entry ->
-                RemoteDavCalendar(
-                    url = entry.url,
-                    displayName = entry.displayName,
-                    color = entry.color,
-                    description = entry.description,
-                    ctag = entry.ctag,
-                    accessLevel = entry.accessLevel,
-                )
-            }
+            val discovery = rustDiscover(account = credentials.toRust())
+            return RemoteDavDiscovery(
+                userEmails = discovery.userEmails,
+                calendars = discovery.calendars.map { entry ->
+                    RemoteDavCalendar(
+                        url = entry.url,
+                        displayName = entry.displayName,
+                        color = entry.color,
+                        description = entry.description,
+                        ctag = entry.ctag,
+                        accessLevel = entry.accessLevel,
+                    )
+                },
+            )
         } catch (e: CaldavException) {
-            throw e.toCaldavBridgeException("discoverCalendars")
+            throw e.toCaldavBridgeException("discover")
         }
     }
 

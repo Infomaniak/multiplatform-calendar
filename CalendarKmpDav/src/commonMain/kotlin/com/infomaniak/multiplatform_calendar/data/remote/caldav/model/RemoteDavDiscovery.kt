@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026 Infomaniak Network SA
+ * Copyright (C) 2026-2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,15 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.local.entity
+package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
-import androidx.room3.Entity
-import androidx.room3.PrimaryKey
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-
-@Entity(tableName = "accounts")
-internal data class AccountEntity(
-    @PrimaryKey val id: AccountId,
-    /** The emails of the user, how they are found among the attendees; empty until the calendars are first synced. */
-    val emails: List<String> = emptyList(),
+/** What discovery finds for an account: the user's own emails and their calendars. */
+data class RemoteDavDiscovery(
+    /**
+     * The `mailto:` entries of the principal's `calendar-user-address-set` (RFC 6638), without their scheme;
+     * `null` when they could not be read.
+     */
+    val userEmails: List<String>?,
+    val calendars: List<RemoteDavCalendar>,
 )

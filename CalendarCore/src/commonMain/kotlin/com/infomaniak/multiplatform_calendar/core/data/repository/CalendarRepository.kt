@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
@@ -66,6 +67,7 @@ import kotlin.time.Instant
 @Inject
 internal class CalendarRepository(
     private val caldavClient: CalendarSyncRemoteSource,
+    private val accountDao: AccountDao,
     private val calendarDao: CalendarDao,
     private val crashReport: CrashReport,
     private val eventDao: EventDao,
@@ -76,10 +78,6 @@ internal class CalendarRepository(
             calendarEntities.map(CalendarEntity::toDomain)
         }
     }
-
-    suspend fun getCalendars(
-        credentials: DavAccount,
-    ): List<RemoteDavCalendar> = caldavClient.discoverCalendars(credentials).excludeScheduling()
 
     suspend fun getCalendar(calendarId: CalendarId): Calendar {
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
@@ -170,7 +168,9 @@ internal class CalendarRepository(
     }
 
     private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
-        val remoteCalendars = getCalendars(credentials)
+        val discovery = caldavClient.discover(credentials)
+        discovery.userEmails?.let { accountDao.updateEmails(accountId, it) }
+        val remoteCalendars = discovery.calendars.excludeScheduling()
         calendarDao.syncCalendars(accountId) { existingCalendarsById ->
             remoteCalendars.toEntitiesPreservingLocalPrefs(accountId = accountId, existingByCalendarId = existingCalendarsById)
         }

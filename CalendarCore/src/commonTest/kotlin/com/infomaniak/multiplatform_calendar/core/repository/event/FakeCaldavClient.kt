@@ -23,7 +23,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavDiscovery
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
@@ -55,7 +55,7 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     /** Every write in the order it was issued, for the tests that care about which one lands first. */
     val calls = mutableListOf<String>()
 
-    override suspend fun discoverCalendars(credentials: DavAccount) = emptyList<RemoteDavCalendar>()
+    override suspend fun discover(credentials: DavAccount) = RemoteDavDiscovery(emptyList(), emptyList())
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
     override suspend fun getEventsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
         emptyList<RemoteDavEvent>()

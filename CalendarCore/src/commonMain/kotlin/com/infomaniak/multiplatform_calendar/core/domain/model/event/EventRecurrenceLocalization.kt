@@ -23,7 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
  * Describes this master event's RRULE using its DTSTART and start time zone.
  *
  * Only master events can be formatted reliably because materialized occurrences keep the master's
- * RRULE while their [EventTiming.start] points to the occurrence start rather than the master's DTSTART.
+ * RRULE while their [EventTiming.bounds] point to the occurrence start rather than the master's DTSTART.
  * Using an occurrence start could therefore change the meaning of implicit RRULE selectors.
  *
  * Returns `null` for occurrences and when the event has no RRULE, including RDATE-only events.
@@ -31,7 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 public suspend fun Event.toLocalizedRecurrenceString(): String? {
     if (isOccurrence) return null
     return timing.recurrenceRule?.toLocalizedString(
-        start = timing.start,
-        timeZone = timing.startTimeZone,
+        start = timing.bounds.startWallClock,
+        timeZone = (timing.bounds as? EventBounds.Zoned)?.start?.timeZone,
     )
 }

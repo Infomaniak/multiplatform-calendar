@@ -17,13 +17,14 @@
  */
 package com.infomaniak.multiplatform_calendar.core.localization
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.account.AccountId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ZonedWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
@@ -31,6 +32,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -191,11 +193,10 @@ class RecurrenceLocalizationResourceTest {
         accountId = AccountId(1L),
         title = "Test",
         timing = EventTiming(
-            start = start,
-            end = LocalDateTime(2026, 9, 30, 19, 30),
-            startTimeZone = zone,
-            endTimeZone = TimeZone.UTC,
-            isAllDay = false,
+            bounds = EventBounds.Zoned(
+                start = ZonedWallClock(start, zone),
+                end = ZonedWallClock(LocalDateTime(2026, 9, 30, 19, 30), TimeZone.UTC),
+            ),
             recurrenceRule = rule,
         ),
         colors = EventColors.from(eventSourceColor = 0xFF2196F3.toInt(), calendarSourceColor = 0xFF2196F3.toInt()),

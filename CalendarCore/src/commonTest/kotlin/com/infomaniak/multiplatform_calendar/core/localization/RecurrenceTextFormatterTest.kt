@@ -431,7 +431,7 @@ class RecurrenceTextFormatterTest {
 
     @Test
     fun invalidMonth_failsInsteadOfSilentlyProducingWrongText() = runTest {
-        assertFailsWith<IllegalStateException> {
+        assertFailsWith<IllegalArgumentException> {
             format(RecurrenceRule(freq = Frequency.Yearly, byMonth = listOf(13)))
         }
     }

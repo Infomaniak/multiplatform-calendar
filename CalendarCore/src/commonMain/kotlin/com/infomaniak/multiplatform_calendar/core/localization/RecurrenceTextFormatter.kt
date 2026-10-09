@@ -129,12 +129,14 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.PluralStringResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
+import kotlin.math.absoluteValue
 
 internal class RecurrenceTextFormatter(
     private val strings: RecurrenceStringResolver = ComposeRecurrenceStringResolver,
@@ -146,29 +148,33 @@ internal class RecurrenceTextFormatter(
         timeZone: TimeZone?,
     ): String {
         currentCoroutineContext().ensureActive()
+        val setPositionShortcut = rule.monthlySetPositionShortcut()
         val clauses = mutableListOf(formatFrequency(rule))
-        val setPositionShortcut = clauses.appendDateClauses(rule, start)
 
+        clauses.appendDateClauses(rule, start, setPositionShortcut)
         clauses.appendTimeClauses(rule)
-        clauses.appendSetPositionClause(rule, setPositionShortcut)
+        if (setPositionShortcut == null) clauses.appendSetPositionClause(rule)
         clauses.appendWeekStartAndEndClauses(rule, timeZone)
 
         return joinClauses(clauses)
     }
 
-    private suspend fun MutableList<String>.appendDateClauses(rule: RecurrenceRule, start: LocalDateTime): String? {
+    private suspend fun MutableList<String>.appendDateClauses(
+        rule: RecurrenceRule,
+        start: LocalDateTime,
+        setPositionShortcut: SetPositionShortcut?,
+    ) {
         if (rule.byMonth.isNotEmpty()) this += formatMonths(rule.byMonth)
         if (rule.byWeekNumber.isNotEmpty()) this += formatWeekNumbers(rule.byWeekNumber)
         if (rule.byYearDay.isNotEmpty()) this += formatYearDays(rule.byYearDay)
 
-        val setPositionShortcut = formatMonthlySetPositionShortcut(rule)
         when {
             rule.byMonthDay.isEmpty() -> formatImplicitMonthDay(rule, start)?.let(this::add)
             else -> this += formatMonthDays(rule.byMonthDay)
         }
 
         when {
-            setPositionShortcut != null -> this += setPositionShortcut
+            setPositionShortcut != null -> this += formatSetPositionShortcut(setPositionShortcut)
             rule.byDay.isNotEmpty() -> this += formatWeekDays(rule.byDay, rule.weekStart)
             else -> formatImplicitWeekDay(rule, start)?.let(this::add)
         }
@@ -176,8 +182,6 @@ internal class RecurrenceTextFormatter(
         if (shouldUseImplicitAnnualDate(rule)) {
             this += formatAnnualDate(start.date)
         }
-
-        return setPositionShortcut
     }
 
     private suspend fun MutableList<String>.appendTimeClauses(rule: RecurrenceRule) {
@@ -186,10 +190,8 @@ internal class RecurrenceTextFormatter(
         if (rule.bySecond.isNotEmpty()) this += formatSeconds(rule.bySecond)
     }
 
-    private suspend fun MutableList<String>.appendSetPositionClause(rule: RecurrenceRule, setPositionShortcut: String?) {
-        if (setPositionShortcut == null && rule.byOccurrencePosition.isNotEmpty()) {
-            this += formatSetPositions(rule.byOccurrencePosition)
-        }
+    private suspend fun MutableList<String>.appendSetPositionClause(rule: RecurrenceRule) {
+        if (rule.byOccurrencePosition.isNotEmpty()) this += formatSetPositions(rule.byOccurrencePosition)
     }
 
     private suspend fun MutableList<String>.appendWeekStartAndEndClauses(rule: RecurrenceRule, timeZone: TimeZone?) {
@@ -205,95 +207,68 @@ internal class RecurrenceTextFormatter(
         }
     }
 
-    private suspend fun formatFrequency(rule: RecurrenceRule): String {
-        if (rule.interval == 1) {
-            return strings.string(
-                when (rule.freq) {
-                    Frequency.Secondly -> Res.string.recurrence_every_second
-                    Frequency.Minutely -> Res.string.recurrence_every_minute
-                    Frequency.Hourly -> Res.string.recurrence_every_hour
-                    Frequency.Daily -> Res.string.recurrence_every_day
-                    Frequency.Weekly -> Res.string.recurrence_every_week
-                    Frequency.Monthly -> Res.string.recurrence_every_month
-                    Frequency.Yearly -> Res.string.recurrence_every_year
-                },
-            )
-        }
-
-        val resource = when (rule.freq) {
-            Frequency.Secondly -> Res.plurals.recurrence_every_n_seconds
-            Frequency.Minutely -> Res.plurals.recurrence_every_n_minutes
-            Frequency.Hourly -> Res.plurals.recurrence_every_n_hours
-            Frequency.Daily -> Res.plurals.recurrence_every_n_days
-            Frequency.Weekly -> Res.plurals.recurrence_every_n_weeks
-            Frequency.Monthly -> Res.plurals.recurrence_every_n_months
-            Frequency.Yearly -> Res.plurals.recurrence_every_n_years
-        }
-        return strings.plural(resource, rule.interval, rule.interval)
-    }
+    private suspend fun formatFrequency(rule: RecurrenceRule): String =
+        if (rule.interval == 1) strings.string(rule.freq.everyResource)
+        else strings.plural(rule.freq.everyNResource, rule.interval, rule.interval)
 
     private suspend fun formatMonths(months: List<Int>): String = localizedList(
-        months.distinct().sorted().mapCancellable { recurrenceMonthText(it) },
+        months.distinct().sorted().mapCancellable { strings.string(Month(it).recurrenceResource) },
     )
 
-    private suspend fun formatMonthDays(days: List<Int>): String {
-        val values = days.distinct().sortedRecurrencePositions().mapCancellable { value ->
+    private suspend fun formatMonthDays(days: List<Int>): String = formatPositions(
+        positions = days,
+        last = Res.string.recurrence_month_day_last,
+        fromEnd = Res.string.recurrence_month_day_from_end,
+        fromStart = Res.string.recurrence_month_day,
+        list = Res.string.recurrence_on_month_days,
+    )
+
+    private suspend fun formatYearDays(days: List<Int>): String = formatPositions(
+        positions = days,
+        last = Res.string.recurrence_year_day_last,
+        fromEnd = Res.string.recurrence_year_day_from_end,
+        fromStart = Res.string.recurrence_year_day,
+        list = Res.string.recurrence_on_year_days,
+    )
+
+    private suspend fun formatWeekNumbers(weeks: List<Int>): String = formatPositions(
+        positions = weeks,
+        last = Res.string.recurrence_week_number_last,
+        fromEnd = Res.string.recurrence_week_number_from_end,
+        fromStart = Res.string.recurrence_week_number,
+        list = Res.string.recurrence_in_week_numbers,
+    )
+
+    private suspend fun formatPositions(
+        positions: List<Int>,
+        last: StringResource,
+        fromEnd: StringResource,
+        fromStart: StringResource,
+        list: StringResource,
+    ): String {
+        val values = positions.distinct().sortedRecurrencePositions().mapCancellable { position ->
             when {
-                value == -1 -> strings.string(Res.string.recurrence_month_day_last)
-                value < 0 -> strings.string(Res.string.recurrence_month_day_from_end, -value)
-                else -> strings.string(Res.string.recurrence_month_day, value)
+                position == LAST_POSITION -> strings.string(last)
+                position.isFromEnd -> strings.string(fromEnd, position.absoluteValue)
+                else -> strings.string(fromStart, position)
             }
         }
-        return strings.string(Res.string.recurrence_on_month_days, localizedList(values))
+        return strings.string(list, localizedList(values))
     }
 
     private suspend fun formatWeekDays(days: List<WeekDayNum>, weekStart: DayOfWeek?): String = localizedList(
         days.distinct().sortedWeekDayNums(weekStart).mapCancellable { day ->
             day.ordinal?.let { ordinalWeekDayText(day.dayOfWeek, it) }
-                ?: recurrenceWeekDayText(day.dayOfWeek)
+                ?: strings.string(day.dayOfWeek.recurrenceResource)
         },
     )
 
-    /**
-     * Human-friendly MONTHLY BYSETPOS rewrites are deliberately conservative.
-     *
-     * Safe examples:
-     * - BYDAY=MO;BYSETPOS=-1 -> last Monday.
-     * - BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1 -> last matching day (Monday...Friday).
-     *
-     * If time selectors or another date selector also participates in the candidate set,
-     * BYSETPOS is left explicit because calling it a "last day" would be semantically wrong.
-     */
-    private suspend fun formatMonthlySetPositionShortcut(rule: RecurrenceRule): String? {
-        if (rule.freq != Frequency.Monthly) return null
-        if (rule.byOccurrencePosition.size != 1) return null
-        if (rule.byDay.isEmpty() || rule.byDay.any { it.ordinal != null }) return null
-        if (
-            rule.byMonthDay.isNotEmpty() ||
-            rule.byYearDay.isNotEmpty() ||
-            rule.byWeekNumber.isNotEmpty() ||
-            rule.byHour.isNotEmpty() ||
-            rule.byMinute.isNotEmpty() ||
-            rule.bySecond.isNotEmpty()
-        ) return null
-
-        val position = rule.byOccurrencePosition.single()
-        if (position == 0) return null
-
-        val days = rule.byDay.map { it.dayOfWeek }.distinct()
-        if (days.size == 1 && position in -5..5) {
-            return ordinalWeekDayText(days.single(), position)
-        }
-
-        if (days.size > 1 && position in setOf(1, -1)) {
-            val names = localizedList(days.sortedDaysOfWeek(rule.weekStart).mapCancellable { weekDayName(it) })
-            return strings.string(
-                if (position == 1) Res.string.recurrence_first_matching_day
-                else Res.string.recurrence_last_matching_day,
-                names,
-            )
-        }
-        return null
+    private suspend fun formatSetPositionShortcut(shortcut: SetPositionShortcut): String = when (shortcut) {
+        is SetPositionShortcut.WeekDay -> ordinalWeekDayText(shortcut.day, shortcut.position)
+        is SetPositionShortcut.MatchingDays -> strings.string(
+            if (shortcut.isFirst) Res.string.recurrence_first_matching_day else Res.string.recurrence_last_matching_day,
+            localizedList(shortcut.days.mapCancellable { weekDayName(it) }),
+        )
     }
 
     private suspend fun ordinalWeekDayText(day: DayOfWeek, ordinal: Int): String {
@@ -319,37 +294,15 @@ internal class RecurrenceTextFormatter(
     }
 
     private suspend fun formatSetPositions(positions: List<Int>): String {
-        val values = positions.distinct().sortedRecurrencePositions().mapCancellable { value ->
+        val values = positions.distinct().sortedRecurrencePositions().mapCancellable { position ->
             when {
-                value == 1 -> strings.string(Res.string.recurrence_set_position_first)
-                value == -1 -> strings.string(Res.string.recurrence_set_position_last)
-                value > 0 -> strings.string(Res.string.recurrence_set_position, value)
-                else -> strings.string(Res.string.recurrence_set_position_from_end, -value)
+                position == FIRST_POSITION -> strings.string(Res.string.recurrence_set_position_first)
+                position == LAST_POSITION -> strings.string(Res.string.recurrence_set_position_last)
+                position.isFromEnd -> strings.string(Res.string.recurrence_set_position_from_end, position.absoluteValue)
+                else -> strings.string(Res.string.recurrence_set_position, position)
             }
         }
         return strings.string(Res.string.recurrence_using_set_positions, localizedList(values))
-    }
-
-    private suspend fun formatYearDays(days: List<Int>): String {
-        val values = days.distinct().sortedRecurrencePositions().mapCancellable { value ->
-            when {
-                value == -1 -> strings.string(Res.string.recurrence_year_day_last)
-                value < 0 -> strings.string(Res.string.recurrence_year_day_from_end, -value)
-                else -> strings.string(Res.string.recurrence_year_day, value)
-            }
-        }
-        return strings.string(Res.string.recurrence_on_year_days, localizedList(values))
-    }
-
-    private suspend fun formatWeekNumbers(weeks: List<Int>): String {
-        val values = weeks.distinct().sortedRecurrencePositions().mapCancellable { value ->
-            when {
-                value == -1 -> strings.string(Res.string.recurrence_week_number_last)
-                value < 0 -> strings.string(Res.string.recurrence_week_number_from_end, -value)
-                else -> strings.string(Res.string.recurrence_week_number, value)
-            }
-        }
-        return strings.string(Res.string.recurrence_in_week_numbers, localizedList(values))
     }
 
     private suspend fun formatHours(hours: List<Int>): String {
@@ -385,8 +338,8 @@ internal class RecurrenceTextFormatter(
     private suspend fun formatImplicitWeekDay(rule: RecurrenceRule, start: LocalDateTime): String? = when (rule.freq) {
         Frequency.Weekly if rule.byMonthDay.isEmpty()
                 && rule.byYearDay.isEmpty()
-                && rule.byWeekNumber.isEmpty() -> recurrenceWeekDayText(start.dayOfWeek)
-        Frequency.Yearly if rule.inheritsDtStartWeekdayForWeekNumber() -> recurrenceWeekDayText(start.dayOfWeek)
+                && rule.byWeekNumber.isEmpty() -> strings.string(start.dayOfWeek.recurrenceResource)
+        Frequency.Yearly if rule.inheritsDtStartWeekdayForWeekNumber() -> strings.string(start.dayOfWeek.recurrenceResource)
         else -> null
     }
 
@@ -397,7 +350,7 @@ internal class RecurrenceTextFormatter(
 
     private suspend fun formatAnnualDate(date: LocalDate): String = strings.string(
         Res.string.recurrence_on_annual_date,
-        dateMonthName(date.month.ordinal + 1),
+        strings.string(date.month.dateResource),
         date.day,
     )
 
@@ -412,72 +365,12 @@ internal class RecurrenceTextFormatter(
 
     private suspend fun formatDate(date: LocalDate): String = strings.string(
         Res.string.recurrence_date,
-        dateMonthName(date.month.ordinal + 1),
+        strings.string(date.month.dateResource),
         date.day,
         date.year,
     )
 
-    private suspend fun recurrenceWeekDayText(day: DayOfWeek): String = strings.string(
-        when (day) {
-            DayOfWeek.MONDAY -> Res.string.recurrence_weekday_monday
-            DayOfWeek.TUESDAY -> Res.string.recurrence_weekday_tuesday
-            DayOfWeek.WEDNESDAY -> Res.string.recurrence_weekday_wednesday
-            DayOfWeek.THURSDAY -> Res.string.recurrence_weekday_thursday
-            DayOfWeek.FRIDAY -> Res.string.recurrence_weekday_friday
-            DayOfWeek.SATURDAY -> Res.string.recurrence_weekday_saturday
-            DayOfWeek.SUNDAY -> Res.string.recurrence_weekday_sunday
-        },
-    )
-
-    private suspend fun weekDayName(day: DayOfWeek): String = strings.string(
-        when (day) {
-            DayOfWeek.MONDAY -> Res.string.recurrence_weekday_name_monday
-            DayOfWeek.TUESDAY -> Res.string.recurrence_weekday_name_tuesday
-            DayOfWeek.WEDNESDAY -> Res.string.recurrence_weekday_name_wednesday
-            DayOfWeek.THURSDAY -> Res.string.recurrence_weekday_name_thursday
-            DayOfWeek.FRIDAY -> Res.string.recurrence_weekday_name_friday
-            DayOfWeek.SATURDAY -> Res.string.recurrence_weekday_name_saturday
-            DayOfWeek.SUNDAY -> Res.string.recurrence_weekday_name_sunday
-        },
-    )
-
-    private suspend fun recurrenceMonthText(month: Int): String = strings.string(monthResource(month, date = false))
-    private suspend fun dateMonthName(month: Int): String = strings.string(monthResource(month, date = true))
-
-    private fun monthResource(month: Int, date: Boolean): StringResource =
-        if (date) dateMonthResource(month) else recurrenceMonthResource(month)
-
-    private fun recurrenceMonthResource(month: Int): StringResource = when (month) {
-        1 -> Res.string.recurrence_month_january
-        2 -> Res.string.recurrence_month_february
-        3 -> Res.string.recurrence_month_march
-        4 -> Res.string.recurrence_month_april
-        5 -> Res.string.recurrence_month_may
-        6 -> Res.string.recurrence_month_june
-        7 -> Res.string.recurrence_month_july
-        8 -> Res.string.recurrence_month_august
-        9 -> Res.string.recurrence_month_september
-        10 -> Res.string.recurrence_month_october
-        11 -> Res.string.recurrence_month_november
-        12 -> Res.string.recurrence_month_december
-        else -> error("Invalid RFC 5545 month: $month")
-    }
-
-    private fun dateMonthResource(month: Int): StringResource = when (month) {
-        1 -> Res.string.recurrence_date_month_january
-        2 -> Res.string.recurrence_date_month_february
-        3 -> Res.string.recurrence_date_month_march
-        4 -> Res.string.recurrence_date_month_april
-        5 -> Res.string.recurrence_date_month_may
-        6 -> Res.string.recurrence_date_month_june
-        7 -> Res.string.recurrence_date_month_july
-        8 -> Res.string.recurrence_date_month_august
-        9 -> Res.string.recurrence_date_month_september
-        10 -> Res.string.recurrence_date_month_october
-        11 -> Res.string.recurrence_date_month_november
-        12 -> Res.string.recurrence_date_month_december
-        else -> error("Invalid RFC 5545 month: $month")
-    }
+    private suspend fun weekDayName(day: DayOfWeek): String = strings.string(day.nameResource)
 
     private suspend fun localizedNumberList(values: List<Int>): String = localizedList(
         values.mapCancellable { strings.string(Res.string.recurrence_number, it) },
@@ -502,6 +395,10 @@ internal class RecurrenceTextFormatter(
     }
 }
 
+private const val FIRST_POSITION = 1
+private const val LAST_POSITION = -1
+private const val MAX_WEEKDAY_ORDINAL = 5
+
 private object ComposeRecurrenceStringResolver : RecurrenceStringResolver {
     override suspend fun string(resource: StringResource, vararg formatArgs: Any): String =
         getString(resource, *formatArgs)
@@ -513,22 +410,140 @@ private object ComposeRecurrenceStringResolver : RecurrenceStringResolver {
     ): String = getPluralString(resource, quantity, *formatArgs)
 }
 
-private fun List<Int>.sortedRecurrencePositions(): List<Int> = sortedWith(
-    compareBy<Int>({ if (it > 0) 0 else 1 }, { if (it > 0) it else -it }),
-)
+/** A MONTHLY BYSETPOS that reads naturally, like "last Monday", instead of an explicit set position. */
+private sealed interface SetPositionShortcut {
+    data class WeekDay(val day: DayOfWeek, val position: Int) : SetPositionShortcut
+    data class MatchingDays(val days: List<DayOfWeek>, val isFirst: Boolean) : SetPositionShortcut
+}
+
+/**
+ * Human-friendly MONTHLY BYSETPOS rewrites are deliberately conservative.
+ *
+ * Safe examples:
+ * - BYDAY=MO;BYSETPOS=-1 -> last Monday.
+ * - BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1 -> last matching day (Monday...Friday).
+ *
+ * If time selectors or another date selector also participates in the candidate set,
+ * BYSETPOS is left explicit because calling it a "last day" would be semantically wrong.
+ */
+private fun RecurrenceRule.monthlySetPositionShortcut(): SetPositionShortcut? {
+    if (freq != Frequency.Monthly) return null
+    if (byOccurrencePosition.size != 1) return null
+    if (byDay.isEmpty() || byDay.any { it.ordinal != null }) return null
+    if (
+        byMonthDay.isNotEmpty() ||
+        byYearDay.isNotEmpty() ||
+        byWeekNumber.isNotEmpty() ||
+        byHour.isNotEmpty() ||
+        byMinute.isNotEmpty() ||
+        bySecond.isNotEmpty()
+    ) return null
+
+    val position = byOccurrencePosition.single()
+    if (position == 0) return null
+
+    val days = byDay.map { it.dayOfWeek }.distinct()
+    return when {
+        days.size == 1 && position.absoluteValue <= MAX_WEEKDAY_ORDINAL -> SetPositionShortcut.WeekDay(days.single(), position)
+        days.size > 1 && (position == FIRST_POSITION || position == LAST_POSITION) -> SetPositionShortcut.MatchingDays(
+            days = days.sortedDaysOfWeek(weekStart),
+            isFirst = position == FIRST_POSITION,
+        )
+        else -> null
+    }
+}
+
+private val Frequency.everyResource: StringResource
+    get() = when (this) {
+        Frequency.Secondly -> Res.string.recurrence_every_second
+        Frequency.Minutely -> Res.string.recurrence_every_minute
+        Frequency.Hourly -> Res.string.recurrence_every_hour
+        Frequency.Daily -> Res.string.recurrence_every_day
+        Frequency.Weekly -> Res.string.recurrence_every_week
+        Frequency.Monthly -> Res.string.recurrence_every_month
+        Frequency.Yearly -> Res.string.recurrence_every_year
+    }
+
+private val Frequency.everyNResource: PluralStringResource
+    get() = when (this) {
+        Frequency.Secondly -> Res.plurals.recurrence_every_n_seconds
+        Frequency.Minutely -> Res.plurals.recurrence_every_n_minutes
+        Frequency.Hourly -> Res.plurals.recurrence_every_n_hours
+        Frequency.Daily -> Res.plurals.recurrence_every_n_days
+        Frequency.Weekly -> Res.plurals.recurrence_every_n_weeks
+        Frequency.Monthly -> Res.plurals.recurrence_every_n_months
+        Frequency.Yearly -> Res.plurals.recurrence_every_n_years
+    }
+
+private val DayOfWeek.recurrenceResource: StringResource
+    get() = when (this) {
+        DayOfWeek.MONDAY -> Res.string.recurrence_weekday_monday
+        DayOfWeek.TUESDAY -> Res.string.recurrence_weekday_tuesday
+        DayOfWeek.WEDNESDAY -> Res.string.recurrence_weekday_wednesday
+        DayOfWeek.THURSDAY -> Res.string.recurrence_weekday_thursday
+        DayOfWeek.FRIDAY -> Res.string.recurrence_weekday_friday
+        DayOfWeek.SATURDAY -> Res.string.recurrence_weekday_saturday
+        DayOfWeek.SUNDAY -> Res.string.recurrence_weekday_sunday
+    }
+
+private val DayOfWeek.nameResource: StringResource
+    get() = when (this) {
+        DayOfWeek.MONDAY -> Res.string.recurrence_weekday_name_monday
+        DayOfWeek.TUESDAY -> Res.string.recurrence_weekday_name_tuesday
+        DayOfWeek.WEDNESDAY -> Res.string.recurrence_weekday_name_wednesday
+        DayOfWeek.THURSDAY -> Res.string.recurrence_weekday_name_thursday
+        DayOfWeek.FRIDAY -> Res.string.recurrence_weekday_name_friday
+        DayOfWeek.SATURDAY -> Res.string.recurrence_weekday_name_saturday
+        DayOfWeek.SUNDAY -> Res.string.recurrence_weekday_name_sunday
+    }
+
+private val Month.recurrenceResource: StringResource
+    get() = when (this) {
+        Month.JANUARY -> Res.string.recurrence_month_january
+        Month.FEBRUARY -> Res.string.recurrence_month_february
+        Month.MARCH -> Res.string.recurrence_month_march
+        Month.APRIL -> Res.string.recurrence_month_april
+        Month.MAY -> Res.string.recurrence_month_may
+        Month.JUNE -> Res.string.recurrence_month_june
+        Month.JULY -> Res.string.recurrence_month_july
+        Month.AUGUST -> Res.string.recurrence_month_august
+        Month.SEPTEMBER -> Res.string.recurrence_month_september
+        Month.OCTOBER -> Res.string.recurrence_month_october
+        Month.NOVEMBER -> Res.string.recurrence_month_november
+        Month.DECEMBER -> Res.string.recurrence_month_december
+    }
+
+private val Month.dateResource: StringResource
+    get() = when (this) {
+        Month.JANUARY -> Res.string.recurrence_date_month_january
+        Month.FEBRUARY -> Res.string.recurrence_date_month_february
+        Month.MARCH -> Res.string.recurrence_date_month_march
+        Month.APRIL -> Res.string.recurrence_date_month_april
+        Month.MAY -> Res.string.recurrence_date_month_may
+        Month.JUNE -> Res.string.recurrence_date_month_june
+        Month.JULY -> Res.string.recurrence_date_month_july
+        Month.AUGUST -> Res.string.recurrence_date_month_august
+        Month.SEPTEMBER -> Res.string.recurrence_date_month_september
+        Month.OCTOBER -> Res.string.recurrence_date_month_october
+        Month.NOVEMBER -> Res.string.recurrence_date_month_november
+        Month.DECEMBER -> Res.string.recurrence_date_month_december
+    }
+
+private val Int.isFromEnd: Boolean get() = this < 0
+
+/** Positions from the start first, then from the end, each by increasing distance. */
+private fun List<Int>.sortedRecurrencePositions(): List<Int> =
+    sortedWith(compareBy(Int::isFromEnd).thenBy(Int::absoluteValue))
 
 private fun List<WeekDayNum>.sortedWeekDayNums(weekStart: DayOfWeek?): List<WeekDayNum> {
-    val start = weekStart ?: DayOfWeek.MONDAY
-    val days = DayOfWeek.entries
-    val startIndex = days.indexOf(start)
-    val order = days.drop(startIndex) + days.take(startIndex)
+    val order = weekOrder(weekStart)
     return sortedWith(compareBy<WeekDayNum> { order.indexOf(it.dayOfWeek) }.thenBy { it.ordinal ?: 0 })
 }
 
-private fun List<DayOfWeek>.sortedDaysOfWeek(weekStart: DayOfWeek?): List<DayOfWeek> {
-    val start = weekStart ?: DayOfWeek.MONDAY
-    val days = DayOfWeek.entries
-    val startIndex = days.indexOf(start)
-    val order = days.drop(startIndex) + days.take(startIndex)
-    return sortedBy(order::indexOf)
+private fun List<DayOfWeek>.sortedDaysOfWeek(weekStart: DayOfWeek?): List<DayOfWeek> = sortedBy(weekOrder(weekStart)::indexOf)
+
+/** The days of the week, starting at [weekStart], Monday by default. */
+private fun weekOrder(weekStart: DayOfWeek?): List<DayOfWeek> {
+    val startIndex = DayOfWeek.entries.indexOf(weekStart ?: DayOfWeek.MONDAY)
+    return DayOfWeek.entries.drop(startIndex) + DayOfWeek.entries.take(startIndex)
 }

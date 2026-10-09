@@ -167,6 +167,8 @@ internal class CalendarRepository(
         }
     }
 
+    suspend fun showOnlyCalendar(calendarId: CalendarId) = calendarDao.showOnly(calendarId)
+
     private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
         val discovery = caldavClient.discover(credentials)
         discovery.userEmails?.let { accountDao.updateEmails(accountId, it) }

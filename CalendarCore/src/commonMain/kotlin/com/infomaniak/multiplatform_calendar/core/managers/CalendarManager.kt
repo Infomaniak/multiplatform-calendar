@@ -220,6 +220,14 @@ public class CalendarManager internal constructor(
         }
     }
 
+    /** Make [calendarId] the only visible calendar, across all accounts, in a single local update. */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun showOnlyCalendar(calendarId: CalendarId): Unit = withContext(Dispatchers.Default) {
+        sdkCaller.run(operation = "show only calendar $calendarId") {
+            calendarRepository.showOnlyCalendar(calendarId)
+        }
+    }
+
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "create event in calendar ${data.calendarId}") {

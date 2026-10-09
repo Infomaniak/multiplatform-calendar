@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarTypeConverters
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
@@ -42,8 +43,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -115,6 +116,53 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         return CalendarTypeConverters().toStringList(json)
     }
 
+    fun showOnlyCalendar_hidesEveryOtherCalendarAcrossAccounts() = runTest {
+        val accounts = listOf(AccountId(10), AccountId(11))
+        accounts.forEach { database.accountDao().insert(AccountEntity(it)) }
+        val ids = listOf("a", "b", "c").map { CalendarId("https://dav.example/cal/$it/") }
+        ids.forEachIndexed { index, id ->
+            database.calendarDao().insert(
+                CalendarEntity(id = id, accountId = accounts[index % 2], displayName = id.url, color = null),
+            )
+        }
+        val repository = CalendarRepository(
+            FakeCalendarSyncRemoteSource(calendars = emptyList()),
+            accountDao = database.accountDao(),
+            database.calendarDao(),
+            CrashReportProvider.noOp,
+            database.eventDao(),
+        )
+
+        repository.showOnlyCalendar(ids[1])
+
+        val visibility = ids.associateWith { database.calendarDao().findById(it)?.isVisible }
+        assertEquals(mapOf(ids[0] to false, ids[1] to true, ids[2] to false), visibility)
+    }
+
+    @Test
+    fun showOnlyCalendar_withUnknownCalendarId_keepsVisibilityUnchanged() = runTest {
+        val accountId = AccountId(10)
+        database.accountDao().insert(AccountEntity(accountId))
+        val ids = listOf("a", "b").map { CalendarId("https://dav.example/cal/$it/") }
+        ids.forEach { id ->
+            database.calendarDao().insert(
+                CalendarEntity(id = id, accountId = accountId, displayName = id.url, color = null),
+            )
+        }
+        val repository = CalendarRepository(
+            FakeCalendarSyncRemoteSource(calendars = emptyList()),
+            accountDao = database.accountDao(),
+            database.calendarDao(),
+            CrashReportProvider.noOp,
+            database.eventDao(),
+        )
+
+        repository.showOnlyCalendar(CalendarId("https://dav.example/cal/missing/"))
+
+        val visibility = ids.associateWith { database.calendarDao().findById(it)?.isVisible }
+        assertEquals(mapOf(ids[0] to true, ids[1] to true), visibility)
+    }
+
     @Test
     fun syncEvents_upsertsChanged_deletesRemoved_andUpdatesSyncToken() = runTest {
         val accountId = AccountId(3)
@@ -175,7 +223,13 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         ).apply {
             rangeEvents[calendarUrl] = listOf(event)
         }
-        val repository = CalendarRepository(remote, database.accountDao(), database.calendarDao(), CrashReportProvider.noOp, database.eventDao())
+        val repository = CalendarRepository(
+            remote,
+            database.accountDao(),
+            database.calendarDao(),
+            CrashReportProvider.noOp,
+            database.eventDao(),
+        )
 
         val start = Instant.parse("2026-06-15T00:00:00Z")
         val end = Instant.parse("2026-06-16T00:00:00Z")
@@ -234,7 +288,13 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         ).apply {
             rangeEvents[calendarUrl] = listOf(unchanged, changedBefore, deleted)
         }
-        val repository = CalendarRepository(remote, database.accountDao(), database.calendarDao(), CrashReportProvider.noOp, database.eventDao())
+        val repository = CalendarRepository(
+            remote,
+            database.accountDao(),
+            database.calendarDao(),
+            CrashReportProvider.noOp,
+            database.eventDao(),
+        )
 
         repository.downloadEventsByRange(accountId, fakeCredentials(), start, end)
         remote.rangeRefs[calendarUrl] = listOf(
@@ -365,7 +425,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             onGetEventsInRange = { syncJob?.cancel() }
         }
         val crashReport = RecordingCrashReport()
-        val repository = CalendarRepository(remote, database.accountDao(), database.calendarDao(), crashReport, database.eventDao())
+        val repository =
+            CalendarRepository(remote, database.accountDao(), database.calendarDao(), crashReport, database.eventDao())
 
         syncJob = launch {
             repository.downloadEventsByRange(
@@ -481,6 +542,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             seed: RemoteVeventSeed?,
         ) =
             error("not used")
+
         override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String) =
             error("not used")
 

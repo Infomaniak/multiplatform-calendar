@@ -24,6 +24,8 @@ multiplatform-calendar/
 │   ├── src/commonMain/              # RustCaldavBridge, CaldavClientModule, remote models, remote client interface
 │   ├── rust/caldav_bridge/          # Rust crate: CalDAV operations via fast-dav-rs + icalendar
 │   └── build.gradle.kts             # Bridge module build (UniFFI/Cargo, Metro)
+├── CalendarResources/               # Shared Compose Multiplatform recurrence strings and translations
+│   └── src/commonMain/composeResources/  # values/ and values-<lang>/strings.xml
 ├── Contacts/                        # Standalone KMP contacts module (server address book + device contacts)
 │   ├── src/commonMain/              # ContactsManager, merge/search/sync logic, Room DB, Ktor remote source
 │   ├── src/androidMain/             # AndroidDeviceContactsProvider (ContactsContract)
@@ -43,8 +45,33 @@ multiplatform-calendar/
 | **Account**          | Shared identity types (`AccountId`, `AccessToken`) used by CalendarCore and Contacts          |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
+| **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
+
+### Recurrence localization
+
+`CalendarCore` provides two suspend extensions for RRULE descriptions:
+
+```kotlin
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
+
+val description: String? = event.toLocalizedRecurrenceString()
+val ruleDescription: String = rule.toLocalizedString(start = dtStart, timeZone = startTimeZone)
+```
+
+`Event.toLocalizedRecurrenceString()` supplies `timing.start` (DTSTART) and `timing.startTimeZone`
+automatically. It returns `null` when there is no RRULE, including RDATE-only events and overrides;
+it does not describe RDATE/EXDATE exceptions. `RecurrenceRule.toLocalizedString()` requires DTSTART
+because missing weekday/day/month selectors inherit it. Its optional time zone converts a UTC UNTIL
+to the event's **start** time zone for display (not the end time zone); without one, UTC is used.
+DATE and floating UNTIL values keep their own calendar date.
+
+Put recurrence strings and translations in `CalendarResources/src/commonMain/composeResources/values*/strings.xml`.
+`CalendarCore` depends on this module and aggregates its resources into its Apple framework.
+This is distinct from the Android app's `CalendarComponents:Resources` module in the consuming repository.
+The submodule's `.github/workflows/translations-validation.yml` checks the Compose resource translations.
 
 ### XCFramework
 
@@ -305,6 +332,9 @@ dereferences them and stores the 14 MB binary three times (zip: 45 MB → 32 MB)
 
 # Run unit tests
 ./gradlew :CalendarCore:allTests
+
+# Targeted recurrence tests: Android host (Robolectric), macOS (including real Compose resources), iOS Simulator
+./gradlew :CalendarCore:testAndroidHostTest :CalendarCore:macosArm64Test :CalendarCore:iosSimulatorArm64Test
 
 # Clean
 ./gradlew clean

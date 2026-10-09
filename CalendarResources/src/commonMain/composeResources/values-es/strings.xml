@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recurrence_at_hour">a la hora %1$d</string>
+    <string name="recurrence_at_hours">a las horas %1$s</string>
+    <string name="recurrence_at_minute">en el minuto %1$d</string>
+    <string name="recurrence_at_minutes">en los minutos %1$s</string>
+    <string name="recurrence_at_second">en el segundo %1$d</string>
+    <string name="recurrence_at_seconds">en los segundos %1$s</string>
+    <string name="recurrence_clause_join">%1$s, %2$s</string>
+    <string name="recurrence_date">%2$d de %1$s de %3$d</string>
+    <string name="recurrence_date_month_april">abril</string>
+    <string name="recurrence_date_month_august">agosto</string>
+    <string name="recurrence_date_month_december">diciembre</string>
+    <string name="recurrence_date_month_february">febrero</string>
+    <string name="recurrence_date_month_january">enero</string>
+    <string name="recurrence_date_month_july">julio</string>
+    <string name="recurrence_date_month_june">junio</string>
+    <string name="recurrence_date_month_march">marzo</string>
+    <string name="recurrence_date_month_may">mayo</string>
+    <string name="recurrence_date_month_november">noviembre</string>
+    <string name="recurrence_date_month_october">octubre</string>
+    <string name="recurrence_date_month_september">septiembre</string>
+    <string name="recurrence_every_day">Cada día</string>
+    <string name="recurrence_every_hour">Cada hora</string>
+    <string name="recurrence_every_minute">Cada minuto</string>
+    <string name="recurrence_every_month">Cada mes</string>
+    <string name="recurrence_every_second">Cada segundo</string>
+    <string name="recurrence_every_week">Cada semana</string>
+    <string name="recurrence_every_year">Cada año</string>
+    <string name="recurrence_first_matching_day">el primer día coincidente (%1$s)</string>
+    <string name="recurrence_in_week_numbers">en %1$s del año</string>
+    <string name="recurrence_last_matching_day">el último día coincidente (%1$s)</string>
+    <string name="recurrence_list_append">%1$s, %2$s</string>
+    <string name="recurrence_list_last">%1$s y %2$s</string>
+    <string name="recurrence_list_two">%1$s y %2$s</string>
+    <string name="recurrence_month_april">en abril</string>
+    <string name="recurrence_month_august">en agosto</string>
+    <string name="recurrence_month_day">día %1$d</string>
+    <string name="recurrence_month_day_from_end">día %1$d desde el final</string>
+    <string name="recurrence_month_day_last">el último día</string>
+    <string name="recurrence_month_december">en diciembre</string>
+    <string name="recurrence_month_february">en febrero</string>
+    <string name="recurrence_month_january">en enero</string>
+    <string name="recurrence_month_july">en julio</string>
+    <string name="recurrence_month_june">en junio</string>
+    <string name="recurrence_month_march">en marzo</string>
+    <string name="recurrence_month_may">en mayo</string>
+    <string name="recurrence_month_november">en noviembre</string>
+    <string name="recurrence_month_october">en octubre</string>
+    <string name="recurrence_month_september">en septiembre</string>
+    <string name="recurrence_number">%1$d</string>
+    <string name="recurrence_on_annual_date">el %2$d de %1$s</string>
+    <string name="recurrence_on_month_days">el %1$s del mes</string>
+    <string name="recurrence_on_year_days">el %1$s del año</string>
+    <string name="recurrence_ordinal_weekday_fifth">el quinto %1$s</string>
+    <string name="recurrence_ordinal_weekday_fifth_last">el quinto desde el final, %1$s</string>
+    <string name="recurrence_ordinal_weekday_first">el primer %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth">el cuarto %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth_last">el cuarto desde el final, %1$s</string>
+    <string name="recurrence_ordinal_weekday_last">el último %1$s</string>
+    <string name="recurrence_ordinal_weekday_position">el %1$s en la posición %2$d</string>
+    <string name="recurrence_ordinal_weekday_position_from_end">el %1$s en la posición %2$d desde el final</string>
+    <string name="recurrence_ordinal_weekday_second">el segundo %1$s</string>
+    <string name="recurrence_ordinal_weekday_second_last">el penúltimo %1$s</string>
+    <string name="recurrence_ordinal_weekday_third">el tercer %1$s</string>
+    <string name="recurrence_ordinal_weekday_third_last">el antepenúltimo %1$s</string>
+    <string name="recurrence_set_position">posición %1$d</string>
+    <string name="recurrence_set_position_first">la primera</string>
+    <string name="recurrence_set_position_from_end">posición %1$d desde el final</string>
+    <string name="recurrence_set_position_last">la última</string>
+    <string name="recurrence_until">hasta el %1$s</string>
+    <string name="recurrence_using_set_positions">usando %1$s entre las ocurrencias coincidentes</string>
+    <string name="recurrence_week_number">semana %1$d</string>
+    <string name="recurrence_week_number_from_end">semana %1$d desde el final</string>
+    <string name="recurrence_week_number_last">la última semana</string>
+    <string name="recurrence_week_start">con semanas que empiezan el %1$s</string>
+    <string name="recurrence_weekday_friday">los viernes</string>
+    <string name="recurrence_weekday_monday">los lunes</string>
+    <string name="recurrence_weekday_name_friday">viernes</string>
+    <string name="recurrence_weekday_name_monday">lunes</string>
+    <string name="recurrence_weekday_name_saturday">sábado</string>
+    <string name="recurrence_weekday_name_sunday">domingo</string>
+    <string name="recurrence_weekday_name_thursday">jueves</string>
+    <string name="recurrence_weekday_name_tuesday">martes</string>
+    <string name="recurrence_weekday_name_wednesday">miércoles</string>
+    <string name="recurrence_weekday_saturday">los sábados</string>
+    <string name="recurrence_weekday_sunday">los domingos</string>
+    <string name="recurrence_weekday_thursday">los jueves</string>
+    <string name="recurrence_weekday_tuesday">los martes</string>
+    <string name="recurrence_weekday_wednesday">los miércoles</string>
+    <string name="recurrence_year_day">día %1$d</string>
+    <string name="recurrence_year_day_from_end">día %1$d desde el final</string>
+    <string name="recurrence_year_day_last">el último día</string>
+
+    <plurals name="recurrence_every_n_days">
+        <item quantity="one">Cada %1$d día</item>
+        <item quantity="other">Cada %1$d días</item>
+    </plurals>
+    <plurals name="recurrence_every_n_hours">
+        <item quantity="one">Cada %1$d hora</item>
+        <item quantity="other">Cada %1$d horas</item>
+    </plurals>
+    <plurals name="recurrence_every_n_minutes">
+        <item quantity="one">Cada %1$d minuto</item>
+        <item quantity="other">Cada %1$d minutos</item>
+    </plurals>
+    <plurals name="recurrence_every_n_months">
+        <item quantity="one">Cada %1$d mes</item>
+        <item quantity="other">Cada %1$d meses</item>
+    </plurals>
+    <plurals name="recurrence_every_n_seconds">
+        <item quantity="one">Cada %1$d segundo</item>
+        <item quantity="other">Cada %1$d segundos</item>
+    </plurals>
+    <plurals name="recurrence_every_n_weeks">
+        <item quantity="one">Cada %1$d semana</item>
+        <item quantity="other">Cada %1$d semanas</item>
+    </plurals>
+    <plurals name="recurrence_every_n_years">
+        <item quantity="one">Cada %1$d año</item>
+        <item quantity="other">Cada %1$d años</item>
+    </plurals>
+    <plurals name="recurrence_for_occurrences">
+        <item quantity="one">durante %1$d repetición</item>
+        <item quantity="other">durante %1$d repeticiones</item>
+    </plurals>
+</resources>

@@ -170,14 +170,15 @@ internal object RecurrenceCandidateSet {
         if (monthFilter != null) dates = dates.filter { it.monthValue in monthFilter }
 
         // Each day-level BY* part acts as a limit: a date passes when the part is absent or it matches.
-        fun satisfiesByWeekNumber(date: LocalDate) = rule.byWeekNumber.isEmpty() || matchesWeekNumber(date, rule.byWeekNumber, weekStart)
+        fun satisfiesByWeekNumber(date: LocalDate) =
+            rule.byWeekNumber.isEmpty() || matchesWeekNumber(date, rule.byWeekNumber, weekStart)
+
         fun satisfiesByYearDay(date: LocalDate) = rule.byYearDay.isEmpty() || matchesYearDay(date, rule.byYearDay)
         fun satisfiesByMonthDay(date: LocalDate) = rule.byMonthDay.isEmpty() || matchesMonthDay(date, rule.byMonthDay)
         fun satisfiesByDay(date: LocalDate) = rule.byDay.isEmpty() || matchesByDay(date, rule)
 
         // RFC 5545 §3.3.10: BYWEEKNO selects whole weeks; with no explicit day part it inherits DTSTART's weekday.
-        val weekNumberSelectsWholeWeek =
-            rule.byWeekNumber.isNotEmpty() && rule.byDay.isEmpty() && rule.byMonthDay.isEmpty() && rule.byYearDay.isEmpty()
+        val weekNumberSelectsWholeWeek = rule.inheritsDtStartWeekdayForWeekNumber()
         fun satisfiesStartWeekday(date: LocalDate) = !weekNumberSelectsWholeWeek || date.dayOfWeek == dtStart.date.dayOfWeek
 
         dates = if (!hasDayLevelExpansion) {
@@ -188,11 +189,20 @@ internal object RecurrenceCandidateSet {
             }
         } else {
             dates.filter {
-                satisfiesByWeekNumber(it) && satisfiesByYearDay(it) && satisfiesByMonthDay(it) && satisfiesByDay(it) && satisfiesStartWeekday(it)
+                satisfiesByWeekNumber(it) && satisfiesByYearDay(it) && satisfiesByMonthDay(it) && satisfiesByDay(it) && satisfiesStartWeekday(
+                    it,
+                )
             }
         }
 
         return dates.distinct().sorted()
+    }
+
+    internal fun RecurrenceRule.inheritsDtStartWeekdayForWeekNumber(): Boolean {
+        return byWeekNumber.isNotEmpty()
+                && byDay.isEmpty()
+                && byMonthDay.isEmpty()
+                && byYearDay.isEmpty()
     }
 
     /** The months an instance may fall in, or `null` when the frequency's period already constrains it. */

@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
 
 /** This event as listed for a user with the given [accountEmails]. */
 internal fun Event.toSummary(accountEmails: List<String> = listOf("me@example.com")): EventSummary = EventSummary(
@@ -28,6 +29,9 @@ internal fun Event.toSummary(accountEmails: List<String> = listOf("me@example.co
     colors = colors,
     timing = timing,
     hasAttendees = attendees.isNotEmpty(),
+    hasMeetRoom = !meetRoomUrl.isNullOrBlank(),
+    isBookable = !bookableUuid.isNullOrBlank(),
+    isRecurring = isOccurrence || timing.hasRecurrenceSet(),
     myStatus = attendees.firstOrNull { attendee ->
         accountEmails.any { it.equals(attendee.email, ignoreCase = true) }
     }?.status,

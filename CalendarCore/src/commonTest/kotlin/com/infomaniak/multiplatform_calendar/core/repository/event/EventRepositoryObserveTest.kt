@@ -555,9 +555,51 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         assertNull(summary.myStatus)
     }
 
-    private suspend fun observeSingleListedEvent(attendees: List<AttendeeEntity>): EventSummary {
+    @Test
+    fun observeVisibleEvents_flagsTheMeetRoomAndTheBooking() = runTest {
+        seedCalendar()
+
+        val summary = observeSingleListedEvent { copy(meetRoomUrl = "https://kmeet.infomaniak.com/room", bookableUuid = "uuid") }
+
+        assertTrue(summary.hasMeetRoom)
+        assertTrue(summary.isBookable)
+    }
+
+    @Test
+    fun observeVisibleEvents_flagsNothingOnAPlainEvent() = runTest {
+        seedCalendar()
+
+        val summary = observeSingleListedEvent { copy(meetRoomUrl = " ", bookableUuid = "") }
+
+        assertFalse(summary.hasMeetRoom)
+        assertFalse(summary.isBookable)
+        assertFalse(summary.isRecurring)
+    }
+
+    @Test
+    fun observeVisibleDaySlices_flagsEveryOccurrenceOfASeriesAsRecurringOverridesIncluded() = runTest {
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://daily-overridden"), CALENDAR_ID)
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 17, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val events = repository.observeVisibleDaySlices(
+            accountIds = setOf(ACCOUNT_ID),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first().values.flatten().map { it.event }
+
+        assertTrue(events.any { it.title == "Moved instance" })
+        assertTrue(events.all { it.isRecurring })
+    }
+
+    private suspend fun observeSingleListedEvent(attendees: List<AttendeeEntity>): EventSummary =
+        observeSingleListedEvent { copy(attendees = attendees) }
+
+    private suspend fun observeSingleListedEvent(content: EventContentEntity.() -> EventContentEntity): EventSummary {
         val event = floatingEvent(CALENDAR_ID)
-        eventDao().upsert(listOf(EventWithRawIcs(event.copy(content = event.content.copy(attendees = attendees)), "")))
+        eventDao().upsert(listOf(EventWithRawIcs(event.copy(content = event.content.content()), "")))
 
         return repository.observeVisibleEvents(
             accountIds = setOf(ACCOUNT_ID),

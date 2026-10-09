@@ -34,10 +34,14 @@ import platform.Contacts.CNContactEmailAddressesKey
 import platform.Contacts.CNContactFetchRequest
 import platform.Contacts.CNContactFormatter
 import platform.Contacts.CNContactFormatterStyle
+import platform.Contacts.CNContactIdentifierKey
+import platform.Contacts.CNContactImageDataAvailableKey
 import platform.Contacts.CNContactStore
 import platform.Contacts.CNContactStoreDidChangeNotification
+import platform.Contacts.CNContactThumbnailImageDataKey
 import platform.Contacts.CNEntityType
 import platform.Contacts.CNLabeledValue
+import platform.Foundation.NSData
 import platform.Foundation.NSNotificationCenter
 
 /** Reads the device contacts through the Contacts framework. */
@@ -58,7 +62,9 @@ public class AppleDeviceContactsProvider : DeviceContactsProvider {
 
         val request = CNContactFetchRequest(
             keysToFetch = listOf(
+                CNContactIdentifierKey,
                 CNContactEmailAddressesKey,
+                CNContactImageDataAvailableKey,
                 CNContactFormatter.descriptorForRequiredKeysForStyle(CNContactFormatterStyle.CNContactFormatterStyleFullName),
             ),
         )
@@ -67,20 +73,35 @@ public class AppleDeviceContactsProvider : DeviceContactsProvider {
         val succeeded = CNContactStore().enumerateContactsWithFetchRequest(fetchRequest = request, error = null) { contact, _ ->
             contact?.let { nonNullContact ->
                 val name = CNContactFormatter.stringFromContact(nonNullContact, CNContactFormatterStyle.CNContactFormatterStyleFullName).orEmpty()
-                nonNullContact.emails().forEach { email -> contacts.add(DeviceContact(email = email, name = name)) }
+                val avatarId = nonNullContact.identifier.takeIf { nonNullContact.imageDataAvailable }
+                nonNullContact.emails().forEach { email ->
+                    contacts.add(DeviceContact(email = email, name = name, avatarId = avatarId))
+                }
             }
         }
 
         if (succeeded) contacts.distinct() else null
     }
-
-    /** The app owns the permission request; until access is granted, no device contact is read. */
-    private fun isAccessGranted(): Boolean =
-        when (CNContactStore.authorizationStatusForEntityType(CNEntityType.CNEntityTypeContacts)) {
-            CNAuthorizationStatusAuthorized, CNAuthorizationStatusLimited -> true
-            else -> false
-        }
 }
+
+/** The thumbnail of the device contact [identifier], or null when it is gone or access to the contacts is not granted. */
+@OptIn(ExperimentalForeignApi::class)
+internal suspend fun deviceContactThumbnail(identifier: String): NSData? = withContext(Dispatchers.IO) {
+    if (!isAccessGranted()) return@withContext null
+
+    CNContactStore().unifiedContactWithIdentifier(
+        identifier = identifier,
+        keysToFetch = listOf(CNContactThumbnailImageDataKey),
+        error = null,
+    )?.thumbnailImageData
+}
+
+/** The app owns the permission request; until access is granted, no device contact is read. */
+private fun isAccessGranted(): Boolean =
+    when (CNContactStore.authorizationStatusForEntityType(CNEntityType.CNEntityTypeContacts)) {
+        CNAuthorizationStatusAuthorized, CNAuthorizationStatusLimited -> true
+        else -> false
+    }
 
 internal fun CNContact.emails(): List<String> =
     emailAddresses.mapNotNull { (it as? CNLabeledValue)?.value()?.toString() }.filter { it.isNotBlank() }

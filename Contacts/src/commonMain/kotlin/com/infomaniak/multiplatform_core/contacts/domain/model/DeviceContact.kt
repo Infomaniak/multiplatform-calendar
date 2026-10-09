@@ -17,8 +17,13 @@
  */
 package com.infomaniak.multiplatform_core.contacts.domain.model
 
-/** A contact read from the device. */
+/**
+ * A contact read from the device.
+ *
+ * @param avatarId Identifies its photo when it has one, see [ContactAvatar.Device.id].
+ */
 public data class DeviceContact(
     val email: String,
     val name: String,
+    val avatarId: String? = null,
 )

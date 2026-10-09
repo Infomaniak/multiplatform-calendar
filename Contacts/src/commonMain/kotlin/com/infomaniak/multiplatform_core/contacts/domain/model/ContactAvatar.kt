@@ -30,4 +30,10 @@ public sealed interface ContactAvatar {
         @HiddenFromObjC
         val accountId: AccountId,
     ) : ContactAvatar
+
+    /**
+     * The photo of a device contact: its thumbnail content URI on Android, its `CNContact` identifier on Apple, to load
+     * with `ContactsManager.avatarData`.
+     */
+    public data class Device(val id: String) : ContactAvatar
 }

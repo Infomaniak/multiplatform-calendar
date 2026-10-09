@@ -56,16 +56,23 @@ public class AndroidDeviceContactsProvider(private val appContext: Context) : De
         val deviceContacts = mutableListOf<DeviceContact>()
         appContext.contentResolver.query(
             Email.CONTENT_URI,
-            arrayOf(Email.ADDRESS, Email.DISPLAY_NAME_PRIMARY),
+            arrayOf(Email.ADDRESS, Email.DISPLAY_NAME_PRIMARY, Email.PHOTO_THUMBNAIL_URI),
             null,
             null,
             null,
         )?.use { cursor ->
             val addressIndex = cursor.getColumnIndexOrThrow(Email.ADDRESS)
             val nameIndex = cursor.getColumnIndexOrThrow(Email.DISPLAY_NAME_PRIMARY)
+            val photoIndex = cursor.getColumnIndexOrThrow(Email.PHOTO_THUMBNAIL_URI)
             while (cursor.moveToNext()) {
                 val email = cursor.getString(addressIndex)?.takeIf { it.isEmail() } ?: continue
-                deviceContacts.add(DeviceContact(email = email, name = cursor.getString(nameIndex).orEmpty()))
+                deviceContacts.add(
+                    DeviceContact(
+                        email = email,
+                        name = cursor.getString(nameIndex).orEmpty(),
+                        avatarId = cursor.getString(photoIndex),
+                    ),
+                )
             }
         }
 

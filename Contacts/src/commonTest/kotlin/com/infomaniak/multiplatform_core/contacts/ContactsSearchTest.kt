@@ -61,6 +61,30 @@ class ContactsSearchTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun devicePhotoWinsOverTheApiAvatar() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(ApiContact(name = "John Doe", emails = listOf("john@x.com"), avatar = "/avatar/john.png")),
+            deviceContacts = listOf(DeviceContact(email = "john@x.com", name = "John Doe", avatarId = "photo-john")),
+        )
+
+        val avatar = manager.search("john", setOf(ACCOUNT_ID)).single().avatar
+
+        assertEquals("photo-john", (avatar as ContactAvatar.Device).id)
+    }
+
+    @Test
+    fun deviceContactsSharingEmailAndNameKeepThePhotoWhateverTheirOrder() = runTest {
+        val withPhoto = DeviceContact(email = "john@x.com", name = "John", avatarId = "photo-john")
+        val withoutPhoto = DeviceContact(email = "john@x.com", name = "John")
+
+        listOf(listOf(withPhoto, withoutPhoto), listOf(withoutPhoto, withPhoto)).forEach { deviceContacts ->
+            val manager = testManager(deviceContacts = deviceContacts)
+
+            assertEquals(listOf(ContactAvatar.Device("photo-john")), manager.search("john", setOf(ACCOUNT_ID)).map { it.avatar })
+        }
+    }
+
+    @Test
     fun mergesContactsWhoseEmailsOnlyDifferInCase() = runTest {
         val manager = testManager(
             apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),

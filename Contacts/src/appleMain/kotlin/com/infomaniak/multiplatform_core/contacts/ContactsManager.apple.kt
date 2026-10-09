@@ -19,7 +19,9 @@ package com.infomaniak.multiplatform_core.contacts
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
+import platform.Foundation.NSData
 import kotlin.coroutines.cancellation.CancellationException
 
 // Swift cannot build a set of AccountId (a value class is boxed inside a collection), so it passes raw ids.
@@ -35,5 +37,8 @@ public suspend fun ContactsManager.search(
 /** [ContactsManager.sync] for Swift, with raw account ids. */
 @Throws(ContactsException::class, CancellationException::class)
 public suspend fun ContactsManager.sync(accountIds: Set<Long> = emptySet()): Unit = sync(accountIds.toAccountIds())
+
+/** The thumbnail of [avatar], or null when it is gone or access to the contacts is not granted. */
+public suspend fun ContactsManager.avatarData(avatar: ContactAvatar.Device): NSData? = deviceContactThumbnail(avatar.id)
 
 private fun Set<Long>.toAccountIds(): Set<AccountId> = mapTo(mutableSetOf(), ::AccountId)

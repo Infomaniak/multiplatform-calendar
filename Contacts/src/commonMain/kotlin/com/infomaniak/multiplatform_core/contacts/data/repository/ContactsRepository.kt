@@ -203,7 +203,9 @@ internal class ContactsRepository(
 }
 
 private fun merge(deviceContacts: List<ContactMatch>, apiContacts: List<ContactMatch>): List<ContactMatch> {
-    val mergedByKey = deviceContacts.associateByTo(mutableMapOf(), ContactMatch::key)
+    // Device contacts sharing a key keep the one with a photo, whatever their order.
+    val mergedByKey = deviceContacts.groupBy(ContactMatch::key)
+        .mapValuesTo(mutableMapOf()) { (_, matches) -> matches.firstOrNull { it.avatar != null } ?: matches.first() }
     apiContacts.forEach { apiContact ->
         mergedByKey[apiContact.key] = mergedByKey[apiContact.key]?.completedWith(apiContact) ?: apiContact
     }
@@ -271,7 +273,7 @@ private fun DeviceContact.matches(normalizedQuery: String): Boolean =
 private fun DeviceContact.toContactMatch(): ContactMatch = ContactMatch(
     email = email,
     name = name,
-    avatar = null,
+    avatar = avatarId?.let(ContactAvatar::Device),
     comesFromApi = false,
     contactedTimes = null,
     isInAddressBook = true,

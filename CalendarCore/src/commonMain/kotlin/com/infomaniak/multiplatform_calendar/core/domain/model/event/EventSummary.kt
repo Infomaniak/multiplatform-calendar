@@ -20,7 +20,13 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
-/** An event as shown in a list; the whole event is read from `CalendarManager.observeOccurrence`. */
+/**
+ * An event as shown in a list; the whole event is read from `CalendarManager.observeOccurrence`.
+ *
+ * @property isBookable Whether the event has an `X-INFOMANIAK-BOOKABLE` property.
+ * @property isRecurring Part of a series, overrides included.
+ * @property myStatus The answer of the user to the invitation, `null` when they are not among the attendees.
+ */
 @OptIn(ExperimentalObjCRefinement::class)
 public data class EventSummary(
     @HiddenFromObjC
@@ -31,6 +37,8 @@ public data class EventSummary(
     val colors: EventColors,
     val timing: EventTiming,
     val hasAttendees: Boolean,
-    /** The answer of the user to the invitation, `null` when they are not among the attendees. */
+    val hasMeetRoom: Boolean,
+    val isBookable: Boolean,
+    val isRecurring: Boolean,
     val myStatus: ParticipationStatus?,
 )

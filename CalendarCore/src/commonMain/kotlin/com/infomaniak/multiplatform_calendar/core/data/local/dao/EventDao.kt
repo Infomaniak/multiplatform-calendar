@@ -86,6 +86,7 @@ internal abstract class EventDao {
                calendar.color AS calendarColorArgb,
                account.emails AS accountEmails,
                event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
+               event.meetRoomUrl, event.bookableUuid,
                event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
                event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
                event.rrule, event.rDates, event.exDates
@@ -131,6 +132,7 @@ internal abstract class EventDao {
                calendar.color AS calendarColorArgb,
                account.emails AS accountEmails,
                event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
+               event.meetRoomUrl, event.bookableUuid,
                event.dtStart, event.dtEnd, event.duration, event.dtEndEffective, event.startTimeZone,
                event.endTimeZone, event.dtStartInstantMs, event.dtEndInstantMs, event.isAllDay,
                event.rrule, event.rDates, event.exDates

@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOv
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 
 internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
@@ -38,6 +39,7 @@ internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
                 occurrenceId = OccurrenceId.Recurrence(id, override.recurrenceKey),
                 calendarSourceColor = calendarSourceColor,
                 accountEmails = accountEmails,
+                isRecurring = true,
             )
         },
     )
@@ -63,6 +65,7 @@ private fun EventSummaryContent.toDomain(
     recurrenceRule: RecurrenceRule? = null,
     rDates: List<IcalDateValue> = emptyList(),
     exDates: List<IcalDateValue> = emptyList(),
+    isRecurring: Boolean = hasRecurrenceSet(recurrenceRule, rDates),
 ): EventSummary = EventSummary(
     occurrenceId = occurrenceId,
     title = summary,
@@ -71,6 +74,9 @@ private fun EventSummaryContent.toDomain(
     colors = EventColors.from(colorArgb, calendarSourceColor),
     timing = timing.toDomain(recurrenceRule = recurrenceRule, rDates = rDates, exDates = exDates),
     hasAttendees = attendees.isNotEmpty(),
+    hasMeetRoom = !meetRoomUrl.isNullOrBlank(),
+    isBookable = !bookableUuid.isNullOrBlank(),
+    isRecurring = isRecurring,
     myStatus = attendees.firstOrNull { attendee ->
         accountEmails.any { it.equals(attendee.email, ignoreCase = true) }
     }?.status,

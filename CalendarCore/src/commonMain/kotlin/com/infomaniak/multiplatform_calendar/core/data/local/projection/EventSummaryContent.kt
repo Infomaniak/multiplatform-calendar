@@ -31,5 +31,7 @@ internal data class EventSummaryContent(
     val status: EventStatus?,
     val attendees: List<AttendeeEntity>,
     val colorArgb: Int?,
+    val meetRoomUrl: String?,
+    val bookableUuid: String?,
     val alarms: List<AlarmEntity>,
 )

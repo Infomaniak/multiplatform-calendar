@@ -29,9 +29,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
  * Returns `null` for occurrences and when the event has no RRULE, including RDATE-only events.
  */
 public suspend fun Event.toLocalizedRecurrenceString(): String? {
-    if (isOccurrence) return null
-    return timing.recurrenceRule?.toLocalizedString(
-        start = timing.bounds.startWallClock,
-        timeZone = (timing.bounds as? EventBounds.Zoned)?.start?.timeZone,
+    val rule = timing.recurrenceRule ?: return null
+    val bounds = recurrenceMasterBounds ?: timing.bounds
+
+    return rule.toLocalizedString(
+        start = bounds.startWallClock,
+        timeZone = (bounds as? EventBounds.Zoned)?.start?.timeZone,
     )
 }

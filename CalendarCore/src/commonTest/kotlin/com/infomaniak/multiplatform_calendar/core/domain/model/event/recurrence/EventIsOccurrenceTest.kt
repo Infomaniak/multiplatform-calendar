@@ -29,6 +29,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ScopeSelection
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.expandRecurrencesInWindow
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -45,6 +48,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -107,28 +111,36 @@ class EventIsOccurrenceTest {
     }
 
     @Test
-    fun recurrenceScopes_areOfferedOnAnOverride() {
+    fun scopeSelection_offersEveryScopeOnAnOverride() {
         val override = overrideEntity().toDomain(calendar)
 
-        assertEquals(
-            setOf(RecurrenceScope.ThisOccurrence, RecurrenceScope.ThisAndFollowing, RecurrenceScope.AllOccurrences),
-            override.recurrenceScopes,
-        )
+        assertEquals(allScopesOn(override), override.scopeSelection)
     }
 
     @Test
-    fun recurrenceScopes_areEmptyOnAPlainEvent() {
+    fun scopeSelection_isSingleOnAPlainEvent() {
         val event = eventEntity().toDomain(calendar)
 
-        assertEquals(emptySet(), event.recurrenceScopes)
+        assertEquals(ScopeSelection.Single(OccurrenceTarget.Single(event.occurrenceId)), event.scopeSelection)
     }
 
     @Test
-    fun recurrenceScopes_areEmptyOnAReadOnlyCalendar() {
+    fun scopeSelection_offersEveryScopeOnAReadOnlyCalendarToo() {
         val override = overrideEntity().toDomain(calendar.copy(accessLevel = CalendarAccessLevel.READ))
 
-        assertTrue(override.isOccurrence)
-        assertEquals(emptySet(), override.recurrenceScopes)
+        assertFalse(override.canEdit)
+        assertEquals(allScopesOn(override), override.scopeSelection)
+    }
+
+    private fun allScopesOn(event: Event): ScopeSelection {
+        val id = assertIs<OccurrenceId.Recurrence>(event.occurrenceId)
+        return ScopeSelection.Recurring(
+            options = listOf(
+                OccurrenceTarget.Recurring(id, RecurrenceScope.ThisOccurrence),
+                OccurrenceTarget.Recurring(id, RecurrenceScope.ThisAndFollowing),
+                OccurrenceTarget.Recurring(id, RecurrenceScope.AllOccurrences),
+            ),
+        )
     }
 
     private suspend fun expand(master: Event): List<Event> = listOf(EventWithOverrides(master)).expandRecurrencesInWindow(

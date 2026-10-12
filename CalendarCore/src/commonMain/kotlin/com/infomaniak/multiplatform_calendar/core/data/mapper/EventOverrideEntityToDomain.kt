@@ -26,7 +26,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 /**
  * An override is a whole occurrence on its own, so it maps to the same synthetic [Event] the expander
  * would have produced for that slot — same `masterId#recurrenceKey` identity, but the server's own
- * content and position. Its recurrence stays empty: only the master carries the rule.
+ * content and position.
+ *
+ * The persisted override has no RRULE of its own. [masterRecurrenceRule] is attached to the domain
+ * event so consumers can access the recurrence context of the series it belongs to.
  */
 internal fun EventOverrideEntity.toDomain(
     calendar: Calendar,

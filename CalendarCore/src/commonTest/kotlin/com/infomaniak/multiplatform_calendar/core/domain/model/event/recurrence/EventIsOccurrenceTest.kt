@@ -83,6 +83,18 @@ class EventIsOccurrenceTest {
     }
 
     @Test
+    fun override_isOccurrenceEvenWhenItCarriesMasterRecurrenceRule() {
+        val rule = RecurrenceRule(freq = Frequency.Daily)
+        val override = overrideEntity().toDomain(
+            calendar = calendar,
+            masterRecurrenceRule = rule,
+        )
+
+        assertTrue(override.isOccurrence)
+        assertEquals(rule, override.timing.recurrenceRule)
+    }
+
+    @Test
     fun expandedOccurrence_isOccurrence() = runTest {
         // An occurrence keeps the rule it was generated from, so only its identity tells it apart.
         val master = eventEntity(rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3)).toDomain(calendar)

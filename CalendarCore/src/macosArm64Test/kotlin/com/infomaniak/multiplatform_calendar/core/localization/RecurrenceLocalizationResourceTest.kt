@@ -26,12 +26,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ZonedWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
@@ -158,6 +158,31 @@ class RecurrenceLocalizationResourceTest {
                     "for locale $locale",
                 )
             }
+        }
+    }
+
+    @Test
+    fun eventLocalization_materializedOccurrenceUsesMasterDtStart() = runTest {
+        val zone = TimeZone.of("Europe/Zurich")
+        val rule = RecurrenceRule(freq = Frequency.Monthly)
+        val master = eventWithRule(rule, zone)
+
+        val occurrenceStart = LocalDateTime(2026, 10, 2, 18, 30)
+        val occurrence = master.copy(
+            recurrenceMasterBounds = master.timing.bounds,
+            timing = master.timing.copy(
+                bounds = EventBounds.Zoned(
+                    start = ZonedWallClock(occurrenceStart, zone),
+                    end = ZonedWallClock(LocalDateTime(2026, 10, 2, 19, 30), zone),
+                ),
+            ),
+        )
+
+        withPreferredLanguage("en") {
+            val description = occurrence.toLocalizedRecurrenceString()
+
+            assertEquals(rule.toLocalizedString(start, zone), description)
+            assertNotEquals(rule.toLocalizedString(occurrenceStart, zone), description)
         }
     }
 

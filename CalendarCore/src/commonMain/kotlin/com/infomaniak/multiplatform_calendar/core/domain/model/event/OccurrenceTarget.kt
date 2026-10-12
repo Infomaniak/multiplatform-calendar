@@ -22,8 +22,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 /**
  * What a mutation is aimed at, scope included: deletes and updates both take one of these.
  *
- * Built from the [Event] acted on ([Event.targetedAs]), never by hand, so a scope can only ever be
- * paired with an id that does name an occurrence.
+ * Read from the [Event] acted on ([Event.scopeSelection]), never built by hand, so a scope can only
+ * ever be paired with an id that does name an occurrence.
  */
 public sealed interface OccurrenceTarget {
 
@@ -36,21 +36,9 @@ public sealed interface OccurrenceTarget {
     /** One occurrence of a series, reached as far along it as [scope] says. */
     @ConsistentCopyVisibility
     public data class Recurring internal constructor(
-        override val occurrenceId: OccurrenceId,
+        internal val recurrenceId: OccurrenceId.Recurrence,
         val scope: RecurrenceScope,
-    ) : OccurrenceTarget
+    ) : OccurrenceTarget {
+        override val occurrenceId: OccurrenceId get() = recurrenceId
+    }
 }
-
-/**
- * This event as the target of a mutation reaching [scope] of its series.
- *
- * Only an occurrence can be scoped; anything else names a whole resource, and [scope] is dropped
- * rather than obeyed. The choices worth offering are in [Event.recurrenceScopes].
- */
-public fun Event.targetedAs(scope: RecurrenceScope): OccurrenceTarget = when {
-    isOccurrence -> OccurrenceTarget.Recurring(occurrenceId, scope)
-    else -> OccurrenceTarget.Single(occurrenceId)
-}
-
-/** This event as the target of a mutation of the whole resource. */
-public fun Event.targetedWhole(): OccurrenceTarget = OccurrenceTarget.Single(OccurrenceId.Master(occurrenceId.masterId))

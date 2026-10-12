@@ -21,7 +21,6 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceScopesFor
 import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlin.experimental.ExperimentalObjCRefinement
@@ -65,9 +64,17 @@ public data class Event(
     val isOccurrence: Boolean
         get() = occurrenceId is OccurrenceId.Recurrence
 
-    /** What a mutation of this event may be asked to reach, empty when there is nothing to ask. */
-    val recurrenceScopes: Set<RecurrenceScope>
-        get() = recurrenceScopesFor(isOccurrence, canEdit)
+    /**
+     * What a mutation of this event may be aimed at, scopes to ask for included.
+     * Says nothing about whether it may be mutated at all: that is [canEdit].
+     */
+    val scopeSelection: ScopeSelection
+        get() = when (val id = occurrenceId) {
+            is OccurrenceId.Recurrence -> ScopeSelection.Recurring(
+                options = RecurrenceScope.entries.map { scope -> OccurrenceTarget.Recurring(id, scope) },
+            )
+            else -> ScopeSelection.Single(OccurrenceTarget.Single(id))
+        }
 
     /** The description with all Infomaniak marked blocks removed. */
     val cleanedDescription: String

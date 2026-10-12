@@ -349,14 +349,16 @@ internal class EventRepository(
      * carries as a pivot, so a stale one would bound the series on a slot it never had.
      */
     suspend fun deleteEvent(credentials: DavAccount, target: OccurrenceTarget) {
-        val occurrenceId = target.occurrenceId
-        when {
-            target !is OccurrenceTarget.Recurring -> deleteEvent(credentials, occurrenceId.masterId)
-            occurrenceId !is OccurrenceId.Recurrence -> deleteEvent(credentials, occurrenceId.masterId)
-            target.scope == RecurrenceScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
-            !namesALiveOccurrence(occurrenceId) -> Unit
-            target.scope == RecurrenceScope.ThisOccurrence -> excludeOccurrence(credentials, occurrenceId)
-            else -> truncateSeriesFrom(credentials, occurrenceId)
+        if (target !is OccurrenceTarget.Recurring) return deleteEvent(credentials, target.occurrenceId.masterId)
+        val occurrenceId = target.recurrenceId
+        when (target.scope) {
+            RecurrenceScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
+            RecurrenceScope.ThisOccurrence -> if (namesALiveOccurrence(occurrenceId)) {
+                excludeOccurrence(credentials, occurrenceId)
+            }
+            RecurrenceScope.ThisAndFollowing -> if (namesALiveOccurrence(occurrenceId)) {
+                truncateSeriesFrom(credentials, occurrenceId)
+            }
         }
     }
 
@@ -439,13 +441,12 @@ internal class EventRepository(
      * a series named by its master, can mean — or as far along the series as the scope it carries.
      */
     suspend fun updateEvent(credentials: DavAccount, target: OccurrenceTarget, data: EventEditData) {
-        val occurrenceId = target.occurrenceId
-        when {
-            target !is OccurrenceTarget.Recurring -> updateEvent(credentials, occurrenceId.masterId, data)
-            occurrenceId !is OccurrenceId.Recurrence -> updateEvent(credentials, occurrenceId.masterId, data)
-            target.scope == RecurrenceScope.AllOccurrences -> updateSeriesFrom(credentials, occurrenceId, data)
-            target.scope == RecurrenceScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
-            else -> splitSeriesAt(credentials, occurrenceId, data)
+        if (target !is OccurrenceTarget.Recurring) return updateEvent(credentials, target.occurrenceId.masterId, data)
+        val occurrenceId = target.recurrenceId
+        when (target.scope) {
+            RecurrenceScope.AllOccurrences -> updateSeriesFrom(credentials, occurrenceId, data)
+            RecurrenceScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
+            RecurrenceScope.ThisAndFollowing -> splitSeriesAt(credentials, occurrenceId, data)
         }
     }
 

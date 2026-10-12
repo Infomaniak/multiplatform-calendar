@@ -40,7 +40,6 @@ import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -50,7 +49,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlin.time.Instant
 
 class EventIsOccurrenceTest {
 
@@ -79,7 +77,7 @@ class EventIsOccurrenceTest {
     fun override_isOccurrence() {
         // Non-regression: an override carries no rule of its own, which used to make it report as a
         // plain event and let an action on one occurrence pass for an action on a standalone event.
-        val override = overrideEntity().toDomain(calendar)
+        val override = overrideEntity().toDomain(calendar, masterRecurrenceRule = null)
 
         assertTrue(override.isOccurrence)
     }
@@ -112,7 +110,7 @@ class EventIsOccurrenceTest {
 
     @Test
     fun scopeSelection_offersEveryScopeOnAnOverride() {
-        val override = overrideEntity().toDomain(calendar)
+        val override = overrideEntity().toDomain(calendar, masterRecurrenceRule = null)
 
         assertEquals(allScopesOn(override), override.scopeSelection)
     }
@@ -126,7 +124,8 @@ class EventIsOccurrenceTest {
 
     @Test
     fun scopeSelection_offersEveryScopeOnAReadOnlyCalendarToo() {
-        val override = overrideEntity().toDomain(calendar.copy(accessLevel = CalendarAccessLevel.READ))
+        val calendar = calendar.copy(accessLevel = CalendarAccessLevel.READ)
+        val override = overrideEntity().toDomain(calendar, masterRecurrenceRule = null)
 
         assertFalse(override.canEdit)
         assertEquals(allScopesOn(override), override.scopeSelection)

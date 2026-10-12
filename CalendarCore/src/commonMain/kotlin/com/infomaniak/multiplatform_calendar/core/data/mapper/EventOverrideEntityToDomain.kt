@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrid
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 
 /**
  * An override is a whole occurrence on its own, so it maps to the same synthetic [Event] the expander
@@ -29,8 +30,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceI
  */
 internal fun EventOverrideEntity.toDomain(
     calendar: Calendar,
+    masterRecurrenceRule: RecurrenceRule?,
 ): Event = content.toDomain(
     masterEventId = masterId,
     occurrenceId = OccurrenceId.Recurrence(masterId, recurrenceKey),
     calendar = calendar,
+    recurrenceRule = masterRecurrenceRule,
 )

@@ -81,6 +81,13 @@ public class CalendarManager internal constructor(
         }
     }
 
+    /** The calendar [calendarId], `null` when it does not exist (anymore). */
+    public fun observeCalendar(calendarId: CalendarId): Flow<Calendar?> {
+        return sdkCaller.flow(operation = "observe calendar $calendarId") {
+            calendarRepository.observeCalendar(calendarId)
+        }
+    }
+
     /**
      * Observe events from all *visible* calendars of the current account overlapping [start, end[,
      * with multi-day events split into one [EventDaySlice] per day and the

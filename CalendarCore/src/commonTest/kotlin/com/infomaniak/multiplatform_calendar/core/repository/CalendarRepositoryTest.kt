@@ -47,7 +47,10 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecu
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
@@ -161,6 +164,38 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
 
         val visibility = ids.associateWith { database.calendarDao().findById(it)?.isVisible }
         assertEquals(mapOf(ids[0] to true, ids[1] to true), visibility)
+    }
+
+    @Test
+    fun observeCalendar_emitsTheCalendarAndItsChanges_thenNullOnceDeleted() = runTest {
+        val accountId = AccountId(10)
+        database.accountDao().insert(AccountEntity(accountId))
+        val id = CalendarId("https://dav.example/cal/a/")
+        val entity = CalendarEntity(id = id, accountId = accountId, displayName = "Work", color = null)
+        database.calendarDao().insert(entity)
+        val displayNames = Channel<String?>(Channel.UNLIMITED)
+        val collector = launch {
+            repositoryWith(FakeCalendarSyncRemoteSource(calendars = emptyList())).observeCalendar(id)
+                .map { it?.displayName }
+                .distinctUntilChanged()
+                .collect(displayNames::send)
+        }
+
+        assertEquals("Work", displayNames.receive())
+
+        database.calendarDao().update(entity.copy(displayName = "Home"))
+        assertEquals("Home", displayNames.receive())
+
+        database.calendarDao().deleteCalendarsNotExisting(accountId, ids = emptyList())
+        assertNull(displayNames.receive())
+        collector.cancel()
+    }
+
+    @Test
+    fun observeCalendar_withUnknownCalendarId_emitsNull() = runTest {
+        val repository = repositoryWith(FakeCalendarSyncRemoteSource(calendars = emptyList()))
+
+        assertNull(repository.observeCalendar(CalendarId("https://dav.example/cal/missing/")).first())
     }
 
     @Test

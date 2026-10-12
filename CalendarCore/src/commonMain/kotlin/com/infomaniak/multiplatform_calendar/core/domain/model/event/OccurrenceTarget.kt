@@ -36,9 +36,11 @@ public sealed interface OccurrenceTarget {
     /** One occurrence of a series, reached as far along it as [scope] says. */
     @ConsistentCopyVisibility
     public data class Recurring internal constructor(
-        override val occurrenceId: OccurrenceId,
+        internal val recurrenceId: OccurrenceId.Recurrence,
         val scope: RecurrenceScope,
-    ) : OccurrenceTarget
+    ) : OccurrenceTarget {
+        override val occurrenceId: OccurrenceId get() = recurrenceId
+    }
 }
 
 /**
@@ -47,9 +49,9 @@ public sealed interface OccurrenceTarget {
  * Only an occurrence can be scoped; anything else names a whole resource, and [scope] is dropped
  * rather than obeyed. The choices worth offering are in [Event.recurrenceScopes].
  */
-public fun Event.targetedAs(scope: RecurrenceScope): OccurrenceTarget = when {
-    isOccurrence -> OccurrenceTarget.Recurring(occurrenceId, scope)
-    else -> OccurrenceTarget.Single(occurrenceId)
+public fun Event.targetedAs(scope: RecurrenceScope): OccurrenceTarget = when (val id = occurrenceId) {
+    is OccurrenceId.Recurrence -> OccurrenceTarget.Recurring(id, scope)
+    else -> OccurrenceTarget.Single(id)
 }
 
 /** This event as the target of a mutation of the whole resource. */

@@ -20,7 +20,6 @@ package com.infomaniak.multiplatform_calendar.core.repository.event
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
@@ -134,25 +133,6 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
         assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
         assertEquals(emptyList(), fakeCaldav.patches)
         assertNull(database.eventDao().getEvent(master.id))
-    }
-
-    @Test
-    fun deleteEvent_onAMasterId_deletesTheWholeResourceWhateverTheScope() = runTest {
-        seedCalendar()
-        val master = recurringColorMaster(
-            eventId = EventId("https://cal/main/series.ics"),
-            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
-            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
-        )
-        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
-
-        // A master designates no instance, so there is nothing to exclude: only the series as a whole.
-        repository.deleteEvent(
-            credentials = CREDENTIALS,
-            target = OccurrenceTarget.Recurring(OccurrenceId.Master(master.id), RecurrenceScope.ThisOccurrence),
-        )
-
-        assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
     }
 
     @Test

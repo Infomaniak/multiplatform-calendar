@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.configureCaldavClient
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
+import com.infomaniak.multiplatform_calendar.meeting_rooms.MeetingRoomsSettings
 import com.infomaniak.multiplatform_core.contacts.ContactsSettings
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
@@ -45,6 +46,7 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
             @Provides databaseConfig: DatabaseConfig,
             @Provides crashReport: CrashReport,
             @Provides contactsSettings: ContactsSettings,
+            @Provides meetingRoomsSettings: MeetingRoomsSettings,
         ): CalendarSDK
     }
 }
@@ -73,10 +75,12 @@ public data class CalendarSettings(
  *     ),
  *     crashReport: crashReport,
  *     contacts: ContactsSettings(databasePath: "/path/to/contacts.db"),
+ *     meetingRooms: MeetingRoomsSettings(databasePath: "/path/to/meeting_rooms.db"),
  * )
  * sdk.accountManager.initAccount(...)
  * sdk.calendarManager.observeCalendars(...)
  * sdk.contactsManager.search(...)
+ * sdk.meetingRoomsManager.observeRooms(...)
  * ```
  */
 public object CalendarSDKProvider {
@@ -89,12 +93,14 @@ public object CalendarSDKProvider {
         calendar: CalendarSettings,
         crashReport: CrashReport,
         contacts: ContactsSettings,
+        meetingRooms: MeetingRoomsSettings,
     ): CalendarCoreGraph {
         calendar.caldavSettings?.let { configureCaldavClient(it.toBridgeConfig()) }
         return createGraphFactory<CalendarSDK.Factory>().create(
             databaseConfig = DatabaseConfig(path = calendar.databasePath),
             crashReport = crashReport,
             contactsSettings = contacts,
+            meetingRoomsSettings = meetingRooms,
         )
     }
 }

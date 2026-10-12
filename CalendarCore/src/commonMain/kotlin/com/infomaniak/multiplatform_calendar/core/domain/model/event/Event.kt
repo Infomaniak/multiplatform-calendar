@@ -55,6 +55,13 @@ public data class Event(
     val colors: EventColors,
     val canEdit: Boolean,
     val alarms: List<EventAlarm> = emptyList(),
+    /**
+     * Original bounds of the recurrence master when this event is a materialized occurrence.
+     *
+     * `null` for master and standalone events.
+     */
+    @HiddenFromObjC
+    val recurrenceMasterBounds: EventBounds? = null,
 ) {
     /**
      * One instance of a series rather than a plain event. Read from [occurrenceId], the only thing

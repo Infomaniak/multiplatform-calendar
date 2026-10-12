@@ -52,6 +52,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":Account"))
             implementation(project(":Network"))
+            api(kmpCalendar.kotlinx.datetime)
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)

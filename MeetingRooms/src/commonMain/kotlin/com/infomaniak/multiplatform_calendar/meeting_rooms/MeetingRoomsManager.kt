@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.meetingRoo
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.MeetingRoomsRemoteDataSource
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.createMeetingRoomsHttpClient
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.repository.MeetingRoomsRepository
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.BusyPeriod
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsErrorCause
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
@@ -34,9 +35,11 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
+import kotlin.time.Instant
 
 /** Entry point of the meeting rooms module: the Infomaniak meeting rooms an account can book. */
 public class MeetingRoomsManager internal constructor(
@@ -90,4 +93,46 @@ public class MeetingRoomsManager internal constructor(
      */
     public fun observeRoom(accountId: AccountId, uuid: String): Flow<MeetingRoom?> =
         repository.observeRoom(accountId, uuid).flowOn(Dispatchers.Default)
+
+    /**
+     * Whether each bookable resource of [accountId] is free from [start] to [end], by uuid. Always hits the network.
+     *
+     * @param timeZone Zone the server checks the period in, which matters for [rrule].
+     * @param rrule RFC 5545 recurrence rule: every occurrence within 3 months of [start] is checked.
+     */
+    @Throws(MeetingRoomsException::class, CancellationException::class)
+    public suspend fun availability(
+        accountId: AccountId,
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone,
+        rrule: String? = null,
+    ): Map<String, Boolean> = meetingRoomsCall {
+        repository.availability(accountId, uuid = null, start, end, timeZone, rrule)
+    }
+
+    /** [availability] of the single meeting room [uuid]. */
+    @Throws(MeetingRoomsException::class, CancellationException::class)
+    public suspend fun isAvailable(
+        accountId: AccountId,
+        uuid: String,
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone,
+        rrule: String? = null,
+    ): Boolean = meetingRoomsCall {
+        repository.availability(accountId, uuid, start, end, timeZone, rrule)[uuid] == true
+    }
+
+    /**
+     * The bookings of the meeting rooms [uuids] between [from] and [to], by uuid. Rooms the account cannot book are left
+     * out. Always hits the network.
+     */
+    @Throws(MeetingRoomsException::class, CancellationException::class)
+    public suspend fun busyPeriods(
+        accountId: AccountId,
+        uuids: Set<String>,
+        from: Instant,
+        to: Instant,
+    ): Map<String, List<BusyPeriod>> = meetingRoomsCall { repository.busyPeriods(accountId, uuids, from, to) }
 }

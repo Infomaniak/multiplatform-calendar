@@ -22,7 +22,11 @@ import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoo
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.EquipmentEntity
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.MeetingRoomsRemoteDataSource
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiAvailabilityRequest
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiBookableResource
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiBusyPeriod
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiBusyPeriodsRequest
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.BusyPeriod
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.Equipment
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsErrorCause
@@ -39,7 +43,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format
+import kotlinx.datetime.format.char
+import kotlinx.datetime.toLocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Instant
 
 internal class MeetingRoomsRepository(
     private val database: MeetingRoomsDatabase,
@@ -87,6 +97,41 @@ internal class MeetingRoomsRepository(
         dao.observeRoom(accountId, uuid).collect { send(it?.toMeetingRoom()) }
     }
 
+    suspend fun availability(
+        accountId: AccountId,
+        uuid: String?,
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone,
+        rrule: String?,
+    ): Map<String, Boolean> {
+        val request = ApiAvailabilityRequest(
+            start = start.toApiDateTime(timeZone),
+            end = end.toApiDateTime(timeZone),
+            timezoneStart = timeZone.id,
+            timezoneEnd = timeZone.id,
+            rrule = rrule,
+        )
+        return remoteDataSource.getAvailability(token(accountId), request, uuid)
+    }
+
+    suspend fun busyPeriods(
+        accountId: AccountId,
+        uuids: Set<String>,
+        from: Instant,
+        to: Instant,
+    ): Map<String, List<BusyPeriod>> {
+        if (uuids.isEmpty()) return emptyMap()
+
+        val request = ApiBusyPeriodsRequest(
+            bookableResourceUuids = uuids.toList(),
+            from = from.toApiDateTime(TimeZone.UTC),
+            to = to.toApiDateTime(TimeZone.UTC),
+        )
+        return remoteDataSource.getBusyPeriods(token(accountId), request)
+            .mapValues { (_, periods) -> periods.map(ApiBusyPeriod::toBusyPeriod) }
+    }
+
     private suspend fun syncFailure(accountId: AccountId): Exception? = try {
         syncAccount(accountId)
         null
@@ -131,6 +176,23 @@ internal class MeetingRoomsRepository(
     }
 }
 
+/** `Y-m-d H:i:s`, the date format of the API. */
+private val apiDateTimeFormat = LocalDateTime.Format {
+    year()
+    char('-')
+    monthNumber()
+    char('-')
+    day()
+    char(' ')
+    hour()
+    char(':')
+    minute()
+    char(':')
+    second()
+}
+
+private fun Instant.toApiDateTime(timeZone: TimeZone): String = toLocalDateTime(timeZone).format(apiDateTimeFormat)
+
 private fun ApiBookableResource.toEntity(accountId: AccountId): MeetingRoomEntity = MeetingRoomEntity(
     accountId = accountId,
     uuid = uuid,
@@ -152,4 +214,13 @@ private fun MeetingRoomEntity.toMeetingRoom(): MeetingRoom = MeetingRoom(
     floor = floor,
     capacity = capacity,
     equipments = equipments.map { Equipment(name = it.name, category = it.category) },
+)
+
+private fun ApiBusyPeriod.toBusyPeriod(): BusyPeriod = BusyPeriod(
+    start = Instant.parse(start),
+    end = Instant.parse(end),
+    isFullDay = fullday,
+    title = title,
+    organizer = organizer,
+    isOwner = isOwner,
 )

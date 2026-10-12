@@ -79,6 +79,10 @@ internal class CalendarRepository(
         }
     }
 
+    fun observeCalendar(calendarId: CalendarId): Flow<Calendar?> {
+        return calendarDao.observeCalendar(calendarId).map { it?.toDomain() }
+    }
+
     suspend fun getCalendar(calendarId: CalendarId): Calendar {
         return calendarDao.findById(calendarId)?.toDomain() ?: error("Calendar $calendarId not found")
     }

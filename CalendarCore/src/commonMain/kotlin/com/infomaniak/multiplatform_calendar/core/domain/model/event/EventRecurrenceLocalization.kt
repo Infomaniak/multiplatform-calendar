@@ -20,13 +20,13 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
 
 /**
- * Describes this master event's RRULE using its DTSTART and start time zone.
+ * Describes this event's RRULE using the recurrence master's DTSTART context.
  *
- * Only master events can be formatted reliably because materialized occurrences keep the master's
- * RRULE while their [EventTiming.bounds] point to the occurrence start rather than the master's DTSTART.
- * Using an occurrence start could therefore change the meaning of implicit RRULE selectors.
+ * For materialized occurrences, [recurrenceMasterBounds] preserves the original master's bounds so
+ * implicit RRULE selectors are resolved against the master's DTSTART rather than the occurrence start.
+ * Master and standalone events use their own [EventTiming.bounds].
  *
- * Returns `null` for occurrences and when the event has no RRULE, including RDATE-only events.
+ * Returns `null` when the event has no RRULE, including RDATE-only events.
  */
 public suspend fun Event.toLocalizedRecurrenceString(): String? {
     val rule = timing.recurrenceRule ?: return null

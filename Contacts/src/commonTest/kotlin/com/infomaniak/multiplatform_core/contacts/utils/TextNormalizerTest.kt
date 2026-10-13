@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_core.contacts.utils
 
-import com.infomaniak.multiplatform_core.contacts.RobolectricTestsBase
+import com.infomaniak.multiplatform_core.database.testing.RobolectricTestsBase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

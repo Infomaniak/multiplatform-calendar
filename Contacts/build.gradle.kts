@@ -51,9 +51,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":Account"))
+            implementation(project(":Database"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
-            implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.bundles.ktor)
         }
@@ -61,6 +61,7 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(kmpCalendar.kotlinx.coroutines.test)
+            implementation(project(":DatabaseTesting"))
             implementation(kmpCalendar.ktor.client.mock)
         }
 

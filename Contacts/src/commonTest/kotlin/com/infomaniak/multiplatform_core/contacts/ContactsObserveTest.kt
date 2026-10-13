@@ -20,6 +20,8 @@ package com.infomaniak.multiplatform_core.contacts
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.database.testing.RobolectricTestsBase
+import com.infomaniak.multiplatform_core.database.testing.testDatabase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch

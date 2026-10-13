@@ -17,10 +17,12 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
-import com.infomaniak.multiplatform_core.contacts.data.local.contactsDatabase
+import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
+import com.infomaniak.multiplatform_core.database.testing.RobolectricTestsBase
+import com.infomaniak.multiplatform_core.database.testing.testDatabase
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -125,7 +127,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
 
     @Test
     fun removeAccountClearsLocalDataAndToken() = runTest {
-        val database = testDatabase()
+        val database = testDatabase<ContactsDatabase>()
         val manager = ContactsManager(
             database = database,
             deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),

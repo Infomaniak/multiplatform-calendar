@@ -74,13 +74,12 @@ class EventIsOccurrenceTest {
     }
 
     @Test
-    fun override_isOccurrence() {
-        // Non-regression: an override carries no rule of its own, which used to make it report as a
-        // plain event and let an action on one occurrence pass for an action on a standalone event.
-        val masterTiming = eventEntity().toDomain(calendar).timing
+    fun overrideOfRDateOnlySeries_isOccurrence() {
+        val masterTiming = eventEntity(rDates = listOf(rDate)).toDomain(calendar).timing
         val override = overrideEntity().toDomain(calendar, masterTiming = masterTiming)
 
         assertTrue(override.isOccurrence)
+        assertEquals(masterTiming.rDates, override.timing.rDates)
     }
 
     @Test

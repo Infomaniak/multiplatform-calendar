@@ -28,8 +28,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceI
  * would have produced for that slot — same `masterId#recurrenceKey` identity, but the server's own
  * content and position.
  *
- * The persisted override has no RRULE of its own. [masterTiming] is attached to the domain
- * event so consumers can access the recurrence context of the series it belongs to.
+ * The persisted override has no recurrence set of its own. The master's recurrence set and original
+ * bounds are copied into the domain event so consumers keep the recurrence context of the series.
  */
 internal fun EventOverrideEntity.toDomain(
     calendar: Calendar,

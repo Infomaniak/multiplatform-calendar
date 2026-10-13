@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.localization
 
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
@@ -31,6 +32,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
@@ -44,6 +47,7 @@ import platform.Foundation.preferredLanguages
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -183,6 +187,33 @@ class RecurrenceLocalizationResourceTest {
 
             assertEquals(rule.toLocalizedString(start, zone), description)
             assertNotEquals(rule.toLocalizedString(occurrenceStart, zone), description)
+        }
+    }
+
+    @Test
+    fun eventLocalization_overrideUsesMasterDtStartThroughDomainWiring() = runTest {
+        val fixture = overrideDomainWiringFixture()
+        val zone = TimeZone.UTC
+        val eventWithOverrides = fixture.eventWithOverrides.toDomainEventWithOverrides()
+
+        val resolved = eventWithOverrides.resolveOccurrence(
+            occurrenceId = fixture.occurrenceId,
+            timeZone = zone,
+            onExpansionTruncated = { _, _ -> },
+            onOrphanOverrideDropped = { _, _ -> },
+        )
+
+        assertNotNull(resolved)
+        assertEquals("Moved override", resolved.title)
+        assertEquals(fixture.rule, resolved.timing.recurrenceRule)
+        assertEquals(fixture.masterStart, resolved.recurrenceMasterBounds?.startWallClock)
+        assertEquals(fixture.overrideStart, resolved.timing.bounds.startWallClock)
+
+        withPreferredLanguage("en") {
+            val description = resolved.toLocalizedRecurrenceString()
+
+            assertEquals(fixture.rule.toLocalizedString(fixture.masterStart, zone), description)
+            assertNotEquals(fixture.rule.toLocalizedString(fixture.overrideStart, zone), description)
         }
     }
 

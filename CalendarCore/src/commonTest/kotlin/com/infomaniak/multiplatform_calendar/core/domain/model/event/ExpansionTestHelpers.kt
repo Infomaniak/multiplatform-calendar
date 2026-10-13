@@ -28,7 +28,11 @@ private val EventExpansionAccess = ExpansionAccess<Event>(
     timingOf = Event::timing,
     isCancelled = { it.status == EventStatus.CANCELLED },
     occurrenceOf = { master, occurrenceId, bounds ->
-        master.copy(occurrenceId = occurrenceId, timing = master.timing.copy(bounds = bounds))
+        master.copy(
+            occurrenceId = occurrenceId,
+            timing = master.timing.copy(bounds = bounds),
+            recurrenceMasterBounds = master.timing.bounds,
+        )
     },
 )
 

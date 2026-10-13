@@ -31,6 +31,10 @@ multiplatform-calendar/
 │   ├── src/androidMain/             # AndroidDeviceContactsProvider (ContactsContract)
 │   ├── src/appleMain/               # AppleDeviceContactsProvider (Contacts framework)
 │   └── build.gradle.kts             # Contacts module build (Room, Ktor, publish)
+├── Database/                        # Shared Room setup (roomDatabase, DatabaseSource)
+│   └── build.gradle.kts             # Database module build (publish)
+├── DatabaseTesting/                 # Test helpers for Room databases (testDatabase, RobolectricTestsBase)
+│   └── build.gradle.kts             # DatabaseTesting module build (not published)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
 │   └── build.gradle.kts             # Network module build (publish)
 ├── build.gradle.kts                 # Root aggregator (no sources)
@@ -47,6 +51,8 @@ multiplatform-calendar/
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 | **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
+| **Database**         | Shared Room setup: `roomDatabase` opens a database from a `DatabaseSource` (file or in memory) |
+| **DatabaseTesting**  | Test-only helpers: in-memory `testDatabase` and `RobolectricTestsBase` for the Android host tests |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
 ### Recurrence localization
@@ -87,6 +93,9 @@ generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to
 
 `:Network` is an `implementation` dependency of CalendarCore and Contacts, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
+
+`:Database` follows the same rules: no DI, `com.infomaniak.multiplatform_core.database` package, **not** exported.
+`:DatabaseTesting` is a `commonTest` dependency only, and is not published.
 
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 

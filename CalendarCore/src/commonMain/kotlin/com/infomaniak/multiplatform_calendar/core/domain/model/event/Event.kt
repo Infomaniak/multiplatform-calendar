@@ -60,8 +60,7 @@ public data class Event(
      *
      * `null` for master and standalone events.
      */
-    @HiddenFromObjC
-    val recurrenceMasterBounds: EventBounds? = null,
+    internal val recurrenceMasterBounds: EventBounds? = null,
 ) {
     /**
      * Whether this event is one materialized instance of a recurring series.

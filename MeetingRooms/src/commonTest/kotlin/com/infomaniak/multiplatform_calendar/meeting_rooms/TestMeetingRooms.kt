@@ -17,6 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.meeting_rooms
 
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoomsDatabaseSource
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.meetingRoomsDatabase
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsErrorCause
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
@@ -80,6 +83,9 @@ internal fun testHttpClient(
     install(ContentNegotiation) { json(testJson()) }
     engine { addHandler(handler) }
 }
+
+internal fun testDatabase(): MeetingRoomsDatabase =
+    meetingRoomsDatabase(MeetingRoomsDatabaseSource.InMemory, driver = TestDatabaseFactory.driver())
 
 @OptIn(ExperimentalSerializationApi::class)
 private fun testJson(): Json = Json(DefaultJson) {

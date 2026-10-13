@@ -64,5 +64,6 @@ include(
     ":Contacts",
     ":Database",
     ":DatabaseTesting",
+    ":MeetingRooms",
     ":Network",
 )

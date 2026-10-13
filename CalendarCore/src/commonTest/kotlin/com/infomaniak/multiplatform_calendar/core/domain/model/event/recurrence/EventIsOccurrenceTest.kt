@@ -77,7 +77,8 @@ class EventIsOccurrenceTest {
     fun override_isOccurrence() {
         // Non-regression: an override carries no rule of its own, which used to make it report as a
         // plain event and let an action on one occurrence pass for an action on a standalone event.
-        val override = overrideEntity().toDomain(calendar, masterRecurrenceRule = null)
+        val masterTiming = eventEntity().toDomain(calendar).timing
+        val override = overrideEntity().toDomain(calendar, masterTiming = masterTiming)
 
         assertTrue(override.isOccurrence)
     }
@@ -85,9 +86,10 @@ class EventIsOccurrenceTest {
     @Test
     fun override_isOccurrenceEvenWhenItCarriesMasterRecurrenceRule() {
         val rule = RecurrenceRule(freq = Frequency.Daily)
+        val masterTiming = eventEntity(rrule = rule).toDomain(calendar).timing
         val override = overrideEntity().toDomain(
             calendar = calendar,
-            masterRecurrenceRule = rule,
+            masterTiming = masterTiming,
         )
 
         assertTrue(override.isOccurrence)
@@ -122,7 +124,8 @@ class EventIsOccurrenceTest {
 
     @Test
     fun scopeSelection_offersEveryScopeOnAnOverride() {
-        val override = overrideEntity().toDomain(calendar, masterRecurrenceRule = null)
+        val masterTiming = eventEntity(rrule = RecurrenceRule(freq = Frequency.Daily)).toDomain(calendar).timing
+        val override = overrideEntity().toDomain(calendar, masterTiming = masterTiming)
 
         assertEquals(allScopesOn(override), override.scopeSelection)
     }
@@ -137,7 +140,8 @@ class EventIsOccurrenceTest {
     @Test
     fun scopeSelection_offersEveryScopeOnAReadOnlyCalendarToo() {
         val calendar = calendar.copy(accessLevel = CalendarAccessLevel.READ)
-        val override = overrideEntity().toDomain(calendar, masterRecurrenceRule = null)
+        val masterTiming = eventEntity(rrule = RecurrenceRule(freq = Frequency.Daily)).toDomain(this.calendar).timing
+        val override = overrideEntity().toDomain(calendar, masterTiming = masterTiming)
 
         assertFalse(override.canEdit)
         assertEquals(allScopesOn(override), override.scopeSelection)

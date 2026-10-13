@@ -29,8 +29,8 @@ internal fun EventWithCalendarEntity.toDomainEventWithOverrides(): EventWithOver
         overridesByOccurrenceKey = overrides.associate { override ->
             override.recurrenceKey to override.toDomain(
                 calendar = calendar,
-                masterRecurrenceRule = masterEvent.timing.recurrenceRule,
-            ).copy(recurrenceMasterBounds = masterEvent.timing.bounds)
+                masterTiming = masterEvent.timing,
+            )
         },
     )
 }

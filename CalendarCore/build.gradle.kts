@@ -64,6 +64,7 @@ kotlin {
             api(project(":Account"))
             api(project(":CalendarKmpDav"))
             api(project(":Contacts"))
+            api(project(":MeetingRooms"))
             implementation(project(":CalendarResources"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
@@ -151,7 +152,9 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         export(kmpCalendar.kotlinx.datetime)
         // ContactsManager and its types are part of the public Swift API (CalendarCoreGraph accessor).
         export(project(":Contacts"))
-        // AccountId and AccessToken are shared by the calendar and contacts public APIs.
+        // MeetingRoomsManager and its types are part of the public Swift API (CalendarCoreGraph accessor).
+        export(project(":MeetingRooms"))
+        // AccountId and AccessToken are shared by the calendar, contacts and meeting rooms public APIs.
         export(project(":Account"))
     }
 }

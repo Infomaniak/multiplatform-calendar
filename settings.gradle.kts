@@ -63,5 +63,6 @@ include(
     ":CalendarResources",
     ":Contacts",
     ":Database",
+    ":MeetingRooms",
     ":Network",
 )

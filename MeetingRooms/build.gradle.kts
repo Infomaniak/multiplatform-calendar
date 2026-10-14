@@ -22,6 +22,7 @@ plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
+    alias(kmpCalendar.plugins.ksp)
     alias(kmpCalendar.plugins.publish)
 }
 
@@ -49,6 +50,7 @@ kotlin {
             api(project(":Account"))
             implementation(kmpCalendar.kotlinx.coroutines.core)
             implementation(project(":Network"))
+            implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.bundles.ktor)
         }
@@ -57,12 +59,39 @@ kotlin {
             implementation(kotlin("test"))
             implementation(kmpCalendar.kotlinx.coroutines.test)
             implementation(kmpCalendar.ktor.client.mock)
+            implementation(kmpCalendar.androidx.sqlite.bundled)
+        }
+
+        getByName("androidHostTest").dependencies {
+            implementation(kmpCalendar.android.test)
+            implementation(kmpCalendar.robolectric)
+            implementation(kmpCalendar.androidx.sqlite.bundled.jvm)
+        }
+
+        listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->
+            getByName("${target}Test") {
+                kotlin.srcDir(layout.buildDirectory.dir("generated/ksp/$target/${target}Test/kotlin"))
+            }
         }
     }
 
     compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
         freeCompilerArgs.add("-Xreturn-value-checker=full")
     }
 
     explicitApi()
+}
+
+dependencies {
+    add("kspAndroidHostTest", kmpCalendar.androidx.room.compiler)
+    add("kspIosSimulatorArm64Test", kmpCalendar.androidx.room.compiler)
+    add("kspIosArm64Test", kmpCalendar.androidx.room.compiler)
+    add("kspMacosArm64Test", kmpCalendar.androidx.room.compiler)
+}
+
+listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
+    tasks.named("compileTestKotlin$target") {
+        dependsOn("kspTestKotlin$target")
+    }
 }

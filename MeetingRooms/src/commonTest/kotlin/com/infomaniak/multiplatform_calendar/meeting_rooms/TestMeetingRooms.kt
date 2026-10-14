@@ -17,6 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.meeting_rooms
 
+import androidx.room3.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoomsDatabase
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsErrorCause
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
@@ -88,3 +91,6 @@ private fun testJson(): Json = Json(DefaultJson) {
 internal suspend fun assertFailsWithCause(expected: MeetingRoomsErrorCause, block: suspend () -> Any?) {
     assertEquals(expected, assertFailsWith<MeetingRoomsException> { block() }.errorCause)
 }
+
+internal fun testDatabase(): MeetingRoomsDatabase =
+    Room.inMemoryDatabaseBuilder<TestMeetingRoomsDatabase>().setDriver(BundledSQLiteDriver()).build()

@@ -875,6 +875,15 @@ fn apply_color_change(event: &mut icalendar::Event, change: &ColorChange) {
     }
 }
 
+/// Returns true if the given status code indicates that the item is a truncation marker.
+fn is_truncation_marker(status: Option<&str>) -> bool {
+    status.and_then(|status| {
+        status.split_ascii_whitespace().find_map(|part| {
+            part.parse::<u16>().ok().filter(|code| (100..=599).contains(code))
+        })
+    }) == Some(507)
+}
+
 /// Fetch all events (iCalendar resources) inside a calendar.
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn fetch_events(account: DavAccount, calendar_url: &str) -> Result<Vec<EventEntry>, CaldavError> {
@@ -961,10 +970,14 @@ pub async fn sync_collection(
         sync_token = result.sync_token;
 
         items.extend(
-            result.items.into_iter().map(|item| EventChangeRef {
-                href: item.href,
-                is_deleted: item.is_deleted,
-            }),
+            result
+                .items
+                .into_iter()
+                .filter(|item| !is_truncation_marker(item.status.as_deref()))
+                .map(|item| EventChangeRef {
+                    href: item.href,
+                    is_deleted: item.is_deleted,
+                }),
         );
 
         if !result.truncated {

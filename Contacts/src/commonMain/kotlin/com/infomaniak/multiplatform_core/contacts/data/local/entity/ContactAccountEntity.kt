@@ -20,10 +20,14 @@ package com.infomaniak.multiplatform_core.contacts.data.local.entity
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 /** An account and the sync state of its server address book. Deleting it deletes its contacts. */
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 @Entity(tableName = "contactAccounts")
-internal data class ContactAccountEntity(
-    @PrimaryKey val id: AccountId,
-    val etag: String?,
+public data class ContactAccountEntity(
+    @PrimaryKey public val id: AccountId,
+    public val etag: String?,
 )

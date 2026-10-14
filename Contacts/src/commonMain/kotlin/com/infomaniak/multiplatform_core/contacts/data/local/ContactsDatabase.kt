@@ -17,25 +17,13 @@
  */
 package com.infomaniak.multiplatform_core.contacts.data.local
 
-import androidx.room3.ConstructedBy
-import androidx.room3.Database
-import androidx.room3.RoomDatabase
-import androidx.room3.RoomDatabaseConstructor
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
-import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
-import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
-@Database(
-    entities = [ContactAccountEntity::class, ContactEntity::class],
-    version = 1,
-    exportSchema = true,
-)
-@ConstructedBy(ContactsDatabaseConstructor::class)
-internal abstract class ContactsDatabase : RoomDatabase() {
-    internal abstract fun contactDao(): ContactDao
-}
-
-@Suppress("KotlinNoActualForExpect")
-internal expect object ContactsDatabaseConstructor : RoomDatabaseConstructor<ContactsDatabase> {
-    override fun initialize(): ContactsDatabase
+/** Tables of the contacts module, to declare in the host Room database. */
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public interface ContactsDatabase {
+    public fun contactDao(): ContactDao
 }

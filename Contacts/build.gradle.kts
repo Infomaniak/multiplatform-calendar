@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
-    alias(kmpCalendar.plugins.androidx.room)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
@@ -51,7 +50,6 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":Account"))
-            implementation(project(":Database"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.kotlinx.serialization)
@@ -62,6 +60,7 @@ kotlin {
             implementation(kotlin("test"))
             implementation(kmpCalendar.kotlinx.coroutines.test)
             implementation(kmpCalendar.ktor.client.mock)
+            implementation(kmpCalendar.androidx.sqlite.bundled)
         }
 
         getByName("androidHostTest").dependencies {
@@ -71,8 +70,8 @@ kotlin {
         }
 
         listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->
-            getByName("${target}Main") {
-                kotlin.srcDir(layout.buildDirectory.dir("generated/ksp/$target/${target}Main/kotlin"))
+            getByName("${target}Test") {
+                kotlin.srcDir(layout.buildDirectory.dir("generated/ksp/$target/${target}Test/kotlin"))
             }
         }
     }
@@ -85,19 +84,15 @@ kotlin {
     explicitApi()
 }
 
-room3 {
-    schemaDirectory("$projectDir/schemas")
-}
-
 dependencies {
-    add("kspAndroid", kmpCalendar.androidx.room.compiler)
-    add("kspIosSimulatorArm64", kmpCalendar.androidx.room.compiler)
-    add("kspIosArm64", kmpCalendar.androidx.room.compiler)
-    add("kspMacosArm64", kmpCalendar.androidx.room.compiler)
+    add("kspAndroidHostTest", kmpCalendar.androidx.room.compiler)
+    add("kspIosSimulatorArm64Test", kmpCalendar.androidx.room.compiler)
+    add("kspIosArm64Test", kmpCalendar.androidx.room.compiler)
+    add("kspMacosArm64Test", kmpCalendar.androidx.room.compiler)
 }
 
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
-    tasks.named("compileKotlin$target") {
-        dependsOn("kspKotlin$target")
+    tasks.named("compileTestKotlin$target") {
+        dependsOn("kspTestKotlin$target")
     }
 }

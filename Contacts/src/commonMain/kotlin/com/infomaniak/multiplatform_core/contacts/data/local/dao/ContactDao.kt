@@ -19,20 +19,25 @@ package com.infomaniak.multiplatform_core.contacts.data.local.dao
 
 import androidx.room3.Dao
 import androidx.room3.Query
+import androidx.room3.Transaction
 import androidx.room3.Upsert
 import kotlinx.coroutines.flow.Flow
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 @Dao
-internal interface ContactDao {
+public interface ContactDao {
 
     @Upsert
-    suspend fun upsertContacts(contacts: List<ContactEntity>)
+    public suspend fun upsertContacts(contacts: List<ContactEntity>)
 
     @Query("DELETE FROM contacts WHERE accountId = :accountId")
-    suspend fun deleteContactsForAccount(accountId: AccountId)
+    public suspend fun deleteContactsForAccount(accountId: AccountId)
 
     @Query(
         """
@@ -41,21 +46,28 @@ internal interface ContactDao {
         AND (nameNormalized LIKE :likeQuery ESCAPE '\' OR emailNormalized LIKE :likeQuery ESCAPE '\')
         """,
     )
-    suspend fun search(accountIds: Set<AccountId>, likeQuery: String): List<ContactEntity>
+    public suspend fun search(accountIds: Set<AccountId>, likeQuery: String): List<ContactEntity>
 
     @Query("SELECT * FROM contacts WHERE emailNormalized IN (:normalizedEmails)")
-    fun observeByEmails(normalizedEmails: Set<String>): Flow<List<ContactEntity>>
+    public fun observeByEmails(normalizedEmails: Set<String>): Flow<List<ContactEntity>>
 
     @Query("SELECT id FROM contactAccounts")
-    suspend fun accountIds(): List<AccountId>
+    public suspend fun accountIds(): List<AccountId>
 
     @Query("SELECT * FROM contactAccounts WHERE id = :accountId")
-    suspend fun account(accountId: AccountId): ContactAccountEntity?
+    public suspend fun account(accountId: AccountId): ContactAccountEntity?
 
     /** An upsert, not a replace: replacing the account would cascade-delete its contacts. */
     @Upsert
-    suspend fun upsertAccount(account: ContactAccountEntity)
+    public suspend fun upsertAccount(account: ContactAccountEntity)
+
+    @Transaction
+    public suspend fun replaceContacts(account: ContactAccountEntity, contacts: List<ContactEntity>) {
+        upsertAccount(account)
+        deleteContactsForAccount(account.id)
+        upsertContacts(contacts)
+    }
 
     @Query("DELETE FROM contactAccounts WHERE id = :accountId")
-    suspend fun deleteAccount(accountId: AccountId)
+    public suspend fun deleteAccount(accountId: AccountId)
 }

@@ -32,8 +32,8 @@ multiplatform-calendar/
 │   ├── src/appleMain/               # AppleDeviceContactsProvider (Contacts framework)
 │   └── build.gradle.kts             # Contacts module build (Room, Ktor, publish)
 ├── MeetingRooms/                    # Standalone KMP module for the Infomaniak bookable meeting rooms
-│   ├── src/commonMain/              # MeetingRoomsManager, Ktor remote source
-│   └── build.gradle.kts             # MeetingRooms module build (Ktor, publish)
+│   ├── src/commonMain/              # MeetingRoomsManager, Room tables, Ktor remote source
+│   └── build.gradle.kts             # MeetingRooms module build (Room, Ktor, publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
 │   └── build.gradle.kts             # Network module build (publish)
 ├── build.gradle.kts                 # Root aggregator (no sources)
@@ -103,8 +103,8 @@ calendar, uses the `com.infomaniak.multiplatform_calendar.meeting_rooms` package
 `:Network` is an `implementation` dependency of CalendarCore, Contacts and MeetingRooms, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
-There is a single Room database, CalendarCore's `CalendarDatabase`. Contacts only declares its entities and DAO, public but
-`@HiddenFromObjC`, behind the `ContactsDatabase` interface that `CalendarDatabase` implements and passes to `ContactsManager`.
+There is a single Room database, CalendarCore's `CalendarDatabase`. Contacts and MeetingRooms only declare their entities and
+DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `MeetingRoomsDatabase`) that `CalendarDatabase` implements.
 
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 

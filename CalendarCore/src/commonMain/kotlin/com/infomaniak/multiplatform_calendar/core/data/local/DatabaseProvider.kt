@@ -31,6 +31,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.dao.MeetingRoomDao
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
@@ -63,17 +66,19 @@ internal fun DatabaseProvider.getCalendarDatabase(
         EventRawIcsEntity::class,
         ContactAccountEntity::class,
         ContactEntity::class,
+        MeetingRoomEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
-internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase {
+internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, MeetingRoomsDatabase {
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
     abstract override fun contactDao(): ContactDao
+    abstract override fun meetingRoomDao(): MeetingRoomDao
 }
 
 @Suppress("KotlinNoActualForExpect")

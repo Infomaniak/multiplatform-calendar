@@ -17,11 +17,25 @@
  */
 package com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions
 
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+
 public sealed class MeetingRoomsErrorCause {
 
     internal abstract val message: String
 
+    public data class AccountNotInitialized(val accountId: AccountId) : MeetingRoomsErrorCause() {
+        override val message: String get() = "Account $accountId is not initialized"
+    }
+
+    public data object Network : MeetingRoomsErrorCause() {
+        override val message: String get() = "Network error"
+    }
+
     public data class Api(val statusCode: Int) : MeetingRoomsErrorCause() {
         override val message: String get() = "Unexpected HTTP status $statusCode"
+    }
+
+    public data class Unknown(val throwable: Throwable) : MeetingRoomsErrorCause() {
+        override val message: String get() = "Unexpected error"
     }
 }

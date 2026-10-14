@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
+    alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.publish)
 }
 
@@ -33,6 +34,10 @@ kotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_21)
         }
+
+        withHostTest {
+            isIncludeAndroidResources = false
+        }
     }
 
     iosArm64()
@@ -43,6 +48,15 @@ kotlin {
         commonMain.dependencies {
             api(project(":Account"))
             implementation(kmpCalendar.kotlinx.coroutines.core)
+            implementation(project(":Network"))
+            implementation(kmpCalendar.kotlinx.serialization)
+            implementation(kmpCalendar.bundles.ktor)
+        }
+
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(kmpCalendar.kotlinx.coroutines.test)
+            implementation(kmpCalendar.ktor.client.mock)
         }
     }
 

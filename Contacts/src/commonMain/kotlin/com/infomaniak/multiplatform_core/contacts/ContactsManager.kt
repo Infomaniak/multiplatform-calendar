@@ -29,8 +29,6 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.Contac
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
 import com.infomaniak.multiplatform_core.contacts.utils.contactsCall
-import com.infomaniak.multiplatform_core.database.DatabaseSource
-import com.infomaniak.multiplatform_core.database.roomDatabase
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,14 +56,14 @@ public class ContactsManager internal constructor(
     )
 
     /**
-     * @param databasePath Absolute path of the contacts database file.
+     * @param database Host Room database declaring the contacts tables.
      * @param deviceContactsProvider Platform-specific reader of the device contacts.
      */
     public constructor(
-        databasePath: String,
+        database: ContactsDatabase,
         deviceContactsProvider: DeviceContactsProvider,
     ) : this(
-        database = roomDatabase(DatabaseSource.File(databasePath)),
+        database = database,
         deviceContactsProvider = deviceContactsProvider,
         httpClient = createContactsHttpClient(),
     )

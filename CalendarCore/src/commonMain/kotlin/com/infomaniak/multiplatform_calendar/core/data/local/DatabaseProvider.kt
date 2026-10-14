@@ -31,6 +31,10 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
+import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
+import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
+import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
+import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import androidx.room3.ColumnTypeConverters
@@ -51,16 +55,25 @@ internal fun DatabaseProvider.getCalendarDatabase(
 }
 
 @Database(
-    entities = [AccountEntity::class, CalendarEntity::class, EventEntity::class, EventOverrideEntity::class, EventRawIcsEntity::class],
-    version = 19,
+    entities = [
+        AccountEntity::class,
+        CalendarEntity::class,
+        EventEntity::class,
+        EventOverrideEntity::class,
+        EventRawIcsEntity::class,
+        ContactAccountEntity::class,
+        ContactEntity::class,
+    ],
+    version = 20,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
-internal abstract class CalendarDatabase : RoomDatabase() {
+internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase {
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
+    abstract override fun contactDao(): ContactDao
 }
 
 @Suppress("KotlinNoActualForExpect")

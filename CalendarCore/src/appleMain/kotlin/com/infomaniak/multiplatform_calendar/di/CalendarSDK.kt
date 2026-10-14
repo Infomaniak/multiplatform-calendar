@@ -23,7 +23,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.configureCaldavClient
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
-import com.infomaniak.multiplatform_core.contacts.ContactsSettings
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides
@@ -44,7 +43,6 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
         fun create(
             @Provides databaseConfig: DatabaseConfig,
             @Provides crashReport: CrashReport,
-            @Provides contactsSettings: ContactsSettings,
         ): CalendarSDK
     }
 }
@@ -72,7 +70,6 @@ public data class CalendarSettings(
  *         caldavSettings: CaldavClientSettings(userAgent: "Infomaniak Calendar/1.0", requestTimeoutSeconds: 30),
  *     ),
  *     crashReport: crashReport,
- *     contacts: ContactsSettings(databasePath: "/path/to/contacts.db"),
  * )
  * sdk.accountManager.initAccount(...)
  * sdk.calendarManager.observeCalendars(...)
@@ -88,13 +85,11 @@ public object CalendarSDKProvider {
     public fun sdk(
         calendar: CalendarSettings,
         crashReport: CrashReport,
-        contacts: ContactsSettings,
     ): CalendarCoreGraph {
         calendar.caldavSettings?.let { configureCaldavClient(it.toBridgeConfig()) }
         return createGraphFactory<CalendarSDK.Factory>().create(
             databaseConfig = DatabaseConfig(path = calendar.databasePath),
             crashReport = crashReport,
-            contactsSettings = contacts,
         )
     }
 }

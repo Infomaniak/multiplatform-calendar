@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_core.contacts.data.repository
 
-import androidx.room3.withWriteTransaction
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
@@ -54,7 +53,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
 
 internal class ContactsRepository(
-    private val database: ContactsDatabase,
+    database: ContactsDatabase,
     private val remoteDataSource: ContactsRemoteDataSource,
     private val deviceContactsProvider: DeviceContactsProvider,
     private val tokenStore: TokenStore,
@@ -165,11 +164,10 @@ internal class ContactsRepository(
             val token = tokenStore.get(accountId) ?: throw ContactsException(ContactsErrorCause.AccountNotInitialized(accountId))
             when (val fetch = remoteDataSource.getContacts(token, dao.account(accountId)?.etag)) {
                 is ContactsFetch.NotModified -> Unit
-                is ContactsFetch.Success -> database.withWriteTransaction {
-                    dao.upsertAccount(ContactAccountEntity(id = accountId, etag = fetch.etag))
-                    dao.deleteContactsForAccount(accountId)
-                    dao.upsertContacts(fetch.contacts.flatMap { it.toEntities(accountId) })
-                }
+                is ContactsFetch.Success -> dao.replaceContacts(
+                    account = ContactAccountEntity(id = accountId, etag = fetch.etag),
+                    contacts = fetch.contacts.flatMap { it.toEntities(accountId) },
+                )
             }
         }
     }

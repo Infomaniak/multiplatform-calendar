@@ -20,8 +20,12 @@ package com.infomaniak.multiplatform_core.contacts.data.local.entity
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 /** A server contact, one row per email address. */
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 @Entity(
     tableName = "contacts",
     primaryKeys = ["accountId", "email", "name"],
@@ -34,13 +38,13 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccountId
         ),
     ],
 )
-internal data class ContactEntity(
-    val accountId: AccountId,
-    val email: String,
-    val name: String,
-    val avatarUrl: String?,
-    val contactedTimes: Int?,
-    val isInAddressBook: Boolean,
-    val nameNormalized: String,
-    val emailNormalized: String,
+public data class ContactEntity(
+    public val accountId: AccountId,
+    public val email: String,
+    public val name: String,
+    public val avatarUrl: String?,
+    public val contactedTimes: Int?,
+    public val isInAddressBook: Boolean,
+    public val nameNormalized: String,
+    public val emailNormalized: String,
 )

@@ -17,7 +17,10 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
+import androidx.room3.Room
+import androidx.room3.RoomDatabase
 import androidx.room3.useReaderConnection
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
@@ -26,8 +29,6 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
-import com.infomaniak.multiplatform_core.database.DatabaseSource
-import com.infomaniak.multiplatform_core.database.roomDatabase
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -98,7 +99,7 @@ private fun jsonHeaders(etag: String?): Headers = HeadersBuilder().apply {
 }.build()
 
 internal fun testDatabase(): ContactsDatabase =
-    roomDatabase(DatabaseSource.InMemory)
+    Room.inMemoryDatabaseBuilder<TestContactsDatabase>().setDriver(BundledSQLiteDriver()).build()
 
 internal suspend fun testManager(
     apiContacts: List<ApiContact> = emptyList(),
@@ -121,7 +122,7 @@ internal suspend fun ContactsManager.initTestAccount() = initAccount(ACCOUNT_ID,
 
 /** Names of the contacts stored for [accountId], sorted. */
 internal suspend fun ContactsManager.storedContactNames(accountId: AccountId = ACCOUNT_ID): List<String> =
-    database.useReaderConnection { connection ->
+    (database as RoomDatabase).useReaderConnection { connection ->
         connection.usePrepared("SELECT name FROM contacts WHERE accountId = ? ORDER BY name") { statement ->
             statement.bindLong(1, accountId.value)
             buildList { while (statement.step()) add(statement.getText(0)) }

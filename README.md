@@ -27,12 +27,10 @@ multiplatform-calendar/
 ├── CalendarResources/               # Shared Compose Multiplatform recurrence strings and translations
 │   └── src/commonMain/composeResources/  # values/ and values-<lang>/strings.xml
 ├── Contacts/                        # Standalone KMP contacts module (server address book + device contacts)
-│   ├── src/commonMain/              # ContactsManager, merge/search/sync logic, Room DB, Ktor remote source
+│   ├── src/commonMain/              # ContactsManager, merge/search/sync logic, Room tables, Ktor remote source
 │   ├── src/androidMain/             # AndroidDeviceContactsProvider (ContactsContract)
 │   ├── src/appleMain/               # AppleDeviceContactsProvider (Contacts framework)
 │   └── build.gradle.kts             # Contacts module build (Room, Ktor, publish)
-├── Database/                        # Shared Room setup (roomDatabase, DatabaseSource)
-│   └── build.gradle.kts             # Database module build (publish)
 ├── MeetingRooms/                    # Standalone KMP module for the Infomaniak bookable meeting rooms
 │   ├── src/commonMain/              # MeetingRoomsManager, Ktor remote source
 │   └── build.gradle.kts             # MeetingRooms module build (Ktor, publish)
@@ -52,7 +50,6 @@ multiplatform-calendar/
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 | **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
-| **Database**         | Shared Room setup: `roomDatabase` opens a database from a `DatabaseSource` (file or in memory) |
 | **MeetingRooms**     | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid) |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
@@ -106,7 +103,8 @@ calendar, uses the `com.infomaniak.multiplatform_calendar.meeting_rooms` package
 `:Network` is an `implementation` dependency of CalendarCore, Contacts and MeetingRooms, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
-`:Database` is an `implementation` dependency of Contacts and follows the same rules: no DI, `com.infomaniak.multiplatform_core.database` package, **not** exported.
+There is a single Room database, CalendarCore's `CalendarDatabase`. Contacts only declares its entities and DAO, public but
+`@HiddenFromObjC`, behind the `ContactsDatabase` interface that `CalendarDatabase` implements and passes to `ContactsManager`.
 
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 
@@ -158,14 +156,14 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 
 - **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core contributes shared graph accessors
   (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The `:CalendarKmpDav` module contributes `CaldavClientModule`.
-  The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); the app only
-  provides `ContactsSettings` (contacts database path). `AccountManager.initAccount` / `removeAccount` also init / remove
+  The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); its tables live in
+  `CalendarDatabase`. `AccountManager.initAccount` / `removeAccount` also init / remove
   the account in `ContactsManager`. Likewise, `:MeetingRooms` is wired by Core (`MeetingRoomsModule`), and `AccountManager`
   initializes / removes the account in `MeetingRoomsManager` too.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
   inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `meetingRoomsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
-  `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`.
+  `CalendarSDKProvider.shared.sdk(calendar:crashReport:)`.
 
 ### Contacts permissions
 

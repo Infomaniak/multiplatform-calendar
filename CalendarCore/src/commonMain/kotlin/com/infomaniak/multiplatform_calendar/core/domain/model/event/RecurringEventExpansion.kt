@@ -187,6 +187,7 @@ private suspend fun Event.resolveRuleOccurrence(
     val occurrence = occurrences.firstOrNull { it.key == recurrenceKey } ?: return null
     return copy(
         occurrenceId = OccurrenceId.Recurrence(masterEventId, occurrence.key),
+        recurrenceMasterBounds = timing.bounds,
         timing = timing.copy(bounds = occurrence.bounds),
     )
 }

@@ -68,12 +68,21 @@ val description: String? = event.toLocalizedRecurrenceString()
 val ruleDescription: String = rule.toLocalizedString(start = dtStart, timeZone = startTimeZone)
 ```
 
-`Event.toLocalizedRecurrenceString()` supplies `timing.start` (DTSTART) and `timing.startTimeZone`
-automatically. It returns `null` when there is no RRULE, including RDATE-only events and overrides;
-it does not describe RDATE/EXDATE exceptions. `RecurrenceRule.toLocalizedString()` requires DTSTART
-because missing weekday/day/month selectors inherit it. Its optional time zone converts a UTC UNTIL
-to the event's **start** time zone for display (not the end time zone); without one, UTC is used.
-DATE and floating UNTIL values keep their own calendar date.
+`Event.toLocalizedRecurrenceString()` automatically supplies the DTSTART context required to
+describe the event's RRULE. Master events use their own `timing.bounds`, while materialized
+occurrences use `recurrenceMasterBounds` so implicit RRULE selectors are always resolved against
+the original master's DTSTART rather than the occurrence's start.
+
+Overrides are enriched in the domain model with the master's RRULE and original bounds, so the same
+API can describe the recurrence of both generated occurrences and overridden occurrences.
+
+The function returns `null` when there is no RRULE, including RDATE-only events. It describes the
+RRULE itself and does not include RDATE/EXDATE exceptions.
+
+`RecurrenceRule.toLocalizedString()` requires DTSTART because omitted weekday, day, or month
+selectors may inherit values from it. Its optional time zone converts a UTC UNTIL to the event's
+start time zone for display; without one, UTC is used. DATE and floating UNTIL values keep their
+own calendar date.
 
 Put recurrence strings and translations in `CalendarResources/src/commonMain/composeResources/values*/strings.xml`.
 `CalendarCore` depends on this module and aggregates its resources into its Apple framework.

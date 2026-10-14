@@ -55,11 +55,13 @@ public data class Event(
     val colors: EventColors,
     val canEdit: Boolean,
     val alarms: List<EventAlarm> = emptyList(),
+    internal val recurrenceMasterBounds: EventBounds? = null, // `null` for master and standalone events
 ) {
     /**
-     * One instance of a series rather than a plain event. Read from [occurrenceId], the only thing
-     * that knows: an occurrence keeps the [timing] of the master it was copied from, and an override
-     * carries no rule at all, so both would be misread.
+     * Whether this event is one materialized instance of a recurring series.
+     *
+     * [occurrenceId] is the source of truth: occurrences and overrides may carry the master's recurrence
+     * rule in the domain model, so [EventTiming.recurrenceRule] must not be used to distinguish them.
      */
     val isOccurrence: Boolean
         get() = occurrenceId is OccurrenceId.Recurrence

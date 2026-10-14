@@ -65,6 +65,11 @@ class OccurrenceResolutionTest {
         assertEquals(master.colors, resolved?.colors)
         assertEquals(master.canEdit, resolved?.canEdit)
         assertEquals(master.timing.recurrenceRule, resolved?.timing?.recurrenceRule)
+        assertEquals(
+            expected = master.timing.bounds,
+            actual = resolved?.recurrenceMasterBounds,
+            message = "a materialized occurrence must keep the master's original bounds",
+        )
     }
 
     @Test
@@ -137,6 +142,7 @@ class OccurrenceResolutionTest {
 
         assertEquals(requested, resolved?.occurrenceId)
         assertEquals(zonedBounds(rDate, LocalDateTime(2026, 1, 10, 11, 0), TimeZone.UTC), resolved?.timing?.bounds)
+        assertEquals(master.timing.bounds, resolved?.recurrenceMasterBounds)
     }
 
     @Test

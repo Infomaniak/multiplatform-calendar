@@ -20,17 +20,27 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 
 /**
  * An override is a whole occurrence on its own, so it maps to the same synthetic [Event] the expander
  * would have produced for that slot — same `masterId#recurrenceKey` identity, but the server's own
- * content and position. Its recurrence stays empty: only the master carries the rule.
+ * content and position.
+ *
+ * The persisted override has no recurrence set of its own. The master's recurrence set and original
+ * bounds are copied into the domain event so consumers keep the recurrence context of the series.
  */
 internal fun EventOverrideEntity.toDomain(
     calendar: Calendar,
+    masterTiming: EventTiming,
 ): Event = content.toDomain(
     masterEventId = masterId,
     occurrenceId = OccurrenceId.Recurrence(masterId, recurrenceKey),
     calendar = calendar,
+    recurrenceRule = masterTiming.recurrenceRule,
+    rDates = masterTiming.rDates,
+    exDates = masterTiming.exDates,
+).copy(
+    recurrenceMasterBounds = masterTiming.bounds,
 )

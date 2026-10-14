@@ -23,10 +23,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOv
 
 internal fun EventWithCalendarEntity.toDomainEventWithOverrides(): EventWithOverrides<Event> {
     val calendar = calendar.toDomain()
+    val masterEvent = event.toDomain(calendar)
     return EventWithOverrides(
-        master = event.toDomain(calendar),
+        master = masterEvent,
         overridesByOccurrenceKey = overrides.associate { override ->
-            override.recurrenceKey to override.toDomain(calendar)
+            override.recurrenceKey to override.toDomain(
+                calendar = calendar,
+                masterTiming = masterEvent.timing,
+            )
         },
     )
 }

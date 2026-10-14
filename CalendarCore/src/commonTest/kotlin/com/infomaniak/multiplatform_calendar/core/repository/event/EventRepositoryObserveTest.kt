@@ -320,6 +320,12 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         val master = dailyMasterEntity(EventId("event://override-add"), CALENDAR_ID)
         eventDao().upsert(listOf(EventWithRawIcs(master, "")))
 
+        val expectedMasterBounds = zonedBounds(
+            LocalDateTime(2026, 6, 15, 10, 0),
+            LocalDateTime(2026, 6, 15, 11, 0),
+            TimeZone.UTC,
+        )
+
         val keyStart = LocalDateTime(2026, 6, 17, 10, 0)
         val requested = OccurrenceId.Recurrence(master.id, RecurrenceKey.Utc(keyStart.toInstant(TimeZone.UTC)))
 
@@ -346,6 +352,10 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             zonedBounds(LocalDateTime(2026, 6, 17, 15, 0), LocalDateTime(2026, 6, 17, 16, 0), TimeZone.UTC),
             emissions[1]?.timing?.bounds,
         )
+        assertEquals(master.rrule, emissions[0]?.timing?.recurrenceRule)
+        assertEquals(expectedMasterBounds, emissions[0]?.recurrenceMasterBounds)
+        assertEquals(master.rrule, emissions[1]?.timing?.recurrenceRule)
+        assertEquals(expectedMasterBounds, emissions[1]?.recurrenceMasterBounds)
         assertEquals(requested, emissions[1]?.occurrenceId)
     }
 

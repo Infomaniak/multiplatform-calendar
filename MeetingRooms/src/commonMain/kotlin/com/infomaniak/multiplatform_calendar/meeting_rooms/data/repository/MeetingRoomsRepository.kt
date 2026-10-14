@@ -21,8 +21,12 @@ import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoo
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.EquipmentEntity
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.MeetingRoomsRemoteDataSource
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiAvailabilityRequest
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiBookableResource
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiBusyPeriod
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.ApiBusyPeriodsRequest
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.model.parseHexColor
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.BusyPeriod
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.Equipment
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
@@ -40,7 +44,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Instant
 
 internal class MeetingRoomsRepository(
     database: MeetingRoomsDatabase,
@@ -83,6 +90,43 @@ internal class MeetingRoomsRepository(
     fun observeRoom(accountId: AccountId, uuid: MeetingRoomUuid): Flow<MeetingRoom?> = channelFlow {
         launch { fetchMissingRoom(accountId, uuid) }
         dao.observeRoom(accountId, uuid).collect { send(it?.toMeetingRoom()) }
+    }
+
+    suspend fun availability(
+        accountId: AccountId,
+        uuid: MeetingRoomUuid?,
+        start: Instant,
+        end: Instant,
+        timeZone: TimeZone,
+        rrule: String?,
+    ): Map<MeetingRoomUuid, Boolean> {
+        val request = ApiAvailabilityRequest(
+            start = start.toLocalDateTime(timeZone),
+            end = end.toLocalDateTime(timeZone),
+            timezoneStart = timeZone.id,
+            timezoneEnd = timeZone.id,
+            rrule = rrule,
+        )
+        return remoteDataSource.getAvailability(getToken(accountId), request, uuid)
+            .mapKeys { (key, _) -> MeetingRoomUuid(key) }
+    }
+
+    suspend fun busyPeriods(
+        accountId: AccountId,
+        uuids: Set<MeetingRoomUuid>,
+        from: Instant,
+        to: Instant,
+    ): Map<MeetingRoomUuid, List<BusyPeriod>> {
+        if (uuids.isEmpty()) return emptyMap()
+
+        val request = ApiBusyPeriodsRequest(
+            bookableResourceUuids = uuids.map(MeetingRoomUuid::value),
+            from = from.toLocalDateTime(TimeZone.UTC),
+            to = to.toLocalDateTime(TimeZone.UTC),
+        )
+        return remoteDataSource.getBusyPeriods(getToken(accountId), request)
+            .entries
+            .associate { (key, periods) -> MeetingRoomUuid(key) to periods.map(ApiBusyPeriod::toBusyPeriod) }
     }
 
     private suspend fun syncFailure(accountId: AccountId): Exception? = try {
@@ -153,4 +197,13 @@ private fun MeetingRoomEntity.toMeetingRoom(): MeetingRoom = MeetingRoom(
     floor = floor,
     capacity = capacity,
     equipments = equipments.map { Equipment(name = it.name, category = it.category) },
+)
+
+private fun ApiBusyPeriod.toBusyPeriod(): BusyPeriod = BusyPeriod(
+    start = start,
+    end = end,
+    isFullDay = fullday,
+    title = title,
+    organizer = organizer,
+    isOwner = isOwner,
 )

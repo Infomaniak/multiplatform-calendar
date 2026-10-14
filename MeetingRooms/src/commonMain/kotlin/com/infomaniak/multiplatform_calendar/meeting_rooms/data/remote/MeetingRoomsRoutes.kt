@@ -22,6 +22,9 @@ import io.ktor.http.encodeURLPathPart
 
 internal object MeetingRoomsRoutes {
     const val ALL = "pim/bookable-resources/all"
+    const val AVAILABILITY = "pim/bookable-resources/availability"
+    const val BUSY_PERIODS = "pim/event/bookable-availability"
 
     fun resource(uuid: MeetingRoomUuid) = "pim/bookable-resources/${uuid.value.encodeURLPathPart()}"
+    fun availability(uuid: MeetingRoomUuid) = "${resource(uuid)}/availability"
 }

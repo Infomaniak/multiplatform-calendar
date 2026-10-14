@@ -34,8 +34,8 @@ multiplatform-calendar/
 ├── Database/                        # Shared Room setup (roomDatabase, DatabaseSource)
 │   └── build.gradle.kts             # Database module build (publish)
 ├── MeetingRooms/                    # Standalone KMP module for the Infomaniak bookable meeting rooms
-│   ├── src/commonMain/              # MeetingRoomsManager
-│   └── build.gradle.kts             # MeetingRooms module build (publish)
+│   ├── src/commonMain/              # MeetingRoomsManager, Ktor remote source
+│   └── build.gradle.kts             # MeetingRooms module build (Ktor, publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
 │   └── build.gradle.kts             # Network module build (publish)
 ├── build.gradle.kts                 # Root aggregator (no sources)
@@ -94,7 +94,7 @@ generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to
 `:MeetingRooms` is exported the same way (`MeetingRoomsManager` and its types) but, being specific to the
 calendar, uses the `com.infomaniak.multiplatform_calendar.meeting_rooms` package.
 
-`:Network` is an `implementation` dependency of CalendarCore and Contacts, and is **not** exported. Like `:Account`, it uses the
+`:Network` is an `implementation` dependency of CalendarCore, Contacts and MeetingRooms, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
 `:Database` is an `implementation` dependency of Contacts and follows the same rules: no DI, `com.infomaniak.multiplatform_core.database` package, **not** exported.

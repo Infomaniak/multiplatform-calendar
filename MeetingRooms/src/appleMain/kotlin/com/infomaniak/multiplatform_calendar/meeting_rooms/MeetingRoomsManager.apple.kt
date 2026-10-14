@@ -17,12 +17,34 @@
  */
 package com.infomaniak.multiplatform_calendar.meeting_rooms
 
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.BusyPeriod
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Instant
 
-// Swift cannot build a set of AccountId (a value class is boxed inside a collection), so it passes raw ids.
+// Swift cannot use a value class inside a collection (it is boxed there), so these pass and return raw values.
 
 @Throws(MeetingRoomsException::class, CancellationException::class)
 public suspend fun MeetingRoomsManager.sync(accountIds: Set<Long> = emptySet()): Unit =
     sync(accountIds.mapTo(mutableSetOf(), ::AccountId))
+
+@Throws(MeetingRoomsException::class, CancellationException::class)
+public suspend fun MeetingRoomsManager.availabilityValues(
+    accountId: AccountId,
+    start: Instant,
+    end: Instant,
+    timeZone: TimeZone,
+    rrule: String? = null,
+): Map<String, Boolean> = availability(accountId, start, end, timeZone, rrule).mapKeys { (uuid, _) -> uuid.value }
+
+@Throws(MeetingRoomsException::class, CancellationException::class)
+public suspend fun MeetingRoomsManager.busyPeriods(
+    accountId: AccountId,
+    uuids: Set<String>,
+    from: Instant,
+    to: Instant,
+): Map<String, List<BusyPeriod>> = busyPeriods(accountId, uuids.mapTo(mutableSetOf(), ::MeetingRoomUuid), from, to)
+    .mapKeys { (uuid, _) -> uuid.value }

@@ -50,6 +50,7 @@ kotlin {
             api(project(":Account"))
             implementation(kmpCalendar.kotlinx.coroutines.core)
             implementation(project(":Network"))
+            api(kmpCalendar.kotlinx.datetime)
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.bundles.ktor)

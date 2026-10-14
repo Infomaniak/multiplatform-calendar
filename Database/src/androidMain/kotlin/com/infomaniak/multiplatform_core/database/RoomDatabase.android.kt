@@ -15,13 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_core.contacts.data.local
+package com.infomaniak.multiplatform_core.database
 
-import kotlin.jvm.JvmInline
+import androidx.room3.Room
+import androidx.room3.RoomDatabase
 
-/** Where the contacts database lives; [File] and [InMemory] are mutually exclusive. */
-internal sealed interface ContactsDatabaseSource {
-    @JvmInline
-    value class File(val path: String) : ContactsDatabaseSource
-    data object InMemory : ContactsDatabaseSource
+@PublishedApi
+internal actual inline fun <reified T : RoomDatabase> databaseBuilder(source: DatabaseSource): RoomDatabase.Builder<T> {
+    return when (source) {
+        is DatabaseSource.File -> Room.databaseBuilder<T>(name = source.path)
+        DatabaseSource.InMemory -> Room.inMemoryDatabaseBuilder<T>()
+    }
 }

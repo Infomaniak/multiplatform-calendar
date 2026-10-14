@@ -51,9 +51,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":Account"))
+            implementation(project(":Database"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
-            implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.bundles.ktor)
         }
@@ -67,6 +67,7 @@ kotlin {
         getByName("androidHostTest").dependencies {
             implementation(kmpCalendar.android.test)
             implementation(kmpCalendar.robolectric)
+            implementation(kmpCalendar.androidx.sqlite.bundled.jvm)
         }
 
         listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->

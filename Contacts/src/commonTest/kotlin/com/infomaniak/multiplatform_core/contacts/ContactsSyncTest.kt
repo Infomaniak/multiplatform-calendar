@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
-import com.infomaniak.multiplatform_core.contacts.data.local.contactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause

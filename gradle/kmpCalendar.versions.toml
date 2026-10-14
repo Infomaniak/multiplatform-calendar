@@ -25,6 +25,7 @@ android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref
 androidx-room-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room3" }
 androidx-room-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room3" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
+androidx-sqlite-bundled-jvm = { group = "androidx.sqlite", name = "sqlite-bundled-jvm", version.ref = "sqlite" }
 compose-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose" }
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }

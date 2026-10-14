@@ -21,13 +21,9 @@ import androidx.room3.ConstructedBy
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
-import androidx.sqlite.SQLiteDriver
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 
 @Database(
     entities = [ContactAccountEntity::class, ContactEntity::class],
@@ -43,16 +39,3 @@ internal abstract class ContactsDatabase : RoomDatabase() {
 internal expect object ContactsDatabaseConstructor : RoomDatabaseConstructor<ContactsDatabase> {
     override fun initialize(): ContactsDatabase
 }
-
-internal fun contactsDatabase(
-    source: ContactsDatabaseSource,
-    driver: SQLiteDriver? = null,
-): ContactsDatabase {
-    return source.databaseBuilder()
-        .setDriver(driver ?: BundledSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.IO)
-        .build()
-}
-
-/** Room declares its builders per platform only, with no common declaration to call them through. */
-internal expect fun ContactsDatabaseSource.databaseBuilder(): RoomDatabase.Builder<ContactsDatabase>

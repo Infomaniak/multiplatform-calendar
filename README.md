@@ -91,7 +91,7 @@ generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to
 `:Network` is an `implementation` dependency of CalendarCore and Contacts, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
-`:Database` follows the same rules: no DI, `com.infomaniak.multiplatform_core.database` package, **not** exported.
+`:Database` is an `implementation` dependency of Contacts and follows the same rules: no DI, `com.infomaniak.multiplatform_core.database` package, **not** exported.
 
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 

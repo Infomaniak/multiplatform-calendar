@@ -168,7 +168,8 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 ### Meeting rooms
 
 `MeetingRoomsManager` reads the bookable resources API on `calendar.infomaniak.com` and keeps only the `meeting_room`
-ones. `sync` replaces the local rooms of each account (the API sends no ETag).
+ones. `sync` replaces the local rooms of each account (the API sends no ETag); `observeRoom(accountId, uuid)` resolves the
+`X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a room missing locally, staying `null` when that fails.
 Booking itself is not an API call: it is the `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
 
 ### Contacts permissions

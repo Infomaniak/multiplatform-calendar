@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.MeetingRo
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.createMeetingRoomsHttpClient
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.repository.MeetingRoomsRepository
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoom
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
 import com.infomaniak.multiplatform_calendar.meeting_rooms.utils.TokenStore
 import com.infomaniak.multiplatform_calendar.meeting_rooms.utils.meetingRoomsCall
@@ -73,4 +74,8 @@ public class MeetingRoomsManager internal constructor(
     /** Sorted by name. */
     public fun observeRooms(accountId: AccountId): Flow<List<MeetingRoom>> =
         repository.observeRooms(accountId).flowOn(Dispatchers.Default)
+
+    /** A room missing locally is fetched; null when that fails or the account cannot book it. */
+    public fun observeRoom(accountId: AccountId, uuid: MeetingRoomUuid): Flow<MeetingRoom?> =
+        repository.observeRoom(accountId, uuid).flowOn(Dispatchers.Default)
 }

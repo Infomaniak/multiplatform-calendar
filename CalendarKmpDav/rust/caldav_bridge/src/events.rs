@@ -949,23 +949,30 @@ pub async fn sync_collection(
     sync_token: Option<String>,
 ) -> Result<EventSyncDelta, CaldavError> {
     let cli = client(&account)?;
+    let mut sync_token = sync_token;
+    let mut items = Vec::new();
 
-    let result = cli
-        .sync_collection(calendar_url, sync_token.as_deref(), None, false, None)
-        .await
-        .map_err(|e| map_fast_dav_error("SyncCollection", e))?;
+    loop {
+        let result = cli
+            .sync_collection(calendar_url, sync_token.as_deref(), None, false, None)
+            .await
+            .map_err(|error| map_fast_dav_error("SyncCollection", error))?;
 
-    Ok(EventSyncDelta {
-        sync_token: result.sync_token,
-        items: result
-            .items
-            .into_iter()
-            .map(|item| EventChangeRef {
+        sync_token = result.sync_token;
+
+        items.extend(
+            result.items.into_iter().map(|item| EventChangeRef {
                 href: item.href,
                 is_deleted: item.is_deleted,
-            })
-            .collect(),
-    })
+            }),
+        );
+
+        if !result.truncated {
+            break;
+        }
+    }
+
+    Ok(EventSyncDelta { sync_token, items })
 }
 
 /// Fetch a set of events by href using CalDAV `calendar-multiget`.

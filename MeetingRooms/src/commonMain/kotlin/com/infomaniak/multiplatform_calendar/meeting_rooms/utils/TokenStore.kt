@@ -22,11 +22,14 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** OAuth tokens by account, kept in memory only. */
 internal class TokenStore {
 
     private val mutex = Mutex()
     private val tokens = mutableMapOf<AccountId, AccessToken>()
+
+    suspend fun getToken(accountId: AccountId): AccessToken? = mutex.withLock { tokens[accountId] }
+
+    suspend fun getAccountIds(): Set<AccountId> = mutex.withLock { tokens.keys.toSet() }
 
     suspend fun put(accountId: AccountId, accessToken: AccessToken) {
         mutex.withLock { tokens[accountId] = accessToken }

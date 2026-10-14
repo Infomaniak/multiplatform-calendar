@@ -17,22 +17,60 @@
  */
 package com.infomaniak.multiplatform_calendar.meeting_rooms
 
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.MeetingRoomsRemoteDataSource
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.remote.createMeetingRoomsHttpClient
+import com.infomaniak.multiplatform_calendar.meeting_rooms.data.repository.MeetingRoomsRepository
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoom
+import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
 import com.infomaniak.multiplatform_calendar.meeting_rooms.utils.TokenStore
+import com.infomaniak.multiplatform_calendar.meeting_rooms.utils.meetingRoomsCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import io.ktor.client.HttpClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
-/** Entry point of the meeting rooms module: the Infomaniak meeting rooms an account can book. */
-public class MeetingRoomsManager {
+public class MeetingRoomsManager internal constructor(
+    internal val database: MeetingRoomsDatabase,
+    httpClient: HttpClient,
+) {
 
-    private val tokenStore = TokenStore()
+    private val repository = MeetingRoomsRepository(
+        database = database,
+        remoteDataSource = MeetingRoomsRemoteDataSource(httpClient),
+        tokenStore = TokenStore(),
+    )
 
-    /** Registers [accountId] with its [accessToken], kept in memory only. Call it at startup and on login. */
-    @Throws(CancellationException::class)
+    /** @param database Host Room database declaring the meeting rooms tables. */
+    public constructor(database: MeetingRoomsDatabase) : this(
+        database = database,
+        httpClient = createMeetingRoomsHttpClient(),
+    )
+
+    /** The token is kept in memory only: call it at startup and on login. Does not sync. */
+    @Throws(MeetingRoomsException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
-        tokenStore.put(accountId, accessToken)
+        meetingRoomsCall { repository.initAccount(accountId, accessToken) }
 
-    /** Forgets the token of [accountId]. */
-    @Throws(CancellationException::class)
-    public suspend fun removeAccount(accountId: AccountId): Unit = tokenStore.remove(accountId)
+    /** Also deletes the local meeting rooms of [accountId]. */
+    @Throws(MeetingRoomsException::class, CancellationException::class)
+    public suspend fun removeAccount(accountId: AccountId): Unit = meetingRoomsCall { repository.removeAccount(accountId) }
+
+    /**
+     * When some accounts fail, the others still complete, then the first failure is thrown.
+     * @param accountIds Every initialized account when empty.
+     */
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
+    @Throws(MeetingRoomsException::class, CancellationException::class)
+    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = meetingRoomsCall { repository.sync(accountIds) }
+
+    /** Sorted by name. */
+    public fun observeRooms(accountId: AccountId): Flow<List<MeetingRoom>> =
+        repository.observeRooms(accountId).flowOn(Dispatchers.Default)
 }

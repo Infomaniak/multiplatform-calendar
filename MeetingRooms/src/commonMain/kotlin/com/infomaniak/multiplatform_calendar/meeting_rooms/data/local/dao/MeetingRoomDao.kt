@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.dao
 
 import androidx.room3.Dao
 import androidx.room3.Query
+import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
@@ -37,6 +38,12 @@ public interface MeetingRoomDao {
 
     @Query("DELETE FROM meetingRooms WHERE accountId = :accountId")
     public suspend fun deleteRoomsForAccount(accountId: AccountId)
+
+    @Transaction
+    public suspend fun replaceRooms(accountId: AccountId, rooms: List<MeetingRoomEntity>) {
+        deleteRoomsForAccount(accountId)
+        upsertRooms(rooms)
+    }
 
     @Query("SELECT * FROM meetingRooms WHERE accountId = :accountId ORDER BY name COLLATE NOCASE")
     public fun observeRooms(accountId: AccountId): Flow<List<MeetingRoomEntity>>

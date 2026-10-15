@@ -958,34 +958,29 @@ pub async fn sync_collection(
     sync_token: Option<String>,
 ) -> Result<EventSyncDelta, CaldavError> {
     let cli = client(&account)?;
-    let mut sync_token = sync_token;
-    let mut items = Vec::new();
 
-    loop {
-        let result = cli
-            .sync_collection(calendar_url, sync_token.as_deref(), None, false, None)
-            .await
-            .map_err(|error| map_fast_dav_error("SyncCollection", error))?;
+    let result = cli
+        .sync_collection(calendar_url, sync_token.as_deref(), None, false, None)
+        .await
+        .map_err(|error| map_fast_dav_error("SyncCollection", error))?;
 
-        sync_token = result.sync_token;
+    // `result.truncated` can be exposed later if callers need to consume all
+    // sync pages in a single run. For now, subsequent syncs resume from the
+    // returned sync token.
+    let items = result
+        .items
+        .into_iter()
+        .filter(|item| !is_truncation_marker(item.status.as_deref()))
+        .map(|item| EventChangeRef {
+            href: item.href,
+            is_deleted: item.is_deleted,
+        })
+        .collect();
 
-        items.extend(
-            result
-                .items
-                .into_iter()
-                .filter(|item| !is_truncation_marker(item.status.as_deref()))
-                .map(|item| EventChangeRef {
-                    href: item.href,
-                    is_deleted: item.is_deleted,
-                }),
-        );
-
-        if !result.truncated {
-            break;
-        }
-    }
-
-    Ok(EventSyncDelta { sync_token, items })
+    Ok(EventSyncDelta {
+        sync_token: result.sync_token,
+        items
+    })
 }
 
 /// Fetch a set of events by href using CalDAV `calendar-multiget`.

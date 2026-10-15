@@ -963,10 +963,7 @@ pub async fn sync_collection(
         .sync_collection(calendar_url, sync_token.as_deref(), None, false, None)
         .await
         .map_err(|error| map_fast_dav_error("SyncCollection", error))?;
-
-    // `result.truncated` can be exposed later if callers need to consume all
-    // sync pages in a single run. For now, subsequent syncs resume from the
-    // returned sync token.
+    
     let items = result
         .items
         .into_iter()

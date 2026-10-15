@@ -36,6 +36,7 @@ import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.dao.Meetin
 import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
+import com.infomaniak.multiplatform_core.contacts.data.local.hostedContactDao
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
 import kotlinx.coroutines.Dispatchers
@@ -77,8 +78,10 @@ internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, Mee
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
-    abstract override fun contactDao(): ContactDao
     abstract override fun meetingRoomDao(): MeetingRoomDao
+
+    private val contactDao by lazy { hostedContactDao(this) }
+    override fun contactDao(): ContactDao = contactDao
 }
 
 @Suppress("KotlinNoActualForExpect")

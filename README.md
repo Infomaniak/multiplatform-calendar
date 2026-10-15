@@ -27,9 +27,10 @@ multiplatform-calendar/
 ├── CalendarResources/               # Shared Compose Multiplatform recurrence strings and translations
 │   └── src/commonMain/composeResources/  # values/ and values-<lang>/strings.xml
 ├── Contacts/                        # Standalone KMP contacts module (server address book + device contacts)
-│   ├── src/commonMain/              # ContactsManager, merge/search/sync logic, Room tables, Ktor remote source
+│   ├── src/commonMain/              # ContactsManager, merge/search/sync logic, Room tables and database, Ktor remote source
 │   ├── src/androidMain/             # AndroidDeviceContactsProvider (ContactsContract)
-│   ├── src/appleMain/               # AppleDeviceContactsProvider (Contacts framework)
+│   ├── src/appleMain/               # AppleDeviceContactsProvider (Contacts framework), standalone database opener
+│   ├── src/appleTargetMain/         # Added to each Apple target, reaches the Room-generated contacts DAO
 │   └── build.gradle.kts             # Contacts module build (Room, Ktor, publish)
 ├── MeetingRooms/                    # Standalone KMP module for the Infomaniak bookable meeting rooms
 │   ├── src/commonMain/              # MeetingRoomsManager, sync, availability, busy periods, Room tables, Ktor remote source
@@ -103,8 +104,11 @@ calendar, uses the `com.infomaniak.multiplatform_calendar.meeting_rooms` package
 `:Network` is an `implementation` dependency of CalendarCore, Contacts and MeetingRooms, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
-There is a single Room database, CalendarCore's `CalendarDatabase`. Contacts and MeetingRooms only declare their entities and
+CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts and MeetingRooms only declare their entities and
 DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `MeetingRoomsDatabase`) that `CalendarDatabase` implements.
+On Apple, the contacts live in their own database instead (`StandaloneContactsDatabase`, opened at `ContactsSettings.databasePath`).
+Room generates `ContactDao_Impl` in Contacts only: `CalendarDatabase` gets it through `hostedContactDao` instead of
+declaring `contactDao()` abstract, which would generate a duplicate class and break the Android app's dex merge.
 
 Apple consumers import `MultiplatformCalendar` and access the SDK through:
 
@@ -163,7 +167,7 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
   inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `meetingRoomsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
-  `CalendarSDKProvider.shared.sdk(calendar:crashReport:)`.
+  `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `contacts` giving the path of the dedicated contacts database.
 
 ### Meeting rooms
 

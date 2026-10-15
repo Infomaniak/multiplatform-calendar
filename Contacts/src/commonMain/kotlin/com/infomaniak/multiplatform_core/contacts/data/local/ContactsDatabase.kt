@@ -17,13 +17,19 @@
  */
 package com.infomaniak.multiplatform_core.contacts.data.local
 
+import androidx.room3.RoomDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
-/** Tables of the contacts module, to declare in the host Room database. */
+/** Tables of the contacts module, to declare in a host Room database implementing [contactDao] with [hostedContactDao]. */
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 public interface ContactsDatabase {
     public fun contactDao(): ContactDao
 }
+
+/** Left abstract in the host, [ContactsDatabase.contactDao] would make Room generate a duplicate `ContactDao_Impl`. */
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public expect fun hostedContactDao(hostDatabase: RoomDatabase): ContactDao

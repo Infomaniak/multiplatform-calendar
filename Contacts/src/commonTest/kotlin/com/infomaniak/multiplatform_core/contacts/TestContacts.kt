@@ -24,6 +24,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
+import com.infomaniak.multiplatform_core.contacts.data.local.StandaloneContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
@@ -99,7 +100,7 @@ private fun jsonHeaders(etag: String?): Headers = HeadersBuilder().apply {
 }.build()
 
 internal fun testDatabase(): ContactsDatabase =
-    Room.inMemoryDatabaseBuilder<TestContactsDatabase>().setDriver(BundledSQLiteDriver()).build()
+    Room.inMemoryDatabaseBuilder<StandaloneContactsDatabase>().setDriver(BundledSQLiteDriver()).build()
 
 internal suspend fun testManager(
     apiContacts: List<ApiContact> = emptyList(),

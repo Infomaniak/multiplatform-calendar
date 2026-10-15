@@ -67,16 +67,13 @@ public data class Event(
         get() = occurrenceId is OccurrenceId.Recurrence
 
     /**
-     * What a mutation of this event may be aimed at, scopes to ask for included.
+     * What a mutation of this event reaches with [scope], ignored unless [isOccurrence].
      * Says nothing about whether it may be mutated at all: that is [canEdit].
      */
-    val scopeSelection: ScopeSelection
-        get() = when (val id = occurrenceId) {
-            is OccurrenceId.Recurrence -> ScopeSelection.Recurring(
-                options = RecurrenceScope.entries.map { scope -> OccurrenceTarget.Recurring(id, scope) },
-            )
-            else -> ScopeSelection.Single(OccurrenceTarget.Single(id))
-        }
+    public fun targetFor(scope: RecurrenceScope): OccurrenceTarget = when (val id = occurrenceId) {
+        is OccurrenceId.Recurrence -> OccurrenceTarget.Recurring(id, scope)
+        else -> OccurrenceTarget.Single(id)
+    }
 
     /** The description with all Infomaniak marked blocks removed. */
     val cleanedDescription: String

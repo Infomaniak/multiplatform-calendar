@@ -22,7 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 /**
  * What a mutation is aimed at, scope included: deletes and updates both take one of these.
  *
- * Read from the [Event] acted on ([Event.scopeSelection]), never built by hand, so a scope can only
+ * Read from the [Event] acted on ([Event.targetFor]), never built by hand, so a scope can only
  * ever be paired with an id that does name an occurrence.
  */
 public sealed interface OccurrenceTarget {

@@ -245,7 +245,7 @@ public class CalendarManager internal constructor(
 
     /**
      * Apply [data] to what [target] designates, as offered by
-     * [scopeSelection][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.scopeSelection].
+     * [targetFor][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.targetFor].
      */
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateEvent(target: OccurrenceTarget, data: EventEditData): Unit =
@@ -275,7 +275,7 @@ public class CalendarManager internal constructor(
 
     /**
      * Delete what [target] designates, as offered by
-     * [scopeSelection][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.scopeSelection].
+     * [targetFor][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.targetFor].
      *
      * A scoped delete whose occurrence the series no longer hands out does nothing.
      */

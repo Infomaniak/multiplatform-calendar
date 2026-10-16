@@ -15,21 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_core.contacts
+package com.infomaniak.multiplatform_core.contacts.data.local
 
 import androidx.room3.ConstructedBy
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
-import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
 
-@Database(entities = [ContactAccountEntity::class, ContactEntity::class], version = 1, exportSchema = false)
-@ConstructedBy(TestContactsDatabaseConstructor::class)
-internal abstract class TestContactsDatabase : RoomDatabase(), ContactsDatabase
+@Database(
+    entities = [ContactAccountEntity::class, ContactEntity::class],
+    version = 1,
+    exportSchema = true,
+)
+@ConstructedBy(StandaloneContactsDatabaseConstructor::class)
+internal abstract class StandaloneContactsDatabase : RoomDatabase(), ContactsDatabase
 
 @Suppress("KotlinNoActualForExpect")
-internal expect object TestContactsDatabaseConstructor : RoomDatabaseConstructor<TestContactsDatabase> {
-    override fun initialize(): TestContactsDatabase
+internal expect object StandaloneContactsDatabaseConstructor : RoomDatabaseConstructor<StandaloneContactsDatabase> {
+    override fun initialize(): StandaloneContactsDatabase
 }

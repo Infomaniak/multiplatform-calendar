@@ -18,14 +18,23 @@
 package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_core.contacts.AppleDeviceContactsProvider
+import com.infomaniak.multiplatform_core.contacts.ContactsSettings
+import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
+import com.infomaniak.multiplatform_core.contacts.data.local.standaloneContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
 
 @ContributesTo(AppScope::class)
 public interface AppleContactsModule {
 
     @Provides
     private fun provideDeviceContactsProvider(): DeviceContactsProvider = AppleDeviceContactsProvider()
+
+    @SingleIn(AppScope::class)
+    @Provides
+    private fun provideContactsDatabase(settings: ContactsSettings): ContactsDatabase =
+        standaloneContactsDatabase(settings)
 }

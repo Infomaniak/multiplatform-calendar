@@ -18,7 +18,9 @@
 package com.infomaniak.multiplatform_calendar.core.di
 
 import android.content.Context
+import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_core.contacts.AndroidDeviceContactsProvider
+import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
@@ -30,4 +32,7 @@ public interface AndroidContactsModule {
     @Provides
     private fun provideDeviceContactsProvider(appContext: Context): DeviceContactsProvider =
         AndroidDeviceContactsProvider(appContext)
+
+    @Provides
+    private fun provideContactsDatabase(database: CalendarDatabase): ContactsDatabase = database
 }

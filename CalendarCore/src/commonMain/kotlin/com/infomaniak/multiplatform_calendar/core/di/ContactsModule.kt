@@ -17,9 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.core.di
 
-import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.ContactsLookup
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
+import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
@@ -32,7 +32,7 @@ public interface ContactsModule {
     @SingleIn(AppScope::class)
     @Provides
     private fun provideContactsManager(
-        database: CalendarDatabase,
+        database: ContactsDatabase,
         deviceContactsProvider: DeviceContactsProvider,
     ): ContactsManager = ContactsManager(
         database = database,

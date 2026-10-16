@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.androidx.room)
     alias(kmpCalendar.plugins.kotlin.multiplatform)
     alias(kmpCalendar.plugins.kotlin.serialization)
     alias(kmpCalendar.plugins.ksp)
@@ -56,6 +57,10 @@ kotlin {
             implementation(kmpCalendar.bundles.ktor)
         }
 
+        appleMain.dependencies {
+            implementation(kmpCalendar.androidx.sqlite.bundled)
+        }
+
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(kmpCalendar.kotlinx.coroutines.test)
@@ -70,9 +75,14 @@ kotlin {
         }
 
         listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->
-            getByName("${target}Test") {
-                kotlin.srcDir(layout.buildDirectory.dir("generated/ksp/$target/${target}Test/kotlin"))
+            getByName("${target}Main") {
+                kotlin.srcDir(layout.buildDirectory.dir("generated/ksp/$target/${target}Main/kotlin"))
             }
+        }
+
+        // Room generates the DAO per target, out of reach of the shared appleMain source set.
+        listOf("iosArm64Main", "iosSimulatorArm64Main", "macosArm64Main").forEach { sourceSet ->
+            getByName(sourceSet).kotlin.srcDir("src/appleTargetMain/kotlin")
         }
     }
 
@@ -84,15 +94,19 @@ kotlin {
     explicitApi()
 }
 
+room3 {
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
-    add("kspAndroidHostTest", kmpCalendar.androidx.room.compiler)
-    add("kspIosSimulatorArm64Test", kmpCalendar.androidx.room.compiler)
-    add("kspIosArm64Test", kmpCalendar.androidx.room.compiler)
-    add("kspMacosArm64Test", kmpCalendar.androidx.room.compiler)
+    add("kspAndroid", kmpCalendar.androidx.room.compiler)
+    add("kspIosSimulatorArm64", kmpCalendar.androidx.room.compiler)
+    add("kspIosArm64", kmpCalendar.androidx.room.compiler)
+    add("kspMacosArm64", kmpCalendar.androidx.room.compiler)
 }
 
 listOf("IosArm64", "IosSimulatorArm64", "MacosArm64").forEach { target ->
-    tasks.named("compileTestKotlin$target") {
-        dependsOn("kspTestKotlin$target")
+    tasks.named("compileKotlin$target") {
+        dependsOn("kspKotlin$target")
     }
 }

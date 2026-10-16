@@ -4,7 +4,7 @@ use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount, DiscoveryEntry};
 use crate::principal::user_emails;
-use crate::props::{access_level, collection_props, normalize_href};
+use crate::props::{access_level, collection_privileges, normalize_href};
 use roxmltree::Document;
 
 /// Discover the user's emails and all calendars for the given credentials.
@@ -24,26 +24,22 @@ pub async fn discover(account: DavAccount) -> Result<DiscoveryEntry, CaldavError
 
     let mut calendars = Vec::new();
     for home in &homes {
-        let props = collection_props(&cli, home).await;
+        let privileges = collection_privileges(&cli, home).await;
         let fetched_calendars = cli.list_calendars(home).await
             .map_err(|error| map_fast_dav_error("ListCalendars", error))?;
 
         for cal in fetched_calendars {
-            let entry_props = props.get(normalize_href(&cal.href).as_str());
-            let access_level = entry_props
-                .map(access_level)
+            let access_level = privileges
+                .get(normalize_href(&cal.href).as_str())
+                .map(|privileges| access_level(privileges))
                 .unwrap_or(CalendarAccessLevel::ReadWrite);
-            // Prefer the color from our PROPFIND, fall back to the listing's.
-            let color = entry_props
-                .and_then(|p| p.color.clone())
-                .or_else(|| cal.color.clone());
             calendars.push(CalendarEntry {
                 url: cal.href.clone(),
                 display_name: cal.displayname.unwrap_or_else(|| {
                     cal.href.trim_end_matches('/').rsplit('/').next()
                         .unwrap_or(&cal.href).to_string()
                 }),
-                color,
+                color: cal.color.clone(),
                 description: cal.description.clone(),
                 ctag: cal.sync_token.clone(),
                 access_level,

@@ -566,6 +566,7 @@ internal class EventRepository(
                 edit = moved.toOverrideEdit(
                     stamp = stamp,
                     previousColorArgb = tail.data.eventColor?.argb,
+                    previousDescription = override.content.description,
                     previousAlarms = tail.data.alarms.statedAlarms.map(EventAlarm::toEntity),
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
@@ -662,6 +663,7 @@ internal class EventRepository(
                 carried.toOverrideEdit(
                     stamp = now,
                     previousColorArgb = override.content.colorArgb,
+                    previousDescription = override.content.description,
                     previousAlarms = override.content.alarms,
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
@@ -703,6 +705,7 @@ internal class EventRepository(
             data.toOverrideEdit(
                 stamp = now,
                 previousColorArgb = shown.colorArgb,
+                previousDescription = shown.description,
                 previousAlarms = shown.alarms,
                 previousAttendees = shown.attendees,
                 previousOrganizer = shown.organizer,
@@ -899,6 +902,7 @@ private fun EventEditData.tailRuleAfter(split: SeriesSplit, stored: EventTiming,
 private fun SeriesTail.toRemoteEdit(stamp: String, seed: EventContentEntity) = data.toRemoteEdit(
     stamp = stamp,
     previous = null,
+    previousDescription = seed.description,
     exDates = DateListEdit.Set(master.exDates.movedTail(tail = this)),
     rDates = DateListEdit.Set(master.rDates.movedTail(tail = this)),
     previousAttendees = seed.attendees,

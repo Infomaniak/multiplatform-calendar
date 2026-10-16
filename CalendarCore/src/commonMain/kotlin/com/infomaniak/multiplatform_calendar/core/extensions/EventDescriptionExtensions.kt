@@ -23,3 +23,30 @@ private val MARKED_BLOCKS_REGEX = Regex("$MARKED_BLOCKS[\\s\\S]*?$MARKED_BLOCKS"
 internal fun String.removeMarkedBlocks(): String {
     return this.replace(MARKED_BLOCKS_REGEX, "").trim()
 }
+
+/**
+ * Replaces user-visible text while preserving the marked blocks from [original].
+ *
+ * If the user-visible text is unchanged, the original description is returned as-is.
+ * Otherwise, the previous user-visible text is discarded, and the preserved blocks
+ * are appended after the updated text.
+ */
+internal fun String?.withMarkedBlocksFrom(original: String?): String? {
+    val text = this?.removeMarkedBlocks().orEmpty()
+
+    if (text == original?.removeMarkedBlocks().orEmpty()) return original
+
+    val blocks = original?.let { MARKED_BLOCKS_REGEX.findAll(it).iterator() }
+    if (blocks == null || !blocks.hasNext()) return text.ifEmpty { null }
+
+    return buildString {
+        if (text.isNotEmpty()) {
+            append(text)
+            append("\n\n")
+        }
+        while (blocks.hasNext()) {
+            append(blocks.next().value)
+            if (blocks.hasNext()) append("\n\n")
+        }
+    }
+}

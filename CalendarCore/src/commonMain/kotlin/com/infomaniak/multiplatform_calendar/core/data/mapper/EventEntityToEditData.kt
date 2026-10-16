@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
 
 /**
  * This event as the edit that would leave it exactly as it stands.
@@ -42,7 +43,7 @@ internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     title = content.summary,
     timing = content.timing.toDomain(recurrenceRule = rrule, rDates = rDates, exDates = exDates),
     location = content.location,
-    description = content.description,
+    description = content.description?.removeMarkedBlocks(),
     timeBlocking = content.timeBlocking,
     calendarId = calendarId,
     eventColor = content.colorArgb?.let(::EventSourceColor),
@@ -61,7 +62,7 @@ internal fun EventOverrideEntity.toEditData(calendarId: CalendarId): EventEditDa
     title = content.summary,
     timing = content.timing.toDomain(),
     location = content.location,
-    description = content.description,
+    description = content.description?.removeMarkedBlocks(),
     timeBlocking = content.timeBlocking,
     calendarId = calendarId,
     eventColor = content.colorArgb?.let(::EventSourceColor),

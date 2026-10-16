@@ -41,6 +41,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallCl
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
+import com.infomaniak.multiplatform_calendar.core.extensions.withMarkedBlocksFrom
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
@@ -82,6 +83,7 @@ internal fun EventEditData.toRemoteEdit(
     rDates: DateListEdit = DateListEdit.Preserve,
     droppedOverrides: List<RecurrenceKey> = emptyList(),
     knownOverrides: List<EventOverrideEntity> = emptyList(),
+    previousDescription: String? = previous?.content?.description,
     previousAttendees: List<AttendeeEntity> = previous?.content?.attendees.orEmpty(),
     previousOrganizer: OrganizerEntity? = previous?.content?.organizer,
 ): RemoteEventEdit {
@@ -95,7 +97,7 @@ internal fun EventEditData.toRemoteEdit(
         dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
-        description = description?.ifBlank { null },
+        description = description.withMarkedBlocksFrom(previousDescription),
         transp = timeBlocking?.toIcalString(),
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previous?.content?.colorArgb),
@@ -126,6 +128,7 @@ internal fun EventEditData.toRemoteEdit(
 internal fun EventEditData.toOverrideEdit(
     stamp: String,
     previousColorArgb: Int?,
+    previousDescription: String?,
     previousAlarms: List<AlarmEntity>,
     previousAttendees: List<AttendeeEntity>,
     previousOrganizer: OrganizerEntity?,
@@ -140,7 +143,7 @@ internal fun EventEditData.toOverrideEdit(
         dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
-        description = description?.ifBlank { null },
+        description = description.withMarkedBlocksFrom(previousDescription),
         transp = timeBlocking?.toIcalString(),
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previousColorArgb),

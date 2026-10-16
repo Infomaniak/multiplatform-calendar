@@ -89,6 +89,32 @@ class EventDescriptionExtensionsTest {
     }
 
     @Test
+    fun withMarkedBlocksFrom_movesBlocksToTheEndAndDiscardsOldInterleavedText() {
+        val original = "before${marker}block 1${marker}between${marker}block 2${marker}after"
+        val expected = "updated\n\n${marker}block 1${marker}\n\n${marker}block 2${marker}"
+
+        assertEquals(expected, "updated".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_keepsBlocksWhenEditedTextIsEmpty() {
+        val original = "before${marker}block${marker}after"
+        assertEquals("${marker}block${marker}", "".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_hasNoEmptyResultIfThereAreNoBlocks() {
+        assertEquals(null, "  ".withMarkedBlocksFrom("old text"))
+        assertEquals("new", " new ".withMarkedBlocksFrom(null))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_doesNotDuplicateBlocksSuppliedInEditedText() {
+        val original = "${marker}block${marker}"
+        assertEquals("new\n\n$original", "new$original".withMarkedBlocksFrom(original))
+    }
+
+    @Test
     fun removeMarkedBlocks_leavesTextWithoutBlocksUntouched() {
         val input = "normal description"
 

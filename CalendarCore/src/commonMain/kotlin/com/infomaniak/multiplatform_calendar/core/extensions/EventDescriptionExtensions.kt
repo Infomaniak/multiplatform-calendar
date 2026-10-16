@@ -25,11 +25,17 @@ internal fun String.removeMarkedBlocks(): String {
 }
 
 /**
- * Replaces all human-readable text while preserving the complete marked blocks in [original].
- * Former text between or after blocks is discarded. Blocks are always appended at the end.
+ * Replaces user-visible text while preserving the marked blocks from [original].
+ *
+ * If the user-visible text is unchanged, the original description is returned as-is.
+ * Otherwise, the previous user-visible text is discarded, and the preserved blocks
+ * are appended after the updated text.
  */
 internal fun String?.withMarkedBlocksFrom(original: String?): String? {
     val text = this?.removeMarkedBlocks().orEmpty()
+
+    if (text == original?.removeMarkedBlocks().orEmpty()) return original
+
     val blocks = original?.let { MARKED_BLOCKS_REGEX.findAll(it).iterator() }
     if (blocks == null || !blocks.hasNext()) return text.ifEmpty { null }
 

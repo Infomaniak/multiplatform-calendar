@@ -23,3 +23,24 @@ private val MARKED_BLOCKS_REGEX = Regex("$MARKED_BLOCKS[\\s\\S]*?$MARKED_BLOCKS"
 internal fun String.removeMarkedBlocks(): String {
     return this.replace(MARKED_BLOCKS_REGEX, "").trim()
 }
+
+/**
+ * Replaces all human-readable text while preserving the complete marked blocks in [original].
+ * Former text between or after blocks is discarded. Blocks are always appended at the end.
+ */
+internal fun String?.withMarkedBlocksFrom(original: String?): String? {
+    val text = this?.removeMarkedBlocks().orEmpty()
+    val blocks = original?.let { MARKED_BLOCKS_REGEX.findAll(it).iterator() }
+    if (blocks == null || !blocks.hasNext()) return text.ifEmpty { null }
+
+    return buildString {
+        if (text.isNotEmpty()) {
+            append(text)
+            append("\n\n")
+        }
+        while (blocks.hasNext()) {
+            append(blocks.next().value)
+            if (blocks.hasNext()) append("\n\n")
+        }
+    }
+}

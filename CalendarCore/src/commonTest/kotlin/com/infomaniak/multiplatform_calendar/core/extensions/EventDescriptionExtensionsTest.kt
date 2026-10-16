@@ -48,7 +48,7 @@ class EventDescriptionExtensionsTest {
     @Test
     fun removeMarkedBlocks_removesSeveralMultilineBlocks() {
         val input = "before\n${marker}\nfirst block\nspanning two lines\n${marker}\nbetween\n" +
-            "${marker}\nsecond block\nspanning two lines\n${marker}\nafter"
+                "${marker}\nsecond block\nspanning two lines\n${marker}\nafter"
 
         assertEquals("before\n\nbetween\n\nafter", input.removeMarkedBlocks())
     }
@@ -112,6 +112,18 @@ class EventDescriptionExtensionsTest {
     fun withMarkedBlocksFrom_doesNotDuplicateBlocksSuppliedInEditedText() {
         val original = "${marker}block${marker}"
         assertEquals("new\n\n$original", "new$original".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_preservesOriginalWhenTextIsUnchanged() {
+        val original = "before\n${marker}metadata${marker}\nafter"
+        assertEquals(original, "before\n\nafter".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_preservesOriginalFormattingWhenUnchanged() {
+        val original = "  description  \n\n${marker}metadata${marker}\n"
+        assertEquals(original, "description".withMarkedBlocksFrom(original))
     }
 
     @Test

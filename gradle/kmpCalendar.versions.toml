@@ -1,6 +1,6 @@
 [versions]
 # Keep this version synced with Core's agp version
-agp = "9.3.2"
+agp = "9.4.1"
 compose = "1.12.1"
 coroutines = "1.11.0"
 coreKtx = "1.7.0"

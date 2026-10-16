@@ -210,8 +210,8 @@ Before you begin, ensure you have met the following requirements:
 
 The `CalendarKmpDav/rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events)
 via [fast-dav-rs](https://github.com/Goopil/fast-dav-rs).
-iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate, and extra WebDAV
-collection properties (privileges, owner, color) via [roxmltree](https://docs.rs/roxmltree) (see *Extra CalDAV properties* below).
+iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate (see also
+*Extra CalDAV properties* below).
 
 The Rust → Kotlin/Swift bridge is handled automatically
 by [uniffi-kotlin-multiplatform-bindings](https://github.com/UbiqueInnovation/uniffi-kotlin-multiplatform-bindings)

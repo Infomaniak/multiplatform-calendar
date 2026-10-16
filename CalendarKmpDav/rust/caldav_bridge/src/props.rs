@@ -1,43 +1,23 @@
-//! Fetch the CalDAV collection properties that `fast-dav-rs` does not surface:
-//! the `current-user-privilege-set` (RFC 3744) and the Apple `calendar-color`.
-//! We issue a single `Depth: 1` PROPFIND on the calendar home-set and parse the
-//! multistatus with a read-only DOM (`roxmltree`), matching on **local names**
-//! so we stay agnostic to the server's namespace prefix (`D:` vs `d:` vs none).
-//!
-//! Best-effort: any failure yields no data and callers fall back to defaults.
-//! To fetch a new property, add it to [`PROPS_BODY`] and to [`CollectionProps`].
+//! Fetch the `current-user-privilege-set` (RFC 3744) of the calendar collections, which `list_calendars` does not
+//! request. Best-effort: any failure yields no data and callers fall back to defaults.
 
 use std::collections::HashMap;
 
-use fast_dav_rs::{CalDavClient, Depth};use roxmltree::{Document, Node};
+use fast_dav_rs::{parse_multistatus_bytes, CalDavClient, Depth, Privilege};
 
 use crate::client::ensure_success;
 use crate::error::{map_fast_dav_error, CaldavError};
 use crate::models::CalendarAccessLevel;
 
-/// Single PROPFIND body requesting every collection property we care about.
-const PROPS_BODY: &str = r#"<?xml version="1.0" encoding="utf-8"?>
-<D:propfind xmlns:D="DAV:" xmlns:A="http://apple.com/ns/ical/">
+const PRIVILEGES_BODY: &str = r#"<?xml version="1.0" encoding="utf-8"?>
+<D:propfind xmlns:D="DAV:">
   <D:prop>
     <D:current-user-privilege-set/>
-    <A:calendar-color/>
   </D:prop>
 </D:propfind>"#;
 
-/// Properties extracted from a single `<response>` of the multistatus.
-pub(crate) struct CollectionProps {
-    /// Local-names of the granted privileges (e.g. `"read"`, `"write"`, `"all"`).
-    pub privileges: Vec<String>,
-    /// Apple `calendar-color`, typically `#RRGGBB` or `#RRGGBBAA`.
-    pub color: Option<String>,
-}
-
-/// PROPFIND (`Depth: 1`) the home-set and return per-collection properties,
-/// keyed by normalized collection href.
-pub(crate) async fn collection_props(
-    cli: &CalDavClient,
-    home: &str,
-) -> HashMap<String, CollectionProps> {
+/// PROPFIND (`Depth: 1`) the home-set and return the granted privileges of each collection, keyed by normalized href.
+pub(crate) async fn collection_privileges(cli: &CalDavClient, home: &str) -> HashMap<String, Vec<Privilege>> {
     fetch(cli, home).await.unwrap_or_default()
 }
 
@@ -53,104 +33,44 @@ pub(crate) fn normalize_href(href: &str) -> String {
 /// home owner as the `owner` of *every* collection — including read-only shares —
 /// so `owner == principal` would wrongly mark everything as owned. The privilege
 /// set, on the other hand, accurately reflects what the current user can do.
-pub(crate) fn access_level(props: &CollectionProps) -> CalendarAccessLevel {
-    let granted = |name: &str| props.privileges.iter().any(|p| p == name);
-
-    // `DAV:all`, or the ability to change the ACL, means full control / ownership.
-    if granted("all") || granted("write-acl") {
+pub(crate) fn access_level(privileges: &[Privilege]) -> CalendarAccessLevel {
+    let is_owner = privileges.iter().any(|p| {
+        matches!(p, Privilege::Other(name) if name.eq_ignore_ascii_case("all") || name.eq_ignore_ascii_case("write-acl"))
+    });
+    if is_owner {
         return CalendarAccessLevel::Owner;
     }
 
-    let can_write = props.privileges.iter().any(|p| {
+    let can_write = privileges.iter().any(|p| {
         matches!(
-            p.as_str(),
-            "write" | "write-content" | "write-properties" | "bind" | "unbind"
+            p,
+            Privilege::Write | Privilege::WriteContent | Privilege::WriteProperties | Privilege::Bind | Privilege::Unbind
         )
     });
 
     if can_write {
         CalendarAccessLevel::ReadWrite
-    } else if granted("read") {
+    } else if privileges.contains(&Privilege::Read) {
         CalendarAccessLevel::Read
     } else {
         CalendarAccessLevel::None
     }
 }
 
-async fn fetch(
-    cli: &CalDavClient,
-    home: &str,
-) -> Result<HashMap<String, CollectionProps>, CaldavError> {
+async fn fetch(cli: &CalDavClient, home: &str) -> Result<HashMap<String, Vec<Privilege>>, CaldavError> {
     let resp = cli
-        .propfind(home, Depth::One, PROPS_BODY)
+        .propfind(home, Depth::One, PRIVILEGES_BODY)
         .await
-        .map_err(|error| map_fast_dav_error("PropsPropfind", error))?;
+        .map_err(|error| map_fast_dav_error("PrivilegesPropfind", error))?;
 
-    ensure_success("PropsPropfind", &resp)?;
+    ensure_success("PrivilegesPropfind", &resp)?;
 
-    Ok(parse(resp.body().as_ref()))
-}
+    let items = parse_multistatus_bytes(resp.body().as_ref())
+        .map_err(|error| map_fast_dav_error("PrivilegesPropfind", error))?
+        .items;
 
-/// Parse a WebDAV multistatus body into per-collection props, keyed by
-/// normalized href. Any malformed body yields an empty map (best-effort).
-fn parse(xml: &[u8]) -> HashMap<String, CollectionProps> {
-    let text = String::from_utf8_lossy(xml);
-    let doc = match Document::parse(&text) {
-        Ok(doc) => doc,
-        Err(_) => return HashMap::new(),
-    };
-
-    doc.root()
-        .descendants()
-        .filter(|n| local_name(n) == "response")
-        .filter_map(parse_response)
-        .map(|(href, props)| (normalize_href(&href), props))
-        .collect()
-}
-
-/// Extract the href and known properties from a single `<response>`.
-fn parse_response(response: Node) -> Option<(String, CollectionProps)> {
-    // The collection href is the `<href>` that is a direct child of `<response>`.
-    let href = response
-        .children()
-        .find(|n| local_name(n) == "href")
-        .and_then(|n| n.text())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())?
-        .to_string();
-
-    // Every element nested under a `<privilege>` is a granted privilege.
-    let privileges = response
-        .descendants()
-        .filter(|n| n.is_element() && has_ancestor(n, "privilege"))
-        .map(|n| local_name(&n))
-        .collect();
-
-    let color = text_prop(response, "calendar-color");
-
-    Some((href, CollectionProps { privileges, color }))
-}
-
-/// Read a simple leaf-text property (e.g. `calendar-color`, `getctag`) by its
-/// local name, trimmed; `None` when absent or empty.
-fn text_prop(response: Node, name: &str) -> Option<String> {
-    response
-        .descendants()
-        .find(|n| local_name(n) == name)
-        .and_then(|n| n.text())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string)
-}
-
-/// Lowercased local name (namespace prefix stripped) of an element node.
-pub(crate) fn local_name(node: &Node) -> String {
-    node.tag_name().name().to_ascii_lowercase()
-}
-
-/// Whether any ancestor element of `node` has the given local name.
-pub(crate) fn has_ancestor(node: &Node, name: &str) -> bool {
-    node.ancestors()
-        .skip(1) // skip the node itself
-        .any(|a| a.is_element() && a.tag_name().name().eq_ignore_ascii_case(name))
+    Ok(items
+        .into_iter()
+        .map(|item| (normalize_href(&item.href), item.current_user_privileges))
+        .collect())
 }

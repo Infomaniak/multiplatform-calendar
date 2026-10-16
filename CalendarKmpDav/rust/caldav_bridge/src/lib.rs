@@ -4,7 +4,7 @@
 // - error      → CaldavError + err helper
 // - client     → internal CalDAV client builder (auth, response checks)
 // - models     → UniFFI records (Kotlin data classes)
-// - props      → extra CalDAV collection props (privileges, color) via PROPFIND
+// - props      → calendar collection privileges via PROPFIND
 // - calendars  → calendar discovery
 // - events     → event fetch/create/update/delete + iCalendar parsing
 //

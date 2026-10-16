@@ -13,8 +13,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "MultiplatformCalendar",
-            url: "https://github.com/Infomaniak/multiplatform-calendar/releases/download/0.15.0/MultiplatformCalendar.xcframework.zip",
-            checksum: "bb6e7efd8796758d28698e544ca0c464028e45d33ebc31f85bcd90ceacef8110"
+            url: "https://github.com/Infomaniak/multiplatform-calendar/releases/download/ios-snapshot-0.15.0-rollfix-202610160914-38868269616-2/MultiplatformCalendar.xcframework.zip",
+            checksum: "a812d067023285a244c35f72676c50fc89c545b00cfe7597eb1fab818102da32"
         ),
     ]
 )

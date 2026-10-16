@@ -5,7 +5,7 @@ use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount, DiscoveryEntry};
 use crate::principal::user_emails;
 use crate::props::{access_level, collection_privileges, normalize_href};
-use roxmltree::Document;
+use fast_dav_rs::parse_multistatus_bytes;
 
 /// Discover the user's emails and all calendars for the given credentials.
 #[uniffi::export(async_runtime = "tokio")]
@@ -112,23 +112,14 @@ fn escape_xml(input: &str) -> String {
 
 /// Parse a PROPPATCH multistatus body and fail when any `<propstat>` carries a non-2xx status.
 fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
-    let text = String::from_utf8_lossy(xml);
-    let doc = Document::parse(&text).map_err(|e| bridge_error("Proppatch", format!("malformed multistatus: {e}")))?;
+    let items = parse_multistatus_bytes(xml)
+        .map_err(|e| bridge_error("Proppatch", format!("malformed multistatus: {e}")))?
+        .items;
 
     let mut found_propstat = false;
-    for node in doc.root().descendants() {
-        if !node.is_element() || !node.tag_name().name().eq_ignore_ascii_case("status") {
-            continue;
-        }
-        let parent_is_propstat = node
-            .parent()
-            .map(|p| p.tag_name().name().eq_ignore_ascii_case("propstat"))
-            .unwrap_or(false);
-        if !parent_is_propstat {
-            continue;
-        }
+    for propstat in items.iter().flat_map(|item| &item.propstats) {
         found_propstat = true;
-        let status = node.text().unwrap_or("").trim();
+        let status = propstat.status.as_deref().unwrap_or("");
         // Expected form: "HTTP/1.1 200 OK". Reject anything that isn't 2xx.
         let code = status.split_whitespace().nth(1).and_then(|s| s.parse::<u16>().ok());
         if !matches!(code, Some(200..=299)) {
@@ -143,4 +134,3 @@ fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
 
     Ok(())
 }
-

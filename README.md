@@ -210,8 +210,8 @@ Before you begin, ensure you have met the following requirements:
 
 The `CalendarKmpDav/rust/caldav_bridge` crate provides CalDAV operations (discover calendars, CRUD events)
 via [fast-dav-rs](https://github.com/Goopil/fast-dav-rs).
-iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate, and extra WebDAV
-collection properties (privileges, owner, color) via [roxmltree](https://docs.rs/roxmltree) (see *Extra CalDAV properties* below).
+iCalendar data is parsed into typed fields using the [icalendar](https://docs.rs/icalendar) crate (see also
+*Extra CalDAV properties* below).
 
 The Rust → Kotlin/Swift bridge is handled automatically
 by [uniffi-kotlin-multiplatform-bindings](https://github.com/UbiqueInnovation/uniffi-kotlin-multiplatform-bindings)
@@ -276,17 +276,14 @@ request.
 
 ### Extra CalDAV properties
 
-`fast-dav-rs` only surfaces a fixed subset of collection properties. When we need others — the `current-user-privilege-set`
-(RFC 3744, mapped to a `CalendarAccessLevel`), the `DAV:owner`, or the Apple `calendar-color` — the crate issues its own
-`Depth: 1` PROPFIND and parses the multistatus with [roxmltree](https://docs.rs/roxmltree) (see
-`rust/caldav_bridge/src/props.rs`).
-Parsing matches on **local names** so it is agnostic to the server's namespace prefix, and is **best-effort**: a missing or
-unsupported property never breaks calendar discovery. To fetch a new property, add it to `PROPS_BODY` and to `CollectionProps`.
+`list_calendars` does not request the `current-user-privilege-set` (RFC 3744), mapped to a `CalendarAccessLevel`: the
+crate issues its own `Depth: 1` PROPFIND on the home-set and reads it with fast-dav's multistatus parser (see
+`rust/caldav_bridge/src/props.rs`). This request is **best-effort**: when it fails, the calendars default to read-write.
 
-Discovery also reads the principal's `calendar-user-address-set` (RFC 6638) with a `Depth: 0` PROPFIND
-(`rust/caldav_bridge/src/principal.rs`). Only its `mailto:` entries are kept, without their scheme: they are the user's
-emails, matched against the attendees of an event. This request is best-effort: when it fails, discovery goes on
-without the emails.
+Discovery also reads the principal's `calendar-user-address-set` (RFC 6638) through fast-dav's
+`discover_schedule_endpoints` (`rust/caldav_bridge/src/principal.rs`). Only its `mailto:` entries are kept, without their
+scheme: they are the user's emails, matched against the attendees of an event. This request is best-effort: when it fails,
+discovery goes on without the emails.
 
 ### Rust build profiles & binary size
 

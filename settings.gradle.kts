@@ -62,6 +62,7 @@ include(
     ":CalendarKmpDav",
     ":CalendarResources",
     ":Contacts",
+    ":Meet",
     ":MeetingRooms",
     ":Network",
 )

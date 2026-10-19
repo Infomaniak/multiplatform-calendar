@@ -32,6 +32,9 @@ multiplatform-calendar/
 │   ├── src/appleMain/               # AppleDeviceContactsProvider (Contacts framework), standalone database opener
 │   ├── src/appleTargetMain/         # Added to each Apple target, reaches the Room-generated contacts DAO
 │   └── build.gradle.kts             # Contacts module build (Room, Ktor, publish)
+├── Meet/                            # Standalone KMP module generating kMeet video-conference room URLs
+│   ├── src/commonMain/              # MeetManager, Ktor remote source
+│   └── build.gradle.kts             # Meet module build (Ktor, publish)
 ├── MeetingRooms/                    # Standalone KMP module for the Infomaniak bookable meeting rooms
 │   ├── src/commonMain/              # MeetingRoomsManager, sync, availability, busy periods, Room tables, Ktor remote source
 │   └── build.gradle.kts             # MeetingRooms module build (Room, Ktor, publish)
@@ -46,11 +49,12 @@ multiplatform-calendar/
 
 | Module               | Purpose                                                                                       |
 |----------------------|-----------------------------------------------------------------------------------------------|
-| **Account**          | Shared identity types (`AccountId`, `AccessToken`) and in-memory `AccountTokenStore`, used by CalendarCore, Contacts and MeetingRooms |
+| **Account**          | Shared identity types (`AccountId`, `AccessToken`) and in-memory `AccountTokenStore`, used by CalendarCore, Contacts, Meet and MeetingRooms |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 | **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
+| **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **MeetingRooms**     | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
@@ -101,7 +105,7 @@ generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to
 `:MeetingRooms` is exported the same way (`MeetingRoomsManager` and its types) but, being specific to the
 calendar, uses the `com.infomaniak.multiplatform_calendar.meeting_rooms` package.
 
-`:Network` is an `implementation` dependency of CalendarCore, Contacts and MeetingRooms, and is **not** exported. Like `:Account`, it uses the
+`:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet and MeetingRooms, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
 CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts and MeetingRooms only declare their entities and
@@ -178,6 +182,12 @@ ones. `sync` replaces the local rooms of each account (the API sends no ETag); `
 `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
 
 ### Contacts permissions
+### kMeet
+
+`MeetManager.generateRoomUrl` calls `GET /api/pim/calendar/meet-room` on `calendar.infomaniak.com`, which creates a new
+kMeet room on each call. Nothing is cached nor written: attaching the URL to an event is the
+`X-INFOMANIAK-MEET-ROOM-URL` property of the CalDAV event.
+
 
 `:Contacts` reads the device contacts but never requests the permission itself: until access is granted, only the
 server address book is searched.

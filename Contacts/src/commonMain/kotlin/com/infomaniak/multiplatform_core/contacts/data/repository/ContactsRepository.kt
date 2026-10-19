@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_core.contacts.data.repository
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
@@ -33,7 +34,6 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsPro
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.MatchTier
-import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
 import com.infomaniak.multiplatform_core.contacts.utils.contactNameComparator
 import com.infomaniak.multiplatform_core.contacts.utils.normalizedForSearch
 import kotlinx.coroutines.CoroutineScope
@@ -56,7 +56,7 @@ internal class ContactsRepository(
     database: ContactsDatabase,
     private val remoteDataSource: ContactsRemoteDataSource,
     private val deviceContactsProvider: DeviceContactsProvider,
-    private val tokenStore: TokenStore,
+    private val tokenStore: AccountTokenStore,
     private val deviceContactsScope: CoroutineScope,
 ) {
 
@@ -111,7 +111,7 @@ internal class ContactsRepository(
      */
     suspend fun sync(accountIds: Set<AccountId>) {
         val failures = coroutineScope {
-            accountIds.ifEmpty { tokenStore.accountIds() }
+            accountIds.ifEmpty { tokenStore.getAccountIds() }
                 .map { accountId -> async { syncFailure(accountId) } }
                 .awaitAll()
                 .filterNotNull()
@@ -161,7 +161,7 @@ internal class ContactsRepository(
 
     private suspend fun syncAccount(accountId: AccountId) {
         syncMutex(accountId).withLock {
-            val token = tokenStore.get(accountId) ?: throw ContactsException(ContactsErrorCause.AccountNotInitialized(accountId))
+            val token = tokenStore.getToken(accountId) ?: throw ContactsException(ContactsErrorCause.AccountNotInitialized(accountId))
             when (val fetch = remoteDataSource.getContacts(token, dao.account(accountId)?.etag)) {
                 is ContactsFetch.NotModified -> Unit
                 is ContactsFetch.Success -> dao.replaceContacts(

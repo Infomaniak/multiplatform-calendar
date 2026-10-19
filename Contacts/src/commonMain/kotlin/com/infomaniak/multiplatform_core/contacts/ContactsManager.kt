@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_core.contacts
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteDataSource
 import com.infomaniak.multiplatform_core.contacts.data.remote.createContactsHttpClient
@@ -27,7 +28,6 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
-import com.infomaniak.multiplatform_core.contacts.utils.TokenStore
 import com.infomaniak.multiplatform_core.contacts.utils.contactsCall
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
@@ -51,7 +51,7 @@ public class ContactsManager internal constructor(
         database = database,
         remoteDataSource = ContactsRemoteDataSource(httpClient),
         deviceContactsProvider = deviceContactsProvider,
-        tokenStore = TokenStore(),
+        tokenStore = AccountTokenStore(),
         deviceContactsScope = deviceContactsScope,
     )
 

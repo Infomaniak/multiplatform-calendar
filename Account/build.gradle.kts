@@ -39,5 +39,11 @@ kotlin {
     iosSimulatorArm64()
     macosArm64()
 
+    sourceSets {
+        commonMain.dependencies {
+            implementation(kmpCalendar.kotlinx.coroutines.core)
+        }
+    }
+
     explicitApi()
 }

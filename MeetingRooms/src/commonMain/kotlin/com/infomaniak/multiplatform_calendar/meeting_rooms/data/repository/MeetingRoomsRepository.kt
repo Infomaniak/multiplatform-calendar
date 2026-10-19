@@ -32,9 +32,9 @@ import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingR
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsErrorCause
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
-import com.infomaniak.multiplatform_calendar.meeting_rooms.utils.TokenStore
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -52,7 +52,7 @@ import kotlin.time.Instant
 internal class MeetingRoomsRepository(
     database: MeetingRoomsDatabase,
     private val remoteDataSource: MeetingRoomsRemoteDataSource,
-    private val tokenStore: TokenStore,
+    private val tokenStore: AccountTokenStore,
 ) {
 
     private val dao = database.meetingRoomDao()

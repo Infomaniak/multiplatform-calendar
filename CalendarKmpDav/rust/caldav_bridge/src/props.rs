@@ -34,9 +34,14 @@ pub(crate) fn normalize_href(href: &str) -> String {
 /// so `owner == principal` would wrongly mark everything as owned. The privilege
 /// set, on the other hand, accurately reflects what the current user can do.
 pub(crate) fn access_level(privileges: &[Privilege]) -> CalendarAccessLevel {
-    let is_owner = privileges.iter().any(|p| {
-        matches!(p, Privilege::Other(name) if name.eq_ignore_ascii_case("all") || name.eq_ignore_ascii_case("write-acl"))
+    let is_owner = privileges.iter().any(|privilege| match privilege {
+        Privilege::All => true,
+        Privilege::Other(name) => {
+            name.eq_ignore_ascii_case("all") || name.eq_ignore_ascii_case("write-acl")
+        }
+        _ => false,
     });
+
     if is_owner {
         return CalendarAccessLevel::Owner;
     }

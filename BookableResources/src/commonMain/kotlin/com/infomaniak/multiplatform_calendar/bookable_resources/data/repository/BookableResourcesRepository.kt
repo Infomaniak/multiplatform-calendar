@@ -18,18 +18,18 @@
 package com.infomaniak.multiplatform_calendar.bookable_resources.data.repository
 
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.BookableResourceEntity
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.EquipmentEntity
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.BookableResourcesRemoteDataSource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiAvailabilityRequest
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBusyPeriod
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBusyPeriodsRequest
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.parseHexColor
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Equipment
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
@@ -55,11 +55,11 @@ internal class BookableResourcesRepository(
     private val tokenStore: AccountTokenStore,
 ) {
 
-    private val dao = database.meetingRoomDao()
+    private val dao = database.bookableResourceDao()
     private val syncMutexes = mutableMapOf<AccountId, Mutex>()
     private val syncMutexesLock = Mutex()
-    private val roomFetchMutexes = mutableMapOf<Pair<AccountId, MeetingRoomUuid>, Mutex>()
-    private val roomFetchMutexesLock = Mutex()
+    private val resourceFetchMutexes = mutableMapOf<Pair<AccountId, BookableResourceUuid>, Mutex>()
+    private val resourceFetchMutexesLock = Mutex()
 
     suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenStore.put(accountId, accessToken)
 
@@ -67,7 +67,7 @@ internal class BookableResourcesRepository(
     suspend fun removeAccount(accountId: AccountId) {
         syncMutex(accountId).withLock {
             tokenStore.remove(accountId)
-            dao.deleteRoomsForAccount(accountId)
+            dao.deleteResourcesForAccount(accountId)
         }
     }
 
@@ -84,22 +84,22 @@ internal class BookableResourcesRepository(
         }
     }
 
-    fun observeRooms(accountId: AccountId): Flow<List<MeetingRoom>> =
-        dao.observeRooms(accountId).map { rooms -> rooms.map(MeetingRoomEntity::toMeetingRoom) }
+    fun observeResources(accountId: AccountId): Flow<List<BookableResource>> =
+        dao.observeResources(accountId).map { resources -> resources.map(BookableResourceEntity::toBookableResource) }
 
-    fun observeRoom(accountId: AccountId, uuid: MeetingRoomUuid): Flow<MeetingRoom?> = channelFlow {
-        launch { fetchMissingRoom(accountId, uuid) }
-        dao.observeRoom(accountId, uuid).collect { send(it?.toMeetingRoom()) }
+    fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResource?> = channelFlow {
+        launch { fetchMissingResource(accountId, uuid) }
+        dao.observeResource(accountId, uuid).collect { send(it?.toBookableResource()) }
     }
 
     suspend fun availability(
         accountId: AccountId,
-        uuid: MeetingRoomUuid?,
+        uuid: BookableResourceUuid?,
         start: Instant,
         end: Instant,
         timeZone: TimeZone,
         rrule: String?,
-    ): Map<MeetingRoomUuid, Boolean> {
+    ): Map<BookableResourceUuid, Boolean> {
         val request = ApiAvailabilityRequest(
             start = start.toLocalDateTime(timeZone),
             end = end.toLocalDateTime(timeZone),
@@ -108,25 +108,25 @@ internal class BookableResourcesRepository(
             rrule = rrule,
         )
         return remoteDataSource.getAvailability(getToken(accountId), request, uuid)
-            .mapKeys { (key, _) -> MeetingRoomUuid(key) }
+            .mapKeys { (key, _) -> BookableResourceUuid(key) }
     }
 
     suspend fun busyPeriods(
         accountId: AccountId,
-        uuids: Set<MeetingRoomUuid>,
+        uuids: Set<BookableResourceUuid>,
         from: Instant,
         to: Instant,
-    ): Map<MeetingRoomUuid, List<BusyPeriod>> {
+    ): Map<BookableResourceUuid, List<BusyPeriod>> {
         if (uuids.isEmpty()) return emptyMap()
 
         val request = ApiBusyPeriodsRequest(
-            bookableResourceUuids = uuids.map(MeetingRoomUuid::value),
+            bookableResourceUuids = uuids.map(BookableResourceUuid::value),
             from = from.toLocalDateTime(TimeZone.UTC),
             to = to.toLocalDateTime(TimeZone.UTC),
         )
         return remoteDataSource.getBusyPeriods(getToken(accountId), request)
             .entries
-            .associate { (key, periods) -> MeetingRoomUuid(key) to periods.map(ApiBusyPeriod::toBusyPeriod) }
+            .associate { (key, periods) -> BookableResourceUuid(key) to periods.map(ApiBusyPeriod::toBusyPeriod) }
     }
 
     private suspend fun syncFailure(accountId: AccountId): Exception? = try {
@@ -140,22 +140,22 @@ internal class BookableResourcesRepository(
 
     private suspend fun syncAccount(accountId: AccountId) {
         syncMutex(accountId).withLock {
-            val rooms = remoteDataSource.getBookableResources(getToken(accountId))
+            val resources = remoteDataSource.getBookableResources(getToken(accountId))
                 .filter(ApiBookableResource::isMeetingRoom)
                 .map { it.toEntity(accountId) }
-            dao.replaceRooms(accountId, rooms)
+            dao.replaceResources(accountId, resources)
         }
     }
 
-    // Failures are ignored. Concurrent collectors wait for the fetch in progress, then fetch only if the room is still missing.
-    private suspend fun fetchMissingRoom(accountId: AccountId, uuid: MeetingRoomUuid) {
-        roomFetchMutex(accountId to uuid).withLock {
+    // Failures are ignored. Concurrent collectors wait for the fetch in progress, then fetch only if the resource is still missing.
+    private suspend fun fetchMissingResource(accountId: AccountId, uuid: BookableResourceUuid) {
+        resourceFetchMutex(accountId to uuid).withLock {
             try {
-                if (dao.hasRoom(accountId, uuid)) return
+                if (dao.hasResource(accountId, uuid)) return
                 val token = tokenStore.getToken(accountId) ?: return
-                val room = remoteDataSource.getBookableResource(token, uuid)?.takeIf(ApiBookableResource::isMeetingRoom) ?: return
+                val resource = remoteDataSource.getBookableResource(token, uuid)?.takeIf(ApiBookableResource::isMeetingRoom) ?: return
                 syncMutex(accountId).withLock {
-                    if (tokenStore.getToken(accountId) != null) dao.upsertRooms(listOf(room.toEntity(accountId)))
+                    if (tokenStore.getToken(accountId) != null) dao.upsertResources(listOf(resource.toEntity(accountId)))
                 }
             } catch (exception: CancellationException) {
                 throw exception
@@ -171,14 +171,14 @@ internal class BookableResourcesRepository(
         syncMutexes.getOrPut(accountId) { Mutex() }
     }
 
-    private suspend fun roomFetchMutex(key: Pair<AccountId, MeetingRoomUuid>): Mutex = roomFetchMutexesLock.withLock {
-        roomFetchMutexes.getOrPut(key) { Mutex() }
+    private suspend fun resourceFetchMutex(key: Pair<AccountId, BookableResourceUuid>): Mutex = resourceFetchMutexesLock.withLock {
+        resourceFetchMutexes.getOrPut(key) { Mutex() }
     }
 }
 
-private fun ApiBookableResource.toEntity(accountId: AccountId): MeetingRoomEntity = MeetingRoomEntity(
+private fun ApiBookableResource.toEntity(accountId: AccountId): BookableResourceEntity = BookableResourceEntity(
     accountId = accountId,
-    uuid = MeetingRoomUuid(uuid),
+    uuid = BookableResourceUuid(uuid),
     name = name,
     color = parseHexColor(color),
     description = description,
@@ -188,7 +188,7 @@ private fun ApiBookableResource.toEntity(accountId: AccountId): MeetingRoomEntit
     equipments = equipments.map { EquipmentEntity(name = it.name, category = it.category) },
 )
 
-private fun MeetingRoomEntity.toMeetingRoom(): MeetingRoom = MeetingRoom(
+private fun BookableResourceEntity.toBookableResource(): BookableResource = BookableResource(
     uuid = uuid,
     name = name,
     color = color,

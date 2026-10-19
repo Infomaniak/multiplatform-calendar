@@ -21,11 +21,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.parseHexColor
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomColor
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceColor
 
 class ParseHexColorTest {
 
-    private val red = MeetingRoomColor(0xFFFF0000.toInt())
+    private val red = BookableResourceColor(0xFFFF0000.toInt())
 
     @Test
     fun sixDigitsAreOpaque() = assertEquals(red, parseHexColor("#FF0000"))
@@ -34,7 +34,7 @@ class ParseHexColorTest {
     fun threeDigitsAreExpanded() = assertEquals(red, parseHexColor("#f00"))
 
     @Test
-    fun eightDigitsEndWithTheAlpha() = assertEquals(MeetingRoomColor(0x80FF0000.toInt()), parseHexColor("#FF000080"))
+    fun eightDigitsEndWithTheAlpha() = assertEquals(BookableResourceColor(0x80FF0000.toInt()), parseHexColor("#FF000080"))
 
     @Test
     fun hashIsOptional() = assertEquals(red, parseHexColor("FF0000"))

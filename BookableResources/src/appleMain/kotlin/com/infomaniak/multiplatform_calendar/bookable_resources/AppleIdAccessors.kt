@@ -17,8 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
 
 // Value class properties are boxed to `Any` in Swift.
-public val MeetingRoom.uuidValue: String get() = uuid.value
-public val MeetingRoom.colorValue: Int? get() = color?.argb
+public val BookableResource.uuidValue: String get() = uuid.value
+public val BookableResource.colorValue: Int? get() = color?.argb

@@ -46,10 +46,10 @@ public class AccountManager internal constructor(
     private val sdkCaller: SdkCaller,
 ) {
 
-    /** Makes each [initAccount] / [removeAccount] update the calendar, the contacts, kMeet and the meeting rooms as a single step. */
+    /** Makes each [initAccount] / [removeAccount] update the calendar, the contacts, kMeet and the bookable resources as a single step. */
     private val accountLifecycleMutex = Mutex()
 
-    /** Registers [accountId] for the calendar, the contacts, kMeet and the meeting rooms. Call it at startup and on login. */
+    /** Registers [accountId] for the calendar, the contacts, kMeet and the bookable resources. Call it at startup and on login. */
     @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun initAccount(
         accountId: AccountId,

@@ -21,8 +21,8 @@ import androidx.room3.Dao
 import androidx.room3.Query
 import androidx.room3.Transaction
 import androidx.room3.Upsert
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.BookableResourceEntity
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.flow.Flow
 import kotlin.experimental.ExperimentalObjCRefinement
@@ -31,26 +31,26 @@ import kotlin.native.HiddenFromObjC
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 @Dao
-public interface MeetingRoomDao {
+public interface BookableResourceDao {
 
     @Upsert
-    public suspend fun upsertRooms(rooms: List<MeetingRoomEntity>)
+    public suspend fun upsertResources(resources: List<BookableResourceEntity>)
 
     @Query("DELETE FROM meetingRooms WHERE accountId = :accountId")
-    public suspend fun deleteRoomsForAccount(accountId: AccountId)
+    public suspend fun deleteResourcesForAccount(accountId: AccountId)
 
     @Transaction
-    public suspend fun replaceRooms(accountId: AccountId, rooms: List<MeetingRoomEntity>) {
-        deleteRoomsForAccount(accountId)
-        upsertRooms(rooms)
+    public suspend fun replaceResources(accountId: AccountId, resources: List<BookableResourceEntity>) {
+        deleteResourcesForAccount(accountId)
+        upsertResources(resources)
     }
 
     @Query("SELECT * FROM meetingRooms WHERE accountId = :accountId ORDER BY name COLLATE NOCASE")
-    public fun observeRooms(accountId: AccountId): Flow<List<MeetingRoomEntity>>
+    public fun observeResources(accountId: AccountId): Flow<List<BookableResourceEntity>>
 
     @Query("SELECT * FROM meetingRooms WHERE accountId = :accountId AND uuid = :uuid")
-    public fun observeRoom(accountId: AccountId, uuid: MeetingRoomUuid): Flow<MeetingRoomEntity?>
+    public fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResourceEntity?>
 
     @Query("SELECT EXISTS(SELECT 1 FROM meetingRooms WHERE accountId = :accountId AND uuid = :uuid)")
-    public suspend fun hasRoom(accountId: AccountId, uuid: MeetingRoomUuid): Boolean
+    public suspend fun hasResource(accountId: AccountId, uuid: BookableResourceUuid): Boolean
 }

@@ -24,8 +24,8 @@ import androidx.room3.RoomDatabaseConstructor
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.dao.MeetingRoomDao
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.dao.BookableResourceDao
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.BookableResourceEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
@@ -67,7 +67,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
         EventRawIcsEntity::class,
         ContactAccountEntity::class,
         ContactEntity::class,
-        MeetingRoomEntity::class,
+        BookableResourceEntity::class,
     ],
     version = 21,
     exportSchema = true,
@@ -78,7 +78,7 @@ internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, Boo
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
-    abstract override fun meetingRoomDao(): MeetingRoomDao
+    abstract override fun bookableResourceDao(): BookableResourceDao
 
     private val contactDao by lazy { hostedContactDao(this) }
     override fun contactDao(): ContactDao = contactDao

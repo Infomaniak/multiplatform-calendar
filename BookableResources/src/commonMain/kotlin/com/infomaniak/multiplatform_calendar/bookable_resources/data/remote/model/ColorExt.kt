@@ -17,10 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomColor
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceColor
 
 // `#RGB`, `#RRGGBB` or `#RRGGBBAA`, with or without `#`.
-internal fun parseHexColor(hex: String?): MeetingRoomColor? {
+internal fun parseHexColor(hex: String?): BookableResourceColor? {
     val digits = hex?.trim()?.removePrefix("#") ?: return null
     val rrggbbaa = when (digits.length) {
         3 -> digits.map { "$it$it" }.joinToString("") + "FF"
@@ -33,5 +33,5 @@ internal fun parseHexColor(hex: String?): MeetingRoomColor? {
     } catch (_: IllegalArgumentException) {
         return null
     }
-    return MeetingRoomColor(rgba.rotateRight(8).toInt())
+    return BookableResourceColor(rgba.rotateRight(8).toInt())
 }

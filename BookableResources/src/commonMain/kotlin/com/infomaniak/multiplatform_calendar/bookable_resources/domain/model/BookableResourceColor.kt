@@ -17,19 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources.domain.model
 
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
+import kotlin.jvm.JvmInline
 
-@OptIn(ExperimentalObjCRefinement::class)
-public data class MeetingRoom(
-    @HiddenFromObjC
-    val uuid: MeetingRoomUuid,
-    val name: String,
-    @HiddenFromObjC
-    val color: MeetingRoomColor?,
-    val description: String?,
-    val location: String?,
-    val floor: Int?,
-    val capacity: Int?,
-    val equipments: List<Equipment>,
-)
+@JvmInline
+public value class BookableResourceColor(public val argb: Int)

@@ -20,8 +20,8 @@ package com.infomaniak.multiplatform_calendar.bookable_resources.data.local.enti
 import androidx.room3.ColumnTypeConverters
 import androidx.room3.Entity
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesConverters
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomColor
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceColor
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -30,11 +30,11 @@ import kotlin.native.HiddenFromObjC
 @HiddenFromObjC
 @Entity(tableName = "meetingRooms", primaryKeys = ["accountId", "uuid"])
 @ColumnTypeConverters(BookableResourcesConverters::class)
-public data class MeetingRoomEntity(
+public data class BookableResourceEntity(
     public val accountId: AccountId,
-    public val uuid: MeetingRoomUuid,
+    public val uuid: BookableResourceUuid,
     public val name: String,
-    public val color: MeetingRoomColor?,
+    public val color: BookableResourceColor?,
     public val description: String?,
     public val location: String?,
     public val floor: Int?,

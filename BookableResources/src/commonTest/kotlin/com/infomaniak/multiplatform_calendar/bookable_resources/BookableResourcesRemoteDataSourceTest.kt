@@ -50,22 +50,22 @@ class BookableResourcesRemoteDataSourceTest {
     fun bookableResourceIsDecoded() = runTest {
         val dataSource = dataSource { respondJson(success(resourceJson())) }
 
-        assertEquals(expectedResource, dataSource.getBookableResource(token, ROOM_UUID))
-        assertEquals("/pim/bookable-resources/${ROOM_UUID.value}", requests.single().url.encodedPath)
+        assertEquals(expectedResource, dataSource.getBookableResource(token, RESOURCE_UUID))
+        assertEquals("/pim/bookable-resources/${RESOURCE_UUID.value}", requests.single().url.encodedPath)
     }
 
     @Test
     fun forbiddenResourceIsNull() = runTest {
         val dataSource = dataSource { respondJson(error("access_denied"), HttpStatusCode.Forbidden) }
 
-        assertNull(dataSource.getBookableResource(token, ROOM_UUID))
+        assertNull(dataSource.getBookableResource(token, RESOURCE_UUID))
     }
 
     @Test
     fun unknownResourceIsNull() = runTest {
         val dataSource = dataSource { respondJson(error("object_not_found"), HttpStatusCode.NotFound) }
 
-        assertNull(dataSource.getBookableResource(token, ROOM_UUID))
+        assertNull(dataSource.getBookableResource(token, RESOURCE_UUID))
     }
 
     @Test
@@ -82,7 +82,7 @@ class BookableResourcesRemoteDataSourceTest {
     private fun error(code: String) = """{ "result": "error", "error": { "code": "$code", "description": "" } }"""
 
     private val expectedResource = ApiBookableResource(
-        uuid = ROOM_UUID.value,
+        uuid = RESOURCE_UUID.value,
         name = "Salle American Diner",
         color = "#FF0000",
         category = "meeting_room",

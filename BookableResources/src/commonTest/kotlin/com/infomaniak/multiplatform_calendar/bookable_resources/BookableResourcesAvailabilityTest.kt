@@ -46,12 +46,12 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
         val requests = mutableListOf<HttpRequestData>()
         val manager = testManager {
             requests.add(it)
-            respondJson(success("""{ "${ROOM_UUID.value}": true, "${OTHER_ROOM_UUID.value}": false }"""))
+            respondJson(success("""{ "${RESOURCE_UUID.value}": true, "${OTHER_RESOURCE_UUID.value}": false }"""))
         }
 
         val availability = manager.availability(ACCOUNT_ID, start, end, zurich, rrule = "FREQ=DAILY;COUNT=2")
 
-        assertEquals(mapOf(ROOM_UUID to true, OTHER_ROOM_UUID to false), availability)
+        assertEquals(mapOf(RESOURCE_UUID to true, OTHER_RESOURCE_UUID to false), availability)
         assertEquals("/pim/bookable-resources/availability", requests.single().url.encodedPath)
         val expectedBody = """
             {
@@ -73,19 +73,19 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun isAvailableAsksForTheSingleRoom() = runTest {
+    fun isAvailableAsksForTheSingleResource() = runTest {
         val requests = mutableListOf<HttpRequestData>()
-        val manager = testManager { requests.add(it); respondJson(success("""{ "${ROOM_UUID.value}": true }""")) }
+        val manager = testManager { requests.add(it); respondJson(success("""{ "${RESOURCE_UUID.value}": true }""")) }
 
-        assertTrue(manager.isAvailable(ACCOUNT_ID, ROOM_UUID, start, end, zurich))
-        assertEquals("/pim/bookable-resources/${ROOM_UUID.value}/availability", requests.single().url.encodedPath)
+        assertTrue(manager.isAvailable(ACCOUNT_ID, RESOURCE_UUID, start, end, zurich))
+        assertEquals("/pim/bookable-resources/${RESOURCE_UUID.value}/availability", requests.single().url.encodedPath)
     }
 
     @Test
-    fun isAvailableIsFalseWhenTheRoomIsMissingFromTheAnswer() = runTest {
+    fun isAvailableIsFalseWhenTheResourceIsMissingFromTheAnswer() = runTest {
         val manager = testManager { respondJson(success("{}")) }
 
-        assertFalse(manager.isAvailable(ACCOUNT_ID, ROOM_UUID, start, end, zurich))
+        assertFalse(manager.isAvailable(ACCOUNT_ID, RESOURCE_UUID, start, end, zurich))
     }
 
     @Test
@@ -105,7 +105,7 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun busyPeriodsAreGroupedByRoomUuid() = runTest {
+    fun busyPeriodsAreGroupedByResourceUuid() = runTest {
         val requests = mutableListOf<HttpRequestData>()
         val manager = testManager {
             requests.add(it)
@@ -113,7 +113,7 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
                 success(
                     """
                     {
-                      "bookable#${ROOM_UUID.value}": [
+                      "bookable#${RESOURCE_UUID.value}": [
                         {
                           "id": 101,
                           "parent_event_id": 100,
@@ -134,7 +134,7 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
             )
         }
 
-        val busyPeriods = manager.busyPeriods(ACCOUNT_ID, setOf(ROOM_UUID), start, end)
+        val busyPeriods = manager.busyPeriods(ACCOUNT_ID, setOf(RESOURCE_UUID), start, end)
 
         val expected = BusyPeriod(
             start = Instant.parse("2026-10-12T07:00:00Z"),
@@ -144,10 +144,10 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
             organizer = "user@infomaniak.com",
             isOwner = true,
         )
-        assertEquals(mapOf(ROOM_UUID to listOf(expected)), busyPeriods)
+        assertEquals(mapOf(RESOURCE_UUID to listOf(expected)), busyPeriods)
         assertEquals("/pim/event/bookable-availability", requests.single().url.encodedPath)
         val expectedBody = """
-            { "bookable_resource_uuids": ["${ROOM_UUID.value}"], "from": "2026-10-12 07:00:00", "to": "2026-10-12 08:30:00" }
+            { "bookable_resource_uuids": ["${RESOURCE_UUID.value}"], "from": "2026-10-12 07:00:00", "to": "2026-10-12 08:30:00" }
         """
         assertEquals(Json.parseToJsonElement(expectedBody), requests.single().jsonBody())
     }
@@ -157,7 +157,7 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
         val manager = testManager { respondJson(success("[1]")) }
 
         val exception = assertFailsWith<BookableResourcesException> {
-            manager.busyPeriods(ACCOUNT_ID, setOf(ROOM_UUID), start, end)
+            manager.busyPeriods(ACCOUNT_ID, setOf(RESOURCE_UUID), start, end)
         }
         assertIs<BookableResourcesErrorCause.Unknown>(exception.errorCause)
     }
@@ -166,11 +166,11 @@ class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
     fun busyPeriodsWithoutBookingsAreEmpty() = runTest {
         val manager = testManager { respondJson(success("{}")) }
 
-        assertEquals(emptyMap(), manager.busyPeriods(ACCOUNT_ID, setOf(ROOM_UUID), start, end))
+        assertEquals(emptyMap(), manager.busyPeriods(ACCOUNT_ID, setOf(RESOURCE_UUID), start, end))
     }
 
     @Test
-    fun busyPeriodsOfNoRoomDoNotHitTheNetwork() = runTest {
+    fun busyPeriodsOfNoResourceDoNotHitTheNetwork() = runTest {
         val requests = mutableListOf<HttpRequestData>()
         val manager = testManager { requests.add(it); respondJson(success("{}")) }
 

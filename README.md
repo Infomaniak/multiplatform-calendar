@@ -174,11 +174,11 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
   `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `contacts` giving the path of the dedicated contacts database.
 
-### Meeting rooms
+### Bookable resources
 
 `BookableResourcesManager` reads the bookable resources API on `calendar.infomaniak.com` and keeps only the `meeting_room`
-ones. `sync` replaces the local rooms of each account (the API sends no ETag); `observeRoom(accountId, uuid)` resolves the
-`X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a room missing locally, staying `null` when that fails.
+ones. `sync` replaces the local resources of each account (the API sends no ETag); `observeResource(accountId, uuid)` resolves the
+`X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a resource missing locally, staying `null` when that fails.
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the
 `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
 

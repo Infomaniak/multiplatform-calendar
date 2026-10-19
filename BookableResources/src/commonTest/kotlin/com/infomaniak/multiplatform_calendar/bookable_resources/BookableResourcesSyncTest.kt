@@ -17,9 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceColor
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Equipment
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomColor
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import io.ktor.client.request.HttpRequestData
@@ -55,47 +55,47 @@ class BookableResourcesSyncTest : RobolectricTestsBase() {
     @Test
     fun syncKeepsOnlyMeetingRooms() = runTest {
         val resources = listOf(
-            resourceJson(uuid = ROOM_UUID, name = "Salle Chat"),
-            resourceJson(uuid = OTHER_ROOM_UUID, name = "Beamer", category = "accessory"),
+            resourceJson(uuid = RESOURCE_UUID, name = "Salle Chat"),
+            resourceJson(uuid = OTHER_RESOURCE_UUID, name = "Beamer", category = "accessory"),
         )
         val manager = testManager { respondJson(success(resources.joinToString(prefix = "[", postfix = "]"))) }
 
         manager.sync(setOf(ACCOUNT_ID))
 
-        assertEquals(listOf("Salle Chat"), manager.storedRoomNames())
+        assertEquals(listOf("Salle Chat"), manager.storedResourceNames())
     }
 
     @Test
-    fun observeRoomsMapsEveryField() = runTest {
+    fun observeResourcesMapsEveryField() = runTest {
         val manager = testManager { respondJson(success("[${resourceJson()}]")) }
 
         manager.sync(setOf(ACCOUNT_ID))
 
-        val expected = MeetingRoom(
-            uuid = ROOM_UUID,
+        val expected = BookableResource(
+            uuid = RESOURCE_UUID,
             name = "Salle American Diner",
-            color = MeetingRoomColor(0xFFFF0000.toInt()),
+            color = BookableResourceColor(0xFFFF0000.toInt()),
             description = null,
             location = "Rue Eugène-Marziano 25, 1227 Les Acacias",
             floor = 3,
             capacity = 30,
             equipments = listOf(Equipment(name = "screen", category = "audio-video")),
         )
-        assertEquals(listOf(expected), manager.observeRooms(ACCOUNT_ID).first())
+        assertEquals(listOf(expected), manager.observeResources(ACCOUNT_ID).first())
     }
 
     @Test
-    fun observeRoomsSortsByName() = runTest {
-        val resources = listOf(resourceJson(uuid = ROOM_UUID, name = "salle b"), resourceJson(uuid = OTHER_ROOM_UUID, name = "Salle A"))
+    fun observeResourcesSortsByName() = runTest {
+        val resources = listOf(resourceJson(uuid = RESOURCE_UUID, name = "salle b"), resourceJson(uuid = OTHER_RESOURCE_UUID, name = "Salle A"))
         val manager = testManager { respondJson(success(resources.joinToString(prefix = "[", postfix = "]"))) }
 
         manager.sync(setOf(ACCOUNT_ID))
 
-        assertEquals(listOf("Salle A", "salle b"), manager.observeRooms(ACCOUNT_ID).first().map { it.name })
+        assertEquals(listOf("Salle A", "salle b"), manager.observeResources(ACCOUNT_ID).first().map { it.name })
     }
 
     @Test
-    fun syncReplacesRooms() = runTest {
+    fun syncReplacesResources() = runTest {
         var callCount = 0
         val manager = testManager {
             val name = if (callCount++ == 0) "Salle Chat" else "Salle Chien"
@@ -103,10 +103,10 @@ class BookableResourcesSyncTest : RobolectricTestsBase() {
         }
 
         manager.sync(setOf(ACCOUNT_ID))
-        assertEquals(listOf("Salle Chat"), manager.storedRoomNames())
+        assertEquals(listOf("Salle Chat"), manager.storedResourceNames())
         manager.sync(setOf(ACCOUNT_ID))
 
-        assertEquals(listOf("Salle Chien"), manager.storedRoomNames())
+        assertEquals(listOf("Salle Chien"), manager.storedResourceNames())
     }
 
     @Test
@@ -116,8 +116,8 @@ class BookableResourcesSyncTest : RobolectricTestsBase() {
 
         manager.sync()
 
-        assertEquals(listOf("Salle American Diner"), manager.storedRoomNames(ACCOUNT_ID))
-        assertEquals(listOf("Salle American Diner"), manager.storedRoomNames(OTHER_ACCOUNT_ID))
+        assertEquals(listOf("Salle American Diner"), manager.storedResourceNames(ACCOUNT_ID))
+        assertEquals(listOf("Salle American Diner"), manager.storedResourceNames(OTHER_ACCOUNT_ID))
     }
 
     @Test
@@ -133,17 +133,17 @@ class BookableResourcesSyncTest : RobolectricTestsBase() {
 
         assertFailsWithCause(BookableResourcesErrorCause.Api(500)) { manager.sync() }
 
-        assertEquals(listOf("Salle American Diner"), manager.storedRoomNames(ACCOUNT_ID))
+        assertEquals(listOf("Salle American Diner"), manager.storedResourceNames(ACCOUNT_ID))
     }
 
     @Test
-    fun removeAccountClearsRoomsAndToken() = runTest {
+    fun removeAccountClearsResourcesAndToken() = runTest {
         val manager = testManager { respondJson(success("[${resourceJson()}]")) }
         manager.sync(setOf(ACCOUNT_ID))
 
         manager.removeAccount(ACCOUNT_ID)
 
-        assertEquals(emptyList(), manager.storedRoomNames())
+        assertEquals(emptyList(), manager.storedResourceNames())
         assertFailsWithCause(BookableResourcesErrorCause.AccountNotInitialized(ACCOUNT_ID)) { manager.sync(setOf(ACCOUNT_ID)) }
     }
 
@@ -155,7 +155,7 @@ class BookableResourcesSyncTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun unexpectedStatusThrowsApiErrorAndKeepsRooms() = runTest {
+    fun unexpectedStatusThrowsApiErrorAndKeepsResources() = runTest {
         var callCount = 0
         val manager = testManager {
             if (callCount++ == 0) respondJson(success("[${resourceJson()}]")) else respondJson("", HttpStatusCode.InternalServerError)
@@ -164,7 +164,7 @@ class BookableResourcesSyncTest : RobolectricTestsBase() {
 
         assertFailsWithCause(BookableResourcesErrorCause.Api(500)) { manager.sync(setOf(ACCOUNT_ID)) }
 
-        assertEquals(listOf("Salle American Diner"), manager.storedRoomNames())
+        assertEquals(listOf("Salle American Diner"), manager.storedResourceNames())
     }
 
     @Test

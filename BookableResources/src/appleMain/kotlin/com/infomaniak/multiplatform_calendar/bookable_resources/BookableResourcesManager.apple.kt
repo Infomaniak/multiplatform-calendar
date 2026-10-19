@@ -17,8 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.datetime.TimeZone
@@ -46,5 +46,5 @@ public suspend fun BookableResourcesManager.busyPeriods(
     uuids: Set<String>,
     from: Instant,
     to: Instant,
-): Map<String, List<BusyPeriod>> = busyPeriods(accountId, uuids.mapTo(mutableSetOf(), ::MeetingRoomUuid), from, to)
+): Map<String, List<BusyPeriod>> = busyPeriods(accountId, uuids.mapTo(mutableSetOf(), ::BookableResourceUuid), from, to)
     .mapKeys { (uuid, _) -> uuid.value }

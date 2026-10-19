@@ -20,4 +20,4 @@ package com.infomaniak.multiplatform_calendar.bookable_resources.domain.model
 import kotlin.jvm.JvmInline
 
 @JvmInline
-public value class MeetingRoomUuid(public val value: String)
+public value class BookableResourceUuid(public val value: String)

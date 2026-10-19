@@ -36,25 +36,25 @@ import kotlinx.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 
-class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
+class BookableResourcesObserveResourceTest : RobolectricTestsBase() {
 
     @Test
-    fun missingRoomIsFetched() = runTest {
+    fun missingResourceIsFetched() = runTest {
         val requests = mutableListOf<HttpRequestData>()
         val manager = testManager { requests.add(it); respondJson(success(resourceJson())) }
 
-        val room = manager.observeRoom(ACCOUNT_ID, ROOM_UUID).filterNotNull().first()
+        val resource = manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).filterNotNull().first()
 
-        assertEquals("Salle American Diner", room.name)
-        assertEquals("/pim/bookable-resources/${ROOM_UUID.value}", requests.single().url.encodedPath)
-        assertEquals(listOf("Salle American Diner"), manager.storedRoomNames())
+        assertEquals("Salle American Diner", resource.name)
+        assertEquals("/pim/bookable-resources/${RESOURCE_UUID.value}", requests.single().url.encodedPath)
+        assertEquals(listOf("Salle American Diner"), manager.storedResourceNames())
     }
 
     @Test
-    fun roomBeingFetchedIsNotFetchedAgain() = runTest {
+    fun resourceBeingFetchedIsNotFetchedAgain() = runTest {
         val requests = mutableListOf<HttpRequestData>()
         val firstRequest = CompletableDeferred<Unit>()
         val answer = CompletableDeferred<Unit>()
@@ -65,9 +65,9 @@ class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
             respondJson(success(resourceJson()))
         }
 
-        val first = async { manager.observeRoom(ACCOUNT_ID, ROOM_UUID).filterNotNull().first() }
+        val first = async { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).filterNotNull().first() }
         firstRequest.await()
-        val second = async { manager.observeRoom(ACCOUNT_ID, ROOM_UUID).filterNotNull().first() }
+        val second = async { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).filterNotNull().first() }
         // Leaves the second collector the time to start its own fetch, if it were to.
         withContext(Dispatchers.Default) { delay(200) }
         answer.complete(Unit)
@@ -78,7 +78,7 @@ class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun roomIsFetchedAgainWhenTheCollectorFetchingItIsCancelled() = runTest {
+    fun resourceIsFetchedAgainWhenTheCollectorFetchingItIsCancelled() = runTest {
         val requests = mutableListOf<HttpRequestData>()
         val firstRequest = CompletableDeferred<Unit>()
         val manager = testManager {
@@ -87,9 +87,9 @@ class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
             respondJson(success(resourceJson()))
         }
 
-        val first = launch { manager.observeRoom(ACCOUNT_ID, ROOM_UUID).collect {} }
+        val first = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect {} }
         firstRequest.await()
-        val second = async { manager.observeRoom(ACCOUNT_ID, ROOM_UUID).filterNotNull().first() }
+        val second = async { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).filterNotNull().first() }
         // Leaves the second collector the time to wait for the first fetch.
         withContext(Dispatchers.Default) { delay(200) }
         first.cancel()
@@ -99,7 +99,7 @@ class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun roomFetchedWhileTheAccountIsRemovedIsNotStored() = runTest {
+    fun resourceFetchedWhileTheAccountIsRemovedIsNotStored() = runTest {
         val requested = CompletableDeferred<Unit>()
         val answer = CompletableDeferred<Unit>()
         val manager = testManager {
@@ -108,56 +108,56 @@ class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
             respondJson(success(resourceJson()))
         }
 
-        val job = launch { manager.observeRoom(ACCOUNT_ID, ROOM_UUID).collect {} }
+        val job = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect {} }
         requested.await()
         manager.removeAccount(ACCOUNT_ID)
         answer.complete(Unit)
-        // Leaves the fetch the time to store the room, if it were to.
+        // Leaves the fetch the time to store the resource, if it were to.
         withContext(Dispatchers.Default) { delay(200) }
         job.cancel()
 
-        assertEquals(emptyList(), manager.storedRoomNames())
+        assertEquals(emptyList(), manager.storedResourceNames())
     }
 
     @Test
-    fun knownRoomIsNotFetched() = runTest {
+    fun knownResourceIsNotFetched() = runTest {
         val requests = mutableListOf<HttpRequestData>()
         val manager = testManager { requests.add(it); respondJson(success("[${resourceJson()}]")) }
         manager.sync(setOf(ACCOUNT_ID))
 
-        val room = manager.observeRoom(ACCOUNT_ID, ROOM_UUID).filterNotNull().first()
+        val resource = manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).filterNotNull().first()
 
-        assertEquals("Salle American Diner", room.name)
+        assertEquals("Salle American Diner", resource.name)
         assertEquals(listOf("/pim/bookable-resources/all"), requests.map { it.url.encodedPath })
     }
 
     @Test
-    fun forbiddenRoomStaysNull() = assertRoomStaysNull { respondJson(error("access_denied"), HttpStatusCode.Forbidden) }
+    fun forbiddenResourceStaysNull() = assertResourceStaysNull { respondJson(error("access_denied"), HttpStatusCode.Forbidden) }
 
     @Test
-    fun unknownRoomStaysNull() = assertRoomStaysNull { respondJson(error("object_not_found"), HttpStatusCode.NotFound) }
+    fun unknownResourceStaysNull() = assertResourceStaysNull { respondJson(error("object_not_found"), HttpStatusCode.NotFound) }
 
     @Test
-    fun resourceOtherThanMeetingRoomStaysNull() = assertRoomStaysNull {
+    fun resourceOtherThanMeetingRoomStaysNull() = assertResourceStaysNull {
         respondJson(success(resourceJson(category = "accessory")))
     }
 
     @Test
-    fun fetchFailureStaysNull() = assertRoomStaysNull { throw IOException("offline") }
+    fun fetchFailureStaysNull() = assertResourceStaysNull { throw IOException("offline") }
 
     @Test
     fun uuidIsEncodedInThePath() = runTest {
         val requested = CompletableDeferred<HttpRequestData>()
         val manager = testManager { requested.complete(it); respondJson(error("object_not_found"), HttpStatusCode.NotFound) }
 
-        val job = launch { manager.observeRoom(ACCOUNT_ID, MeetingRoomUuid("../all")).collect {} }
+        val job = launch { manager.observeResource(ACCOUNT_ID, BookableResourceUuid("../all")).collect {} }
         val request = requested.await()
         job.cancel()
 
         assertEquals("/pim/bookable-resources/..%2Fall", request.url.encodedPath)
     }
 
-    private fun assertRoomStaysNull(
+    private fun assertResourceStaysNull(
         response: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ) = runTest {
         val answered = CompletableDeferred<Unit>()
@@ -168,15 +168,15 @@ class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
                 answered.complete(Unit)
             }
         }
-        val emissions = Channel<MeetingRoom?>(Channel.UNLIMITED)
+        val emissions = Channel<BookableResource?>(Channel.UNLIMITED)
 
-        val job = launch { manager.observeRoom(ACCOUNT_ID, ROOM_UUID).collect(emissions::send) }
+        val job = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect(emissions::send) }
         assertNull(emissions.receive())
         answered.await()
         job.cancel()
 
         assertNull(emissions.tryReceive().getOrNull())
-        assertEquals(emptyList(), manager.storedRoomNames())
+        assertEquals(emptyList(), manager.storedResourceNames())
     }
 
     private fun error(code: String) = """{ "result": "error", "error": { "code": "$code", "description": "" } }"""

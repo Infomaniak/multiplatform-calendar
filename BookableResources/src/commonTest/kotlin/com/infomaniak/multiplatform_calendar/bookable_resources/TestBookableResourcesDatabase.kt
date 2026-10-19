@@ -22,9 +22,9 @@ import androidx.room3.Database
 import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.BookableResourceEntity
 
-@Database(entities = [MeetingRoomEntity::class], version = 1, exportSchema = false)
+@Database(entities = [BookableResourceEntity::class], version = 1, exportSchema = false)
 @ConstructedBy(TestBookableResourcesDatabaseConstructor::class)
 internal abstract class TestBookableResourcesDatabase : RoomDatabase(), BookableResourcesDatabase
 

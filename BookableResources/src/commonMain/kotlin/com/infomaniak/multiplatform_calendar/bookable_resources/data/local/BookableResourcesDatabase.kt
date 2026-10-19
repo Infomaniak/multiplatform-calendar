@@ -19,11 +19,11 @@ package com.infomaniak.multiplatform_calendar.bookable_resources.data.local
 
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.dao.MeetingRoomDao
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.dao.BookableResourceDao
 
-/** Tables of the meeting rooms module, to declare in the host Room database. */
+/** Tables of the bookable resources module, to declare in the host Room database. */
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 public interface BookableResourcesDatabase {
-    public fun meetingRoomDao(): MeetingRoomDao
+    public fun bookableResourceDao(): BookableResourceDao
 }

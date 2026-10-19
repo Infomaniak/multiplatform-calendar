@@ -21,7 +21,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.mode
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBusyPeriod
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBusyPeriodsRequest
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
@@ -48,7 +48,7 @@ internal class BookableResourcesRemoteDataSource(private val httpClient: HttpCli
     suspend fun getBookableResources(token: AccessToken): List<ApiBookableResource> =
         httpClient.get(BookableResourcesRoutes.ALL) { bearerAuth(token.value) }.successOrThrow().asSuccess()
 
-    suspend fun getBookableResource(token: AccessToken, uuid: MeetingRoomUuid): ApiBookableResource? {
+    suspend fun getBookableResource(token: AccessToken, uuid: BookableResourceUuid): ApiBookableResource? {
         val response = httpClient.get(BookableResourcesRoutes.resource(uuid)) { bearerAuth(token.value) }
         return when (response.status) {
             HttpStatusCode.Forbidden, HttpStatusCode.NotFound -> null
@@ -59,7 +59,7 @@ internal class BookableResourcesRemoteDataSource(private val httpClient: HttpCli
     suspend fun getAvailability(
         token: AccessToken,
         request: ApiAvailabilityRequest,
-        uuid: MeetingRoomUuid?,
+        uuid: BookableResourceUuid?,
     ): Map<String, Boolean> {
         val route = uuid?.let(BookableResourcesRoutes::availability) ?: BookableResourcesRoutes.AVAILABILITY
         return httpClient.post(route) { jsonBody(token, request) }

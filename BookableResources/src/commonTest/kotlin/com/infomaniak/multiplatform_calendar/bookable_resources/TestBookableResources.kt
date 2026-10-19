@@ -22,7 +22,7 @@ import androidx.room3.RoomDatabase
 import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
@@ -48,11 +48,11 @@ import kotlin.test.assertFailsWith
 internal val ACCOUNT_ID = AccountId(42L)
 internal val OTHER_ACCOUNT_ID = AccountId(43L)
 
-internal val ROOM_UUID = MeetingRoomUuid("9d3e6081-0000-0000-0000-000000000001")
-internal val OTHER_ROOM_UUID = MeetingRoomUuid("9d3e6123-0000-0000-0000-000000000002")
+internal val RESOURCE_UUID = BookableResourceUuid("9d3e6081-0000-0000-0000-000000000001")
+internal val OTHER_RESOURCE_UUID = BookableResourceUuid("9d3e6123-0000-0000-0000-000000000002")
 
 internal fun resourceJson(
-    uuid: MeetingRoomUuid = ROOM_UUID,
+    uuid: BookableResourceUuid = RESOURCE_UUID,
     name: String = "Salle American Diner",
     category: String = "meeting_room",
 ): String = """
@@ -92,7 +92,7 @@ internal suspend fun testManager(
 ): BookableResourcesManager = BookableResourcesManager(database = testDatabase(), httpClient = testHttpClient(handler))
     .apply { if (initAccount) initAccount(ACCOUNT_ID, AccessToken("token")) }
 
-internal suspend fun BookableResourcesManager.storedRoomNames(accountId: AccountId = ACCOUNT_ID): List<String> =
+internal suspend fun BookableResourcesManager.storedResourceNames(accountId: AccountId = ACCOUNT_ID): List<String> =
     (database as RoomDatabase).useReaderConnection { connection ->
         connection.usePrepared("SELECT name FROM meetingRooms WHERE accountId = ? ORDER BY name") { statement ->
             statement.bindLong(1, accountId.value)

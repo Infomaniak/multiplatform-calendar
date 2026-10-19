@@ -21,9 +21,9 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.Booka
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.BookableResourcesRemoteDataSource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.createBookableResourcesHttpClient
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.repository.BookableResourcesRepository
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_calendar.bookable_resources.utils.bookableResourcesCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
@@ -50,7 +50,7 @@ public class BookableResourcesManager internal constructor(
         tokenStore = AccountTokenStore(),
     )
 
-    /** @param database Host Room database declaring the meeting rooms tables. */
+    /** @param database Host Room database declaring the bookable resources tables. */
     public constructor(database: BookableResourcesDatabase) : this(
         database = database,
         httpClient = createBookableResourcesHttpClient(),
@@ -61,7 +61,7 @@ public class BookableResourcesManager internal constructor(
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
         bookableResourcesCall { repository.initAccount(accountId, accessToken) }
 
-    /** Also deletes the local meeting rooms of [accountId]. */
+    /** Also deletes the local bookable resources of [accountId]. */
     @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun removeAccount(accountId: AccountId): Unit = bookableResourcesCall { repository.removeAccount(accountId) }
 
@@ -75,12 +75,12 @@ public class BookableResourcesManager internal constructor(
     public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = bookableResourcesCall { repository.sync(accountIds) }
 
     /** Sorted by name. */
-    public fun observeRooms(accountId: AccountId): Flow<List<MeetingRoom>> =
-        repository.observeRooms(accountId).flowOn(Dispatchers.Default)
+    public fun observeResources(accountId: AccountId): Flow<List<BookableResource>> =
+        repository.observeResources(accountId).flowOn(Dispatchers.Default)
 
-    /** A room missing locally is fetched; null when that fails or the account cannot book it. */
-    public fun observeRoom(accountId: AccountId, uuid: MeetingRoomUuid): Flow<MeetingRoom?> =
-        repository.observeRoom(accountId, uuid).flowOn(Dispatchers.Default)
+    /** A resource missing locally is fetched; null when that fails or the account cannot book it. */
+    public fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResource?> =
+        repository.observeResource(accountId, uuid).flowOn(Dispatchers.Default)
 
     /**
      * Always hits the network.
@@ -95,14 +95,14 @@ public class BookableResourcesManager internal constructor(
         end: Instant,
         timeZone: TimeZone,
         rrule: String? = null,
-    ): Map<MeetingRoomUuid, Boolean> = bookableResourcesCall {
+    ): Map<BookableResourceUuid, Boolean> = bookableResourcesCall {
         repository.availability(accountId, uuid = null, start, end, timeZone, rrule)
     }
 
     @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun isAvailable(
         accountId: AccountId,
-        uuid: MeetingRoomUuid,
+        uuid: BookableResourceUuid,
         start: Instant,
         end: Instant,
         timeZone: TimeZone,
@@ -111,14 +111,14 @@ public class BookableResourcesManager internal constructor(
         repository.availability(accountId, uuid, start, end, timeZone, rrule)[uuid] == true
     }
 
-    /** Rooms the account cannot book are left out. Hits the network unless [uuids] is empty. */
+    /** Resources the account cannot book are left out. Hits the network unless [uuids] is empty. */
     @OptIn(ExperimentalObjCRefinement::class)
     @HiddenFromObjC
     @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun busyPeriods(
         accountId: AccountId,
-        uuids: Set<MeetingRoomUuid>,
+        uuids: Set<BookableResourceUuid>,
         from: Instant,
         to: Instant,
-    ): Map<MeetingRoomUuid, List<BusyPeriod>> = bookableResourcesCall { repository.busyPeriods(accountId, uuids, from, to) }
+    ): Map<BookableResourceUuid, List<BusyPeriod>> = bookableResourcesCall { repository.busyPeriods(accountId, uuids, from, to) }
 }

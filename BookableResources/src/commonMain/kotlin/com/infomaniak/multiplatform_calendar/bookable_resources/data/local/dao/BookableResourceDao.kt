@@ -36,7 +36,7 @@ public interface BookableResourceDao {
     @Upsert
     public suspend fun upsertResources(resources: List<BookableResourceEntity>)
 
-    @Query("DELETE FROM meetingRooms WHERE accountId = :accountId")
+    @Query("DELETE FROM bookableResources WHERE accountId = :accountId")
     public suspend fun deleteResourcesForAccount(accountId: AccountId)
 
     @Transaction
@@ -45,12 +45,12 @@ public interface BookableResourceDao {
         upsertResources(resources)
     }
 
-    @Query("SELECT * FROM meetingRooms WHERE accountId = :accountId ORDER BY name COLLATE NOCASE")
+    @Query("SELECT * FROM bookableResources WHERE accountId = :accountId ORDER BY name COLLATE NOCASE")
     public fun observeResources(accountId: AccountId): Flow<List<BookableResourceEntity>>
 
-    @Query("SELECT * FROM meetingRooms WHERE accountId = :accountId AND uuid = :uuid")
+    @Query("SELECT * FROM bookableResources WHERE accountId = :accountId AND uuid = :uuid")
     public fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResourceEntity?>
 
-    @Query("SELECT EXISTS(SELECT 1 FROM meetingRooms WHERE accountId = :accountId AND uuid = :uuid)")
+    @Query("SELECT EXISTS(SELECT 1 FROM bookableResources WHERE accountId = :accountId AND uuid = :uuid)")
     public suspend fun hasResource(accountId: AccountId, uuid: BookableResourceUuid): Boolean
 }

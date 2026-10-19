@@ -28,7 +28,7 @@ import kotlin.native.HiddenFromObjC
 
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
-@Entity(tableName = "meetingRooms", primaryKeys = ["accountId", "uuid"])
+@Entity(tableName = "bookableResources", primaryKeys = ["accountId", "uuid"])
 @ColumnTypeConverters(BookableResourcesConverters::class)
 public data class BookableResourceEntity(
     public val accountId: AccountId,

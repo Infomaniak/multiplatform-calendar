@@ -69,7 +69,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
         ContactEntity::class,
         BookableResourceEntity::class,
     ],
-    version = 21,
+    version = 22,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)

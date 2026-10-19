@@ -94,7 +94,7 @@ internal suspend fun testManager(
 
 internal suspend fun BookableResourcesManager.storedResourceNames(accountId: AccountId = ACCOUNT_ID): List<String> =
     (database as RoomDatabase).useReaderConnection { connection ->
-        connection.usePrepared("SELECT name FROM meetingRooms WHERE accountId = ? ORDER BY name") { statement ->
+        connection.usePrepared("SELECT name FROM bookableResources WHERE accountId = ? ORDER BY name") { statement ->
             statement.bindLong(1, accountId.value)
             buildList { while (statement.step()) add(statement.getText(0)) }
         }

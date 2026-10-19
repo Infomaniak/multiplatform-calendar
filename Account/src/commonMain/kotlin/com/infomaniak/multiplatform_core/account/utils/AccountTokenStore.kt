@@ -15,27 +15,31 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.meeting_rooms.utils
+package com.infomaniak.multiplatform_core.account.utils
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
-internal class TokenStore {
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public class AccountTokenStore {
 
     private val mutex = Mutex()
     private val tokens = mutableMapOf<AccountId, AccessToken>()
 
-    suspend fun getToken(accountId: AccountId): AccessToken? = mutex.withLock { tokens[accountId] }
+    public suspend fun getToken(accountId: AccountId): AccessToken? = mutex.withLock { tokens[accountId] }
 
-    suspend fun getAccountIds(): Set<AccountId> = mutex.withLock { tokens.keys.toSet() }
+    public suspend fun getAccountIds(): Set<AccountId> = mutex.withLock { tokens.keys.toSet() }
 
-    suspend fun put(accountId: AccountId, accessToken: AccessToken) {
+    public suspend fun put(accountId: AccountId, accessToken: AccessToken) {
         mutex.withLock { tokens[accountId] = accessToken }
     }
 
-    suspend fun remove(accountId: AccountId) {
+    public suspend fun remove(accountId: AccountId) {
         mutex.withLock { tokens.remove(accountId) }
     }
 }

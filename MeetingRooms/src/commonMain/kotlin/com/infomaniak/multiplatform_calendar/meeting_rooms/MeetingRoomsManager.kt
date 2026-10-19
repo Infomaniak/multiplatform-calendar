@@ -25,10 +25,10 @@ import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.BusyPeri
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.MeetingRoomUuid
 import com.infomaniak.multiplatform_calendar.meeting_rooms.domain.model.exceptions.MeetingRoomsException
-import com.infomaniak.multiplatform_calendar.meeting_rooms.utils.TokenStore
 import com.infomaniak.multiplatform_calendar.meeting_rooms.utils.meetingRoomsCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -47,7 +47,7 @@ public class MeetingRoomsManager internal constructor(
     private val repository = MeetingRoomsRepository(
         database = database,
         remoteDataSource = MeetingRoomsRemoteDataSource(httpClient),
-        tokenStore = TokenStore(),
+        tokenStore = AccountTokenStore(),
     )
 
     /** @param database Host Room database declaring the meeting rooms tables. */

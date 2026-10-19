@@ -48,7 +48,7 @@ class EventDescriptionExtensionsTest {
     @Test
     fun removeMarkedBlocks_removesSeveralMultilineBlocks() {
         val input = "before\n${marker}\nfirst block\nspanning two lines\n${marker}\nbetween\n" +
-            "${marker}\nsecond block\nspanning two lines\n${marker}\nafter"
+                "${marker}\nsecond block\nspanning two lines\n${marker}\nafter"
 
         assertEquals("before\n\nbetween\n\nafter", input.removeMarkedBlocks())
     }
@@ -86,6 +86,44 @@ class EventDescriptionExtensionsTest {
         val input = "${marker}${marker}"
 
         assertEquals("", input.removeMarkedBlocks())
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_movesBlocksToTheEndAndDiscardsOldInterleavedText() {
+        val original = "before${marker}block 1${marker}between${marker}block 2${marker}after"
+        val expected = "updated\n\n${marker}block 1${marker}\n\n${marker}block 2${marker}"
+
+        assertEquals(expected, "updated".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_keepsBlocksWhenEditedTextIsEmpty() {
+        val original = "before${marker}block${marker}after"
+        assertEquals("${marker}block${marker}", "".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_hasNoEmptyResultIfThereAreNoBlocks() {
+        assertEquals(null, "  ".withMarkedBlocksFrom("old text"))
+        assertEquals("new", " new ".withMarkedBlocksFrom(null))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_doesNotDuplicateBlocksSuppliedInEditedText() {
+        val original = "${marker}block${marker}"
+        assertEquals("new\n\n$original", "new$original".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_preservesOriginalWhenTextIsUnchanged() {
+        val original = "before\n${marker}metadata${marker}\nafter"
+        assertEquals(original, "before\n\nafter".withMarkedBlocksFrom(original))
+    }
+
+    @Test
+    fun withMarkedBlocksFrom_preservesOriginalFormattingWhenUnchanged() {
+        val original = "  description  \n\n${marker}metadata${marker}\n"
+        assertEquals(original, "description".withMarkedBlocksFrom(original))
     }
 
     @Test

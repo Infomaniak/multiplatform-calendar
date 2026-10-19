@@ -21,7 +21,6 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
-import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -39,7 +38,7 @@ public data class Event(
     @HiddenFromObjC
     val accountId: AccountId,
     val title: String,
-    val description: String? = null,
+    val description: String? = null, // Marked blocks are removed by the domain mapper
     val location: String? = null,
     val status: EventStatus? = null,
     val timeBlocking: TimeBlocking? = null,
@@ -74,9 +73,5 @@ public data class Event(
         is OccurrenceId.Recurrence -> OccurrenceTarget.Recurring(id, scope)
         else -> OccurrenceTarget.Single(id)
     }
-
-    /** The description with all Infomaniak marked blocks removed. */
-    val cleanedDescription: String
-        get() = description?.removeMarkedBlocks() ?: ""
 
 }

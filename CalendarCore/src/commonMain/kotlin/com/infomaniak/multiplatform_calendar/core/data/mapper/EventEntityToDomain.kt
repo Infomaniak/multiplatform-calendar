@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
@@ -61,7 +62,7 @@ internal fun EventContentEntity.toDomain(
         calendarId = calendar.id,
         accountId = calendar.accountId,
         title = summary,
-        description = description?.ifBlank { null },
+        description = description?.removeMarkedBlocks()?.ifBlank { null },
         location = location?.ifBlank { null },
         status = status,
         timeBlocking = timeBlocking,

@@ -102,8 +102,8 @@ DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
 `:Account` and `:Contacts` are `api` dependencies of CalendarCore and **are exported**: `AccountId`, `AccessToken`,
 `ContactsManager` and its types (`Contact`, …) are part of the public Swift API. `:Account` and `:Contacts` use the
 generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to move to a shared KMP core.
-`:MeetingRooms` is exported the same way (`MeetingRoomsManager` and its types) but, being specific to the
-calendar, uses the `com.infomaniak.multiplatform_calendar.meeting_rooms` package.
+`:Meet` and `:MeetingRooms` are exported the same way (`MeetManager`, `MeetingRoomsManager` and their types) but, being
+specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` and `…meeting_rooms` packages.
 
 `:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet and MeetingRooms, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
@@ -167,9 +167,10 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); its tables live in
   `CalendarDatabase`. `AccountManager.initAccount` / `removeAccount` also init / remove
   the account in `ContactsManager`. Likewise, `:MeetingRooms` is wired by Core (`MeetingRoomsModule`), its tables live in
-  `CalendarDatabase`, and `AccountManager` initializes / removes the account in `MeetingRoomsManager` too.
+  `CalendarDatabase`, and `AccountManager` initializes / removes the account in `MeetingRoomsManager` too. `:Meet` is
+  wired by Core (`MeetModule`) and has no table; `AccountManager` initializes / removes the account in `MeetManager` too.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `meetingRoomsManager`, and inherits
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `meetManager` / `meetingRoomsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
   `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `contacts` giving the path of the dedicated contacts database.
 
@@ -181,13 +182,13 @@ ones. `sync` replaces the local rooms of each account (the API sends no ETag); `
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the
 `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
 
-### Contacts permissions
 ### kMeet
 
 `MeetManager.generateRoomUrl` calls `GET /api/pim/calendar/meet-room` on `calendar.infomaniak.com`, which creates a new
 kMeet room on each call. Nothing is cached nor written: attaching the URL to an event is the
 `X-INFOMANIAK-MEET-ROOM-URL` property of the CalDAV event.
 
+### Contacts permissions
 
 `:Contacts` reads the device contacts but never requests the permission itself: until access is granted, only the
 server address book is searched.

@@ -23,6 +23,9 @@ import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.dao.MeetingRoomDao
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
@@ -31,9 +34,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
-import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.MeetingRoomsDatabase
-import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.dao.MeetingRoomDao
-import com.infomaniak.multiplatform_calendar.meeting_rooms.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
 import com.infomaniak.multiplatform_core.contacts.data.local.hostedContactDao

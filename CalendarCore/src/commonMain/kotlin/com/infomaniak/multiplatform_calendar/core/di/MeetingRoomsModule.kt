@@ -17,8 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.di
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.MeetingRoomsManager
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
-import com.infomaniak.multiplatform_calendar.meeting_rooms.MeetingRoomsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides

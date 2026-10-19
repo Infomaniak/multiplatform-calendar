@@ -17,13 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.MeetingRoomsManager
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
-import com.infomaniak.multiplatform_calendar.meeting_rooms.MeetingRoomsManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.ContactsManager

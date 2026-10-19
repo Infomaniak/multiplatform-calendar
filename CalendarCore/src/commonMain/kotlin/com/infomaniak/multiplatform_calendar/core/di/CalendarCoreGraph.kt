@@ -17,10 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.core.di
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.MeetingRoomsManager
 import com.infomaniak.multiplatform_calendar.core.managers.AccountManager
 import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
-import com.infomaniak.multiplatform_calendar.meeting_rooms.MeetingRoomsManager
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo

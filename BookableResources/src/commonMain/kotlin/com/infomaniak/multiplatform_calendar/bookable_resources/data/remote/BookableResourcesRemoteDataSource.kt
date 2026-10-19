@@ -22,8 +22,8 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.mode
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBusyPeriod
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBusyPeriodsRequest
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsErrorCause
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsException
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import com.infomaniak.multiplatform_core.network.model.asSuccess
@@ -41,15 +41,15 @@ import io.ktor.http.isSuccess
 
 internal const val CALENDAR_API_HOST = "calendar.infomaniak.com"
 
-internal fun createMeetingRoomsHttpClient(): HttpClient = createHttpClient(host = CALENDAR_API_HOST, basePath = "api/")
+internal fun createBookableResourcesHttpClient(): HttpClient = createHttpClient(host = CALENDAR_API_HOST, basePath = "api/")
 
-internal class MeetingRoomsRemoteDataSource(private val httpClient: HttpClient) {
+internal class BookableResourcesRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun getBookableResources(token: AccessToken): List<ApiBookableResource> =
-        httpClient.get(MeetingRoomsRoutes.ALL) { bearerAuth(token.value) }.successOrThrow().asSuccess()
+        httpClient.get(BookableResourcesRoutes.ALL) { bearerAuth(token.value) }.successOrThrow().asSuccess()
 
     suspend fun getBookableResource(token: AccessToken, uuid: MeetingRoomUuid): ApiBookableResource? {
-        val response = httpClient.get(MeetingRoomsRoutes.resource(uuid)) { bearerAuth(token.value) }
+        val response = httpClient.get(BookableResourcesRoutes.resource(uuid)) { bearerAuth(token.value) }
         return when (response.status) {
             HttpStatusCode.Forbidden, HttpStatusCode.NotFound -> null
             else -> response.successOrThrow().asSuccess()
@@ -61,14 +61,14 @@ internal class MeetingRoomsRemoteDataSource(private val httpClient: HttpClient) 
         request: ApiAvailabilityRequest,
         uuid: MeetingRoomUuid?,
     ): Map<String, Boolean> {
-        val route = uuid?.let(MeetingRoomsRoutes::availability) ?: MeetingRoomsRoutes.AVAILABILITY
+        val route = uuid?.let(BookableResourcesRoutes::availability) ?: BookableResourcesRoutes.AVAILABILITY
         return httpClient.post(route) { jsonBody(token, request) }
             .successOrThrow()
             .asSuccess()
     }
 
     suspend fun getBusyPeriods(token: AccessToken, request: ApiBusyPeriodsRequest): Map<String, List<ApiBusyPeriod>> {
-        return httpClient.post(MeetingRoomsRoutes.BUSY_PERIODS) { jsonBody(token, request) }
+        return httpClient.post(BookableResourcesRoutes.BUSY_PERIODS) { jsonBody(token, request) }
             .successOrThrow()
             .asSuccess<Map<String, List<ApiBusyPeriod>>>()
             .mapKeys { (key, _) -> key.removePrefix(BUSY_PERIODS_KEY_PREFIX) }
@@ -81,7 +81,7 @@ internal class MeetingRoomsRemoteDataSource(private val httpClient: HttpClient) 
     }
 
     private fun HttpResponse.successOrThrow(): HttpResponse = apply {
-        if (!status.isSuccess()) throw MeetingRoomsException(MeetingRoomsErrorCause.Api(status.value))
+        if (!status.isSuccess()) throw BookableResourcesException(BookableResourcesErrorCause.Api(status.value))
     }
 
     private companion object {

@@ -21,10 +21,10 @@ import androidx.room3.Room
 import androidx.room3.RoomDatabase
 import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsErrorCause
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsException
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import io.ktor.client.HttpClient
@@ -89,10 +89,10 @@ internal fun testHttpClient(
 internal suspend fun testManager(
     initAccount: Boolean = true,
     handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
-): MeetingRoomsManager = MeetingRoomsManager(database = testDatabase(), httpClient = testHttpClient(handler))
+): BookableResourcesManager = BookableResourcesManager(database = testDatabase(), httpClient = testHttpClient(handler))
     .apply { if (initAccount) initAccount(ACCOUNT_ID, AccessToken("token")) }
 
-internal suspend fun MeetingRoomsManager.storedRoomNames(accountId: AccountId = ACCOUNT_ID): List<String> =
+internal suspend fun BookableResourcesManager.storedRoomNames(accountId: AccountId = ACCOUNT_ID): List<String> =
     (database as RoomDatabase).useReaderConnection { connection ->
         connection.usePrepared("SELECT name FROM meetingRooms WHERE accountId = ? ORDER BY name") { statement ->
             statement.bindLong(1, accountId.value)
@@ -106,9 +106,9 @@ private fun testJson(): Json = Json(DefaultJson) {
     namingStrategy = JsonNamingStrategy.SnakeCase
 }
 
-internal suspend fun assertFailsWithCause(expected: MeetingRoomsErrorCause, block: suspend () -> Any?) {
-    assertEquals(expected, assertFailsWith<MeetingRoomsException> { block() }.errorCause)
+internal suspend fun assertFailsWithCause(expected: BookableResourcesErrorCause, block: suspend () -> Any?) {
+    assertEquals(expected, assertFailsWith<BookableResourcesException> { block() }.errorCause)
 }
 
-internal fun testDatabase(): MeetingRoomsDatabase =
-    Room.inMemoryDatabaseBuilder<TestMeetingRoomsDatabase>().setDriver(BundledSQLiteDriver()).build()
+internal fun testDatabase(): BookableResourcesDatabase =
+    Room.inMemoryDatabaseBuilder<TestBookableResourcesDatabase>().setDriver(BundledSQLiteDriver()).build()

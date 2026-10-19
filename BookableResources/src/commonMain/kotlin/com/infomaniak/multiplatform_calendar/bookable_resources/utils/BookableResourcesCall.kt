@@ -21,19 +21,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsErrorCause
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsException
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 
-internal suspend inline fun <T> meetingRoomsCall(crossinline block: suspend () -> T): T = withContext(Dispatchers.Default) {
+internal suspend inline fun <T> bookableResourcesCall(crossinline block: suspend () -> T): T = withContext(Dispatchers.Default) {
     try {
         block()
     } catch (exception: CancellationException) {
         throw exception
-    } catch (exception: MeetingRoomsException) {
+    } catch (exception: BookableResourcesException) {
         throw exception
     } catch (exception: IOException) {
-        throw MeetingRoomsException(MeetingRoomsErrorCause.Network, exception)
+        throw BookableResourcesException(BookableResourcesErrorCause.Network, exception)
     } catch (exception: Exception) {
-        throw MeetingRoomsException(MeetingRoomsErrorCause.Unknown(exception), exception)
+        throw BookableResourcesException(BookableResourcesErrorCause.Unknown(exception), exception)
     }
 }

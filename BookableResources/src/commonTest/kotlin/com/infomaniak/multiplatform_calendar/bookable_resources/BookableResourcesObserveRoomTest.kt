@@ -39,7 +39,7 @@ import kotlin.test.assertNull
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
 
-class MeetingRoomsObserveRoomTest : RobolectricTestsBase() {
+class BookableResourcesObserveRoomTest : RobolectricTestsBase() {
 
     @Test
     fun missingRoomIsFetched() = runTest {

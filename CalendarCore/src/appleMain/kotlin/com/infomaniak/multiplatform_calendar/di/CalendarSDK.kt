@@ -78,7 +78,7 @@ public data class CalendarSettings(
  * sdk.calendarManager.observeCalendars(...)
  * sdk.contactsManager.search(...)
  * sdk.meetManager.generateRoomUrl(...)
- * sdk.meetingRoomsManager.observeRooms(...)
+ * sdk.bookableResourcesManager.observeRooms(...)
  * ```
  */
 public object CalendarSDKProvider {

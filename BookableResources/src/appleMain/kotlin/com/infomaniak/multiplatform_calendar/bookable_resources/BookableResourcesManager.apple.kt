@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_calendar.bookable_resources
 
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsException
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
@@ -27,12 +27,12 @@ import kotlin.time.Instant
 
 // Swift cannot use a value class inside a collection (it is boxed there), so these pass and return raw values.
 
-@Throws(MeetingRoomsException::class, CancellationException::class)
-public suspend fun MeetingRoomsManager.sync(accountIds: Set<Long> = emptySet()): Unit =
+@Throws(BookableResourcesException::class, CancellationException::class)
+public suspend fun BookableResourcesManager.sync(accountIds: Set<Long> = emptySet()): Unit =
     sync(accountIds.mapTo(mutableSetOf(), ::AccountId))
 
-@Throws(MeetingRoomsException::class, CancellationException::class)
-public suspend fun MeetingRoomsManager.availabilityValues(
+@Throws(BookableResourcesException::class, CancellationException::class)
+public suspend fun BookableResourcesManager.availabilityValues(
     accountId: AccountId,
     start: Instant,
     end: Instant,
@@ -40,8 +40,8 @@ public suspend fun MeetingRoomsManager.availabilityValues(
     rrule: String? = null,
 ): Map<String, Boolean> = availability(accountId, start, end, timeZone, rrule).mapKeys { (uuid, _) -> uuid.value }
 
-@Throws(MeetingRoomsException::class, CancellationException::class)
-public suspend fun MeetingRoomsManager.busyPeriods(
+@Throws(BookableResourcesException::class, CancellationException::class)
+public suspend fun BookableResourcesManager.busyPeriods(
     accountId: AccountId,
     uuids: Set<String>,
     from: Instant,

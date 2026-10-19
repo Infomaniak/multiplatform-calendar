@@ -17,10 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources.data.repository
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.EquipmentEntity
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.MeetingRoomsRemoteDataSource
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.BookableResourcesRemoteDataSource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiAvailabilityRequest
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBusyPeriod
@@ -30,8 +30,8 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Bus
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Equipment
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsErrorCause
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsException
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
@@ -49,9 +49,9 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
 
-internal class MeetingRoomsRepository(
-    database: MeetingRoomsDatabase,
-    private val remoteDataSource: MeetingRoomsRemoteDataSource,
+internal class BookableResourcesRepository(
+    database: BookableResourcesDatabase,
+    private val remoteDataSource: BookableResourcesRemoteDataSource,
     private val tokenStore: AccountTokenStore,
 ) {
 
@@ -165,7 +165,7 @@ internal class MeetingRoomsRepository(
     }
 
     private suspend fun getToken(accountId: AccountId): AccessToken =
-        tokenStore.getToken(accountId) ?: throw MeetingRoomsException(MeetingRoomsErrorCause.AccountNotInitialized(accountId))
+        tokenStore.getToken(accountId) ?: throw BookableResourcesException(BookableResourcesErrorCause.AccountNotInitialized(accountId))
 
     private suspend fun syncMutex(accountId: AccountId): Mutex = syncMutexesLock.withLock {
         syncMutexes.getOrPut(accountId) { Mutex() }

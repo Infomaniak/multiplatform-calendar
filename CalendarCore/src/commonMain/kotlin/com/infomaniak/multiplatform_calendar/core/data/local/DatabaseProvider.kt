@@ -23,7 +23,7 @@ import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.dao.MeetingRoomDao
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
@@ -74,7 +74,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
-internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, MeetingRoomsDatabase {
+internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, BookableResourcesDatabase {
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao

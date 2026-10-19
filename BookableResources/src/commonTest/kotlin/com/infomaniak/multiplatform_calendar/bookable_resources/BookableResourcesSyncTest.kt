@@ -20,7 +20,7 @@ package com.infomaniak.multiplatform_calendar.bookable_resources
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Equipment
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomColor
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsErrorCause
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpHeaders
@@ -31,7 +31,7 @@ import kotlinx.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class MeetingRoomsSyncTest : RobolectricTestsBase() {
+class BookableResourcesSyncTest : RobolectricTestsBase() {
 
     @Test
     fun initAccountDoesNotSync() = runTest {
@@ -131,7 +131,7 @@ class MeetingRoomsSyncTest : RobolectricTestsBase() {
         }
         manager.initAccount(OTHER_ACCOUNT_ID, AccessToken("other"))
 
-        assertFailsWithCause(MeetingRoomsErrorCause.Api(500)) { manager.sync() }
+        assertFailsWithCause(BookableResourcesErrorCause.Api(500)) { manager.sync() }
 
         assertEquals(listOf("Salle American Diner"), manager.storedRoomNames(ACCOUNT_ID))
     }
@@ -144,14 +144,14 @@ class MeetingRoomsSyncTest : RobolectricTestsBase() {
         manager.removeAccount(ACCOUNT_ID)
 
         assertEquals(emptyList(), manager.storedRoomNames())
-        assertFailsWithCause(MeetingRoomsErrorCause.AccountNotInitialized(ACCOUNT_ID)) { manager.sync(setOf(ACCOUNT_ID)) }
+        assertFailsWithCause(BookableResourcesErrorCause.AccountNotInitialized(ACCOUNT_ID)) { manager.sync(setOf(ACCOUNT_ID)) }
     }
 
     @Test
     fun syncWithoutInitAccountThrows() = runTest {
         val manager = testManager(initAccount = false) { respondJson(success("[]")) }
 
-        assertFailsWithCause(MeetingRoomsErrorCause.AccountNotInitialized(ACCOUNT_ID)) { manager.sync(setOf(ACCOUNT_ID)) }
+        assertFailsWithCause(BookableResourcesErrorCause.AccountNotInitialized(ACCOUNT_ID)) { manager.sync(setOf(ACCOUNT_ID)) }
     }
 
     @Test
@@ -162,7 +162,7 @@ class MeetingRoomsSyncTest : RobolectricTestsBase() {
         }
         manager.sync(setOf(ACCOUNT_ID))
 
-        assertFailsWithCause(MeetingRoomsErrorCause.Api(500)) { manager.sync(setOf(ACCOUNT_ID)) }
+        assertFailsWithCause(BookableResourcesErrorCause.Api(500)) { manager.sync(setOf(ACCOUNT_ID)) }
 
         assertEquals(listOf("Salle American Diner"), manager.storedRoomNames())
     }
@@ -171,6 +171,6 @@ class MeetingRoomsSyncTest : RobolectricTestsBase() {
     fun unreachableServerThrowsNetworkError() = runTest {
         val manager = testManager { throw IOException("offline") }
 
-        assertFailsWithCause(MeetingRoomsErrorCause.Network) { manager.sync(setOf(ACCOUNT_ID)) }
+        assertFailsWithCause(BookableResourcesErrorCause.Network) { manager.sync(setOf(ACCOUNT_ID)) }
     }
 }

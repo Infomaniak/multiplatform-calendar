@@ -17,15 +17,15 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.MeetingRoomsDatabase
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.MeetingRoomsRemoteDataSource
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.createMeetingRoomsHttpClient
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.repository.MeetingRoomsRepository
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.BookableResourcesRemoteDataSource
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.createBookableResourcesHttpClient
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.repository.BookableResourcesRepository
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoom
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsException
-import com.infomaniak.multiplatform_calendar.bookable_resources.utils.meetingRoomsCall
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
+import com.infomaniak.multiplatform_calendar.bookable_resources.utils.bookableResourcesCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
@@ -39,31 +39,31 @@ import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 import kotlin.time.Instant
 
-public class MeetingRoomsManager internal constructor(
-    internal val database: MeetingRoomsDatabase,
+public class BookableResourcesManager internal constructor(
+    internal val database: BookableResourcesDatabase,
     httpClient: HttpClient,
 ) {
 
-    private val repository = MeetingRoomsRepository(
+    private val repository = BookableResourcesRepository(
         database = database,
-        remoteDataSource = MeetingRoomsRemoteDataSource(httpClient),
+        remoteDataSource = BookableResourcesRemoteDataSource(httpClient),
         tokenStore = AccountTokenStore(),
     )
 
     /** @param database Host Room database declaring the meeting rooms tables. */
-    public constructor(database: MeetingRoomsDatabase) : this(
+    public constructor(database: BookableResourcesDatabase) : this(
         database = database,
-        httpClient = createMeetingRoomsHttpClient(),
+        httpClient = createBookableResourcesHttpClient(),
     )
 
     /** The token is kept in memory only: call it at startup and on login. Does not sync. */
-    @Throws(MeetingRoomsException::class, CancellationException::class)
+    @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
-        meetingRoomsCall { repository.initAccount(accountId, accessToken) }
+        bookableResourcesCall { repository.initAccount(accountId, accessToken) }
 
     /** Also deletes the local meeting rooms of [accountId]. */
-    @Throws(MeetingRoomsException::class, CancellationException::class)
-    public suspend fun removeAccount(accountId: AccountId): Unit = meetingRoomsCall { repository.removeAccount(accountId) }
+    @Throws(BookableResourcesException::class, CancellationException::class)
+    public suspend fun removeAccount(accountId: AccountId): Unit = bookableResourcesCall { repository.removeAccount(accountId) }
 
     /**
      * When some accounts fail, the others still complete, then the first failure is thrown.
@@ -71,8 +71,8 @@ public class MeetingRoomsManager internal constructor(
      */
     @OptIn(ExperimentalObjCRefinement::class)
     @HiddenFromObjC
-    @Throws(MeetingRoomsException::class, CancellationException::class)
-    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = meetingRoomsCall { repository.sync(accountIds) }
+    @Throws(BookableResourcesException::class, CancellationException::class)
+    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = bookableResourcesCall { repository.sync(accountIds) }
 
     /** Sorted by name. */
     public fun observeRooms(accountId: AccountId): Flow<List<MeetingRoom>> =
@@ -88,18 +88,18 @@ public class MeetingRoomsManager internal constructor(
      */
     @OptIn(ExperimentalObjCRefinement::class)
     @HiddenFromObjC
-    @Throws(MeetingRoomsException::class, CancellationException::class)
+    @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun availability(
         accountId: AccountId,
         start: Instant,
         end: Instant,
         timeZone: TimeZone,
         rrule: String? = null,
-    ): Map<MeetingRoomUuid, Boolean> = meetingRoomsCall {
+    ): Map<MeetingRoomUuid, Boolean> = bookableResourcesCall {
         repository.availability(accountId, uuid = null, start, end, timeZone, rrule)
     }
 
-    @Throws(MeetingRoomsException::class, CancellationException::class)
+    @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun isAvailable(
         accountId: AccountId,
         uuid: MeetingRoomUuid,
@@ -107,18 +107,18 @@ public class MeetingRoomsManager internal constructor(
         end: Instant,
         timeZone: TimeZone,
         rrule: String? = null,
-    ): Boolean = meetingRoomsCall {
+    ): Boolean = bookableResourcesCall {
         repository.availability(accountId, uuid, start, end, timeZone, rrule)[uuid] == true
     }
 
     /** Rooms the account cannot book are left out. Hits the network unless [uuids] is empty. */
     @OptIn(ExperimentalObjCRefinement::class)
     @HiddenFromObjC
-    @Throws(MeetingRoomsException::class, CancellationException::class)
+    @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun busyPeriods(
         accountId: AccountId,
         uuids: Set<MeetingRoomUuid>,
         from: Instant,
         to: Instant,
-    ): Map<MeetingRoomUuid, List<BusyPeriod>> = meetingRoomsCall { repository.busyPeriods(accountId, uuids, from, to) }
+    ): Map<MeetingRoomUuid, List<BusyPeriod>> = bookableResourcesCall { repository.busyPeriods(accountId, uuids, from, to) }
 }

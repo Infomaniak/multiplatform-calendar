@@ -17,13 +17,22 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources.data.local
 
+import androidx.room3.ColumnTypeConverter
+import kotlinx.serialization.json.Json
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.dao.MeetingRoomDao
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.EquipmentEntity
 
-/** Tables of the meeting rooms module, to declare in the host Room database. */
+/** Tolerates fields written by an older schema, since the JSON is persisted. */
+private val json = Json { ignoreUnknownKeys = true }
+
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
-public interface MeetingRoomsDatabase {
-    public fun meetingRoomDao(): MeetingRoomDao
+public class BookableResourcesConverters {
+
+    @ColumnTypeConverter
+    public fun fromEquipments(equipments: List<EquipmentEntity>): String = json.encodeToString(equipments)
+
+    @ColumnTypeConverter
+    public fun toEquipments(value: String): List<EquipmentEntity> = json.decodeFromString(value)
 }

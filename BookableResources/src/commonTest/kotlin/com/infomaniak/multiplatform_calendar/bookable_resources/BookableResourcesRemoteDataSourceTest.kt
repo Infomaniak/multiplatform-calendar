@@ -17,10 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.MeetingRoomsRemoteDataSource
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.BookableResourcesRemoteDataSource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiBookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.remote.model.ApiEquipment
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsErrorCause
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.request.HttpRequestData
@@ -32,7 +32,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class MeetingRoomsRemoteDataSourceTest {
+class BookableResourcesRemoteDataSourceTest {
 
     private val token = AccessToken("token")
     private val requests = mutableListOf<HttpRequestData>()
@@ -72,12 +72,12 @@ class MeetingRoomsRemoteDataSourceTest {
     fun serverErrorThrowsApiError() = runTest {
         val dataSource = dataSource { respondJson("", HttpStatusCode.InternalServerError) }
 
-        assertFailsWithCause(MeetingRoomsErrorCause.Api(500)) { dataSource.getBookableResources(token) }
+        assertFailsWithCause(BookableResourcesErrorCause.Api(500)) { dataSource.getBookableResources(token) }
     }
 
     private fun dataSource(
         response: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
-    ) = MeetingRoomsRemoteDataSource(testHttpClient { requests.add(it); response(it) })
+    ) = BookableResourcesRemoteDataSource(testHttpClient { requests.add(it); response(it) })
 
     private fun error(code: String) = """{ "result": "error", "error": { "code": "$code", "description": "" } }"""
 

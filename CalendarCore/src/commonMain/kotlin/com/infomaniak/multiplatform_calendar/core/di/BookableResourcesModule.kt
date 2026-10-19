@@ -15,16 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.bookable_resources.data.remote
+package com.infomaniak.multiplatform_calendar.core.di
 
-import io.ktor.http.encodeURLPathPart
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
+import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
+import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesTo
+import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.SingleIn
 
-internal object MeetingRoomsRoutes {
-    const val ALL = "pim/bookable-resources/all"
-    const val AVAILABILITY = "pim/bookable-resources/availability"
-    const val BUSY_PERIODS = "pim/event/bookable-availability"
+@ContributesTo(AppScope::class)
+public interface BookableResourcesModule {
 
-    fun resource(uuid: MeetingRoomUuid) = "pim/bookable-resources/${uuid.value.encodeURLPathPart()}"
-    fun availability(uuid: MeetingRoomUuid) = "${resource(uuid)}/availability"
+    @SingleIn(AppScope::class)
+    @Provides
+    private fun provideBookableResourcesManager(database: CalendarDatabase): BookableResourcesManager =
+        BookableResourcesManager(database = database)
 }

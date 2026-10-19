@@ -36,7 +36,7 @@ multiplatform-calendar/
 │   ├── src/commonMain/              # MeetManager, Ktor remote source
 │   └── build.gradle.kts             # Meet module build (Ktor, publish)
 ├── BookableResources/               # Standalone KMP module for the Infomaniak bookable meeting rooms
-│   ├── src/commonMain/              # MeetingRoomsManager, sync, availability, busy periods, Room tables, Ktor remote source
+│   ├── src/commonMain/              # BookableResourcesManager, sync, availability, busy periods, Room tables, Ktor remote source
 │   └── build.gradle.kts             # BookableResources module build (Room, Ktor, publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
 │   └── build.gradle.kts             # Network module build (publish)
@@ -102,14 +102,14 @@ DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
 `:Account` and `:Contacts` are `api` dependencies of CalendarCore and **are exported**: `AccountId`, `AccessToken`,
 `ContactsManager` and its types (`Contact`, …) are part of the public Swift API. `:Account` and `:Contacts` use the
 generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to move to a shared KMP core.
-`:Meet` and `:BookableResources` are exported the same way (`MeetManager`, `MeetingRoomsManager` and their types) but, being
+`:Meet` and `:BookableResources` are exported the same way (`MeetManager`, `BookableResourcesManager` and their types) but, being
 specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` and `…bookable_resources` packages.
 
 `:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet and BookableResources, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
 CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts and BookableResources only declare their entities and
-DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `MeetingRoomsDatabase`) that `CalendarDatabase` implements.
+DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `BookableResourcesDatabase`) that `CalendarDatabase` implements.
 On Apple, the contacts live in their own database instead (`StandaloneContactsDatabase`, opened at `ContactsSettings.databasePath`).
 Room generates `ContactDao_Impl` in Contacts only: `CalendarDatabase` gets it through `hostedContactDao` instead of
 declaring `contactDao()` abstract, which would generate a duplicate class and break the Android app's dex merge.
@@ -166,17 +166,17 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The `:CalendarKmpDav` module contributes `CaldavClientModule`.
   The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); its tables live in
   `CalendarDatabase`. `AccountManager.initAccount` / `removeAccount` also init / remove
-  the account in `ContactsManager`. Likewise, `:BookableResources` is wired by Core (`MeetingRoomsModule`), its tables live in
-  `CalendarDatabase`, and `AccountManager` initializes / removes the account in `MeetingRoomsManager` too. `:Meet` is
+  the account in `ContactsManager`. Likewise, `:BookableResources` is wired by Core (`BookableResourcesModule`), its tables live in
+  `CalendarDatabase`, and `AccountManager` initializes / removes the account in `BookableResourcesManager` too. `:Meet` is
   wired by Core (`MeetModule`) and has no table; `AccountManager` initializes / removes the account in `MeetManager` too.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `meetManager` / `meetingRoomsManager`, and inherits
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `meetManager` / `bookableResourcesManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
   `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `contacts` giving the path of the dedicated contacts database.
 
 ### Meeting rooms
 
-`MeetingRoomsManager` reads the bookable resources API on `calendar.infomaniak.com` and keeps only the `meeting_room`
+`BookableResourcesManager` reads the bookable resources API on `calendar.infomaniak.com` and keeps only the `meeting_room`
 ones. `sync` replaces the local rooms of each account (the API sends no ETag); `observeRoom(accountId, uuid)` resolves the
 `X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a room missing locally, staying `null` when that fails.
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the

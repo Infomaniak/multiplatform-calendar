@@ -21,14 +21,14 @@ import androidx.room3.ConstructedBy
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
 import androidx.room3.RoomDatabaseConstructor
-import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.MeetingRoomsDatabase
+import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.BookableResourcesDatabase
 import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entity.MeetingRoomEntity
 
 @Database(entities = [MeetingRoomEntity::class], version = 1, exportSchema = false)
-@ConstructedBy(TestMeetingRoomsDatabaseConstructor::class)
-internal abstract class TestMeetingRoomsDatabase : RoomDatabase(), MeetingRoomsDatabase
+@ConstructedBy(TestBookableResourcesDatabaseConstructor::class)
+internal abstract class TestBookableResourcesDatabase : RoomDatabase(), BookableResourcesDatabase
 
 @Suppress("KotlinNoActualForExpect")
-internal expect object TestMeetingRoomsDatabaseConstructor : RoomDatabaseConstructor<TestMeetingRoomsDatabase> {
-    override fun initialize(): TestMeetingRoomsDatabase
+internal expect object TestBookableResourcesDatabaseConstructor : RoomDatabaseConstructor<TestBookableResourcesDatabase> {
+    override fun initialize(): TestBookableResourcesDatabase
 }

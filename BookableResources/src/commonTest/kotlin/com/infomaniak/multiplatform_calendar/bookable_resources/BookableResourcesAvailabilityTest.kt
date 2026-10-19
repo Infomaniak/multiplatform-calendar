@@ -32,10 +32,10 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsErrorCause
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.MeetingRoomsException
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 
-class MeetingRoomsAvailabilityTest : RobolectricTestsBase() {
+class BookableResourcesAvailabilityTest : RobolectricTestsBase() {
 
     private val start = Instant.parse("2026-10-12T07:00:00Z")
     private val end = Instant.parse("2026-10-12T08:30:00Z")
@@ -92,14 +92,14 @@ class MeetingRoomsAvailabilityTest : RobolectricTestsBase() {
     fun availabilityThrowsApiErrorOnFailure() = runTest {
         val manager = testManager { respondJson("", HttpStatusCode.InternalServerError) }
 
-        assertFailsWithCause(MeetingRoomsErrorCause.Api(500)) { manager.availability(ACCOUNT_ID, start, end, zurich) }
+        assertFailsWithCause(BookableResourcesErrorCause.Api(500)) { manager.availability(ACCOUNT_ID, start, end, zurich) }
     }
 
     @Test
     fun availabilityWithoutInitAccountThrows() = runTest {
         val manager = testManager(initAccount = false) { respondJson(success("{}")) }
 
-        assertFailsWithCause(MeetingRoomsErrorCause.AccountNotInitialized(ACCOUNT_ID)) {
+        assertFailsWithCause(BookableResourcesErrorCause.AccountNotInitialized(ACCOUNT_ID)) {
             manager.availability(ACCOUNT_ID, start, end, zurich)
         }
     }
@@ -156,10 +156,10 @@ class MeetingRoomsAvailabilityTest : RobolectricTestsBase() {
     fun busyPeriodsRejectAMalformedAnswer() = runTest {
         val manager = testManager { respondJson(success("[1]")) }
 
-        val exception = assertFailsWith<MeetingRoomsException> {
+        val exception = assertFailsWith<BookableResourcesException> {
             manager.busyPeriods(ACCOUNT_ID, setOf(ROOM_UUID), start, end)
         }
-        assertIs<MeetingRoomsErrorCause.Unknown>(exception.errorCause)
+        assertIs<BookableResourcesErrorCause.Unknown>(exception.errorCause)
     }
 
     @Test

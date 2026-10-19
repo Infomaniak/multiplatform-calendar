@@ -15,9 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions
+package com.infomaniak.multiplatform_calendar.bookable_resources.data.remote
 
-public class MeetingRoomsException internal constructor(
-    public val errorCause: MeetingRoomsErrorCause,
-    cause: Throwable? = null,
-) : Exception(errorCause.message, cause)
+import io.ktor.http.encodeURLPathPart
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.MeetingRoomUuid
+
+internal object BookableResourcesRoutes {
+    const val ALL = "pim/bookable-resources/all"
+    const val AVAILABILITY = "pim/bookable-resources/availability"
+    const val BUSY_PERIODS = "pim/event/bookable-availability"
+
+    fun resource(uuid: MeetingRoomUuid) = "pim/bookable-resources/${uuid.value.encodeURLPathPart()}"
+    fun availability(uuid: MeetingRoomUuid) = "${resource(uuid)}/availability"
+}

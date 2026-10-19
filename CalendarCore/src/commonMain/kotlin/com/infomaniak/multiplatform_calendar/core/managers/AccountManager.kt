@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.MeetingRoomsManager
+import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
@@ -42,7 +42,7 @@ public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
     private val contactsManager: ContactsManager,
     private val meetManager: MeetManager,
-    private val meetingRoomsManager: MeetingRoomsManager,
+    private val bookableResourcesManager: BookableResourcesManager,
     private val sdkCaller: SdkCaller,
 ) {
 
@@ -61,7 +61,7 @@ public class AccountManager internal constructor(
                 accountRepository.storeCredentials(accountId, credentials.toRemote())
                 contactsManager.initAccount(accountId, accessToken)
                 meetManager.initAccount(accountId, accessToken)
-                meetingRoomsManager.initAccount(accountId, accessToken)
+                bookableResourcesManager.initAccount(accountId, accessToken)
             }
         }
     }
@@ -73,7 +73,7 @@ public class AccountManager internal constructor(
                 accountRepository.removeCredentials(accountId)
                 contactsManager.removeAccount(accountId)
                 meetManager.removeAccount(accountId)
-                meetingRoomsManager.removeAccount(accountId)
+                bookableResourcesManager.removeAccount(accountId)
             }
         }
     }

@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSourceColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
 import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
 
 /**
@@ -50,6 +51,7 @@ internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     alarms = AlarmListEdit.Preserve,
     attendees = content.attendees.map(AttendeeEntity::toEdit),
     organizer = content.organizer?.toDomain(),
+    meetRoom = content.meetRoomUrl?.ifBlank { null }?.let(::MeetRoom),
 )
 
 /**
@@ -69,4 +71,5 @@ internal fun EventOverrideEntity.toEditData(calendarId: CalendarId): EventEditDa
     alarms = AlarmListEdit.Preserve,
     attendees = content.attendees.map(AttendeeEntity::toEdit),
     organizer = content.organizer?.toDomain(),
+    meetRoom = content.meetRoomUrl?.ifBlank { null }?.let(::MeetRoom),
 )

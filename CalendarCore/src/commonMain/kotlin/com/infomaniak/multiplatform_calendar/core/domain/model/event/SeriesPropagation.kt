@@ -40,6 +40,7 @@ internal fun EventEditData.withSeriesChanges(before: EventEditData, after: Event
     if (after.eventColor != before.eventColor) carried = carried.copy(eventColor = after.eventColor)
     if (after.attendees != before.attendees) carried = carried.copy(attendees = after.attendees)
     if (after.organizer != before.organizer) carried = carried.copy(organizer = after.organizer)
+    if (after.meetRoom != before.meetRoom) carried = carried.copy(meetRoom = after.meetRoom)
     // Attendees need an organizer (RFC 5546 §3.2): a VEVENT that has none takes the edit's along with them.
     val attendeesCarried = after.attendees != before.attendees && after.attendees.isNotEmpty()
     if (attendeesCarried && carried.organizer == null) carried = carried.copy(organizer = after.organizer)

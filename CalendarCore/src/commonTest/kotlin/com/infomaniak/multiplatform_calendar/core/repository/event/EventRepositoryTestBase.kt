@@ -255,6 +255,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         alarms = AlarmListEdit.Replace(alarms),
         attendees = attendees,
         organizer = organizer,
+        meetRoom = null,
     )
 
     protected fun eventDao() = database.eventDao()

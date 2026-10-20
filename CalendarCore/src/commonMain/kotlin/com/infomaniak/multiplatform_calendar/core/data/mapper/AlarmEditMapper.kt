@@ -37,15 +37,16 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlar
 internal fun resolveAlarmEdits(
     alarms: List<EventAlarm>,
     previous: List<AlarmEntity>,
+    origin: List<AlarmEntity> = previous,
 ): List<RemoteAlarmEdit>? {
     val previousEditable = previous.filterNot { AlarmAction.fromIcalString(it.action) is AlarmAction.Unknown }
-    val projected = alarms.toEntities(origin = previous)
+    val projected = alarms.toEntities(origin)
     return if (projected == previousEditable) null else projected.map(AlarmEntity::toRemoteEdit)
 }
 
 /**
  * The editable [EventAlarm]s as stored, each taking its hidden properties back from the [origin] alarm
- * its [EventAlarm.id] names.
+ * its [EventAlarm.id] names: [origin] is the VEVENT the ids were read from.
  */
 internal fun List<EventAlarm>.toEntities(origin: List<AlarmEntity>): List<AlarmEntity> {
     val sources = origin.withDomain().associate { (entity, alarm) -> alarm.id to entity }.toMutableMap()

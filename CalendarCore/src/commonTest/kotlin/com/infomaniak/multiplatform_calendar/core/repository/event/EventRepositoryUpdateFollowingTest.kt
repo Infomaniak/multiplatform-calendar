@@ -19,11 +19,14 @@ package com.infomaniak.multiplatform_calendar.core.repository.event
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Organizer
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
@@ -180,6 +183,35 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         assertEquals(1, tailAlarms.size, "only the alarm the domain can read makes it onto the tail")
         assertEquals("-PT15M", tailAlarms.single().triggerDuration)
         assertNull(fakeCaldav.patches.single().alarms, "the head is truncated, its own alarms untouched")
+    }
+
+    @Test
+    fun updateEvent_thisAndFollowing_keepsTheHiddenPropertiesOfAnEditedAlarm() = runTest {
+        seedCalendar()
+        val stored = AlarmEntity(action = "DISPLAY", triggerRelative = -(15.minutes), description = "Kept", summary = "Also kept")
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+        ).let { it.copy(content = it.content.copy(alarms = listOf(stored))) }
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+        val edited = listOf(stored).toDomain().single().copy(trigger = AlarmTrigger.Relative(-(5.minutes), TriggerRelation.Start))
+
+        repository.updateEvent(
+            credentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
+            data = editData(
+                title = "Tail",
+                recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+                start = LocalDateTime(2026, 6, 17, 10, 0),
+                end = LocalDateTime(2026, 6, 17, 11, 0),
+            ).copy(alarms = AlarmListEdit.Replace(listOf(edited))),
+        )
+
+        val tailAlarm = assertNotNull(fakeCaldav.builds.single().alarms).single()
+        assertEquals("-PT5M", tailAlarm.triggerDuration)
+        assertEquals("Kept", tailAlarm.description)
+        assertEquals("Also kept", tailAlarm.summary)
     }
 
     @Test

@@ -21,7 +21,6 @@ import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
@@ -34,6 +33,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEvent
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainWithAlarms
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntities
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
@@ -58,7 +58,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceT
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.offsetFromStart
@@ -505,13 +504,13 @@ internal class EventRepository(
      *
      * Restating them goes through the domain model, which a `VALARM` whose `TRIGGER` is malformed cannot
      * be read into: such an alarm survives every edit that patches the resource in place, but not a split,
-     * whose tail is built from scratch. It is invisible to the whole app already, [AlarmEntity.toDomain]
+     * whose tail is built from scratch. It is invisible to the whole app already, [toDomain]
      * being how alarms are read everywhere, so the tail is born without it rather than the split refused.
      */
     private fun EventEditData.statingAlarmsOf(master: EventEntity): EventEditData = when (alarms) {
         is AlarmListEdit.Replace -> this
         AlarmListEdit.Preserve -> copy(
-            alarms = AlarmListEdit.Replace(master.content.alarms.mapNotNull(AlarmEntity::toDomain)),
+            alarms = AlarmListEdit.Replace(master.content.alarms.toDomain()),
         )
     }
 
@@ -557,7 +556,7 @@ internal class EventRepository(
                     it.copy(
                         timing = it.timing.shiftedBy(tail.delta),
                         // Stated, not preserved: the tail's own alarms are not the ones it carries.
-                        alarms = AlarmListEdit.Replace(override.content.alarms.mapNotNull(AlarmEntity::toDomain)),
+                        alarms = AlarmListEdit.Replace(override.content.alarms.toDomain()),
                     )
                 }
             resource = caldavClient.upsertOverrideIcs(
@@ -568,7 +567,7 @@ internal class EventRepository(
                     previousColorArgb = tail.data.eventColor?.argb,
                     previousDescription = override.content.description,
                     previousMeetRoomUrl = override.content.meetRoomUrl,
-                    previousAlarms = tail.data.alarms.statedAlarms.map(EventAlarm::toEntity),
+                    previousAlarms = tail.data.alarms.statedAlarms.toEntities(origin = emptyList()),
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
                 ),
@@ -643,7 +642,7 @@ internal class EventRepository(
         // stated, so an edit restating them reads as no change.
         val shown = (shownOverride?.toEditData(entity.calendarId) ?: before).copy(
             alarms = AlarmListEdit.Replace(
-                (shownOverride?.content ?: entity.content).alarms.mapNotNull(AlarmEntity::toDomain),
+                (shownOverride?.content ?: entity.content).alarms.toDomain(),
             ),
         )
         val shownStart = shownOverride?.content?.timing?.dtStart

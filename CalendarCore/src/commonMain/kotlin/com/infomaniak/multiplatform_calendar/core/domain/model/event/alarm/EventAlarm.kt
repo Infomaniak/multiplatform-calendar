@@ -17,28 +17,28 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm
 
+/**
+ * An alarm of an event, reduced to what the apps edit.
+ *
+ * [id] names the stored alarm this one stands for, `null` for a new one: an edit takes the `VALARM`
+ * properties not exposed here (description, summary, attendees, attachments, repetition) back from it.
+ */
 public data class EventAlarm(
     val action: AlarmAction,
     val trigger: AlarmTrigger,
-    val description: String? = null,
-    val summary: String? = null,
-    val attendees: List<String> = emptyList(),
-    val attachments: List<String> = emptyList(),
-    /** `null` on the alarms the server never named. Carried back and forth untouched. */
-    val uid: AlarmId.Uid? = null,
-    /** Carried back and forth, never expanded into upcoming alarms. */
-    val repetition: AlarmRepetition? = null,
-) {
-
-    /** The server's [uid] when it gave one, an [AlarmId.Local] otherwise, which is not unique. */
-    public val id: AlarmId get() = uid ?: localAlarmId(action, trigger)
-}
+    val id: AlarmId? = null,
+)
 
 /** Written so two triggers firing alike read alike, `-PT15M` and `-PT900S` included. */
-internal fun localAlarmId(action: AlarmAction, trigger: AlarmTrigger): AlarmId.Local {
+internal fun alarmFiringKey(action: AlarmAction, trigger: AlarmTrigger): String {
     val canonical = when (trigger) {
         is AlarmTrigger.Relative -> "R:${trigger.offset.inWholeSeconds}:${trigger.relatedTo.name}"
         is AlarmTrigger.Absolute -> "A:${trigger.instant.epochSeconds}"
     }
-    return AlarmId.Local("${action.toIcalString()}@$canonical")
+    return "${action.toIcalString()}@$canonical"
+}
+
+/** [rank] tells apart the alarms of one VEVENT firing alike, counted in the order they are stored. */
+internal fun localAlarmId(action: AlarmAction, trigger: AlarmTrigger, rank: Int): AlarmId.Local {
+    return AlarmId.Local("${alarmFiringKey(action, trigger)}#$rank")
 }

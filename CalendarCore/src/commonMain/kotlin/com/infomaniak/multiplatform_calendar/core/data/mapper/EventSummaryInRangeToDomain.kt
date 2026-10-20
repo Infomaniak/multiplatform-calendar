@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryContent
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
@@ -48,11 +47,11 @@ internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
 internal fun EventSummaryInRange.toDomainWithAlarms(): EventWithOverrides<EventSummaryWithAlarms> {
     val summaries = toDomain()
     return EventWithOverrides(
-        master = EventSummaryWithAlarms(summaries.master, content.alarms.mapNotNull(AlarmEntity::toDomain)),
+        master = EventSummaryWithAlarms(summaries.master, content.alarms.toDomain()),
         overridesByOccurrenceKey = overrides.associate { override ->
             override.recurrenceKey to EventSummaryWithAlarms(
                 summary = summaries.overridesByOccurrenceKey.getValue(override.recurrenceKey),
-                alarms = override.content.alarms.mapNotNull(AlarmEntity::toDomain),
+                alarms = override.content.alarms.toDomain(),
             )
         },
     )

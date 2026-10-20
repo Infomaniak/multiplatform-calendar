@@ -27,8 +27,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEd
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmRepetition
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
@@ -42,7 +40,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class EventEditMapperAlarmTest {
@@ -51,10 +48,9 @@ class EventEditMapperAlarmTest {
 
     @Test
     fun sameAlarmsAsPrevious_emitsUnchanged() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
-        val same = eventAlarm(offset = -15.minutes)
+        val stored = alarmEntity(triggerRelative = (-15).minutes)
 
-        val edit = editData(alarms = listOf(same)).toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(stored.read())).toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
 
         assertNull(edit.alarms)
     }
@@ -70,29 +66,90 @@ class EventEditMapperAlarmTest {
 
     @Test
     fun modifiedTrigger_emitsSetWithRebuiltList() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
+        val stored = alarmEntity(triggerRelative = (-15).minutes)
 
-        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes)))
-            .toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(stored.read().copy(trigger = relative(-5.minutes))))
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
 
-        val set = assertNotNull(edit.alarms)
-        assertEquals(1, set.size)
-        assertEquals("-PT5M", set.single().triggerDuration)
+        assertEquals("-PT5M", assertNotNull(edit.alarms).single().triggerDuration)
     }
 
     @Test
-    fun modifiedDescriptionOnly_emitsSet() {
-        val previous = eventEntity(
-            alarms = listOf(
-                alarmEntity(triggerRelative = (-15).minutes, description = "Old"),
-            ),
+    fun modifiedTrigger_keepsTheHiddenPropertiesOfTheStoredAlarm() {
+        val stored = alarmEntity(
+            triggerRelative = (-15).minutes,
+            action = "EMAIL",
+            description = "Body",
+            summary = "Subject",
+            attendees = listOf("mailto:a@example.com"),
+            attachments = listOf("https://example.com/a.txt"),
+            repetition = AlarmRepetitionEntity(2, 5.minutes),
         )
 
-        val edit = editData(alarms = listOf(eventAlarm(offset = -15.minutes, description = "New")))
-            .toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(stored.read().copy(trigger = relative(-5.minutes))))
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
 
-        val set = assertNotNull(edit.alarms)
-        assertEquals("New", set.single().description)
+        val emitted = assertNotNull(edit.alarms).single()
+        assertEquals("-PT5M", emitted.triggerDuration)
+        assertEquals("Body", emitted.description)
+        assertEquals("Subject", emitted.summary)
+        assertEquals(listOf("mailto:a@example.com"), emitted.attendees)
+        assertEquals(listOf("https://example.com/a.txt"), emitted.attach)
+        assertEquals(RemoteAlarmRepetition(count = 2, interval = "PT5M"), emitted.repetition)
+    }
+
+    @Test
+    fun modifiedAction_keepsTheHiddenPropertiesOfTheStoredAlarm() {
+        val stored = alarmEntity(triggerRelative = (-15).minutes, description = "Kept", uid = "server-uid")
+
+        val edit = editData(alarms = listOf(stored.read().copy(action = AlarmAction.Audio)))
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
+
+        val emitted = assertNotNull(edit.alarms).single()
+        assertEquals("AUDIO", emitted.action)
+        assertEquals("Kept", emitted.description)
+        assertEquals("server-uid", emitted.uid)
+    }
+
+    @Test
+    fun alarmsFiringAlike_eachTakeBackTheirOwnHiddenProperties() {
+        val stored = listOf(
+            alarmEntity(triggerRelative = (-15).minutes, description = "First"),
+            alarmEntity(triggerRelative = (-15).minutes, description = "Second"),
+        )
+        val (first, second) = stored.toDomain()
+
+        val edit = editData(alarms = listOf(first, second.copy(trigger = relative(-5.minutes))))
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(stored))
+
+        assertEquals(listOf("First", "Second"), assertNotNull(edit.alarms).map { it.description })
+    }
+
+    @Test
+    fun alarmsFiringAlike_keepingOnlyTheSecond_keepsItsOwnHiddenProperties() {
+        val stored = listOf(
+            alarmEntity(triggerRelative = (-15).minutes, action = "EMAIL", attendees = listOf("mailto:first@example.com")),
+            alarmEntity(triggerRelative = (-15).minutes, action = "EMAIL", attendees = listOf("mailto:second@example.com")),
+        )
+        val second = stored.toDomain()[1]
+
+        val edit = editData(alarms = listOf(second.copy(trigger = relative(-5.minutes))))
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(stored))
+
+        assertEquals(listOf("mailto:second@example.com"), assertNotNull(edit.alarms).single().attendees)
+    }
+
+    @Test
+    fun alarmsFiringAlike_reordered_eachKeepTheirOwnHiddenProperties() {
+        val stored = listOf(
+            alarmEntity(triggerRelative = (-15).minutes, description = "First"),
+            alarmEntity(triggerRelative = (-15).minutes, description = "Second"),
+        )
+        val (first, second) = stored.toDomain()
+
+        val edit = editData(alarms = listOf(second, first)).toRemoteEdit(stamp = STAMP, previous = eventEntity(stored))
+
+        assertEquals(listOf("Second", "First"), assertNotNull(edit.alarms).map { it.description })
     }
 
     @Test
@@ -103,96 +160,65 @@ class EventEditMapperAlarmTest {
     }
 
     @Test
-    fun addedAlarm_toEventWithoutPrevious_emitsSet() {
-        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes)))
-            .toRemoteEdit(stamp = STAMP, previous = null)
-
-        assertNotNull(edit.alarms)
-    }
-
-    @Test
     fun absoluteTrigger_isFormattedAsUtcDateTime() {
         val absolute = EventAlarm(
             action = AlarmAction.Display,
             trigger = AlarmTrigger.Absolute(Instant.fromEpochMilliseconds(1_781_514_000_000L)),
-            description = "R",
         )
 
         val edit = editData(alarms = listOf(absolute)).toRemoteEdit(stamp = STAMP, previous = null)
 
         val emitted = assertNotNull(edit.alarms).single()
         assertEquals("20260615T090000Z", emitted.triggerAbsolute)
+        assertEquals("START", emitted.triggerRelatedTo)
     }
 
     @Test
     fun serverUid_onAnUntouchedAlarm_isNotSeenAsAChange() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes, uid = "server-uid")))
-        val same = eventAlarm(offset = -15.minutes, uid = "server-uid")
+        val stored = alarmEntity(triggerRelative = (-15).minutes, uid = "server-uid")
 
-        val edit = editData(alarms = listOf(same)).toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(stored.read())).toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
 
         assertNull(edit.alarms)
     }
 
     @Test
     fun serverUid_isWrittenBack_whenTheAlarmListIsRebuilt() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes, uid = "server-uid")))
+        val stored = alarmEntity(triggerRelative = (-15).minutes, uid = "server-uid")
 
-        // The whole VALARM list is replaced on any change, so dropping the UID here would destroy it.
-        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes, uid = "server-uid")))
-            .toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(stored.read().copy(trigger = relative(-5.minutes))))
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
 
         assertEquals("server-uid", assertNotNull(edit.alarms).single().uid)
     }
 
     @Test
     fun anAlarmTheServerNeverNamed_goesOutWithoutAUid() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
+        val stored = alarmEntity(triggerRelative = (-15).minutes)
 
-        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes)))
-            .toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(stored.read().copy(trigger = relative(-5.minutes))))
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
 
-        // Its `id` is an `AlarmId.Local`, which must never be passed off as a server `UID`.
         assertNull(assertNotNull(edit.alarms).single().uid)
     }
 
     @Test
-    fun repetition_onAnUntouchedAlarm_isNotSeenAsAChange() {
-        val previous = eventEntity(
-            alarms = listOf(alarmEntity(triggerRelative = (-15).minutes, repetition = AlarmRepetitionEntity(2, 5.minutes))),
-        )
-        val same = eventAlarm(offset = -15.minutes, repetition = AlarmRepetition(2, 5.minutes))
+    fun hiddenRepetition_onAnUntouchedAlarm_isNotSeenAsAChange() {
+        val stored = alarmEntity(triggerRelative = (-15).minutes, repetition = AlarmRepetitionEntity(2, 5.minutes))
 
-        val edit = editData(alarms = listOf(same)).toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(stored.read())).toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
 
         assertNull(edit.alarms)
     }
 
     @Test
     fun storedUnknownActionAlarm_isLeftOutOfTheComparison() {
-        val previous = eventEntity(
-            alarms = listOf(
-                alarmEntity(triggerRelative = (-15).minutes),
-                alarmEntity(triggerRelative = (-30).minutes, action = "X-CUSTOM"),
-            ),
-        )
+        val known = alarmEntity(triggerRelative = (-15).minutes)
+        val previous = eventEntity(listOf(known, alarmEntity(triggerRelative = (-30).minutes, action = "X-CUSTOM")))
 
-        val edit = editData(alarms = listOf(eventAlarm(offset = -15.minutes))).toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(known.read())).toRemoteEdit(stamp = STAMP, previous = previous)
 
         assertNull(edit.alarms)
-    }
-
-    @Test
-    fun repetition_isWrittenBack_whenTheAlarmListIsRebuilt() {
-        val previous = eventEntity(alarms = listOf(alarmEntity(triggerRelative = (-15).minutes)))
-        val repeated = eventAlarm(offset = -5.minutes, repetition = AlarmRepetition(2, 300.seconds))
-
-        val edit = editData(alarms = listOf(eventAlarm(offset = -30.minutes), repeated))
-            .toRemoteEdit(stamp = STAMP, previous = previous)
-
-        val emitted = assertNotNull(edit.alarms)
-        assertNull(emitted[0].repetition)
-        assertEquals(RemoteAlarmRepetition(count = 2, interval = "PT5M"), emitted[1].repetition)
     }
 
     @Test
@@ -204,41 +230,32 @@ class EventEditMapperAlarmTest {
             ),
         )
 
-        val edit = editData(alarms = listOf(eventAlarm(offset = -5.minutes))).toRemoteEdit(stamp = STAMP, previous = previous)
+        val edit = editData(alarms = listOf(newAlarm(AlarmAction.Display))).toRemoteEdit(stamp = STAMP, previous = previous)
 
         assertEquals(listOf("DISPLAY"), assertNotNull(edit.alarms).map { it.action })
     }
 
     @Test
     fun statedUnknownActionAlarm_isIgnored() {
-        val stated = listOf(
-            eventAlarm(offset = -5.minutes),
-            eventAlarm(offset = -30.minutes, action = AlarmAction.Unknown("X-CUSTOM")),
-        )
+        val stated = listOf(newAlarm(AlarmAction.Display), newAlarm(AlarmAction.Unknown("X-CUSTOM")))
 
         val edit = editData(alarms = stated).toRemoteEdit(stamp = STAMP, previous = null)
 
         assertEquals(listOf("DISPLAY"), assertNotNull(edit.alarms).map { it.action })
     }
 
-    private fun eventAlarm(
-        offset: Duration,
-        description: String? = "Reminder",
-        uid: String? = null,
-        repetition: AlarmRepetition? = null,
-        action: AlarmAction = AlarmAction.Display,
-    ) = EventAlarm(
-        action = action,
-        trigger = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start),
-        uid = uid?.let(AlarmId::Uid),
-        description = description,
-        repetition = repetition,
-    )
+    private fun AlarmEntity.read() = listOf(this).toDomain().single()
+
+    private fun relative(offset: Duration) = AlarmTrigger.Relative(offset = offset, relatedTo = TriggerRelation.Start)
+
+    private fun newAlarm(action: AlarmAction) = EventAlarm(action = action, trigger = relative(-5.minutes))
 
     private fun alarmEntity(
         triggerRelative: Duration? = null,
-        triggerAbsolute: Instant? = null,
         description: String? = "Reminder",
+        summary: String? = null,
+        attendees: List<String> = emptyList(),
+        attachments: List<String> = emptyList(),
         uid: String? = null,
         repetition: AlarmRepetitionEntity? = null,
         action: String = "DISPLAY",
@@ -246,9 +263,11 @@ class EventEditMapperAlarmTest {
         uid = uid,
         action = action,
         triggerRelative = triggerRelative,
-        triggerAbsolute = triggerAbsolute,
         triggerRelatedTo = TriggerRelation.Start,
         description = description,
+        summary = summary,
+        attendees = attendees,
+        attachments = attachments,
         repetition = repetition,
     )
 

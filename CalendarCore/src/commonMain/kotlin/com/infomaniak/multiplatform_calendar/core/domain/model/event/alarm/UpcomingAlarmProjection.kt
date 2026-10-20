@@ -119,5 +119,5 @@ private fun EventAlarm.alarmKey(event: EventSummary, firesAt: Instant): String {
         is AlarmTrigger.Absolute -> event.occurrenceId.masterId.url
         is AlarmTrigger.Relative -> event.occurrenceId.value
     }
-    return "$scope|$firesAt|${id.value}"
+    return "$scope|$firesAt|${(id as? AlarmId.Uid)?.value ?: alarmFiringKey(action, trigger)}"
 }

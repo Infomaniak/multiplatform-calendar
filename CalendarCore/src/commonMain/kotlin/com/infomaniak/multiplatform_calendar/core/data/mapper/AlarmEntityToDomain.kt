@@ -20,24 +20,32 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmRepetition
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.alarmFiringKey
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.localAlarmId
 
-internal fun AlarmEntity.toDomain(): EventAlarm? {
-    val trigger = when {
-        triggerRelative != null -> AlarmTrigger.Relative(offset = triggerRelative, relatedTo = triggerRelatedTo)
-        triggerAbsolute != null -> AlarmTrigger.Absolute(instant = triggerAbsolute)
-        else -> return null
+/** The alarms of one VEVENT, those whose trigger cannot be read left out. */
+internal fun List<AlarmEntity>.toDomain(): List<EventAlarm> = withDomain().map { it.second }
+
+/** Each readable stored alarm of one VEVENT, paired with how the domain reads it. */
+internal fun List<AlarmEntity>.withDomain(): List<Pair<AlarmEntity, EventAlarm>> {
+    val ranks = HashMap<String, Int>()
+    return mapNotNull { entity ->
+        val trigger = entity.trigger() ?: return@mapNotNull null
+        val action = AlarmAction.fromIcalString(entity.action)
+        val id = entity.uid?.let(AlarmId::Uid) ?: run {
+            val key = alarmFiringKey(action, trigger)
+            val rank = ranks.getOrElse(key) { 0 }
+            ranks[key] = rank + 1
+            localAlarmId(action, trigger, rank)
+        }
+        entity to EventAlarm(action = action, trigger = trigger, id = id)
     }
-    return EventAlarm(
-        uid = uid?.let(AlarmId::Uid),
-        action = AlarmAction.fromIcalString(action),
-        trigger = trigger,
-        description = description,
-        summary = summary,
-        attendees = attendees,
-        attachments = attachments,
-        repetition = repetition?.let { AlarmRepetition(it.count, it.interval) },
-    )
+}
+
+private fun AlarmEntity.trigger(): AlarmTrigger? = when {
+    triggerRelative != null -> AlarmTrigger.Relative(offset = triggerRelative, relatedTo = triggerRelatedTo)
+    triggerAbsolute != null -> AlarmTrigger.Absolute(instant = triggerAbsolute)
+    else -> null
 }

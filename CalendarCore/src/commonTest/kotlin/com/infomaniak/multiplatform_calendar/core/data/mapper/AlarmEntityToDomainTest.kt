@@ -21,9 +21,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmRepetition
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.localAlarmId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -40,7 +40,7 @@ class AlarmEntityToDomainTest {
             action = "DISPLAY",
             triggerRelative = (-10).minutes,
             triggerRelatedTo = TriggerRelation.End,
-        ).toDomain()!!
+        ).let { listOf(it).toDomain().single() }
 
         val trigger = assertIs<AlarmTrigger.Relative>(domain.trigger)
         assertEquals((-10).minutes, trigger.offset)
@@ -54,35 +54,53 @@ class AlarmEntityToDomainTest {
             action = "DISPLAY",
             triggerAbsolute = instant,
             triggerRelatedTo = TriggerRelation.Start,
-        ).toDomain()!!
+        ).let { listOf(it).toDomain().single() }
 
         val trigger = assertIs<AlarmTrigger.Absolute>(domain.trigger)
         assertEquals(instant, trigger.instant)
     }
 
     @Test
-    fun serverUid_isCarriedToTheDomain_andBecomesTheAlarmId() {
+    fun serverUid_becomesTheAlarmId() {
         val domain = AlarmEntity(
             uid = "valarm-uid-1",
             action = "DISPLAY",
             triggerRelative = (-10).minutes,
             triggerRelatedTo = TriggerRelation.Start,
-        ).toDomain()!!
+        ).let { listOf(it).toDomain().single() }
 
-        assertEquals(AlarmId.Uid("valarm-uid-1"), domain.uid)
         assertEquals(AlarmId.Uid("valarm-uid-1"), domain.id)
     }
 
     @Test
-    fun repetition_isCarriedToTheDomain() {
+    fun withoutUid_theAlarmIdIsLocal() {
         val domain = AlarmEntity(
             action = "DISPLAY",
             triggerRelative = (-10).minutes,
             repetition = AlarmRepetitionEntity(count = 3, interval = 5.minutes),
-        ).toDomain()!!
+        ).let { listOf(it).toDomain().single() }
 
-        assertEquals(AlarmRepetition(count = 3, interval = 5.minutes), domain.repetition)
+        assertEquals(localAlarmId(domain.action, domain.trigger, rank = 0), domain.id)
     }
+
+    @Test
+    fun withoutUid_alarmsFiringAlike_areRankedInStoredOrder() {
+        val alarm = AlarmEntity(action = "DISPLAY", triggerRelative = (-10).minutes)
+        val other = alarm.copy(triggerRelative = (-5).minutes)
+
+        val ids = listOf(alarm, other, alarm.copy(description = "Second")).toDomain().map { it.id }
+
+        assertEquals(
+            listOf(
+                localAlarmId(AlarmAction.Display, relative(-10), rank = 0),
+                localAlarmId(AlarmAction.Display, relative(-5), rank = 0),
+                localAlarmId(AlarmAction.Display, relative(-10), rank = 1),
+            ),
+            ids,
+        )
+    }
+
+    private fun relative(minutes: Int) = AlarmTrigger.Relative(minutes.minutes, TriggerRelation.Start)
 
     @Test
     fun unknownAction_isSurfacedAsUnknownWithOriginalValue() {
@@ -90,7 +108,7 @@ class AlarmEntityToDomainTest {
             action = "PROCEDURE",
             triggerRelative = 0L.milliseconds,
             triggerRelatedTo = TriggerRelation.Start,
-        ).toDomain()!!
+        ).let { listOf(it).toDomain().single() }
 
         assertEquals(AlarmAction.Unknown("PROCEDURE"), domain.action)
     }
@@ -102,7 +120,7 @@ class AlarmEntityToDomainTest {
             triggerRelative = null,
             triggerAbsolute = null,
             triggerRelatedTo = TriggerRelation.Start,
-        ).toDomain()
+        ).let { listOf(it).toDomain().singleOrNull() }
 
         assertNull(domain)
     }

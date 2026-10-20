@@ -22,7 +22,7 @@ import kotlin.jvm.JvmInline
 /** Identifier of an alarm within its event, split by origin: only a [Uid] may go back to the server. */
 public sealed interface AlarmId {
 
-    /** [Uid]: the `UID` verbatim. [Local]: `"<ACTION>@<canonical trigger>"`. */
+    /** [Uid]: the `UID` verbatim. [Local]: `"<ACTION>@<canonical trigger>#<rank>"`. */
     public val value: String
 
     /** The `UID` the server gave the alarm (RFC 9074 §4). */
@@ -32,7 +32,8 @@ public sealed interface AlarmId {
     /**
      * Derived from how the alarm fires, for the alarms the server never named.
      *
-     * Not a unique key: alarms firing alike share it, within one event or across two.
+     * Unique within one VEVENT only, a rank telling apart the alarms firing alike in it: the same
+     * alarm on another event, or on another override of the series, shares it.
      */
     @JvmInline
     public value class Local internal constructor(public override val value: String) : AlarmId

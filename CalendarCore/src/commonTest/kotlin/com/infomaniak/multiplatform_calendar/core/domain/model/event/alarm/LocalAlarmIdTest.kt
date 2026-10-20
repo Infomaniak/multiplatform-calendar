@@ -53,8 +53,13 @@ class LocalAlarmIdTest {
     }
 
     @Test
+    fun aDifferentRank_yieldsADifferentId() {
+        assertNotEquals(localId(rank = 0), localId(rank = 1))
+    }
+
+    @Test
     fun anAbsoluteTrigger_isToldApartFromARelativeOne() {
-        val absolute = localAlarmId(AlarmAction.Display, AlarmTrigger.Absolute(Instant.fromEpochSeconds(1_781_514_000L)))
+        val absolute = localAlarmId(AlarmAction.Display, AlarmTrigger.Absolute(Instant.fromEpochSeconds(1_781_514_000L)), rank = 0)
 
         assertNotEquals(localId(), absolute)
     }
@@ -63,5 +68,6 @@ class LocalAlarmIdTest {
         offset: Duration = (-15).minutes,
         relatedTo: TriggerRelation = TriggerRelation.Start,
         action: AlarmAction = AlarmAction.Display,
-    ) = localAlarmId(action, AlarmTrigger.Relative(offset = offset, relatedTo = relatedTo))
+        rank: Int = 0,
+    ) = localAlarmId(action, AlarmTrigger.Relative(offset = offset, relatedTo = relatedTo), rank)
 }

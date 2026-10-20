@@ -30,6 +30,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
  * @property eventColor `null` to inherit the calendar's color.
  * @property alarms [AlarmListEdit.Preserve] unless the alarms are themselves part of the edit.
  * @property attendees The whole list: an attendee left out is removed. Requires an [organizer] when not empty.
+ * @property meetRoom From [CalendarManager.generateMeetRoom][com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.generateMeetRoom];
+ * `null` removes it.
  */
 public data class EventEditData(
     val title: String,

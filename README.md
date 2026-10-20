@@ -187,7 +187,9 @@ ones. `sync` replaces the local resources of each account (the API sends no ETag
 `CalendarManager.generateMeetRoom(calendarId)` creates a new kMeet room on each call, for the account of that calendar:
 `MeetManager` calls `GET /api/pim/calendar/meet-room` on `calendar.infomaniak.com`; failures are thrown as
 `CalendarSdkException`, with the `MeetException` as `cause`. The returned `MeetRoom` goes in `EventEditData.meetRoom`: saving the edit writes the `X-INFOMANIAK-MEET-ROOM-URL` property
-of the CalDAV event, and `null` removes it.
+of the CalDAV event, and `null` removes it. Like the web, the room also gets a localized block (`CalendarResources`) in
+`DESCRIPTION`, between the `/*---…---*/` markers the edit already hides: saving a new room appends its block in place of
+the previous room's, and removing the room removes it.
 
 ### Contacts permissions
 

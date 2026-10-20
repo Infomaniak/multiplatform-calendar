@@ -35,6 +35,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Upcom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
@@ -244,7 +245,8 @@ public class CalendarManager internal constructor(
         operation = "generate a kMeet room for calendar $calendarId",
     ) {
         val accountId = calendarRepository.getCalendar(calendarId).accountId
-        MeetRoom(meetManager.generateRoomUrl(accountId))
+        val url = meetManager.generateRoomUrl(accountId)
+        MeetRoom(url, descriptionBlock = meetRoomDescriptionBlock(url))
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="meet_room_description_do_not_modify">Merci de ne pas modifier cette partie.</string>
+    <string name="meet_room_description_join">Vous pouvez rejoindre la salle de conférence kMeet à l’adresse suivante : %1$s</string>
     <string name="recurrence_at_hour">à l’heure %1$d</string>
     <string name="recurrence_at_hours">aux heures %1$s</string>
     <string name="recurrence_at_minute">à la minute %1$d</string>

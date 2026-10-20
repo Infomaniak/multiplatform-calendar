@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="meet_room_description_do_not_modify">Ikke endre denne delen.</string>
+    <string name="meet_room_description_join">Du kan bli med i kMeet-konferanserommet på følgende adresse: %1$s</string>
     <string name="recurrence_at_hour">ved time %1$d</string>
     <string name="recurrence_at_hours">ved timene %1$s</string>
     <string name="recurrence_at_minute">ved minutt %1$d</string>

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="meet_room_description_do_not_modify">Ändra inte den här delen.</string>
+    <string name="meet_room_description_join">Du kan ansluta till kMeet-konferensrummet på följande adress: %1$s</string>
     <string name="recurrence_at_hour">vid timme %1$d</string>
     <string name="recurrence_at_hours">vid timmarna %1$s</string>
     <string name="recurrence_at_minute">vid minut %1$d</string>

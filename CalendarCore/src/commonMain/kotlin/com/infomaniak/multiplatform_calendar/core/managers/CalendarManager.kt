@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -34,8 +35,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Upcom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -65,6 +68,7 @@ public class CalendarManager internal constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
     private val eventRepository: EventRepository,
+    private val meetManager: MeetManager,
     private val sdkCaller: SdkCaller,
 ) {
 
@@ -233,6 +237,16 @@ public class CalendarManager internal constructor(
         sdkCaller.run(operation = "show only calendar $calendarId") {
             calendarRepository.showOnlyCalendar(calendarId)
         }
+    }
+
+    /** Each call creates a new kMeet room, with the account of [calendarId]. */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun generateMeetRoom(calendarId: CalendarId): MeetRoom = sdkCaller.run(
+        operation = "generate a kMeet room for calendar $calendarId",
+    ) {
+        val accountId = calendarRepository.getCalendar(calendarId).accountId
+        val url = meetManager.generateRoomUrl(accountId)
+        MeetRoom(url, descriptionBlock = meetRoomDescriptionBlock(url))
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)

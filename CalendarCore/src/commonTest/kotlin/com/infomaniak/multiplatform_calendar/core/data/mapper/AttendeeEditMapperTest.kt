@@ -178,5 +178,6 @@ class AttendeeEditMapperTest {
         alarms = AlarmListEdit.Replace(emptyList()),
         attendees = attendees,
         organizer = organizer,
+        meetRoom = null,
     )
 }

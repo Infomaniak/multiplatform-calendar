@@ -145,6 +145,7 @@ class EventEditMapperOverrideRemovalTest {
         alarms = AlarmListEdit.Replace(emptyList()),
         attendees = emptyList(),
         organizer = null,
+        meetRoom = null,
     )
 }
 

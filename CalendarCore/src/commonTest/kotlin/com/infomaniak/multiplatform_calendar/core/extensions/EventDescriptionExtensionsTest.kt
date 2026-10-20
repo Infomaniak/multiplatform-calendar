@@ -17,8 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.core.extensions
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class EventDescriptionExtensionsTest {
 
@@ -139,6 +141,58 @@ class EventDescriptionExtensionsTest {
 
         assertEquals(input, input.removeMarkedBlocks())
     }
+
+    @Test
+    fun withMeetRoomBlock_leavesTheDescriptionAloneWhenTheRoomIsUnchanged() {
+        val description = "Agenda\n\n${meetBlock(URL)}"
+
+        assertEquals(description, description.withMeetRoomBlock(URL, MeetRoom(URL)))
+    }
+
+    @Test
+    fun withMeetRoomBlock_appendsTheBlockOfANewRoom() {
+        assertEquals("Agenda\n\n${meetBlock(URL)}", "Agenda".withMeetRoomBlock(null, meetRoom(URL)))
+    }
+
+    @Test
+    fun withMeetRoomBlock_isTheBlockAloneOnAnEmptyDescription() {
+        assertEquals(meetBlock(URL), null.withMeetRoomBlock(null, meetRoom(URL)))
+    }
+
+    @Test
+    fun withMeetRoomBlock_replacesTheBlockOfThePreviousRoomAndKeepsTheOtherBlocks() {
+        val other = "${marker}\nother\n${marker}"
+        val description = "Agenda\n\n${meetBlock(URL)}\n\n$other"
+
+        assertEquals(
+            "Agenda\n\n$other\n\n${meetBlock(OTHER_URL)}",
+            description.withMeetRoomBlock(URL, meetRoom(OTHER_URL)),
+        )
+    }
+
+    @Test
+    fun withMeetRoomBlock_removesTheBlockWithTheRoom() {
+        assertEquals("Agenda", "Agenda\n\n${meetBlock(URL)}".withMeetRoomBlock(URL, null))
+    }
+
+    @Test
+    fun withMeetRoomBlock_isNullOnceTheOnlyBlockIsRemoved() {
+        assertNull(meetBlock(URL).withMeetRoomBlock(URL, null))
+    }
+
+    @Test
+    fun withMeetRoomBlock_ignoresABlankPreviousUrl() {
+        val description = "Agenda\n\n${marker}\nother\n${marker}"
+
+        assertEquals("$description\n\n${meetBlock(URL)}", description.withMeetRoomBlock("", meetRoom(URL)))
+    }
+
+    private fun meetBlock(url: String) = markedBlock("Join $url")
+
+    private fun meetRoom(url: String) = MeetRoom(url, descriptionBlock = meetBlock(url))
+
+    private companion object {
+        const val URL = "https://kmeet.infomaniak.com/abc"
+        const val OTHER_URL = "https://kmeet.infomaniak.com/xyz"
+    }
 }
-
-

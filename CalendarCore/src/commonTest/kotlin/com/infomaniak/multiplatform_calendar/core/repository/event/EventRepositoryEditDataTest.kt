@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -36,6 +37,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedBounds
+import com.infomaniak.multiplatform_calendar.core.extensions.markedBlock
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
@@ -170,9 +172,115 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
     }
 
     @Test
+    fun getEditData_handedBackUntouched_keepsTheMeetRoomUrl() = runTest {
+        seedCalendar()
+        val master = meetRoomMaster()
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+
+        val data = assertNotNull(repository.getEditData(occurrence))
+        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+
+        assertEquals(MEET_ROOM_URL, data.meetRoom?.url)
+        assertEquals(MEET_ROOM_URL, fakeCaldav.patches.single().meetRoomUrl)
+    }
+
+    @Test
+    fun updateEvent_withoutMeetRoom_clearsTheMeetRoomUrl() = runTest {
+        seedCalendar()
+        val master = meetRoomMaster()
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+
+        val data = assertNotNull(repository.getEditData(occurrence)).copy(meetRoom = null)
+        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+
+        val edit = fakeCaldav.patches.single()
+        assertNull(edit.meetRoomUrl)
+        assertEquals("Agenda", edit.description)
+    }
+
+    @Test
+    fun updateEvent_onOneOccurrence_keepsTheMeetRoomUrlOnTheOverride() = runTest {
+        seedCalendar()
+        val master = meetRoomMaster()
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+
+        val data = assertNotNull(repository.getEditData(occurrence))
+        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.ThisOccurrence), data)
+
+        assertEquals(MEET_ROOM_URL, fakeCaldav.overrideUpserts.single().second.meetRoomUrl)
+    }
+
+    @Test
+    fun updateEvent_onAllOccurrences_withTheSameGeneratedRoom_leavesTheOverrideRoom() = runTest {
+        seedCalendar()
+        val master = meetRoomMaster()
+        val base = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        val override = base.copy(content = base.content.copy(meetRoomUrl = OTHER_MEET_ROOM_URL))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", overrides = listOf(override))))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0))
+
+        val data = assertNotNull(repository.getEditData(occurrence)).copy(
+            title = "Renamed",
+            meetRoom = MeetRoom(MEET_ROOM_URL, descriptionBlock = "Join $MEET_ROOM_URL"),
+        )
+        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+
+        val edit = fakeCaldav.overrideUpserts.single().second
+        assertEquals("Renamed", edit.summary)
+        assertEquals(OTHER_MEET_ROOM_URL, edit.meetRoomUrl)
+    }
+
+    @Test
+    fun updateEvent_withANewMeetRoom_appendsItsBlockToTheDescription() = runTest {
+        seedCalendar()
+        val master = meetRoomMaster(meetRoomUrl = null, description = "Agenda")
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+        val meetRoom = MeetRoom(MEET_ROOM_URL, descriptionBlock = meetRoomBlock(MEET_ROOM_URL))
+
+        val data = assertNotNull(repository.getEditData(occurrence)).copy(meetRoom = meetRoom)
+        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+
+        val edit = fakeCaldav.patches.single()
+        assertEquals(MEET_ROOM_URL, edit.meetRoomUrl)
+        assertEquals("Agenda\n\n${meetRoomBlock(MEET_ROOM_URL)}", edit.description)
+    }
+
+    @Test
+    fun updateEvent_withANewDescription_keepsTheMeetRoomBlock() = runTest {
+        seedCalendar()
+        val master = meetRoomMaster()
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+
+        val data = assertNotNull(repository.getEditData(occurrence))
+        assertEquals("Agenda", data.description)
+        repository.updateEvent(
+            credentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences),
+            data = data.copy(description = "New agenda"),
+        )
+
+        assertEquals("New agenda\n\n${meetRoomBlock(MEET_ROOM_URL)}", fakeCaldav.patches.single().description)
+    }
+
+    @Test
     fun getEditData_returnsNullWhenTheEventIsGone() = runTest {
         assertNull(repository.getEditData(OccurrenceId.Master(EventId("https://cal/main/unknown.ics"))))
     }
+
+    private fun meetRoomMaster(
+        meetRoomUrl: String? = MEET_ROOM_URL,
+        description: String? = meetRoomUrl?.let { "Agenda\n\n${meetRoomBlock(it)}" },
+    ): EventEntity {
+        val master = dailyMasterEntity(EventId("https://cal/main/meet.ics"), CALENDAR_ID)
+        return master.copy(content = master.content.copy(meetRoomUrl = meetRoomUrl, description = description))
+    }
+
+    private fun meetRoomBlock(url: String) = markedBlock("Join $url")
 
     private fun parisOccurrenceOf(masterId: EventId, start: LocalDateTime) = OccurrenceId.Recurrence(
         masterId = masterId,
@@ -207,3 +315,6 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         )
     }
 }
+
+private const val MEET_ROOM_URL = "https://kmeet.infomaniak.com/abc"
+private const val OTHER_MEET_ROOM_URL = "https://kmeet.infomaniak.com/xyz"

@@ -263,6 +263,7 @@ class EventEditMapperAlarmTest {
         alarms = AlarmListEdit.Replace(alarms),
         attendees = emptyList(),
         organizer = null,
+        meetRoom = null,
     )
 
     private fun eventEntity(alarms: List<AlarmEntity>) = EventEntity(

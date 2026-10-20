@@ -26,6 +26,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
  * patch drops properties absent from the edit). Callers must echo unchanged fields from `previous`,
  * which [CalendarManager.getEditData][com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.getEditData]
  * hands over already filled in.
+ *
+ * @property eventColor `null` to inherit the calendar's color.
+ * @property alarms [AlarmListEdit.Preserve] unless the alarms are themselves part of the edit.
+ * @property attendees The whole list: an attendee left out is removed. Requires an [organizer] when not empty.
+ * @property meetRoom From [CalendarManager.generateMeetRoom][com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.generateMeetRoom];
+ * `null` removes it.
  */
 public data class EventEditData(
     val title: String,
@@ -34,11 +40,9 @@ public data class EventEditData(
     val description: String?,
     val timeBlocking: TimeBlocking?,
     val calendarId: CalendarId,
-    /** `null` to inherit the calendar's color. */
     val eventColor: EventSourceColor?,
-    /** [AlarmListEdit.Preserve] unless the alarms are themselves part of the edit. */
     val alarms: AlarmListEdit,
-    /** The whole list: an attendee left out is removed. Requires an [organizer] when not empty. */
     val attendees: List<AttendeeEdit>,
     val organizer: Organizer?,
+    val meetRoom: MeetRoom?,
 )

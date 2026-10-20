@@ -42,6 +42,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.toIcalDateV
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalStart
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.extensions.withMarkedBlocksFrom
+import com.infomaniak.multiplatform_calendar.core.extensions.withMeetRoomBlock
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
@@ -84,6 +85,7 @@ internal fun EventEditData.toRemoteEdit(
     droppedOverrides: List<RecurrenceKey> = emptyList(),
     knownOverrides: List<EventOverrideEntity> = emptyList(),
     previousDescription: String? = previous?.content?.description,
+    previousMeetRoomUrl: String? = previous?.content?.meetRoomUrl,
     previousAttendees: List<AttendeeEntity> = previous?.content?.attendees.orEmpty(),
     previousOrganizer: OrganizerEntity? = previous?.content?.organizer,
 ): RemoteEventEdit {
@@ -97,8 +99,9 @@ internal fun EventEditData.toRemoteEdit(
         dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
-        description = description.withMarkedBlocksFrom(previousDescription),
+        description = description.withMarkedBlocksFrom(previousDescription.withMeetRoomBlock(previousMeetRoomUrl, meetRoom)),
         transp = timeBlocking?.toIcalString(),
+        meetRoomUrl = meetRoom?.url,
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previous?.content?.colorArgb),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
@@ -129,6 +132,7 @@ internal fun EventEditData.toOverrideEdit(
     stamp: String,
     previousColorArgb: Int?,
     previousDescription: String?,
+    previousMeetRoomUrl: String?,
     previousAlarms: List<AlarmEntity>,
     previousAttendees: List<AttendeeEntity>,
     previousOrganizer: OrganizerEntity?,
@@ -143,8 +147,9 @@ internal fun EventEditData.toOverrideEdit(
         dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
         location = location?.ifBlank { null },
-        description = description.withMarkedBlocksFrom(previousDescription),
+        description = description.withMarkedBlocksFrom(previousDescription.withMeetRoomBlock(previousMeetRoomUrl, meetRoom)),
         transp = timeBlocking?.toIcalString(),
+        meetRoomUrl = meetRoom?.url,
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previousColorArgb),
         recurrenceChange = Unchanged,

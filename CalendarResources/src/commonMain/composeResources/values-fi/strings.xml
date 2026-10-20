@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="meet_room_description_do_not_modify">Älä muokkaa tätä osiota.</string>
+    <string name="meet_room_description_join">Voit liittyä kMeet-kokoushuoneeseen seuraavassa osoitteessa: %1$s</string>
     <string name="recurrence_at_hour">tunnilla %1$d</string>
     <string name="recurrence_at_hours">tunneilla %1$s</string>
     <string name="recurrence_at_minute">minuutilla %1$d</string>

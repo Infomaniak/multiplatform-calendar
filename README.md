@@ -102,7 +102,7 @@ DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
 `:Account` and `:Contacts` are `api` dependencies of CalendarCore and **are exported**: `AccountId`, `AccessToken`,
 `ContactsManager` and its types (`Contact`, …) are part of the public Swift API. `:Account` and `:Contacts` use the
 generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to move to a shared KMP core.
-`:Meet` and `:BookableResources` are exported the same way (`MeetManager`, `BookableResourcesManager` and their types) but, being
+`:Meet` and `:BookableResources` are exported the same way (`MeetException`, `BookableResourcesManager` and their types) but, being
 specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` and `…bookable_resources` packages.
 
 `:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet and BookableResources, and is **not** exported. Like `:Account`, it uses the
@@ -170,7 +170,7 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   `CalendarDatabase`, and `AccountManager` initializes / removes the account in `BookableResourcesManager` too. `:Meet` is
   wired by Core (`MeetModule`) and has no table; `AccountManager` initializes / removes the account in `MeetManager` too.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `meetManager` / `bookableResourcesManager`, and inherits
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `bookableResourcesManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
   `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `contacts` giving the path of the dedicated contacts database.
 
@@ -184,9 +184,12 @@ ones. `sync` replaces the local resources of each account (the API sends no ETag
 
 ### kMeet
 
-`MeetManager.generateRoomUrl` calls `GET /api/pim/calendar/meet-room` on `calendar.infomaniak.com`, which creates a new
-kMeet room on each call. Nothing is cached nor written: attaching the URL to an event is the
-`X-INFOMANIAK-MEET-ROOM-URL` property of the CalDAV event.
+`CalendarManager.generateMeetRoom(calendarId)` creates a new kMeet room on each call, for the account of that calendar:
+`MeetManager` calls `GET /api/pim/calendar/meet-room` on `calendar.infomaniak.com`; failures are thrown as
+`CalendarSdkException`, with the `MeetException` as `cause`. The returned `MeetRoom` goes in `EventEditData.meetRoom`: saving the edit writes the `X-INFOMANIAK-MEET-ROOM-URL` property
+of the CalDAV event, and `null` removes it. Like the web, the room also gets a localized block (`CalendarResources`) in
+`DESCRIPTION`, between the `/*---…---*/` markers the edit already hides: saving a new room appends its block in place of
+the previous room's, and removing the room removes it.
 
 ### Contacts permissions
 

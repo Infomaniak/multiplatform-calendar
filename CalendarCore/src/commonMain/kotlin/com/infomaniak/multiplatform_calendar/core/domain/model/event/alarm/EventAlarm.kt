@@ -31,11 +31,14 @@ public data class EventAlarm(
 ) {
 
     /** The server's [uid] when it gave one, an [AlarmId.Local] otherwise, which is not unique. */
-    public val id: AlarmId get() = uid ?: AlarmId.Local("${action.toIcalString()}@${trigger.canonical()}")
+    public val id: AlarmId get() = uid ?: localAlarmId(action, trigger)
 }
 
 /** Written so two triggers firing alike read alike, `-PT15M` and `-PT900S` included. */
-private fun AlarmTrigger.canonical(): String = when (this) {
-    is AlarmTrigger.Relative -> "R:${offset.inWholeSeconds}:${relatedTo.name}"
-    is AlarmTrigger.Absolute -> "A:${instant.epochSeconds}"
+internal fun localAlarmId(action: AlarmAction, trigger: AlarmTrigger): AlarmId.Local {
+    val canonical = when (trigger) {
+        is AlarmTrigger.Relative -> "R:${trigger.offset.inWholeSeconds}:${trigger.relatedTo.name}"
+        is AlarmTrigger.Absolute -> "A:${trigger.instant.epochSeconds}"
+    }
+    return AlarmId.Local("${action.toIcalString()}@$canonical")
 }

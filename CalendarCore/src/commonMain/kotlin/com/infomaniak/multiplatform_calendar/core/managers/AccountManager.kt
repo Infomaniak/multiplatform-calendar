@@ -17,13 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
-import com.infomaniak.multiplatform_calendar.meeting_rooms.MeetingRoomsManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
@@ -42,14 +42,14 @@ public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
     private val contactsManager: ContactsManager,
     private val meetManager: MeetManager,
-    private val meetingRoomsManager: MeetingRoomsManager,
+    private val bookableResourcesManager: BookableResourcesManager,
     private val sdkCaller: SdkCaller,
 ) {
 
-    /** Makes each [initAccount] / [removeAccount] update the calendar, the contacts, kMeet and the meeting rooms as a single step. */
+    /** Makes each [initAccount] / [removeAccount] update the calendar, the contacts, kMeet and the bookable resources as a single step. */
     private val accountLifecycleMutex = Mutex()
 
-    /** Registers [accountId] for the calendar, the contacts, kMeet and the meeting rooms. Call it at startup and on login. */
+    /** Registers [accountId] for the calendar, the contacts, kMeet and the bookable resources. Call it at startup and on login. */
     @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun initAccount(
         accountId: AccountId,
@@ -61,7 +61,7 @@ public class AccountManager internal constructor(
                 accountRepository.storeCredentials(accountId, credentials.toRemote())
                 contactsManager.initAccount(accountId, accessToken)
                 meetManager.initAccount(accountId, accessToken)
-                meetingRoomsManager.initAccount(accountId, accessToken)
+                bookableResourcesManager.initAccount(accountId, accessToken)
             }
         }
     }
@@ -73,7 +73,7 @@ public class AccountManager internal constructor(
                 accountRepository.removeCredentials(accountId)
                 contactsManager.removeAccount(accountId)
                 meetManager.removeAccount(accountId)
-                meetingRoomsManager.removeAccount(accountId)
+                bookableResourcesManager.removeAccount(accountId)
             }
         }
     }

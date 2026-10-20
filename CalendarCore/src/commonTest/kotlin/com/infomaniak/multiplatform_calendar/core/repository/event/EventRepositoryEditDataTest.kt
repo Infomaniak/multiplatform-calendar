@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -210,6 +211,26 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
     }
 
     @Test
+    fun updateEvent_onAllOccurrences_withTheSameGeneratedRoom_leavesTheOverrideRoom() = runTest {
+        seedCalendar()
+        val master = meetRoomMaster()
+        val base = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        val override = base.copy(content = base.content.copy(meetRoomUrl = OTHER_MEET_ROOM_URL))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", overrides = listOf(override))))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0))
+
+        val data = assertNotNull(repository.getEditData(occurrence)).copy(
+            title = "Renamed",
+            meetRoom = MeetRoom(MEET_ROOM_URL, descriptionBlock = "Join $MEET_ROOM_URL"),
+        )
+        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+
+        val edit = fakeCaldav.overrideUpserts.single().second
+        assertEquals("Renamed", edit.summary)
+        assertEquals(OTHER_MEET_ROOM_URL, edit.meetRoomUrl)
+    }
+
+    @Test
     fun getEditData_returnsNullWhenTheEventIsGone() = runTest {
         assertNull(repository.getEditData(OccurrenceId.Master(EventId("https://cal/main/unknown.ics"))))
     }
@@ -254,3 +275,4 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
 }
 
 private const val MEET_ROOM_URL = "https://kmeet.infomaniak.com/abc"
+private const val OTHER_MEET_ROOM_URL = "https://kmeet.infomaniak.com/xyz"

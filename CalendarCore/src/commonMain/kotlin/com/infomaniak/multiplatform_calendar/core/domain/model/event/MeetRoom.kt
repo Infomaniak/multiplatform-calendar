@@ -18,4 +18,4 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 @ConsistentCopyVisibility
-public data class MeetRoom internal constructor(val url: String)
+public data class MeetRoom internal constructor(val url: String, internal val descriptionBlock: String? = null)

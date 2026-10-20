@@ -17,8 +17,12 @@
  */
 package com.infomaniak.multiplatform_calendar.core.extensions
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
+
+private const val MARKER = "/*----------------------------------------*/"
 private const val MARKED_BLOCKS = "/\\*----------------------------------------\\*/"
 private val MARKED_BLOCKS_REGEX = Regex("$MARKED_BLOCKS[\\s\\S]*?$MARKED_BLOCKS")
+private val SPACED_MARKED_BLOCKS_REGEX = Regex("\\s*$MARKED_BLOCKS[\\s\\S]*?$MARKED_BLOCKS")
 
 internal fun String.removeMarkedBlocks(): String {
     return this.replace(MARKED_BLOCKS_REGEX, "").trim()
@@ -49,4 +53,21 @@ internal fun String?.withMarkedBlocksFrom(original: String?): String? {
             if (blocks.hasNext()) append("\n\n")
         }
     }
+}
+
+internal fun markedBlock(text: String): String = "$MARKER\n$text\n\n$MARKER"
+
+/** Swaps the marked block holding [previousUrl] for the one of [meetRoom], when the room changed. */
+internal fun String?.withMeetRoomBlock(previousUrl: String?, meetRoom: MeetRoom?): String? {
+    val previous = previousUrl?.ifBlank { null }
+    if (meetRoom?.url == previous) return this
+
+    val withoutPrevious = when (previous) {
+        null -> this
+        else -> this
+            ?.replace(SPACED_MARKED_BLOCKS_REGEX) { block -> if (previous in block.value) "" else block.value }
+            ?.trim()
+    }
+    val block = meetRoom?.descriptionBlock ?: return withoutPrevious?.ifEmpty { null }
+    return if (withoutPrevious.isNullOrEmpty()) block else "$withoutPrevious\n\n$block"
 }

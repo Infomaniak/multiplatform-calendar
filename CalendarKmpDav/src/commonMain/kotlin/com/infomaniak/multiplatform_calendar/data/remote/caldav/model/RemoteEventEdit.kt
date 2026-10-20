@@ -40,6 +40,7 @@ data class RemoteEventEdit(
     val location: String?,
     val description: String?,
     val transp: String?,
+    val meetRoomUrl: String?,
     val timeZones: List<RemoteVTimeZone>,
     val colorChange: RemoteColorChange,
     val recurrenceChange: RemoteRecurrenceChange,

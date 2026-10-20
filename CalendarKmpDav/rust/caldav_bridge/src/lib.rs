@@ -43,5 +43,7 @@ mod attendees_tests;
 #[cfg(test)]
 mod events_tests;
 #[cfg(test)]
+mod meet_room_tests;
+#[cfg(test)]
 mod principal_tests;
 

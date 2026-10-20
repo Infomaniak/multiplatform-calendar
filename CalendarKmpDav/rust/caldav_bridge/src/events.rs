@@ -611,6 +611,7 @@ fn apply_content_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "LOCATION", edit.location.as_deref());
     set_or_clear(event, "DESCRIPTION", edit.description.as_deref());
     set_or_clear(event, "TRANSP", edit.transp.as_deref());
+    set_or_clear(event, "X-INFOMANIAK-MEET-ROOM-URL", edit.meet_room_url.as_deref());
     apply_color_change(event, &edit.color_change);
     apply_attendees_change(event, &edit.attendees_change);
     apply_organizer_change(event, &edit.organizer_change);

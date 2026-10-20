@@ -540,7 +540,7 @@ internal class EventRepository(
             edit = tail.toRemoteEdit(stamp, seedContent, alarmOrigin),
             seed = source.pivotSeed(),
         )
-        val tailAlarms = tail.data.alarms.statedAlarms.toEntities(alarmOrigin)
+        val tailAlarms = tail.data.alarms.statedAlarms.toEntities(alarmOrigin, tail.data.title)
         val resource = carryOverridesInto(built, carried, tail, tailAlarms, stamp, source)
         val calendarId = tail.data.calendarId
 

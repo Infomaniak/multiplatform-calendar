@@ -153,6 +153,49 @@ class EventEditMapperAlarmTest {
     }
 
     @Test
+    fun newDisplayAlarm_takesTheEventTitleAsDescription() {
+        val edit = editData(alarms = listOf(newAlarm(AlarmAction.Display)), title = "Standup")
+            .toRemoteEdit(stamp = STAMP, previous = null)
+
+        assertEquals("Standup", assertNotNull(edit.alarms).single().description)
+    }
+
+    @Test
+    fun newDisplayAlarm_onAnUntitledEvent_keepsAnEmptyDescription() {
+        val edit = editData(alarms = listOf(newAlarm(AlarmAction.Display)), title = "")
+            .toRemoteEdit(stamp = STAMP, previous = null)
+
+        assertEquals("", assertNotNull(edit.alarms).single().description)
+    }
+
+    @Test
+    fun newAlarmOfAnotherAction_hasNoDescription() {
+        val edit = editData(alarms = listOf(newAlarm(AlarmAction.Audio), newAlarm(AlarmAction.Email)), title = "Standup")
+            .toRemoteEdit(stamp = STAMP, previous = null)
+
+        assertEquals(listOf(null, null), assertNotNull(edit.alarms).map { it.description })
+    }
+
+    @Test
+    fun alarmTurnedIntoDisplay_withoutDescription_takesTheEventTitle() {
+        val stored = alarmEntity(triggerRelative = (-15).minutes, action = "AUDIO", description = null)
+
+        val edit = editData(alarms = listOf(stored.read().copy(action = AlarmAction.Display)), title = "Standup")
+            .toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
+
+        assertEquals("Standup", assertNotNull(edit.alarms).single().description)
+    }
+
+    @Test
+    fun storedDisplayAlarm_withoutDescription_isNotSeenAsAChange() {
+        val stored = alarmEntity(triggerRelative = (-15).minutes, description = null)
+
+        val edit = editData(alarms = listOf(stored.read())).toRemoteEdit(stamp = STAMP, previous = eventEntity(listOf(stored)))
+
+        assertNull(edit.alarms)
+    }
+
+    @Test
     fun noPreviousEntity_andEmptyAlarms_emitsUnchanged() {
         val edit = editData(alarms = emptyList()).toRemoteEdit(stamp = STAMP, previous = null)
 
@@ -271,8 +314,8 @@ class EventEditMapperAlarmTest {
         repetition = repetition,
     )
 
-    private fun editData(alarms: List<EventAlarm>) = EventEditData(
-        title = "Test",
+    private fun editData(alarms: List<EventAlarm>, title: String = "Test") = EventEditData(
+        title = title,
         timing = zonedTiming(LocalDateTime(2026, 6, 15, 10, 0), LocalDateTime(2026, 6, 15, 11, 0), TimeZone.UTC),
         location = null,
         description = null,

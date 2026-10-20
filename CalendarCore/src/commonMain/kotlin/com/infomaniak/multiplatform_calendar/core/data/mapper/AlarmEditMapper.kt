@@ -37,23 +37,31 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlar
 internal fun resolveAlarmEdits(
     alarms: List<EventAlarm>,
     previous: List<AlarmEntity>,
+    eventTitle: String,
     origin: List<AlarmEntity> = previous,
 ): List<RemoteAlarmEdit>? {
     val previousEditable = previous.filterNot { AlarmAction.fromIcalString(it.action) is AlarmAction.Unknown }
-    val projected = alarms.toEntities(origin)
+    val projected = alarms.toEntities(origin, eventTitle)
     return if (projected == previousEditable) null else projected.map(AlarmEntity::toRemoteEdit)
 }
 
 /**
  * The editable [EventAlarm]s as stored, each taking its hidden properties back from the [origin] alarm
  * its [EventAlarm.id] names: [origin] is the VEVENT the ids were read from.
+ *
+ * An alarm becoming a `DISPLAY` one gets [eventTitle] as its required `DESCRIPTION` when it has none.
  */
-internal fun List<EventAlarm>.toEntities(origin: List<AlarmEntity>): List<AlarmEntity> {
+internal fun List<EventAlarm>.toEntities(origin: List<AlarmEntity>, eventTitle: String): List<AlarmEntity> {
     val sources = origin.withDomain().associate { (entity, alarm) -> alarm.id to entity }.toMutableMap()
     return filterNot { it.action is AlarmAction.Unknown }.map { alarm ->
         val source = alarm.id?.let(sources::remove)
-        alarm.toEntity(source ?: AlarmEntity(action = alarm.action.toIcalString()))
+        alarm.toEntity(source ?: AlarmEntity(action = alarm.action.toIcalString())).describedBy(eventTitle, source)
     }
+}
+
+private fun AlarmEntity.describedBy(eventTitle: String, source: AlarmEntity?): AlarmEntity {
+    val becomesDisplay = action == AlarmAction.Display.toIcalString() && source?.action != action
+    return if (becomesDisplay && description == null) copy(description = eventTitle) else this
 }
 
 private fun EventAlarm.toEntity(source: AlarmEntity): AlarmEntity {

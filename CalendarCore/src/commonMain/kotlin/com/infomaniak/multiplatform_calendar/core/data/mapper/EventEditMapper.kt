@@ -114,6 +114,7 @@ internal fun EventEditData.toRemoteEdit(
             is AlarmListEdit.Replace -> resolveAlarmEdits(
                 alarms = alarmEdit.alarms,
                 previous = previous?.content?.alarms.orEmpty(),
+                eventTitle = title,
                 origin = alarmOrigin,
             )
         },
@@ -167,6 +168,7 @@ internal fun EventEditData.toOverrideEdit(
             is AlarmListEdit.Replace -> resolveAlarmEdits(
                 alarms = alarmEdit.alarms,
                 previous = previousAlarms,
+                eventTitle = title,
                 origin = alarmOrigin,
             )
         },

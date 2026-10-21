@@ -295,6 +295,16 @@ pub struct RecurrenceIdSpec {
     pub value: String,
 }
 
+/// The bounds an instance is shown on, in the forms [`EventEdit`] describes.
+#[derive(uniffi::Record)]
+pub struct OccurrenceSlot {
+    pub dtstart: String,
+    pub dtstart_tzid: Option<String>,
+    pub dtend: Option<String>,
+    pub dtend_tzid: Option<String>,
+    pub all_day: bool,
+}
+
 /// Overrides to drop from the resource while its master is patched (RFC 5545 §3.8.4.4).
 ///
 /// Deleting an instance that carries an override means dropping its VEVENT too, otherwise the

@@ -27,6 +27,7 @@ use crate::models::{
     IcalDateValueEntry,
     IcalDateValueKind,
     InfomaniakAttachEntry,
+    OccurrenceSlot,
     OrganizerEntry,
     OverrideRemoval,
     RecurrenceChange,
@@ -616,18 +617,32 @@ fn apply_content_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     apply_attendees_change(event, &edit.attendees_change);
     apply_organizer_change(event, &edit.organizer_change);
 
+    set_bounds(
+        event,
+        &OccurrenceSlot {
+            dtstart: edit.dtstart.clone(),
+            dtstart_tzid: edit.dtstart_tzid.clone(),
+            dtend: edit.dtend.clone(),
+            dtend_tzid: edit.dtend_tzid.clone(),
+            all_day: edit.all_day,
+        },
+    );
+}
+
+/// Replace `DTSTART`/`DTEND`, dropping any `DURATION` since the two are mutually exclusive.
+pub(crate) fn set_bounds(event: &mut icalendar::Event, slot: &OccurrenceSlot) {
     event.remove_property("DTSTART");
     event.remove_property("DTEND");
     event.remove_property("DURATION");
-    if edit.all_day {
-        event.append_property(Property::new("DTSTART", &edit.dtstart).add_parameter("VALUE", "DATE").done());
-        if let Some(dtend) = edit.dtend.as_deref() {
+    if slot.all_day {
+        event.append_property(Property::new("DTSTART", &slot.dtstart).add_parameter("VALUE", "DATE").done());
+        if let Some(dtend) = slot.dtend.as_deref() {
             event.append_property(Property::new("DTEND", dtend).add_parameter("VALUE", "DATE").done());
         }
     } else {
-        event.append_property(date_time_property("DTSTART", &edit.dtstart, edit.dtstart_tzid.as_deref()));
-        if let Some(dtend) = edit.dtend.as_deref() {
-            event.append_property(date_time_property("DTEND", dtend, edit.dtend_tzid.as_deref()));
+        event.append_property(date_time_property("DTSTART", &slot.dtstart, slot.dtstart_tzid.as_deref()));
+        if let Some(dtend) = slot.dtend.as_deref() {
+            event.append_property(date_time_property("DTEND", dtend, slot.dtend_tzid.as_deref()));
         }
     }
 }
@@ -771,7 +786,11 @@ fn bump_revision(event: &mut icalendar::Event, stamp: &str) {
         None => 0,
     };
     event.add_property("SEQUENCE", next_sequence.to_string());
+    refresh_stamp(event, stamp);
+}
 
+/// Set DTSTAMP/LAST-MODIFIED to `stamp`.
+pub(crate) fn refresh_stamp(event: &mut icalendar::Event, stamp: &str) {
     event.remove_property("DTSTAMP");
     event.add_property("DTSTAMP", stamp);
     event.remove_property("LAST-MODIFIED");

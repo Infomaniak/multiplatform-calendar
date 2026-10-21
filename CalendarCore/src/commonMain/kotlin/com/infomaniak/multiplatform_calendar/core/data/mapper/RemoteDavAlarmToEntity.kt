@@ -22,10 +22,10 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetit
 import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseICalDuration
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.isValidAlarmRepetition
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAlarm
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
+import kotlin.time.Duration
 
 internal fun RemoteDavAlarm.toEntity(): AlarmEntity {
     return AlarmEntity(
@@ -45,3 +45,6 @@ internal fun RemoteDavAlarm.toEntity(): AlarmEntity {
         },
     )
 }
+
+/** RFC 5545: `REPEAT` is not negative and `DURATION` is positive. */
+private fun isValidAlarmRepetition(count: Int, interval: Duration): Boolean = count >= 0 && interval.isPositive()

@@ -88,6 +88,7 @@ internal fun EventEditData.toRemoteEdit(
     previousMeetRoomUrl: String? = previous?.content?.meetRoomUrl,
     previousAttendees: List<AttendeeEntity> = previous?.content?.attendees.orEmpty(),
     previousOrganizer: OrganizerEntity? = previous?.content?.organizer,
+    alarmOrigin: List<AlarmEntity> = previous?.content?.alarms.orEmpty(),
 ): RemoteEventEdit {
     val dtStart = timing.bounds.icalStart()
     val dtEnd = timing.bounds.icalEnd()
@@ -110,7 +111,12 @@ internal fun EventEditData.toRemoteEdit(
         overrideRemoval = droppedOverrides.toOverrideRemoval(timing, knownOverrides),
         alarms = when (val alarmEdit = alarms) {
             AlarmListEdit.Preserve -> null
-            is AlarmListEdit.Replace -> resolveAlarmEdits(alarmEdit.alarms, previous?.content?.alarms.orEmpty())
+            is AlarmListEdit.Replace -> resolveAlarmEdits(
+                alarms = alarmEdit.alarms,
+                previous = previous?.content?.alarms.orEmpty(),
+                eventTitle = title,
+                origin = alarmOrigin,
+            )
         },
         attendeesChange = resolveAttendeesChange(previousAttendees),
         organizerChange = resolveOrganizerChange(previousOrganizer),
@@ -136,6 +142,7 @@ internal fun EventEditData.toOverrideEdit(
     previousAlarms: List<AlarmEntity>,
     previousAttendees: List<AttendeeEntity>,
     previousOrganizer: OrganizerEntity?,
+    alarmOrigin: List<AlarmEntity> = previousAlarms,
 ): RemoteEventEdit {
     val dtStart = timing.bounds.icalStart()
     val dtEnd = timing.bounds.icalEnd()
@@ -158,7 +165,12 @@ internal fun EventEditData.toOverrideEdit(
         overrideRemoval = RemoteOverrideRemoval.Unchanged,
         alarms = when (val alarmEdit = alarms) {
             AlarmListEdit.Preserve -> null
-            is AlarmListEdit.Replace -> resolveAlarmEdits(alarmEdit.alarms, previous = previousAlarms)
+            is AlarmListEdit.Replace -> resolveAlarmEdits(
+                alarms = alarmEdit.alarms,
+                previous = previousAlarms,
+                eventTitle = title,
+                origin = alarmOrigin,
+            )
         },
         attendeesChange = resolveAttendeesChange(previousAttendees),
         organizerChange = resolveOrganizerChange(previousOrganizer),

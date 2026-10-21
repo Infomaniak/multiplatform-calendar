@@ -18,12 +18,12 @@
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
-import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
-import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlarmRepetition
 
@@ -37,46 +37,54 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlar
 internal fun resolveAlarmEdits(
     alarms: List<EventAlarm>,
     previous: List<AlarmEntity>,
+    eventTitle: String,
+    origin: List<AlarmEntity> = previous,
 ): List<RemoteAlarmEdit>? {
-    val editable = alarms.filterNot { it.action is AlarmAction.Unknown }
     val previousEditable = previous.filterNot { AlarmAction.fromIcalString(it.action) is AlarmAction.Unknown }
-    val projected = editable.map(EventAlarm::toEntity)
-    return if (projected == previousEditable) null else editable.map(EventAlarm::toRemoteEdit)
+    val projected = alarms.toEntities(origin, eventTitle)
+    return if (projected == previousEditable) null else projected.map(AlarmEntity::toRemoteEdit)
 }
 
-internal fun EventAlarm.toEntity(): AlarmEntity {
+/**
+ * The editable [EventAlarm]s as stored, each taking its hidden properties back from the [origin] alarm
+ * its [EventAlarm.id] names: [origin] is the VEVENT the ids were read from.
+ *
+ * An alarm becoming a `DISPLAY` one gets [eventTitle] as its required `DESCRIPTION` when it has none.
+ */
+internal fun List<EventAlarm>.toEntities(origin: List<AlarmEntity>, eventTitle: String): List<AlarmEntity> {
+    val sources = origin.withDomain().associate { (entity, alarm) -> alarm.id to entity }.toMutableMap()
+    return filterNot { it.action is AlarmAction.Unknown }.map { alarm ->
+        val source = alarm.id?.let(sources::remove)
+        alarm.toEntity(source ?: AlarmEntity(action = alarm.action.toIcalString())).describedBy(eventTitle, source)
+    }
+}
+
+private fun AlarmEntity.describedBy(eventTitle: String, source: AlarmEntity?): AlarmEntity {
+    val becomesDisplay = action == AlarmAction.Display.toIcalString() && source?.action != action
+    return if (becomesDisplay && description == null) copy(description = eventTitle) else this
+}
+
+private fun EventAlarm.toEntity(source: AlarmEntity): AlarmEntity {
     val (relative, absolute, relatedTo) = when (val alarmTrigger = trigger) {
         is AlarmTrigger.Relative -> Triple(alarmTrigger.offset, null, alarmTrigger.relatedTo)
         is AlarmTrigger.Absolute -> Triple(null, alarmTrigger.instant, TriggerRelation.Start)
     }
-    return AlarmEntity(
-        uid = uid?.value,
+    return source.copy(
+        uid = (id as? AlarmId.Uid)?.value,
         action = action.toIcalString(),
         triggerRelative = relative,
         triggerAbsolute = absolute,
         triggerRelatedTo = relatedTo,
-        description = description,
-        summary = summary,
-        attendees = attendees,
-        attachments = attachments,
-        repetition = repetition?.let { AlarmRepetitionEntity(it.count, it.interval) },
     )
 }
 
-private fun EventAlarm.toRemoteEdit(): RemoteAlarmEdit {
-    val (duration, absolute, related) = when (val alarmTrigger = trigger) {
-        is AlarmTrigger.Relative -> Triple(
-            alarmTrigger.offset.toIsoString(),
-            null,
-            if (alarmTrigger.relatedTo == TriggerRelation.End) "END" else "START",
-        )
-        is AlarmTrigger.Absolute -> Triple(null, alarmTrigger.instant.toICalUtcDateTime(), "START")
-    }
+private fun AlarmEntity.toRemoteEdit(): RemoteAlarmEdit {
+    val related = if (triggerRelative != null && triggerRelatedTo == TriggerRelation.End) "END" else "START"
     return RemoteAlarmEdit(
-        uid = uid?.value,
-        action = action.toIcalString(),
-        triggerDuration = duration,
-        triggerAbsolute = absolute,
+        uid = uid,
+        action = action,
+        triggerDuration = triggerRelative?.toIsoString(),
+        triggerAbsolute = triggerAbsolute?.toICalUtcDateTime(),
         triggerRelatedTo = related,
         description = description,
         summary = summary,

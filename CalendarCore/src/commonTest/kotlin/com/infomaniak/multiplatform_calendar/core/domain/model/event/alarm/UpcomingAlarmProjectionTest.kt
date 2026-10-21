@@ -316,7 +316,7 @@ class UpcomingAlarmProjectionTest {
     )
 
     private fun reminder(before: Duration, uid: String? = null) =
-        EventAlarm(AlarmAction.Display, AlarmTrigger.Relative(-before, TriggerRelation.Start), uid = uid?.let(AlarmId::Uid))
+        EventAlarm(AlarmAction.Display, AlarmTrigger.Relative(-before, TriggerRelation.Start), id = uid?.let(AlarmId::Uid))
 
     /** An hour-long event on `2026-02-<day>` at 10:00 UTC. */
     private fun eventAt(day: Int, alarms: List<EventAlarm>): Event {

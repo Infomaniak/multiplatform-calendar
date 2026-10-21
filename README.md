@@ -191,6 +191,13 @@ of the CalDAV event, and `null` removes it. Like the web, the room also gets a l
 `DESCRIPTION`, between the `/*---…---*/` markers the edit already hides: saving a new room appends its block in place of
 the previous room's, and removing the room removes it.
 
+### Invitation replies
+
+`CalendarManager.updateParticipationStatus(target, reply)` answers an invitation with a `ParticipationReply` (`Accepted`,
+`Declined`, `Tentative`). Only the user's `PARTSTAT` changes and `SEQUENCE` is left untouched (RFC 6638 §3.2.2.1); the server
+then sends the iTIP `REPLY` to the organizer. `AllOccurrences` updates the master and every override listing the user,
+`ThisOccurrence` updates the occurrence's override and creates it if needed, and `ThisAndFollowing` is rejected.
+
 ### Contacts permissions
 
 `:Contacts` reads the device contacts but never requests the permission itself: until access is granted, only the
@@ -284,7 +291,7 @@ request.
   cancelling after the request has been dispatched to the server leaves the outcome
   **undefined** (the server may or may not have applied the change). Callers must
   re-sync to reconcile.
-- **Pure-CPU exports** (`patchEventIcs`, `buildEventIcs`) stay synchronous and are
+- **Pure-CPU exports** (`patchEventIcs`, `buildEventIcs`, `setParticipationStatus`) stay synchronous and are
   wrapped in `withContext(Dispatchers.Default)` inside `RustCaldavBridge` so they
   never block the caller's thread.
 

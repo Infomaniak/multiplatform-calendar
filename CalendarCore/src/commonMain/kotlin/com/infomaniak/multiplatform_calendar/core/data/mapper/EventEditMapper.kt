@@ -50,6 +50,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColo
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOccurrenceSlot
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Cleared
@@ -175,6 +176,19 @@ internal fun EventEditData.toOverrideEdit(
         attendeesChange = resolveAttendeesChange(previousAttendees),
         organizerChange = resolveOrganizerChange(previousOrganizer),
         stamp = stamp,
+    )
+}
+
+/** The bounds of this timing, in the forms [RemoteEventEdit] describes. */
+internal fun EventTiming.toOccurrenceSlot(): RemoteOccurrenceSlot {
+    val dtStart = bounds.icalStart()
+    val dtEnd = bounds.icalEnd()
+    return RemoteOccurrenceSlot(
+        dtStart = dtStart.value,
+        dtStartTzid = dtStart.tzid,
+        dtEnd = dtEnd.value,
+        dtEndTzid = dtEnd.tzid,
+        allDay = isAllDay,
     )
 }
 

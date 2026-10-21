@@ -36,6 +36,9 @@ internal interface AccountDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(account: AccountEntity)
 
+    @Query("SELECT * FROM accounts WHERE id = :accountId")
+    suspend fun getAccount(accountId: AccountId): AccountEntity?
+
     @Query("UPDATE accounts SET emails = :emails WHERE id = :accountId")
     suspend fun updateEmails(accountId: AccountId, emails: List<String>)
 

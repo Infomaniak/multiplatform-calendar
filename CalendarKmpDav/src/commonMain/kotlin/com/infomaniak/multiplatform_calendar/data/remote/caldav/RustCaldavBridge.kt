@@ -42,6 +42,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOccurrenceSlot
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
@@ -50,6 +51,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecu
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Set
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange.Unchanged
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTimeZone
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import kotlinx.coroutines.CoroutineDispatcher
@@ -73,11 +75,13 @@ import uniffi.caldav_bridge.IcalDateValueEntry
 import uniffi.caldav_bridge.IcalDateValueKind
 import uniffi.caldav_bridge.InfomaniakAttachEntry
 import uniffi.caldav_bridge.NameChange
+import uniffi.caldav_bridge.OccurrenceSlot
 import uniffi.caldav_bridge.OrganizerChange
 import uniffi.caldav_bridge.OrganizerEntry
 import uniffi.caldav_bridge.OverrideRemoval
 import uniffi.caldav_bridge.RecurrenceChange
 import uniffi.caldav_bridge.RecurrenceIdSpec
+import uniffi.caldav_bridge.ReplyScope
 import uniffi.caldav_bridge.VTimeZoneSpec
 import uniffi.caldav_bridge.VeventSeed
 import uniffi.caldav_bridge.AlarmEdit as RustAlarmEdit
@@ -91,6 +95,7 @@ import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
 import uniffi.caldav_bridge.discover as rustDiscover
 import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
+import uniffi.caldav_bridge.setParticipationStatus as rustSetParticipationStatus
 import uniffi.caldav_bridge.syncCollection as rustSyncCollection
 import uniffi.caldav_bridge.updateCalendar as rustUpdateCalendar
 import uniffi.caldav_bridge.updateEvent as rustUpdateEvent
@@ -277,6 +282,26 @@ internal class RustCaldavBridge(
             throw e.toCaldavBridgeException("upsertOverrideIcs")
         }
     }
+
+    override suspend fun setParticipationStatus(
+        icsData: String,
+        scope: RemoteReplyScope,
+        emails: List<String>,
+        partStat: String,
+        stamp: String,
+    ): RemoteDavEvent = withContext(cpuDispatcher) {
+        try {
+            rustSetParticipationStatus(
+                icsData = icsData,
+                scope = scope.toRust(),
+                emails = emails,
+                partstat = partStat,
+                stamp = stamp,
+            ).toRemoteEvent()
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("setParticipationStatus")
+        }
+    }
 }
 
 private fun DavAccount.toRust() = RustDavAccount(
@@ -372,6 +397,19 @@ private fun RemoteOverrideRemoval.toRust(): OverrideRemoval = when (this) {
 private fun RemoteDateListLine.toRust() = DateListLine(tzid = tzid, isDateOnly = isDateOnly, values = values)
 
 private fun RemoteRecurrenceId.toRust() = RecurrenceIdSpec(tzid = tzid, isDateOnly = isDateOnly, value = value)
+
+private fun RemoteReplyScope.toRust(): ReplyScope = when (this) {
+    RemoteReplyScope.Series -> ReplyScope.Series
+    is RemoteReplyScope.Occurrence -> ReplyScope.Occurrence(recurrenceId.toRust(), slot.toRust())
+}
+
+private fun RemoteOccurrenceSlot.toRust() = OccurrenceSlot(
+    dtstart = dtStart,
+    dtstartTzid = dtStartTzid,
+    dtend = dtEnd,
+    dtendTzid = dtEndTzid,
+    allDay = allDay,
+)
 
 private fun RemoteVeventSeed.toRust() = VeventSeed(ics = icsData, recurrenceId = recurrenceId?.toRust())
 

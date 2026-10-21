@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditDa
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationReply
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
@@ -267,6 +268,23 @@ public class CalendarManager internal constructor(
             sdkCaller.run(operation = "update $target") {
                 val credentials = getCredentialsForCalendar(data.calendarId)
                 eventRepository.updateEvent(credentials, target, data)
+            }
+        }
+
+    /**
+     * Answer the invitation of the event [target] designates, as offered by
+     * [targetFor][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.targetFor].
+     *
+     * Fails on [RecurrenceScope.ThisAndFollowing], an attendee being unable to split the series, and when
+     * the user is not among the attendees.
+     */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun updateParticipationStatus(target: OccurrenceTarget, reply: ParticipationReply): Unit =
+        withContext(Dispatchers.Default) {
+            sdkCaller.run(operation = "reply $reply to $target") {
+                val accountId = eventRepository.getAccountIdByEventId(target.occurrenceId.masterId)
+                val credentials = accountRepository.getCredentials(accountId)
+                eventRepository.updateParticipationStatus(credentials, target, reply)
             }
         }
 

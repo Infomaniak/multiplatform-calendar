@@ -27,6 +27,7 @@ use crate::models::{
     IcalDateValueEntry,
     IcalDateValueKind,
     InfomaniakAttachEntry,
+    OccurrenceSlot,
     OrganizerEntry,
     OverrideRemoval,
     RecurrenceChange,
@@ -470,7 +471,7 @@ fn seeded_vevent(seed: &VeventSeed, keep_alarms: bool) -> Option<icalendar::Even
 /// leaves the zone free, so the same instance can be written in several forms and no comparison here
 /// could tell them apart without a time-zone database. The caller therefore owns that normalisation and
 /// passes the verbatim `RECURRENCE-ID` of the override it targets, which Kotlin records alongside it.
-fn override_vevent_index(calendar: &Calendar, spec: &RecurrenceIdSpec) -> Option<usize> {
+pub(crate) fn override_vevent_index(calendar: &Calendar, spec: &RecurrenceIdSpec) -> Option<usize> {
     calendar.components.iter().position(|component| match component {
         CalendarComponent::Event(event) => {
             let (value, tzid) = prop_with_tzid(event, "RECURRENCE-ID");
@@ -534,7 +535,7 @@ fn vevent_count(calendar: &Calendar) -> usize {
 }
 
 /// Build the `RECURRENCE-ID` property, carrying `VALUE=DATE` or `TZID` like an EXDATE line would.
-fn recurrence_id_property(spec: &RecurrenceIdSpec) -> Property {
+pub(crate) fn recurrence_id_property(spec: &RecurrenceIdSpec) -> Property {
     let mut prop = Property::new("RECURRENCE-ID", &spec.value);
     if spec.is_date_only {
         prop.add_parameter("VALUE", "DATE");
@@ -562,7 +563,7 @@ const MASTER_ONLY_PROPERTIES: [&str; 6] = ["RRULE", "EXDATE", "RDATE", "RECURREN
 /// `keep_alarms` carries the master's VALARMs over, which is what an edit leaving alarms alone means.
 /// It must be `false` when the edit replaces them: the new ones are spliced in textually afterwards,
 /// and the seeded ones would survive beside them as duplicates. Uneditable VALARMs are carried either way.
-fn override_seeded_from(master: &icalendar::Event, keep_alarms: bool) -> icalendar::Event {
+pub(crate) fn override_seeded_from(master: &icalendar::Event, keep_alarms: bool) -> icalendar::Event {
     seeded_from(master, &MASTER_ONLY_PROPERTIES, keep_alarms)
 }
 
@@ -616,18 +617,32 @@ fn apply_content_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     apply_attendees_change(event, &edit.attendees_change);
     apply_organizer_change(event, &edit.organizer_change);
 
+    set_bounds(
+        event,
+        &OccurrenceSlot {
+            dtstart: edit.dtstart.clone(),
+            dtstart_tzid: edit.dtstart_tzid.clone(),
+            dtend: edit.dtend.clone(),
+            dtend_tzid: edit.dtend_tzid.clone(),
+            all_day: edit.all_day,
+        },
+    );
+}
+
+/// Replace `DTSTART`/`DTEND`, dropping any `DURATION` since the two are mutually exclusive.
+pub(crate) fn set_bounds(event: &mut icalendar::Event, slot: &OccurrenceSlot) {
     event.remove_property("DTSTART");
     event.remove_property("DTEND");
     event.remove_property("DURATION");
-    if edit.all_day {
-        event.append_property(Property::new("DTSTART", &edit.dtstart).add_parameter("VALUE", "DATE").done());
-        if let Some(dtend) = edit.dtend.as_deref() {
+    if slot.all_day {
+        event.append_property(Property::new("DTSTART", &slot.dtstart).add_parameter("VALUE", "DATE").done());
+        if let Some(dtend) = slot.dtend.as_deref() {
             event.append_property(Property::new("DTEND", dtend).add_parameter("VALUE", "DATE").done());
         }
     } else {
-        event.append_property(date_time_property("DTSTART", &edit.dtstart, edit.dtstart_tzid.as_deref()));
-        if let Some(dtend) = edit.dtend.as_deref() {
-            event.append_property(date_time_property("DTEND", dtend, edit.dtend_tzid.as_deref()));
+        event.append_property(date_time_property("DTSTART", &slot.dtstart, slot.dtstart_tzid.as_deref()));
+        if let Some(dtend) = slot.dtend.as_deref() {
+            event.append_property(date_time_property("DTEND", dtend, slot.dtend_tzid.as_deref()));
         }
     }
 }
@@ -674,7 +689,7 @@ pub fn build_event_ics(edit: EventEdit, seed: Option<VeventSeed>) -> Result<Even
 
 /// Reparse a freshly built/patched ICS back into an [`EventEntry`] so callers persist exactly what
 /// was serialized. `url`/`etag` are empty placeholders filled from the server response afterwards.
-fn reparse_edited(final_ics: String, context: &str) -> Result<EventEntry, CaldavError> {
+pub(crate) fn reparse_edited(final_ics: String, context: &str) -> Result<EventEntry, CaldavError> {
     parse_ics(String::new(), String::new(), final_ics)
         .ok_or_else(|| bridge_error(context, "reparse produced no VEVENT"))
 }
@@ -771,7 +786,11 @@ fn bump_revision(event: &mut icalendar::Event, stamp: &str) {
         None => 0,
     };
     event.add_property("SEQUENCE", next_sequence.to_string());
+    refresh_stamp(event, stamp);
+}
 
+/// Set DTSTAMP/LAST-MODIFIED to `stamp`.
+pub(crate) fn refresh_stamp(event: &mut icalendar::Event, stamp: &str) {
     event.remove_property("DTSTAMP");
     event.add_property("DTSTAMP", stamp);
     event.remove_property("LAST-MODIFIED");
@@ -804,7 +823,7 @@ fn master_vevent_index(calendar: &Calendar) -> Option<usize> {
 }
 
 /// The recurrence master VEVENT (see [`master_vevent_index`]), or `None` when the calendar has none.
-fn master_vevent(calendar: &Calendar) -> Option<&icalendar::Event> {
+pub(crate) fn master_vevent(calendar: &Calendar) -> Option<&icalendar::Event> {
     match &calendar.components[master_vevent_index(calendar)?] {
         CalendarComponent::Event(event) => Some(event),
         _ => None,

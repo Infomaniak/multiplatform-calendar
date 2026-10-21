@@ -36,6 +36,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainWithAlarms
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntities
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toOccurrenceSlot
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteRecurrenceId
@@ -56,6 +57,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationReply
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
@@ -93,6 +96,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemo
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import dev.zacsweers.metro.AppScope
@@ -727,6 +731,54 @@ internal class EventRepository(
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
         eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+    }
+
+    /**
+     * Answer the invitation as [reply], for the whole resource or as far along the series as [target] says.
+     *
+     * Only the user's `PARTSTAT` changes, the server relaying it to the organizer (RFC 6638 §3.2.2).
+     */
+    suspend fun updateParticipationStatus(credentials: DavAccount, target: OccurrenceTarget, reply: ParticipationReply) {
+        val scope = (target as? OccurrenceTarget.Recurring)?.scope
+        require(scope != RecurrenceScope.ThisAndFollowing) { "An attendee cannot split the series of the organizer" }
+
+        val masterId = target.occurrenceId.masterId
+        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val replyScope = when (scope) {
+            RecurrenceScope.ThisOccurrence -> occurrenceReplyScope(target.recurrenceId, entity)
+            else -> RemoteReplyScope.Series
+        } ?: return
+        val emails = accountDao.getAccount(getAccountIdByEventId(masterId))?.emails.orEmpty()
+
+        val patched = caldavClient.setParticipationStatus(
+            icsData = previousIcs,
+            scope = replyScope,
+            emails = emails,
+            partStat = reply.toStatus().icalValue,
+            stamp = Clock.System.now().toICalUtcDateTime(),
+        )
+        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+    }
+
+    private fun ParticipationReply.toStatus(): ParticipationStatus = when (this) {
+        ParticipationReply.Accepted -> ParticipationStatus.Accepted
+        ParticipationReply.Declined -> ParticipationStatus.Declined
+        ParticipationReply.Tentative -> ParticipationStatus.Tentative
+    }
+
+    private suspend fun occurrenceReplyScope(
+        occurrenceId: OccurrenceId.Recurrence,
+        master: EventEntity,
+    ): RemoteReplyScope.Occurrence? {
+        if (!namesALiveOccurrence(occurrenceId)) return null
+        val masterTiming = master.toEditData().timing
+        val existing = eventDao.getOverrideOf(occurrenceId.masterId, occurrenceId.recurrenceKey)
+        val recurrenceId = existing?.toRemoteRecurrenceId(masterTiming)
+            ?: occurrenceId.recurrenceKey.toRemoteRecurrenceId(masterTiming)
+            ?: return null
+        val slot = getEditData(occurrenceId)?.timing?.toOccurrenceSlot() ?: return null
+        return RemoteReplyScope.Occurrence(recurrenceId, slot)
     }
 
     private suspend fun updateCrossCalendarEvent(

@@ -19,7 +19,7 @@
 // are best-effort: cancellation after the request is dispatched leaves the
 // server-side outcome undefined, and callers must re-sync to reconcile.
 //
-// Pure-CPU exports (`patch_event_ics`, `build_event_ics`) stay synchronous.
+// Pure-CPU exports (`patch_event_ics`, `build_event_ics`, `set_participation_status`) stay synchronous.
 
 uniffi::setup_scaffolding!();
 
@@ -30,6 +30,7 @@ mod config;
 mod error;
 mod ical_components;
 mod models;
+mod participation;
 mod principal;
 mod props;
 
@@ -44,6 +45,8 @@ mod attendees_tests;
 mod events_tests;
 #[cfg(test)]
 mod meet_room_tests;
+#[cfg(test)]
+mod participation_tests;
 #[cfg(test)]
 mod principal_tests;
 

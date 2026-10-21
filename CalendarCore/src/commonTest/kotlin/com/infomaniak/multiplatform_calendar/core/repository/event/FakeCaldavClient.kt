@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 
 /** Fake remote source: records create/delete calls and returns [patchedEvent] for patch/build,
@@ -52,8 +53,11 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     val buildSeeds = mutableListOf<RemoteVeventSeed?>()
     val overrideSeeds = mutableListOf<RemoteVeventSeed?>()
     val overrideUpserts = mutableListOf<Pair<RemoteRecurrenceId, RemoteEventEdit>>()
+    val replies = mutableListOf<Reply>()
     /** Every write in the order it was issued, for the tests that care about which one lands first. */
     val calls = mutableListOf<String>()
+
+    data class Reply(val icsData: String, val scope: RemoteReplyScope, val emails: List<String>, val partStat: String)
 
     override suspend fun discover(credentials: DavAccount) = RemoteDavDiscovery(emptyList(), emptyList())
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
@@ -92,6 +96,18 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
         overrideSeeds += seed
         calls += "override"
         return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+    }
+
+    override suspend fun setParticipationStatus(
+        icsData: String,
+        scope: RemoteReplyScope,
+        emails: List<String>,
+        partStat: String,
+        stamp: String,
+    ): RemoteDavEvent {
+        replies += Reply(icsData, scope, emails, partStat)
+        calls += "reply"
+        return patchedEvent
     }
 
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {

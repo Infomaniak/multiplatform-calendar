@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -109,6 +110,20 @@ interface CalendarSyncRemoteSource {
         edit: RemoteEventEdit,
         seed: RemoteVeventSeed? = null,
     ): RemoteDavEvent
+
+    /**
+     * Set to [partStat] the `PARTSTAT` of the `ATTENDEE` matching one of [emails] in the VEVENTs [scope]
+     * designates, leaving `SEQUENCE` to the organizer. Returns the whole resource reparsed (see
+     * [patchEventIcs]); fails when none of those VEVENTs lists the user. No network.
+     */
+    suspend fun setParticipationStatus(
+        icsData: String,
+        scope: RemoteReplyScope,
+        emails: List<String>,
+        partStat: String,
+        stamp: String,
+    ): RemoteDavEvent
+
     /** Create a new event. Returns the server-assigned URL + etag. */
     @Throws(CancellationException::class, CaldavBridgeException::class)
     suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef

@@ -295,6 +295,25 @@ pub struct RecurrenceIdSpec {
     pub value: String,
 }
 
+/// The VEVENTs a reply to an invitation is written to.
+#[derive(uniffi::Enum)]
+pub enum ReplyScope {
+    /// The master and every override listing the user.
+    Series,
+    /// The instance `recurrence_id` designates, detached on `slot` when no override stands for it yet.
+    Occurrence { recurrence_id: RecurrenceIdSpec, slot: OccurrenceSlot },
+}
+
+/// The bounds an instance is shown on, in the forms [`EventEdit`] describes.
+#[derive(uniffi::Record)]
+pub struct OccurrenceSlot {
+    pub dtstart: String,
+    pub dtstart_tzid: Option<String>,
+    pub dtend: Option<String>,
+    pub dtend_tzid: Option<String>,
+    pub all_day: bool,
+}
+
 /// Overrides to drop from the resource while its master is patched (RFC 5545 §3.8.4.4).
 ///
 /// Deleting an instance that carries an override means dropping its VEVENT too, otherwise the

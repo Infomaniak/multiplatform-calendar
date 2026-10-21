@@ -44,6 +44,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEven
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.Job
@@ -575,6 +576,15 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             recurrenceId: RemoteRecurrenceId,
             edit: RemoteEventEdit,
             seed: RemoteVeventSeed?,
+        ) =
+            error("not used")
+
+        override suspend fun setParticipationStatus(
+            icsData: String,
+            scope: RemoteReplyScope,
+            emails: List<String>,
+            partStat: String,
+            stamp: String,
         ) =
             error("not used")
 

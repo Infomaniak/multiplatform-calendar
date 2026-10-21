@@ -471,7 +471,7 @@ fn seeded_vevent(seed: &VeventSeed, keep_alarms: bool) -> Option<icalendar::Even
 /// leaves the zone free, so the same instance can be written in several forms and no comparison here
 /// could tell them apart without a time-zone database. The caller therefore owns that normalisation and
 /// passes the verbatim `RECURRENCE-ID` of the override it targets, which Kotlin records alongside it.
-fn override_vevent_index(calendar: &Calendar, spec: &RecurrenceIdSpec) -> Option<usize> {
+pub(crate) fn override_vevent_index(calendar: &Calendar, spec: &RecurrenceIdSpec) -> Option<usize> {
     calendar.components.iter().position(|component| match component {
         CalendarComponent::Event(event) => {
             let (value, tzid) = prop_with_tzid(event, "RECURRENCE-ID");
@@ -535,7 +535,7 @@ fn vevent_count(calendar: &Calendar) -> usize {
 }
 
 /// Build the `RECURRENCE-ID` property, carrying `VALUE=DATE` or `TZID` like an EXDATE line would.
-fn recurrence_id_property(spec: &RecurrenceIdSpec) -> Property {
+pub(crate) fn recurrence_id_property(spec: &RecurrenceIdSpec) -> Property {
     let mut prop = Property::new("RECURRENCE-ID", &spec.value);
     if spec.is_date_only {
         prop.add_parameter("VALUE", "DATE");
@@ -563,7 +563,7 @@ const MASTER_ONLY_PROPERTIES: [&str; 6] = ["RRULE", "EXDATE", "RDATE", "RECURREN
 /// `keep_alarms` carries the master's VALARMs over, which is what an edit leaving alarms alone means.
 /// It must be `false` when the edit replaces them: the new ones are spliced in textually afterwards,
 /// and the seeded ones would survive beside them as duplicates. Uneditable VALARMs are carried either way.
-fn override_seeded_from(master: &icalendar::Event, keep_alarms: bool) -> icalendar::Event {
+pub(crate) fn override_seeded_from(master: &icalendar::Event, keep_alarms: bool) -> icalendar::Event {
     seeded_from(master, &MASTER_ONLY_PROPERTIES, keep_alarms)
 }
 
@@ -689,7 +689,7 @@ pub fn build_event_ics(edit: EventEdit, seed: Option<VeventSeed>) -> Result<Even
 
 /// Reparse a freshly built/patched ICS back into an [`EventEntry`] so callers persist exactly what
 /// was serialized. `url`/`etag` are empty placeholders filled from the server response afterwards.
-fn reparse_edited(final_ics: String, context: &str) -> Result<EventEntry, CaldavError> {
+pub(crate) fn reparse_edited(final_ics: String, context: &str) -> Result<EventEntry, CaldavError> {
     parse_ics(String::new(), String::new(), final_ics)
         .ok_or_else(|| bridge_error(context, "reparse produced no VEVENT"))
 }
@@ -823,7 +823,7 @@ fn master_vevent_index(calendar: &Calendar) -> Option<usize> {
 }
 
 /// The recurrence master VEVENT (see [`master_vevent_index`]), or `None` when the calendar has none.
-fn master_vevent(calendar: &Calendar) -> Option<&icalendar::Event> {
+pub(crate) fn master_vevent(calendar: &Calendar) -> Option<&icalendar::Event> {
     match &calendar.components[master_vevent_index(calendar)?] {
         CalendarComponent::Event(event) => Some(event),
         _ => None,

@@ -79,7 +79,7 @@ fn new_attendee(email: &str) -> Property {
 }
 
 /// `line` with its `key` parameter set to `value`, or removed when `None`.
-fn with_param(line: &Property, key: &str, value: Option<&str>) -> Property {
+pub(crate) fn with_param(line: &Property, key: &str, value: Option<&str>) -> Property {
     let mut rebuilt = Property::new(line.key(), line.value());
     for (_, param) in line.params().iter().filter(|(name, _)| !name.eq_ignore_ascii_case(key)) {
         rebuilt.append_parameter(param.clone());
@@ -90,7 +90,7 @@ fn with_param(line: &Property, key: &str, value: Option<&str>) -> Property {
     rebuilt
 }
 
-fn has_email(line: &Property, email: &str) -> bool {
+pub(crate) fn has_email(line: &Property, email: &str) -> bool {
     strip_mailto(line.value()).eq_ignore_ascii_case(email)
 }
 

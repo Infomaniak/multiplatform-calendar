@@ -295,6 +295,15 @@ pub struct RecurrenceIdSpec {
     pub value: String,
 }
 
+/// The VEVENTs a reply to an invitation is written to.
+#[derive(uniffi::Enum)]
+pub enum ReplyScope {
+    /// The master and every override listing the user.
+    Series,
+    /// The instance `recurrence_id` designates, detached on `slot` when no override stands for it yet.
+    Occurrence { recurrence_id: RecurrenceIdSpec, slot: OccurrenceSlot },
+}
+
 /// The bounds an instance is shown on, in the forms [`EventEdit`] describes.
 #[derive(uniffi::Record)]
 pub struct OccurrenceSlot {

@@ -26,3 +26,10 @@ internal suspend inline fun <T, R> List<T>.mapCancellable(transform: suspend (T)
         transform(this[index])
     }
 }
+
+internal suspend inline fun <T> List<T>.forEachCancellable(action: suspend (T) -> Unit) {
+    for (element in this) {
+        currentCoroutineContext().ensureActive()
+        action(element)
+    }
+}

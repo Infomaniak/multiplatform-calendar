@@ -20,7 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.extensions
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
-internal suspend fun <T, R> List<T>.mapCancellable(transform: suspend (T) -> R): List<R> {
+internal suspend inline fun <T, R> List<T>.mapCancellable(transform: suspend (T) -> R): List<R> {
     return List(size) { index ->
         currentCoroutineContext().ensureActive()
         transform(this[index])

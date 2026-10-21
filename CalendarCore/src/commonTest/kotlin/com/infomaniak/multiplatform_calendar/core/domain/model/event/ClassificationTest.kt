@@ -19,7 +19,6 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class ClassificationTest {
 
@@ -36,9 +35,9 @@ class ClassificationTest {
     }
 
     @Test
-    fun fromIcalString_nullOrBlank_isNull() {
-        assertNull(Classification.fromIcalString(null))
-        assertNull(Classification.fromIcalString("   "))
+    fun fromIcalString_nullOrBlank_isPublic() {
+        assertEquals(Classification.Public, Classification.fromIcalString(null))
+        assertEquals(Classification.Public, Classification.fromIcalString("   "))
     }
 
     @Test

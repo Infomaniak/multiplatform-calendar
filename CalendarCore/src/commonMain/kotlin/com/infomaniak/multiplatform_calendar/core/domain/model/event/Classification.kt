@@ -23,8 +23,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
  *
  * The three standard values are modelled as objects; any non-standard `x-name` / `iana-token`
  * (which the RFC explicitly allows) is preserved verbatim as [Custom] so it round-trips back to the
- * CalDAV server untouched. A `null` classification means the property was absent (distinct from an
- * explicit `PUBLIC`).
+ * CalDAV server untouched. An absent property is [Public], its RFC default.
  */
 public sealed interface Classification {
 
@@ -51,11 +50,11 @@ public sealed interface Classification {
         private const val CONFIDENTIAL = "CONFIDENTIAL"
 
         /**
-         * Parse a raw iCalendar `CLASS` value into a [Classification], or `null` when absent/blank.
+         * Parse a raw iCalendar `CLASS` value into a [Classification], or [Public] when absent/blank.
          * Standard tokens are matched case-insensitively; anything else becomes [Custom] verbatim.
          */
-        public fun fromIcalString(raw: String?): Classification? {
-            val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        public fun fromIcalString(raw: String?): Classification {
+            val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return Public
             return when (value.uppercase()) {
                 PUBLIC -> Public
                 PRIVATE -> Private

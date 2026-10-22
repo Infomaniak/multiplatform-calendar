@@ -161,7 +161,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         )
 
         assertEquals(DavCredentials(username = "provided_login", password = "generated-password"), credentials)
-        assertEquals(listOf("profile/password"), calledPaths)
+        assertEquals(listOf("profile/applications/passwords"), calledPaths)
     }
 
     @Test
@@ -172,7 +172,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         val credentials = repository.retrieveDavCredential(authToken = AccessToken("token-2"))
 
         assertEquals(DavCredentials(username = "api_login", password = "generated-password"), credentials)
-        assertEquals(listOf("profile", "profile/password"), calledPaths)
+        assertEquals(listOf("profile", "profile/applications/passwords"), calledPaths)
     }
 
     @Test
@@ -262,7 +262,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
                 {"result":"success","data":{"login":"api_login","email":"api@example.com","displayName":"Api User"},"error":null}
             """.trimIndent()
 
-            "profile/password" -> """
+            "profile/applications/passwords" -> """
                 {"result":"success","data":{"id":1,"name":"calendar token","password":"generated-password"},"error":null}
             """.trimIndent()
 

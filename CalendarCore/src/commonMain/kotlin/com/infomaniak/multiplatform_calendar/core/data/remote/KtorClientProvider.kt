@@ -28,5 +28,5 @@ import io.ktor.client.HttpClient
 public interface KtorClientProvider {
     @Provides
     @SingleIn(AppScope::class)
-    private fun provideHttpClient(): HttpClient = createHttpClient(host = "api.infomaniak.com", basePath = "1/")
+    private fun provideHttpClient(): HttpClient = createHttpClient(host = "api.infomaniak.com", basePath = "2/")
 }

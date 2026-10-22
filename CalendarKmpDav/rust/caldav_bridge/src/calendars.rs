@@ -100,7 +100,7 @@ pub(crate) fn infomaniak_properties(xml: &str) -> Result<HashMap<String, Calenda
     Ok(result)
 }
 
-fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEntry>, CaldavError> {
+pub(crate) fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEntry>, CaldavError> {
     let items = parse_multistatus_bytes(bytes)
         .map_err(|error| map_fast_dav_error("ListCalendars", error))?
         .items;

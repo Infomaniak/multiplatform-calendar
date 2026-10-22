@@ -41,6 +41,9 @@ pub struct CalendarEntry {
     pub description: Option<String>,
     pub ctag: Option<String>,
     pub access_level: CalendarAccessLevel,
+    pub account_id: Option<i64>,
+    pub calendar_type: String,
+    pub default_calendar: bool,
 }
 
 /// Event resource with parsed iCalendar fields.

@@ -4,8 +4,79 @@ use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount, DiscoveryEntry};
 use crate::principal::user_emails;
-use crate::props::{access_level, collection_privileges, normalize_href};
-use fast_dav_rs::parse_multistatus_bytes;
+use crate::props::access_level;
+use fast_dav_rs::{parse_multistatus_bytes, Depth};
+use std::collections::HashMap;
+
+const CALENDARS_PROPFIND: &str = r#"<?xml version="1.0" encoding="utf-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"
+            xmlns:A="http://apple.com/ns/ical/" xmlns:I="http://infomaniak.com/ns">
+  <D:prop>
+    <D:displayname/>
+    <C:calendar-description/>
+    <C:calendar-timezone/>
+    <A:calendar-color/>
+    <C:supported-calendar-component-set/>
+    <C:max-resource-size/>
+    <C:supported-calendar-data/>
+    <C:max-attendees-per-instance/>
+    <D:getetag/>
+    <D:resourcetype/>
+    <D:sync-token/>
+    <D:current-user-privilege-set/>
+    <I:account-id/>
+    <I:calendar-type/>
+    <I:default-calendar/>
+  </D:prop>
+</D:propfind>"#;
+
+#[derive(Default)]
+struct InfomaniakProps {
+    account_id: Option<i64>,
+    calendar_type: String,
+    default_calendar: bool,
+}
+
+// Only successful DAV propstats count; match by href, never by response order.
+fn infomaniak_properties(xml: &str) -> Result<HashMap<String, InfomaniakProps>, CaldavError> {
+    const DAV: &str = "DAV:";
+    const IK: &str = "http://infomaniak.com/ns";
+    let doc = roxmltree::Document::parse(xml)
+        .map_err(|e| bridge_error("ListCalendars", format!("invalid XML: {e}")))?;
+
+    let mut result = HashMap::new();
+    for response in doc.descendants().filter(|n| n.has_tag_name((DAV, "response"))) {
+        let Some(href) = response.children()
+            .find(|n| n.has_tag_name((DAV, "href")))
+            .and_then(|n| n.text()) else { continue };
+        let mut props = InfomaniakProps::default();
+
+        for propstat in response.children().filter(|n| n.has_tag_name((DAV, "propstat"))) {
+            let status = propstat.children()
+                .find(|n| n.has_tag_name((DAV, "status")))
+                .and_then(|n| n.text()).unwrap_or("");
+
+            if status.split_whitespace().nth(1) != Some("200") { continue; }
+
+            let Some(prop) = propstat.children().find(|n| n.has_tag_name((DAV, "prop"))) else { continue };
+            let value = |name| prop.children()
+                .find(|n| n.has_tag_name((IK, name)))
+                .and_then(|n| n.text()).map(str::trim);
+
+            if let Some(id) = value("account-id") {
+                props.account_id = id.parse::<i64>().ok();
+            }
+            if let Some(kind) = value("calendar-type") {
+                props.calendar_type = kind.to_owned();
+            }
+            if let Some(default) = value("default-calendar") {
+                props.default_calendar = default == "1";
+            }
+        }
+        result.insert(href.trim().trim_end_matches('/').to_owned(), props);
+    }
+    Ok(result)
+}
 
 /// Discover the user's emails and all calendars for the given credentials.
 #[uniffi::export(async_runtime = "tokio")]
@@ -24,31 +95,46 @@ pub async fn discover(account: DavAccount) -> Result<DiscoveryEntry, CaldavError
 
     let mut calendars = Vec::new();
     for home in &homes {
-        let privileges = collection_privileges(&cli, home).await;
-        let fetched_calendars = cli.list_calendars(home).await
+        let resp = cli.propfind(home, Depth::One, CALENDARS_PROPFIND).await
             .map_err(|error| map_fast_dav_error("ListCalendars", error))?;
 
-        for cal in fetched_calendars {
-            let access_level = privileges
-                .get(normalize_href(&cal.href).as_str())
-                .map(|privileges| access_level(privileges))
-                .unwrap_or(CalendarAccessLevel::ReadWrite);
+        ensure_success("ListCalendars", &resp)?;
+
+        let bytes = resp.body();
+        let items = parse_multistatus_bytes(bytes.as_ref())
+            .map_err(|error| map_fast_dav_error("ListCalendars", error))?.items;
+        let xml = std::str::from_utf8(bytes.as_ref())
+            .map_err(|error| bridge_error("ListCalendars", format!("invalid UTF-8: {error}")))?;
+        let mut custom = infomaniak_properties(xml)?;
+
+        for item in items.into_iter().filter(|item| item.is_calendar) {
+            let extra = custom.remove(item.href.trim().trim_end_matches('/'))
+                .unwrap_or_default();
+            let access_level = if item.current_user_privileges.is_empty() {
+                CalendarAccessLevel::ReadWrite
+            } else {
+                access_level(&item.current_user_privileges)
+            };
             calendars.push(CalendarEntry {
-                url: cal.href.clone(),
-                display_name: cal.displayname.unwrap_or_else(|| {
-                    cal.href.trim_end_matches('/').rsplit('/').next()
-                        .unwrap_or(&cal.href).to_string()
+                display_name: item.displayname.unwrap_or_else(|| {
+                    item.href.trim_end_matches('/').rsplit('/').next()
+                        .unwrap_or(&item.href).to_owned()
                 }),
-                color: cal.color.clone(),
-                description: cal.description.clone(),
-                ctag: cal.sync_token.clone(),
+                url: item.href,
+                color: item.calendar_color,
+                description: item.calendar_description
+                    .map(|d| d.trim().to_owned()).filter(|d| !d.is_empty()),
+                ctag: item.sync_token,
                 access_level,
+                account_id: extra.account_id,
+                calendar_type: if extra.calendar_type.is_empty() { "basic".to_owned() } else { extra.calendar_type },
+                default_calendar: extra.default_calendar,
             });
         }
     }
+
     Ok(DiscoveryEntry { user_emails, calendars })
 }
-
 /// Update editable properties on a calendar collection (PROPPATCH).
 ///
 /// Only the fields present in [`CalendarEdit`] are sent; absent (`None`) fields are left

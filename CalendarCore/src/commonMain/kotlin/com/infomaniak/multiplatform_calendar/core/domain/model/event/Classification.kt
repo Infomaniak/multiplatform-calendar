@@ -21,46 +21,17 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 /**
  * Access classification of an event (RFC 5545 §3.8.1.3, the `CLASS` property).
  *
- * The three standard values are modelled as objects; any non-standard `x-name` / `iana-token`
- * (which the RFC explicitly allows) is preserved verbatim as [Custom] so it round-trips back to the
- * CalDAV server untouched. An absent property is [Public], its RFC default.
+ * An absent property is [Public], its RFC default. `CONFIDENTIAL` and unrecognised tokens are [Private],
+ * as the RFC requires for the latter.
  */
-public sealed interface Classification {
+public enum class Classification(internal val icalValue: String) {
+    Public("PUBLIC"),
+    Private("PRIVATE");
 
-    public data object Public : Classification
-
-    public data object Private : Classification
-
-    public data object Confidential : Classification
-
-    /** A non-standard token (`x-name` / `iana-token`), kept as-is for lossless round-trip. */
-    public data class Custom(val token: String) : Classification
-
-    /** The canonical iCalendar token for this classification. */
-    public fun toIcalString(): String = when (this) {
-        Public -> PUBLIC
-        Private -> PRIVATE
-        Confidential -> CONFIDENTIAL
-        is Custom -> token
-    }
-
-    public companion object {
-        private const val PUBLIC = "PUBLIC"
-        private const val PRIVATE = "PRIVATE"
-        private const val CONFIDENTIAL = "CONFIDENTIAL"
-
-        /**
-         * Parse a raw iCalendar `CLASS` value into a [Classification], or [Public] when absent/blank.
-         * Standard tokens are matched case-insensitively; anything else becomes [Custom] verbatim.
-         */
-        public fun fromIcalString(raw: String?): Classification {
-            val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return Public
-            return when (value.uppercase()) {
-                PUBLIC -> Public
-                PRIVATE -> Private
-                CONFIDENTIAL -> Confidential
-                else -> Custom(value)
-            }
+    internal companion object {
+        fun fromIcalString(raw: String?): Classification = when (raw?.trim()?.uppercase()) {
+            null, "", Public.icalValue -> Public
+            else -> Private
         }
     }
 }

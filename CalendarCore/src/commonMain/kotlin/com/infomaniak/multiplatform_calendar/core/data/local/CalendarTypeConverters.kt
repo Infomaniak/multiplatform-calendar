@@ -81,7 +81,7 @@ internal class CalendarTypeConverters {
     fun toIcalDateValues(value: String): List<IcalDateValue> = Json.decodeFromString(value)
 
     @ColumnTypeConverter
-    fun fromClassification(value: Classification): String = value.toIcalString()
+    fun fromClassification(value: Classification): String = value.icalValue
 
     @ColumnTypeConverter
     fun toClassification(value: String): Classification = Classification.fromIcalString(value)

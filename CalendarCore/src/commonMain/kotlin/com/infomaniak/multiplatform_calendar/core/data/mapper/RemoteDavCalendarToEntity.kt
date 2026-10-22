@@ -49,7 +49,7 @@ private fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
     caldavColor = parseHexColor(color),
     ctag = ctag,
     accessLevel = accessLevel.toEntity(),
-    infomaniakAccountId = infomaniakAccountId,
+    organisationId = organisationId,
     calendarType = calendarType,
     isDefaultCalendar = isDefaultCalendar,
 )

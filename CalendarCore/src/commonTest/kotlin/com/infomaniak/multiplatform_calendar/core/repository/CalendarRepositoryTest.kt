@@ -113,7 +113,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
                 RemoteDavCalendar(
                     url = calendarUrl,
                     displayName = "Cal",
-                    infomaniakAccountId = 42,
+                    organisationId = 42,
                     calendarType = "basic",
                     isDefaultCalendar = true,
                 ),
@@ -125,12 +125,12 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
 
         val calendarId = CalendarId(calendarUrl)
         val entity = database.calendarDao().findById(calendarId)!!
-        assertEquals(42L, entity.infomaniakAccountId)
+        assertEquals(42L, entity.organisationId)
         assertEquals("basic", entity.calendarType)
         assertTrue(entity.isDefaultCalendar)
 
         val calendar = repository.getCalendar(calendarId)
-        assertEquals(42L, calendar.infomaniakAccountId)
+        assertEquals(42L, calendar.organisationId)
         assertEquals(CalendarType.Basic, calendar.calendarType)
         assertTrue(calendar.isDefaultCalendar)
     }
@@ -155,7 +155,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
 
         val calendarId = CalendarId(calendarUrl)
         assertEquals("team_shared", database.calendarDao().findById(calendarId)!!.calendarType)
-        assertEquals(CalendarType.UNKNOWN, repository.getCalendar(calendarId).calendarType)
+        assertEquals(CalendarType.Unknown, repository.getCalendar(calendarId).calendarType)
     }
 
     private fun repositoryWith(remote: CalendarSyncRemoteSource) = CalendarRepository(

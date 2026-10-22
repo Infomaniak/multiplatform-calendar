@@ -29,7 +29,7 @@ internal fun CalendarEntity.toDomain() = Calendar(
     colors = CalendarColors.from(color?.argb),
     isVisible = isVisible,
     accessLevel = accessLevel,
-    infomaniakAccountId = infomaniakAccountId,
+    organisationId = organisationId,
     calendarType = calendarType.toDomainType(),
     isDefaultCalendar = isDefaultCalendar,
 )

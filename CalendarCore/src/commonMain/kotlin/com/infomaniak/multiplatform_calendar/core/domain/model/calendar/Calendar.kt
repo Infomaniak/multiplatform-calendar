@@ -31,7 +31,7 @@ public data class Calendar(
     val colors: CalendarColors,
     val isVisible: Boolean,
     val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
-    val infomaniakAccountId: Long? = null,
+    val organisationId: Long? = null,
     val calendarType: CalendarType = CalendarType.Basic,
     val isDefaultCalendar: Boolean = false,
 )

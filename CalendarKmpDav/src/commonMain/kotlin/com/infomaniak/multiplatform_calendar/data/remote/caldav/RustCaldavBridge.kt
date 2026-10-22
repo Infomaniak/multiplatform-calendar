@@ -124,7 +124,7 @@ internal class RustCaldavBridge(
                         description = entry.description,
                         ctag = entry.ctag,
                         accessLevel = entry.accessLevel,
-                        infomaniakAccountId = entry.accountId,
+                        organisationId = entry.accountId,
                         calendarType = entry.calendarType,
                         isDefaultCalendar = entry.defaultCalendar,
                     )

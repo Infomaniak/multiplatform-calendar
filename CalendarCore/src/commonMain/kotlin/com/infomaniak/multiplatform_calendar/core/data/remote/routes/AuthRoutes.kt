@@ -19,5 +19,5 @@ package com.infomaniak.multiplatform_calendar.core.data.remote.routes
 
 internal object AuthRoutes {
     const val PROFILE = "profile"
-    const val PASSWORD = "profile/password"
+    const val PASSWORD = "profile/applications/passwords"
 }

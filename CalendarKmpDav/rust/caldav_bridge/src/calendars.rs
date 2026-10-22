@@ -31,14 +31,29 @@ const CALENDARS_PROPFIND: &str = r#"<?xml version="1.0" encoding="utf-8"?>
 </D:propfind>"#;
 
 #[derive(Default)]
-struct InfomaniakProps {
-    account_id: Option<i64>,
-    calendar_type: String,
-    default_calendar: bool,
+pub(crate) struct InfomaniakProps {
+    pub(crate) account_id: Option<i64>,
+    pub(crate) calendar_type: String,
+    pub(crate) default_calendar: bool,
+}
+
+fn normalize_href(href: &str) -> String {
+    href.trim().trim_end_matches('/').to_owned()
+}
+
+fn default_calendar_type(value: String) -> String {
+    if value.is_empty() { "basic".to_owned() } else { value }
+}
+
+fn calendar_display_name(href: &str, display_name: Option<String>) -> String {
+    display_name.unwrap_or_else(|| {
+        href.trim_end_matches('/').rsplit('/').next()
+            .unwrap_or(href).to_owned()
+    })
 }
 
 // Only successful DAV propstats count; match by href, never by response order.
-fn infomaniak_properties(xml: &str) -> Result<HashMap<String, InfomaniakProps>, CaldavError> {
+pub(crate) fn infomaniak_properties(xml: &str) -> Result<HashMap<String, InfomaniakProps>, CaldavError> {
     const DAV: &str = "DAV:";
     const IK: &str = "http://infomaniak.com/ns";
     let doc = roxmltree::Document::parse(xml)
@@ -73,9 +88,41 @@ fn infomaniak_properties(xml: &str) -> Result<HashMap<String, InfomaniakProps>, 
                 props.default_calendar = default == "1";
             }
         }
-        result.insert(href.trim().trim_end_matches('/').to_owned(), props);
+        result.insert(normalize_href(href), props);
     }
     Ok(result)
+}
+
+fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEntry>, CaldavError> {
+    let items = parse_multistatus_bytes(bytes)
+        .map_err(|error| map_fast_dav_error("ListCalendars", error))?
+        .items;
+    let xml = std::str::from_utf8(bytes)
+        .map_err(|error| bridge_error("ListCalendars", format!("invalid UTF-8: {error}")))?;
+    let mut custom = infomaniak_properties(xml)?;
+
+    Ok(items.into_iter().filter(|item| item.is_calendar).map(|item| {
+        let extra = custom.remove(&normalize_href(&item.href)).unwrap_or_default();
+        let access_level = if item.current_user_privileges.is_empty() {
+            CalendarAccessLevel::ReadWrite
+        } else {
+            access_level(&item.current_user_privileges)
+        };
+
+        CalendarEntry {
+            display_name: calendar_display_name(&item.href, item.displayname),
+            url: item.href,
+            color: item.calendar_color,
+            description: item.calendar_description
+                .map(|d| d.trim().to_owned())
+                .filter(|d| !d.is_empty()),
+            ctag: item.sync_token,
+            access_level,
+            account_id: extra.account_id,
+            calendar_type: default_calendar_type(extra.calendar_type),
+            default_calendar: extra.default_calendar,
+        }
+    }).collect())
 }
 
 /// Discover the user's emails and all calendars for the given credentials.
@@ -100,37 +147,7 @@ pub async fn discover(account: DavAccount) -> Result<DiscoveryEntry, CaldavError
 
         ensure_success("ListCalendars", &resp)?;
 
-        let bytes = resp.body();
-        let items = parse_multistatus_bytes(bytes.as_ref())
-            .map_err(|error| map_fast_dav_error("ListCalendars", error))?.items;
-        let xml = std::str::from_utf8(bytes.as_ref())
-            .map_err(|error| bridge_error("ListCalendars", format!("invalid UTF-8: {error}")))?;
-        let mut custom = infomaniak_properties(xml)?;
-
-        for item in items.into_iter().filter(|item| item.is_calendar) {
-            let extra = custom.remove(item.href.trim().trim_end_matches('/'))
-                .unwrap_or_default();
-            let access_level = if item.current_user_privileges.is_empty() {
-                CalendarAccessLevel::ReadWrite
-            } else {
-                access_level(&item.current_user_privileges)
-            };
-            calendars.push(CalendarEntry {
-                display_name: item.displayname.unwrap_or_else(|| {
-                    item.href.trim_end_matches('/').rsplit('/').next()
-                        .unwrap_or(&item.href).to_owned()
-                }),
-                url: item.href,
-                color: item.calendar_color,
-                description: item.calendar_description
-                    .map(|d| d.trim().to_owned()).filter(|d| !d.is_empty()),
-                ctag: item.sync_token,
-                access_level,
-                account_id: extra.account_id,
-                calendar_type: if extra.calendar_type.is_empty() { "basic".to_owned() } else { extra.calendar_type },
-                default_calendar: extra.default_calendar,
-            });
-        }
+        calendars.extend(parse_discovered_calendars(resp.body().as_ref())?);
     }
 
     Ok(DiscoveryEntry { user_emails, calendars })
@@ -220,3 +237,4 @@ fn check_propstat_success(xml: &[u8]) -> Result<(), CaldavError> {
 
     Ok(())
 }
+

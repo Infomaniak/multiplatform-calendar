@@ -4,7 +4,7 @@ use crate::client::{client, ensure_success};
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::{CalendarAccessLevel, CalendarEdit, CalendarEntry, DavAccount, DiscoveryEntry};
 use crate::principal::user_emails;
-use crate::props::access_level;
+use crate::props::{access_level, normalize_href};
 use fast_dav_rs::{parse_multistatus_bytes, Depth};
 use std::collections::HashMap;
 
@@ -31,14 +31,14 @@ const CALENDARS_PROPFIND: &str = r#"<?xml version="1.0" encoding="utf-8"?>
 </D:propfind>"#;
 
 #[derive(Default)]
-pub(crate) struct InfomaniakProps {
+pub(crate) struct CalendarProps {
+    // Infomaniak-specific properties.
     pub(crate) account_id: Option<i64>,
     pub(crate) calendar_type: String,
     pub(crate) default_calendar: bool,
-}
 
-fn normalize_href(href: &str) -> String {
-    href.trim().trim_end_matches('/').to_owned()
+    // Standard DAV properties.
+    pub(crate) has_privileges: bool,
 }
 
 fn default_calendar_type(value: String) -> String {
@@ -53,7 +53,7 @@ fn calendar_display_name(href: &str, display_name: Option<String>) -> String {
 }
 
 // Only successful DAV propstats count; match by href, never by response order.
-pub(crate) fn infomaniak_properties(xml: &str) -> Result<HashMap<String, InfomaniakProps>, CaldavError> {
+pub(crate) fn infomaniak_properties(xml: &str) -> Result<HashMap<String, CalendarProps>, CaldavError> {
     const DAV: &str = "DAV:";
     const IK: &str = "http://infomaniak.com/ns";
     let doc = roxmltree::Document::parse(xml)
@@ -64,7 +64,7 @@ pub(crate) fn infomaniak_properties(xml: &str) -> Result<HashMap<String, Infoman
         let Some(href) = response.children()
             .find(|n| n.has_tag_name((DAV, "href")))
             .and_then(|n| n.text()) else { continue };
-        let mut props = InfomaniakProps::default();
+        let mut props = CalendarProps::default();
 
         for propstat in response.children().filter(|n| n.has_tag_name((DAV, "propstat"))) {
             let status = propstat.children()
@@ -74,6 +74,13 @@ pub(crate) fn infomaniak_properties(xml: &str) -> Result<HashMap<String, Infoman
             if status.split_whitespace().nth(1) != Some("200") { continue; }
 
             let Some(prop) = propstat.children().find(|n| n.has_tag_name((DAV, "prop"))) else { continue };
+
+            // Standard DAV properties
+            props.has_privileges |= prop.children().any(|node| {
+                node.has_tag_name((DAV, "current-user-privilege-set"))
+            });
+
+            // Infomaniak-specific properties
             let value = |name| prop.children()
                 .find(|n| n.has_tag_name((IK, name)))
                 .and_then(|n| n.text()).map(str::trim);
@@ -103,10 +110,10 @@ fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEntry>, Caldav
 
     Ok(items.into_iter().filter(|item| item.is_calendar).map(|item| {
         let extra = custom.remove(&normalize_href(&item.href)).unwrap_or_default();
-        let access_level = if item.current_user_privileges.is_empty() {
-            CalendarAccessLevel::ReadWrite
-        } else {
+        let access_level = if extra.has_privileges {
             access_level(&item.current_user_privileges)
+        } else {
+            CalendarAccessLevel::ReadWrite
         };
 
         CalendarEntry {

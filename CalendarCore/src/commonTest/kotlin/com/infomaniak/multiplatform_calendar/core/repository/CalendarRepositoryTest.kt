@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarReposi
 import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
 import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
@@ -100,6 +101,61 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         repositoryWith(remote).syncEvents(accountId, fakeCredentials())
 
         assertEquals(listOf("alice@example.com"), storedEmails(accountId))
+    }
+
+    @Test
+    fun syncEvents_persistsInfomaniakMetadata_andMapsKnownCalendarType() = runTest {
+        val accountId = AccountId(9)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/metadata/"
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(
+                RemoteDavCalendar(
+                    url = calendarUrl,
+                    displayName = "Cal",
+                    infomaniakAccountId = 42,
+                    calendarType = "basic",
+                    isDefaultCalendar = true,
+                ),
+            ),
+        )
+        val repository = repositoryWith(remote)
+
+        repository.syncEvents(accountId, fakeCredentials())
+
+        val calendarId = CalendarId(calendarUrl)
+        val entity = database.calendarDao().findById(calendarId)!!
+        assertEquals(42L, entity.infomaniakAccountId)
+        assertEquals("basic", entity.calendarType)
+        assertTrue(entity.isDefaultCalendar)
+
+        val calendar = repository.getCalendar(calendarId)
+        assertEquals(42L, calendar.infomaniakAccountId)
+        assertEquals(CalendarType.Basic, calendar.calendarType)
+        assertTrue(calendar.isDefaultCalendar)
+    }
+
+    @Test
+    fun syncEvents_mapsUnknownCalendarTypeToUnknown_andKeepsRawValue() = runTest {
+        val accountId = AccountId(10)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/metadata-unknown/"
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(
+                RemoteDavCalendar(
+                    url = calendarUrl,
+                    displayName = "Cal",
+                    calendarType = "team_shared",
+                ),
+            ),
+        )
+        val repository = repositoryWith(remote)
+
+        repository.syncEvents(accountId, fakeCredentials())
+
+        val calendarId = CalendarId(calendarUrl)
+        assertEquals("team_shared", database.calendarDao().findById(calendarId)!!.calendarType)
+        assertEquals(CalendarType.UNKNOWN, repository.getCalendar(calendarId).calendarType)
     }
 
     private fun repositoryWith(remote: CalendarSyncRemoteSource) = CalendarRepository(

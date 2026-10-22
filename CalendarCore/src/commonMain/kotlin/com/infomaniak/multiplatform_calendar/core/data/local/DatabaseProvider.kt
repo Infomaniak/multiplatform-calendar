@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local
 
+import androidx.room3.ColumnTypeConverters
 import androidx.room3.ConstructedBy
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
@@ -36,12 +37,11 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrid
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
-import com.infomaniak.multiplatform_core.contacts.data.local.hostedContactDao
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
+import com.infomaniak.multiplatform_core.contacts.data.local.hostedContactDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
-import androidx.room3.ColumnTypeConverters
 
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
@@ -69,7 +69,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
         ContactEntity::class,
         BookableResourceEntity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)

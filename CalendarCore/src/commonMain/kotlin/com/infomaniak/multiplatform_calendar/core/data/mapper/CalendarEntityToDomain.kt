@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 
 internal fun CalendarEntity.toDomain() = Calendar(
     id = id,
@@ -28,4 +29,15 @@ internal fun CalendarEntity.toDomain() = Calendar(
     colors = CalendarColors.from(color?.argb),
     isVisible = isVisible,
     accessLevel = accessLevel,
+    infomaniakAccountId = infomaniakAccountId,
+    calendarType = calendarType.toDomainType(),
+    isDefaultCalendar = isDefaultCalendar,
 )
+
+private fun String.toDomainType(): CalendarType = when (lowercase()) {
+    "basic" -> CalendarType.Basic
+    "bookable" -> CalendarType.Bookable
+    "suggested" -> CalendarType.Suggested
+    else -> CalendarType.Unknown
+}
+

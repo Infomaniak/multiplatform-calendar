@@ -9,7 +9,7 @@ use crate::models::CalendarAccessLevel;
 /// and removing surrounding whitespace and trailing slashes.
 pub(crate) fn normalize_href(href: &str) -> String {
     let href = href.trim();
-    let path = href.trim()
+    let path = href
         .parse::<http::Uri>()
         .ok()
         .map(|uri| uri.path().to_owned())

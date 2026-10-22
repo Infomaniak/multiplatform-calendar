@@ -21,9 +21,17 @@ pub(crate) async fn collection_privileges(cli: &CalDavClient, home: &str) -> Has
     fetch(cli, home).await.unwrap_or_default()
 }
 
-/// Normalize an href for comparison/keying (trim whitespace + trailing slash).
+/// Normalize a DAV href for comparison/keying by extracting its path
+/// and removing surrounding whitespace and trailing slashes.
 pub(crate) fn normalize_href(href: &str) -> String {
-    href.trim().trim_end_matches('/').to_string()
+    let href = href.trim();
+    let path = href.trim()
+        .parse::<http::Uri>()
+        .ok()
+        .map(|uri| uri.path().to_owned())
+        .unwrap_or_else(|| href.to_owned());
+
+    path.trim_end_matches('/').to_owned()
 }
 
 /// Derive the [`CalendarAccessLevel`] from a collection's granted privileges.

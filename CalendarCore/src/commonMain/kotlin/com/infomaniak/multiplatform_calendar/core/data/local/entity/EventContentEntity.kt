@@ -39,7 +39,7 @@ internal data class EventContentEntity(
     val dtStamp: LocalDateTime? = null,
     val status: EventStatus? = null,
     val timeBlocking: TimeBlocking? = null,
-    val classification: Classification? = null,
+    val classification: Classification = Classification.Public,
     val priority: Int? = null,
     val sequence: Int? = null,
     val categories: List<String>? = null,

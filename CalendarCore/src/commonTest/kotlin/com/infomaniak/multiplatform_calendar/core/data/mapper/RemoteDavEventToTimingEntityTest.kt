@@ -201,10 +201,10 @@ class RemoteDavEventToTimingEntityTest {
     }
 
     @Test
-    fun classification_absent_isNull() {
+    fun classification_absent_isPublic() {
         val entity = remoteEvent(dtstart = "20260615T100000Z", classification = null).toEntity(calendarId).content
 
-        assertNull(entity.classification)
+        assertEquals(Classification.Public, entity.classification)
     }
 
     @Test

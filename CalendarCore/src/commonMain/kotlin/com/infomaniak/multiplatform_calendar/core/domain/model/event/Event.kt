@@ -42,7 +42,7 @@ public data class Event(
     val location: String? = null,
     val status: EventStatus? = null,
     val timeBlocking: TimeBlocking? = null,
-    val classification: Classification? = null,
+    val classification: Classification = Classification.Public,
     val categories: List<String> = emptyList(),
     val meetRoomUrl: String? = null,
     val bookableUuid: String? = null,

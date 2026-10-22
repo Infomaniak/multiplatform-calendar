@@ -24,9 +24,8 @@ class ClassificationTest {
 
     @Test
     fun fromIcalString_standardValues_areParsedCaseInsensitively() {
-        assertEquals(Classification.Public, Classification.fromIcalString("PUBLIC"))
-        assertEquals(Classification.Private, Classification.fromIcalString("private"))
-        assertEquals(Classification.Confidential, Classification.fromIcalString("Confidential"))
+        assertEquals(Classification.Public, Classification.fromIcalString("public"))
+        assertEquals(Classification.Private, Classification.fromIcalString("Private"))
     }
 
     @Test
@@ -41,27 +40,19 @@ class ClassificationTest {
     }
 
     @Test
-    fun fromIcalString_unknownToken_becomesCustomVerbatim() {
-        assertEquals(Classification.Custom("X-PERSONAL"), Classification.fromIcalString("X-PERSONAL"))
+    fun fromIcalString_confidential_isPrivate() {
+        assertEquals(Classification.Private, Classification.fromIcalString("CONFIDENTIAL"))
     }
 
     @Test
-    fun toIcalString_returnsCanonicalTokens() {
-        assertEquals("PUBLIC", Classification.Public.toIcalString())
-        assertEquals("PRIVATE", Classification.Private.toIcalString())
-        assertEquals("CONFIDENTIAL", Classification.Confidential.toIcalString())
-        assertEquals("X-PERSONAL", Classification.Custom("X-PERSONAL").toIcalString())
+    fun fromIcalString_unknownToken_isPrivate() {
+        assertEquals(Classification.Private, Classification.fromIcalString("X-PERSONAL"))
     }
 
     @Test
-    fun roundTrip_standardAndCustom_arePreserved() {
-        listOf(
-            Classification.Public,
-            Classification.Private,
-            Classification.Confidential,
-            Classification.Custom("X-PERSONAL"),
-        ).forEach { classification ->
-            assertEquals(classification, Classification.fromIcalString(classification.toIcalString()))
+    fun roundTrip_isPreserved() {
+        listOf(Classification.Public, Classification.Private).forEach { classification ->
+            assertEquals(classification, Classification.fromIcalString(classification.icalValue))
         }
     }
 }

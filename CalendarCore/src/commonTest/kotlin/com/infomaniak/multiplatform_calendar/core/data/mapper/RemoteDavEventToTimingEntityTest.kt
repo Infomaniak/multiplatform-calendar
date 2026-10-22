@@ -194,10 +194,10 @@ class RemoteDavEventToTimingEntityTest {
     }
 
     @Test
-    fun classification_customValue_isKeptVerbatim() {
+    fun classification_customValue_isPrivate() {
         val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "X-CUSTOM").toEntity(calendarId).content
 
-        assertEquals(Classification.Custom("X-CUSTOM"), entity.classification)
+        assertEquals(Classification.Private, entity.classification)
     }
 
     @Test

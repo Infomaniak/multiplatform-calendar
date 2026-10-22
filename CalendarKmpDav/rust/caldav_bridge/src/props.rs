@@ -1,5 +1,5 @@
-//! Fetch the `current-user-privilege-set` (RFC 3744) of the calendar collections, which `list_calendars` does not
-//! request. Best-effort: any failure yields no data and callers fall back to defaults.
+//! Helpers for normalizing DAV hrefs and deriving calendar access levels
+//! from DAV privilege sets (RFC 3744).
 
 use fast_dav_rs::Privilege;
 

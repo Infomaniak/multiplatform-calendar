@@ -40,6 +40,9 @@ import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.hostedContactDao
+import com.infomaniak.multiplatform_core.organisations.data.local.OrganisationsDatabase
+import com.infomaniak.multiplatform_core.organisations.data.local.dao.OrganisationDao
+import com.infomaniak.multiplatform_core.organisations.data.local.entity.OrganisationEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
@@ -68,17 +71,19 @@ internal fun DatabaseProvider.getCalendarDatabase(
         ContactAccountEntity::class,
         ContactEntity::class,
         BookableResourceEntity::class,
+        OrganisationEntity::class,
     ],
-    version = 24,
+    version = 25,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
-internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, BookableResourcesDatabase {
+internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, BookableResourcesDatabase, OrganisationsDatabase {
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
     abstract override fun bookableResourceDao(): BookableResourceDao
+    abstract override fun organisationDao(): OrganisationDao
 
     private val contactDao by lazy { hostedContactDao(this) }
     override fun contactDao(): ContactDao = contactDao

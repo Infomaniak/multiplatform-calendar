@@ -21,13 +21,77 @@ import androidx.room3.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_core.organisations.data.local.OrganisationsDatabase
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
+import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsErrorCause
+import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockRequestHandleScope
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.HttpRequestData
+import io.ktor.client.request.HttpResponseData
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.serialization.kotlinx.json.DefaultJson
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNamingStrategy
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 internal val ACCOUNT_ID = AccountId(42L)
 internal val OTHER_ACCOUNT_ID = AccountId(43L)
 
 internal val ORGANISATION_ID = OrganisationId(678415L)
 internal val OTHER_ORGANISATION_ID = OrganisationId(678650L)
+
+internal fun organisationJson(
+    id: OrganisationId = ORGANISATION_ID,
+    name: String = "Team App",
+): String = """
+    {
+      "id": ${id.value},
+      "name": "$name",
+      "legal_entity_type": "association",
+      "created_at": 1657576800,
+      "support_level": 1,
+      "phone": "+41790000000",
+      "type": "normal",
+      "billing": false,
+      "mailing": false,
+      "billing_mailing": false,
+      "workspace_only": false,
+      "no_access": true,
+      "is_blocked": false
+    }
+""".trimIndent()
+
+internal fun success(data: String): String = """{ "result": "success", "data": $data }"""
+
+internal fun MockRequestHandleScope.respondJson(
+    body: String,
+    status: HttpStatusCode = HttpStatusCode.OK,
+): HttpResponseData = respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
+
+internal fun testHttpClient(
+    handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
+): HttpClient = HttpClient(MockEngine) {
+    install(ContentNegotiation) { json(testJson()) }
+    engine { addHandler(handler) }
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+private fun testJson(): Json = Json(DefaultJson) {
+    ignoreUnknownKeys = true
+    namingStrategy = JsonNamingStrategy.SnakeCase
+}
+
+internal suspend fun assertFailsWithCause(expected: OrganisationsErrorCause, block: suspend () -> Any?) {
+    assertEquals(expected, assertFailsWith<OrganisationsException> { block() }.errorCause)
+}
 
 internal fun testDatabase(): OrganisationsDatabase =
     Room.inMemoryDatabaseBuilder<TestOrganisationsDatabase>().setDriver(BundledSQLiteDriver()).build()

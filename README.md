@@ -108,12 +108,13 @@ DI (see the DI note below); no `:CalendarKmpDav` data type is exposed.
 generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to move to a shared KMP core.
 `:Meet` and `:BookableResources` are exported the same way (`MeetException`, `BookableResourcesManager` and their types) but, being
 specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` and `…bookable_resources` packages.
+`:Organisations` is exported too (`OrganisationsManager` and its types), under `com.infomaniak.multiplatform_core.organisations`.
 
 `:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet, BookableResources and Organisations, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
-CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts and BookableResources only declare their entities and
-DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `BookableResourcesDatabase`) that `CalendarDatabase` implements.
+CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts, BookableResources and Organisations only declare their entities and
+DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `BookableResourcesDatabase`, `OrganisationsDatabase`) that `CalendarDatabase` implements.
 On Apple, the contacts live in their own database instead (`StandaloneContactsDatabase`, opened at `ContactsSettings.databasePath`).
 Room generates `ContactDao_Impl` in Contacts only: `CalendarDatabase` gets it through `hostedContactDao` instead of
 declaring `contactDao()` abstract, which would generate a duplicate class and break the Android app's dex merge.
@@ -171,10 +172,11 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); its tables live in
   `CalendarDatabase`. `AccountManager.initAccount` / `removeAccount` also init / remove
   the account in `ContactsManager`. Likewise, `:BookableResources` is wired by Core (`BookableResourcesModule`), its tables live in
-  `CalendarDatabase`, and `AccountManager` initializes / removes the account in `BookableResourcesManager` too. `:Meet` is
+  `CalendarDatabase`, and `AccountManager` initializes / removes the account in `BookableResourcesManager` too. `:Organisations` is wired the same
+  way (`OrganisationsModule`, `OrganisationsManager`). `:Meet` is
   wired by Core (`MeetModule`) and has no table; `AccountManager` initializes / removes the account in `MeetManager` too.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `bookableResourcesManager`, and inherits
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `bookableResourcesManager` / `organisationsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
   `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `contacts` giving the path of the dedicated contacts database.
 

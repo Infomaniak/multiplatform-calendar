@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResource
 import com.infomaniak.multiplatform_calendar.core.managers.AccountManager
 import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
+import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 
@@ -41,5 +42,6 @@ public interface CalendarCoreGraph {
     public val calendarManager: CalendarManager
     public val contactsManager: ContactsManager
     public val bookableResourcesManager: BookableResourcesManager
+    public val organisationsManager: OrganisationsManager
 }
 

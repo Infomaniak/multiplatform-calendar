@@ -66,6 +66,7 @@ kotlin {
             api(project(":Contacts"))
             api(project(":Meet"))
             api(project(":BookableResources"))
+            api(project(":Organisations"))
             implementation(project(":CalendarResources"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)

@@ -297,6 +297,34 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun syncEvents_batchesChangedEventsAndUpdatesSyncToken() = runTest {
+        val accountId = AccountId(9)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/batching/"
+        val calendarId = CalendarId(calendarUrl)
+        val changedEvents = (1..130).map { index ->
+            remoteEvent(url = "${calendarUrl}event-$index.ics", uid = "uid-$index")
+        }
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+        ).apply {
+            syncResults[calendarUrl] = RemoteEventSyncDelta(
+                syncToken = "new-sync-token",
+                items = changedEvents.map { event ->
+                    RemoteEventChangeRef(eventUrl = event.url, isDeleted = false)
+                },
+            )
+            eventsByUrl.putAll(changedEvents.associateBy(RemoteDavEvent::url))
+        }
+
+        repositoryWith(remote).syncEvents(accountId, fakeCredentials())
+
+        assertEquals(listOf(64, 64, 2), remote.multigetRequests.map { it.size })
+        assertEquals(130, database.eventDao().observeEvents(calendarId).first().size)
+        assertEquals("new-sync-token", database.calendarDao().findById(calendarId)?.syncToken)
+    }
+
+    @Test
     fun downloadEventsByRange_persistsCompleteRawIcs_includingCustomAndAlarmContent() = runTest {
         val accountId = AccountId(6)
         database.accountDao().insert(AccountEntity(accountId))
@@ -582,8 +610,10 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     ) : CalendarSyncRemoteSource {
         val syncResults: MutableMap<String, RemoteEventSyncDelta> = mutableMapOf()
         val eventsByUrls: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
+        val eventsByUrl: MutableMap<String, RemoteDavEvent> = mutableMapOf()
         val rangeEvents: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
         val rangeRefs: MutableMap<String, List<RemoteDavEventRef>> = mutableMapOf()
+        val multigetRequests: MutableList<List<String>> = mutableListOf()
         var lastRangeStart: String? = null
         var lastRangeEnd: String? = null
         var fullRangeRequestCount: Int = 0
@@ -622,7 +652,11 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             syncResults[calendarUrl] ?: RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
 
         override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
-            eventsByUrls[chainedKey(calendarUrl, eventUrls)].orEmpty().also { lastMultigetUrls = eventUrls }
+            (
+                eventsByUrls[chainedKey(calendarUrl, eventUrls)] ?: eventUrls.mapNotNull(eventsByUrl::get)).also {
+                multigetRequests += eventUrls.toList()
+                lastMultigetUrls = eventUrls
+            }
 
         override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
         override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit) = error("not used")

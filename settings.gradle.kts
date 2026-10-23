@@ -64,5 +64,6 @@ include(
     ":Contacts",
     ":Meet",
     ":BookableResources",
+    ":Organisations",
     ":Network",
 )

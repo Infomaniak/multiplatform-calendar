@@ -49,4 +49,7 @@ internal data class CalendarEntity(
     val ctag: String? = null,
     val syncToken: String? = null,
     val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
+    val organisationId: Long? = null,
+    val calendarType: String = "basic",
+    val isDefaultCalendar: Boolean = false,
 )

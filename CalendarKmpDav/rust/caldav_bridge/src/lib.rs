@@ -49,4 +49,6 @@ mod meet_room_tests;
 mod participation_tests;
 #[cfg(test)]
 mod principal_tests;
+#[cfg(test)]
+mod calendars_tests;
 

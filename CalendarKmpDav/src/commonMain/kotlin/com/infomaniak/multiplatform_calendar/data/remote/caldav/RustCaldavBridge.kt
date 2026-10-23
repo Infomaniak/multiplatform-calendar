@@ -124,6 +124,9 @@ internal class RustCaldavBridge(
                         description = entry.description,
                         ctag = entry.ctag,
                         accessLevel = entry.accessLevel,
+                        organisationId = entry.accountId,
+                        calendarType = entry.calendarType,
+                        isDefaultCalendar = entry.defaultCalendar,
                     )
                 },
             )

@@ -40,6 +40,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.extensions.forEachCancellable
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
@@ -207,13 +208,14 @@ internal class CalendarRepository(
         changedUrls: List<String>,
     ) {
         if (changedUrls.isNotEmpty()) {
-            // TODO[Optimize]: fetch batched events instead of all events at once
-            val changedEvents = caldavClient.getEventsByUrls(
-                credentials = credentials,
-                calendarUrl = calendarId.url,
-                eventUrls = changedUrls,
-            )
-            upsertEventsByChangeType(calendarId, changedEvents)
+            changedUrls.chunked(EVENT_BATCH_SIZE).forEachCancellable { chunk ->
+                val changedEvents = caldavClient.getEventsByUrls(
+                    credentials = credentials,
+                    calendarUrl = calendarId.url,
+                    eventUrls = chunk,
+                )
+                upsertEventsByChangeType(calendarId, changedEvents)
+            }
         }
     }
 
@@ -240,11 +242,15 @@ internal class CalendarRepository(
         return EventSyncDiff(changedUrls, eventsToDelete.values.map(LocalEventRef::id))
     }
 
-    private suspend fun upsertEventsByChangeType(calendarId: CalendarId, remoteEvents: List<RemoteDavEvent>) {
+    private suspend fun upsertEventsByChangeType(
+        calendarId: CalendarId,
+        remoteEvents: List<RemoteDavEvent>,
+    ) {
         if (remoteEvents.isEmpty()) return
 
-        val entities = remoteEvents.mapNotNull { event ->
-            currentCoroutineContext().ensureActive()
+        val entities = ArrayList<EventWithRawIcs>(EVENT_BATCH_SIZE)
+
+        remoteEvents.forEachCancellable { event ->
             val recurrence = runCatching { event.resolveRecurrenceSet() }
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
                 .getOrElse { ResolvedRecurrence() }
@@ -254,25 +260,40 @@ internal class CalendarRepository(
                 logThisAndFutureOverride(event)
             }
 
-            runCatching {
+            val eventWithRawIcs = runCatching {
                 val entity = event.toEntity(calendarId, recurrence = recurrence)
                 // A suspended series is rendered as a single event, so its overrides would never
                 // be applied — keeping them would only make the master surface at their positions.
-                val overrides = if (recurrence.hasRecurrence) event.toOverrideEntities(entity.content.timing) else emptyList()
+                val overrides = when {
+                    recurrence.hasRecurrence -> event.toOverrideEntities(entity.content.timing)
+                    else -> emptyList()
+                }
                 EventWithRawIcs(entity, event.icsData, overrides)
-            }
-                .onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
+            }.onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
-        }
-        if (entities.isNotEmpty()) {
-            runCatching {
-                // TODO[Optimize]: upsert in batches
-                eventDao.upsertEventsWithRawIcs(entities.toUpsertBatch())
-            }.onFailure {
-                // An error here is not critical, we can continue syncing other calendars
-                // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.
-                reportEventUpsertFailure(calendarId, it, entities)
+
+            if (eventWithRawIcs != null) {
+                entities.add(eventWithRawIcs)
+                if (entities.size == EVENT_BATCH_SIZE) {
+                    entities.upsertBatch(calendarId)
+                    entities.clear()
+                }
             }
+        }
+
+        entities.upsertBatch(calendarId)
+    }
+
+    private suspend fun ArrayList<EventWithRawIcs>.upsertBatch(calendarId: CalendarId) {
+        if (isEmpty()) return
+        currentCoroutineContext().ensureActive()
+
+        runCatching {
+            eventDao.upsertEventsWithRawIcs(this@upsertBatch.toUpsertBatch())
+        }.cancellable().onFailure {
+            // An error here is not critical, we can continue syncing other calendars
+            // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.
+            reportEventUpsertFailure(calendarId, it, this@upsertBatch)
         }
     }
 
@@ -324,6 +345,10 @@ internal class CalendarRepository(
         val upsertUrls: List<String>,
         val deletedEvents: List<EventId>,
     )
+
+    private companion object {
+        const val EVENT_BATCH_SIZE = 64
+    }
 }
 
 /** Logs the [reason] when [resolveRecurrence] dropped a present `RRULE` ([RecurrenceDroppedException]). */

@@ -260,7 +260,7 @@ internal class CalendarRepository(
                 logThisAndFutureOverride(event)
             }
 
-            val entity = runCatching {
+            val eventWithRawIcs = runCatching {
                 val entity = event.toEntity(calendarId, recurrence = recurrence)
                 // A suspended series is rendered as a single event, so its overrides would never
                 // be applied — keeping them would only make the master surface at their positions.
@@ -272,8 +272,8 @@ internal class CalendarRepository(
             }.onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
 
-            if (entity != null) {
-                entities.add(entity)
+            if (eventWithRawIcs != null) {
+                entities.add(eventWithRawIcs)
                 if (entities.size == EVENT_BATCH_SIZE) {
                     entities.upsertBatch(calendarId)
                     entities.clear()

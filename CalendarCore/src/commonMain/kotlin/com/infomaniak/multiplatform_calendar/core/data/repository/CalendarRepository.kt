@@ -347,7 +347,7 @@ internal class CalendarRepository(
     )
 
     private companion object {
-        private const val EVENT_BATCH_SIZE = 64
+        const val EVENT_BATCH_SIZE = 64
     }
 }
 

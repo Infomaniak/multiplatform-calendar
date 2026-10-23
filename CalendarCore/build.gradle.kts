@@ -157,6 +157,8 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         export(project(":Meet"))
         // BookableResourcesManager and its types are part of the public Swift API (CalendarCoreGraph accessor).
         export(project(":BookableResources"))
+        // OrganisationsManager and its types are part of the public Swift API (CalendarCoreGraph accessor).
+        export(project(":Organisations"))
         // AccountId and AccessToken are shared by the calendar, contacts, meet and meeting rooms public APIs.
         export(project(":Account"))
     }

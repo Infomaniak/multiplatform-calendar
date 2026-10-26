@@ -38,6 +38,9 @@ multiplatform-calendar/
 ├── BookableResources/               # Standalone KMP module for the Infomaniak bookable meeting rooms
 │   ├── src/commonMain/              # BookableResourcesManager, sync, availability, busy periods, Room tables, Ktor remote source
 │   └── build.gradle.kts             # BookableResources module build (Room, Ktor, publish)
+├── Organisations/                   # Standalone KMP module for the Infomaniak organisations of the account
+│   ├── src/commonMain/              # OrganisationsManager, sync, Room table, Ktor remote source
+│   └── build.gradle.kts             # Organisations module build (Room, Ktor, publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
 │   └── build.gradle.kts             # Network module build (publish)
 ├── build.gradle.kts                 # Root aggregator (no sources)
@@ -49,13 +52,14 @@ multiplatform-calendar/
 
 | Module               | Purpose                                                                                       |
 |----------------------|-----------------------------------------------------------------------------------------------|
-| **Account**          | Shared identity types (`AccountId`, `AccessToken`) and in-memory `AccountTokenStore`, used by CalendarCore, Contacts, Meet and BookableResources |
+| **Account**          | Shared identity types (`AccountId`, `AccessToken`) and in-memory `AccountTokenStore`, used by CalendarCore, Contacts, Meet, BookableResources and Organisations |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 | **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
+| **Organisations**    | Infomaniak organisations the account belongs to: id and name                                  |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
 ### Recurrence localization
@@ -105,7 +109,7 @@ generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to
 `:Meet` and `:BookableResources` are exported the same way (`MeetException`, `BookableResourcesManager` and their types) but, being
 specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` and `…bookable_resources` packages.
 
-`:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet and BookableResources, and is **not** exported. Like `:Account`, it uses the
+`:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet, BookableResources and Organisations, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
 CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts and BookableResources only declare their entities and
@@ -181,6 +185,11 @@ ones. `sync` replaces the local resources of each account (the API sends no ETag
 `X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a resource missing locally, staying `null` when that fails.
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the
 `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
+
+### Organisations
+
+`OrganisationsManager` reads `GET /1/accounts` on `api.infomaniak.com` and keeps every organisation, whatever its access.
+`sync` replaces the local organisations of each account; `getOrganisation(accountId, id)` reads them locally only.
 
 ### kMeet
 

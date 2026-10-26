@@ -18,11 +18,14 @@
 package com.infomaniak.multiplatform_core.organisations
 
 import androidx.room3.Room
+import androidx.room3.RoomDatabase
+import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_core.organisations.data.local.OrganisationsDatabase
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsErrorCause
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
+import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -82,6 +85,20 @@ internal fun testHttpClient(
     install(ContentNegotiation) { json(testJson()) }
     engine { addHandler(handler) }
 }
+
+internal suspend fun testManager(
+    initAccount: Boolean = true,
+    handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
+): OrganisationsManager = OrganisationsManager(database = testDatabase(), httpClient = testHttpClient(handler))
+    .apply { if (initAccount) initAccount(ACCOUNT_ID, AccessToken("token")) }
+
+internal suspend fun OrganisationsManager.storedOrganisationNames(accountId: AccountId = ACCOUNT_ID): List<String> =
+    (database as RoomDatabase).useReaderConnection { connection ->
+        connection.usePrepared("SELECT name FROM organisations WHERE accountId = ? ORDER BY name") { statement ->
+            statement.bindLong(1, accountId.value)
+            buildList { while (statement.step()) add(statement.getText(0)) }
+        }
+    }
 
 @OptIn(ExperimentalSerializationApi::class)
 private fun testJson(): Json = Json(DefaultJson) {

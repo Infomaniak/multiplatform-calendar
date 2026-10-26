@@ -52,7 +52,7 @@ import kotlin.time.Instant
 internal class BookableResourcesRepository(
     database: BookableResourcesDatabase,
     private val remoteDataSource: BookableResourcesRemoteDataSource,
-    private val tokenStore: InMemoryAccountTokens,
+    private val tokenByAccount: InMemoryAccountTokens,
 ) {
 
     private val dao = database.bookableResourceDao()
@@ -61,19 +61,19 @@ internal class BookableResourcesRepository(
     private val resourceFetchMutexes = mutableMapOf<Pair<AccountId, BookableResourceUuid>, Mutex>()
     private val resourceFetchMutexesLock = Mutex()
 
-    suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenStore.put(accountId, accessToken)
+    suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenByAccount.put(accountId, accessToken)
 
     // Under the sync mutex, so that a running sync cannot write the account back.
     suspend fun removeAccount(accountId: AccountId) {
         syncMutex(accountId).withLock {
-            tokenStore.remove(accountId)
+            tokenByAccount.remove(accountId)
             dao.deleteResourcesForAccount(accountId)
         }
     }
 
     suspend fun sync(accountIds: Set<AccountId>) {
         val failures = coroutineScope {
-            accountIds.ifEmpty { tokenStore.getAccountIds() }
+            accountIds.ifEmpty { tokenByAccount.getAccountIds() }
                 .map { accountId -> async { syncFailure(accountId) } }
                 .awaitAll()
                 .filterNotNull()
@@ -152,10 +152,10 @@ internal class BookableResourcesRepository(
         resourceFetchMutex(accountId to uuid).withLock {
             try {
                 if (dao.hasResource(accountId, uuid)) return
-                val token = tokenStore.getToken(accountId) ?: return
+                val token = tokenByAccount.getToken(accountId) ?: return
                 val resource = remoteDataSource.getBookableResource(token, uuid)?.takeIf(ApiBookableResource::isMeetingRoom) ?: return
                 syncMutex(accountId).withLock {
-                    if (tokenStore.getToken(accountId) != null) dao.upsertResources(listOf(resource.toEntity(accountId)))
+                    if (tokenByAccount.getToken(accountId) != null) dao.upsertResources(listOf(resource.toEntity(accountId)))
                 }
             } catch (exception: CancellationException) {
                 throw exception
@@ -165,7 +165,7 @@ internal class BookableResourcesRepository(
     }
 
     private suspend fun getToken(accountId: AccountId): AccessToken =
-        tokenStore.getToken(accountId) ?: throw BookableResourcesException(BookableResourcesErrorCause.AccountNotInitialized(accountId))
+        tokenByAccount.getToken(accountId) ?: throw BookableResourcesException(BookableResourcesErrorCause.AccountNotInitialized(accountId))
 
     private suspend fun syncMutex(accountId: AccountId): Mutex = syncMutexesLock.withLock {
         syncMutexes.getOrPut(accountId) { Mutex() }

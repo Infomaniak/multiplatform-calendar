@@ -56,7 +56,7 @@ internal class ContactsRepository(
     database: ContactsDatabase,
     private val remoteDataSource: ContactsRemoteDataSource,
     private val deviceContactsProvider: DeviceContactsProvider,
-    private val tokenStore: InMemoryAccountTokens,
+    private val tokenByAccount: InMemoryAccountTokens,
     private val deviceContactsScope: CoroutineScope,
 ) {
 
@@ -111,7 +111,7 @@ internal class ContactsRepository(
      */
     suspend fun sync(accountIds: Set<AccountId>) {
         val failures = coroutineScope {
-            accountIds.ifEmpty { tokenStore.getAccountIds() }
+            accountIds.ifEmpty { tokenByAccount.getAccountIds() }
                 .map { accountId -> async { syncFailure(accountId) } }
                 .awaitAll()
                 .filterNotNull()
@@ -122,12 +122,12 @@ internal class ContactsRepository(
         }
     }
 
-    suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenStore.put(accountId, accessToken)
+    suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenByAccount.put(accountId, accessToken)
 
     /** Takes the sync mutex of [accountId] so that a running sync cannot write the account back after its removal. */
     suspend fun removeAccount(accountId: AccountId) {
         syncMutex(accountId).withLock {
-            tokenStore.remove(accountId)
+            tokenByAccount.remove(accountId)
             dao.deleteAccount(accountId)
         }
     }
@@ -161,7 +161,7 @@ internal class ContactsRepository(
 
     private suspend fun syncAccount(accountId: AccountId) {
         syncMutex(accountId).withLock {
-            val token = tokenStore.getToken(accountId) ?: throw ContactsException(ContactsErrorCause.AccountNotInitialized(accountId))
+            val token = tokenByAccount.getToken(accountId) ?: throw ContactsException(ContactsErrorCause.AccountNotInitialized(accountId))
             when (val fetch = remoteDataSource.getContacts(token, dao.account(accountId)?.etag)) {
                 is ContactsFetch.NotModified -> Unit
                 is ContactsFetch.Success -> dao.replaceContacts(

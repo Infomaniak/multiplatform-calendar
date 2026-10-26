@@ -31,21 +31,21 @@ import kotlin.coroutines.cancellation.CancellationException
 public class MeetManager internal constructor(httpClient: HttpClient) {
 
     private val remoteDataSource = MeetRemoteDataSource(httpClient)
-    private val tokenStore = InMemoryAccountTokens()
+    private val tokenByAccount = InMemoryAccountTokens()
 
     public constructor() : this(httpClient = createMeetHttpClient())
 
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
-        meetCall { tokenStore.put(accountId, accessToken) }
+        meetCall { tokenByAccount.put(accountId, accessToken) }
 
     @Throws(MeetException::class, CancellationException::class)
-    public suspend fun removeAccount(accountId: AccountId): Unit = meetCall { tokenStore.remove(accountId) }
+    public suspend fun removeAccount(accountId: AccountId): Unit = meetCall { tokenByAccount.remove(accountId) }
 
     /** Each call creates a new kMeet room. */
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun generateRoomUrl(accountId: AccountId): String = meetCall {
-        val token = tokenStore.getToken(accountId) ?: throw MeetException(MeetErrorCause.AccountNotInitialized(accountId))
+        val token = tokenByAccount.getToken(accountId) ?: throw MeetException(MeetErrorCause.AccountNotInitialized(accountId))
         remoteDataSource.getMeetRoomUrl(token)
     }
 }

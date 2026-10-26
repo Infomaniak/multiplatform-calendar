@@ -51,7 +51,7 @@ public class ContactsManager internal constructor(
         database = database,
         remoteDataSource = ContactsRemoteDataSource(httpClient),
         deviceContactsProvider = deviceContactsProvider,
-        tokenStore = InMemoryAccountTokens(),
+        tokenByAccount = InMemoryAccountTokens(),
         deviceContactsScope = deviceContactsScope,
     )
 

@@ -47,7 +47,7 @@ public class BookableResourcesManager internal constructor(
     private val repository = BookableResourcesRepository(
         database = database,
         remoteDataSource = BookableResourcesRemoteDataSource(httpClient),
-        tokenStore = InMemoryAccountTokens(),
+        tokenByAccount = InMemoryAccountTokens(),
     )
 
     /** @param database Host Room database declaring the bookable resources tables. */

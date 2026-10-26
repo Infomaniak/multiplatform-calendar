@@ -41,7 +41,7 @@ public class OrganisationsManager internal constructor(
     private val repository = OrganisationsRepository(
         database = database,
         remoteDataSource = OrganisationsRemoteDataSource(httpClient),
-        tokenStore = InMemoryAccountTokens(),
+        tokenByAccount = InMemoryAccountTokens(),
     )
 
     public constructor(database: OrganisationsDatabase) : this(

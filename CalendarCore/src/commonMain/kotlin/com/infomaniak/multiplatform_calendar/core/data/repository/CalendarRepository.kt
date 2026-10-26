@@ -136,13 +136,14 @@ internal class CalendarRepository(
                     endLocalDateTime = endLocalDateTime,
                 )
                 if (localEvents.isEmpty()) {
-                    val rangeEvents = caldavClient.getEventsInRange(
+                    caldavClient.streamEventsInRange(
                         credentials = credentials,
                         calendarUrl = calendarEntity.id.url,
                         start = startValue,
                         end = endValue,
-                    )
-                    upsertEventsByChangeType(calendarEntity.id, rangeEvents)
+                    ).collect { batch ->
+                        upsertEventsByChangeType(calendarEntity.id, batch)
+                    }
                 } else {
                     syncExistingRange(
                         credentials = credentials,

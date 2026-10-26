@@ -72,7 +72,8 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
 
         val data = assertNotNull(repository.getEditData(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))))
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.AllOccurrences),
             data = data,
         )
@@ -138,7 +139,8 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
 
         val data = assertNotNull(repository.getEditData(occurrence))
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences),
             data = data,
         )
@@ -179,7 +181,7 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
 
         val data = assertNotNull(repository.getEditData(occurrence))
-        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+        repository.updateEvent(CREDENTIALS, CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
 
         assertEquals(MEET_ROOM_URL, data.meetRoom?.url)
         assertEquals(MEET_ROOM_URL, fakeCaldav.patches.single().meetRoomUrl)
@@ -193,7 +195,7 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
 
         val data = assertNotNull(repository.getEditData(occurrence)).copy(meetRoom = null)
-        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+        repository.updateEvent(CREDENTIALS, CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
 
         val edit = fakeCaldav.patches.single()
         assertNull(edit.meetRoomUrl)
@@ -208,7 +210,7 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
 
         val data = assertNotNull(repository.getEditData(occurrence))
-        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.ThisOccurrence), data)
+        repository.updateEvent(CREDENTIALS, CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.ThisOccurrence), data)
 
         assertEquals(MEET_ROOM_URL, fakeCaldav.overrideUpserts.single().second.meetRoomUrl)
     }
@@ -226,7 +228,7 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
             title = "Renamed",
             meetRoom = MeetRoom(MEET_ROOM_URL, descriptionBlock = "Join $MEET_ROOM_URL"),
         )
-        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+        repository.updateEvent(CREDENTIALS, CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
 
         val edit = fakeCaldav.overrideUpserts.single().second
         assertEquals("Renamed", edit.summary)
@@ -242,7 +244,7 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         val meetRoom = MeetRoom(MEET_ROOM_URL, descriptionBlock = meetRoomBlock(MEET_ROOM_URL))
 
         val data = assertNotNull(repository.getEditData(occurrence)).copy(meetRoom = meetRoom)
-        repository.updateEvent(CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
+        repository.updateEvent(CREDENTIALS, CREDENTIALS, OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences), data)
 
         val edit = fakeCaldav.patches.single()
         assertEquals(MEET_ROOM_URL, edit.meetRoomUrl)
@@ -259,7 +261,8 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         val data = assertNotNull(repository.getEditData(occurrence))
         assertEquals("Agenda", data.description)
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences),
             data = data.copy(description = "New agenda"),
         )

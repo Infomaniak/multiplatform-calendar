@@ -265,6 +265,8 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         val ACCOUNT_EMAILS = listOf("user@example.com", "alias@example.com")
         val CALENDAR_ID = CalendarId("calendar://main")
         val CREDENTIALS = DavAccount(baseUrl = "https://cal/", username = "u", password = "p")
+        val OTHER_ACCOUNT_ID = AccountId(2)
+        val OTHER_CREDENTIALS = DavAccount(baseUrl = "https://cal/", username = "other", password = "p")
         val OWNER = OrganizerEntity(email = "owner@example.com", displayName = "Owner")
         val ALICE = AttendeeEntity(
             email = "alice@example.com",

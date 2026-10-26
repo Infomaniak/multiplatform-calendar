@@ -266,8 +266,10 @@ public class CalendarManager internal constructor(
     public suspend fun updateEvent(target: OccurrenceTarget, data: EventEditData): Unit =
         withContext(Dispatchers.Default) {
             sdkCaller.run(operation = "update $target") {
-                val credentials = getCredentialsForCalendar(data.calendarId)
-                eventRepository.updateEvent(credentials, target, data)
+                val sourceAccountId = eventRepository.getAccountIdByEventId(target.occurrenceId.masterId)
+                val sourceCredentials = accountRepository.getCredentials(sourceAccountId)
+                val destinationCredentials = getCredentialsForCalendar(data.calendarId)
+                eventRepository.updateEvent(sourceCredentials, destinationCredentials, target, data)
             }
         }
 

@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -66,7 +67,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
                 RecurrenceScope.ThisAndFollowing,
@@ -98,7 +100,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -129,7 +132,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -169,7 +173,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -198,7 +203,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         val edited = listOf(stored).toDomain().single().copy(trigger = AlarmTrigger.Relative(-(5.minutes), TriggerRelation.Start))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -225,7 +231,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Renamed",
@@ -250,7 +257,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -261,6 +269,39 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         // Should the patch fail, the tail shows twice — which beats losing it outright.
         assertEquals(listOf("build", "override", "create", "patch"), fakeCaldav.calls)
     }
+
+    @Test
+    fun updateEvent_thisAndFollowing_towardsAnotherAccount_createsTheTailWithTheDestinationAndEndsTheMasterWithTheSource() =
+        runTest {
+            val target = CalendarId("calendar://target")
+            seedCalendar()
+            seedCalendar(accountId = OTHER_ACCOUNT_ID, calendarId = target)
+            val master = recurringColorMaster(
+                eventId = EventId("https://cal/main/series.ics"),
+                dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+                rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+            )
+            eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
+
+            repository.updateEvent(
+                sourceCredentials = CREDENTIALS,
+                destinationCredentials = OTHER_CREDENTIALS,
+                target = OccurrenceTarget.Recurring(
+                    occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
+                    RecurrenceScope.ThisAndFollowing,
+                ),
+                data = editData(
+                    title = "Tail",
+                    recurrence = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 5),
+                    calendarId = target,
+                ),
+            )
+
+            assertEquals(
+                listOf("calendar://target" to OTHER_CREDENTIALS, master.id.url to CREDENTIALS),
+                fakeCaldav.writeCredentials,
+            )
+        }
 
     @Test
     fun updateEvent_thisAndFollowing_movesTheTailsDateListsAlongWithIt() = runTest {
@@ -274,7 +315,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -308,7 +350,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(kept, moved))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -342,7 +385,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(pivot, after))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -371,7 +415,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -400,7 +445,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -430,7 +476,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -459,7 +506,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -485,7 +533,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -512,7 +561,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -540,7 +590,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, sourceIcs, listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             data = editData(
                 title = "Tail",
@@ -569,7 +620,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)), RecurrenceScope.ThisAndFollowing),
             // The user turned the rest of the series weekly: that is the rule the tail must carry.
             data = editData(
@@ -600,7 +652,8 @@ internal class EventRepositoryUpdateFollowingTest : EventRepositoryTestBase() {
         // Re-anchoring the rule on 15:00 would push every later instance five hours away from where it stands.
         assertFailsWith<IllegalArgumentException> {
             repository.updateEvent(
-                credentials = CREDENTIALS,
+                sourceCredentials = CREDENTIALS,
+                destinationCredentials = CREDENTIALS,
                 target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 15, 0)), RecurrenceScope.ThisAndFollowing),
                 data = editData(
                     title = "Tail",

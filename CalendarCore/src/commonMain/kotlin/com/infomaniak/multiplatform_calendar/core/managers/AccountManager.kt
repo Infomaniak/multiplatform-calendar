@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
+import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -43,13 +44,14 @@ public class AccountManager internal constructor(
     private val contactsManager: ContactsManager,
     private val meetManager: MeetManager,
     private val bookableResourcesManager: BookableResourcesManager,
+    private val organisationsManager: OrganisationsManager,
     private val sdkCaller: SdkCaller,
 ) {
 
-    /** Makes each [initAccount] / [removeAccount] update the calendar, the contacts, kMeet and the bookable resources as a single step. */
+    /** Makes each [initAccount] / [removeAccount] update the calendar, the contacts, kMeet, the bookable resources and the organisations as a single step. */
     private val accountLifecycleMutex = Mutex()
 
-    /** Registers [accountId] for the calendar, the contacts, kMeet and the bookable resources. Call it at startup and on login. */
+    /** Registers [accountId] for the calendar, the contacts, kMeet, the bookable resources and the organisations. Call it at startup and on login. */
     @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun initAccount(
         accountId: AccountId,
@@ -62,6 +64,7 @@ public class AccountManager internal constructor(
                 contactsManager.initAccount(accountId, accessToken)
                 meetManager.initAccount(accountId, accessToken)
                 bookableResourcesManager.initAccount(accountId, accessToken)
+                organisationsManager.initAccount(accountId, accessToken)
             }
         }
     }
@@ -74,6 +77,7 @@ public class AccountManager internal constructor(
                 contactsManager.removeAccount(accountId)
                 meetManager.removeAccount(accountId)
                 bookableResourcesManager.removeAccount(accountId)
+                organisationsManager.removeAccount(accountId)
             }
         }
     }

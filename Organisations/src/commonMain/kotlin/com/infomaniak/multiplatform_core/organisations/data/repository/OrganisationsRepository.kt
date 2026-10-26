@@ -27,7 +27,7 @@ import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.O
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
+import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -38,26 +38,26 @@ import kotlin.coroutines.cancellation.CancellationException
 internal class OrganisationsRepository(
     database: OrganisationsDatabase,
     private val remoteDataSource: OrganisationsRemoteDataSource,
-    private val tokenStore: AccountTokenStore,
+    private val tokenByAccount: InMemoryAccountTokens,
 ) {
 
     private val dao = database.organisationDao()
     private val syncMutexes = mutableMapOf<AccountId, Mutex>()
     private val syncMutexesLock = Mutex()
 
-    suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenStore.put(accountId, accessToken)
+    suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenByAccount.put(accountId, accessToken)
 
     /** Holds the sync mutex, so that a running sync cannot write the account back. */
     suspend fun removeAccount(accountId: AccountId) {
         syncMutex(accountId).withLock {
-            tokenStore.remove(accountId)
+            tokenByAccount.remove(accountId)
             dao.deleteOrganisationsForAccount(accountId)
         }
     }
 
     suspend fun sync(accountIds: Set<AccountId>) {
         val failures = coroutineScope {
-            accountIds.ifEmpty { tokenStore.getAccountIds() }
+            accountIds.ifEmpty { tokenByAccount.getAccountIds() }
                 .map { accountId -> async { catchingFailure { syncOrganisationsOf(accountId) } } }
                 .awaitAll()
                 .filterNotNull()
@@ -88,7 +88,7 @@ internal class OrganisationsRepository(
     }
 
     private suspend fun getToken(accountId: AccountId): AccessToken =
-        tokenStore.getToken(accountId) ?: throw OrganisationsException(OrganisationsErrorCause.AccountNotInitialized(accountId))
+        tokenByAccount.getToken(accountId) ?: throw OrganisationsException(OrganisationsErrorCause.AccountNotInitialized(accountId))
 
     private suspend fun syncMutex(accountId: AccountId): Mutex = syncMutexesLock.withLock {
         syncMutexes.getOrPut(accountId) { Mutex() }

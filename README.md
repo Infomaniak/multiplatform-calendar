@@ -52,7 +52,7 @@ multiplatform-calendar/
 
 | Module               | Purpose                                                                                       |
 |----------------------|-----------------------------------------------------------------------------------------------|
-| **Account**          | Shared identity types (`AccountId`, `AccessToken`) and in-memory `AccountTokenStore`, used by CalendarCore, Contacts, Meet, BookableResources and Organisations |
+| **Account**          | Shared identity types (`AccountId`, `AccessToken`) and `InMemoryAccountTokens`, used by CalendarCore, Contacts, Meet, BookableResources and Organisations |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 | **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |

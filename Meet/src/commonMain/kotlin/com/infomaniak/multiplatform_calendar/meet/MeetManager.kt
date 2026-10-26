@@ -24,28 +24,28 @@ import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetEx
 import com.infomaniak.multiplatform_calendar.meet.utils.meetCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
+import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import io.ktor.client.HttpClient
 import kotlin.coroutines.cancellation.CancellationException
 
 public class MeetManager internal constructor(httpClient: HttpClient) {
 
     private val remoteDataSource = MeetRemoteDataSource(httpClient)
-    private val tokenStore = AccountTokenStore()
+    private val tokenByAccount = InMemoryAccountTokens()
 
     public constructor() : this(httpClient = createMeetHttpClient())
 
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
-        meetCall { tokenStore.put(accountId, accessToken) }
+        meetCall { tokenByAccount.put(accountId, accessToken) }
 
     @Throws(MeetException::class, CancellationException::class)
-    public suspend fun removeAccount(accountId: AccountId): Unit = meetCall { tokenStore.remove(accountId) }
+    public suspend fun removeAccount(accountId: AccountId): Unit = meetCall { tokenByAccount.remove(accountId) }
 
     /** Each call creates a new kMeet room. */
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun generateRoomUrl(accountId: AccountId): String = meetCall {
-        val token = tokenStore.getToken(accountId) ?: throw MeetException(MeetErrorCause.AccountNotInitialized(accountId))
+        val token = tokenByAccount.getToken(accountId) ?: throw MeetException(MeetErrorCause.AccountNotInitialized(accountId))
         remoteDataSource.getMeetRoomUrl(token)
     }
 }

@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeve
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Remote CalDAV data source backed by the Rust `caldav_bridge` native library.
@@ -53,6 +54,22 @@ interface CalendarSyncRemoteSource {
         start: String,
         end: String,
     ): List<RemoteDavEvent>
+
+    /**
+     * Cold, pull-based download of VEVENT resources overlapping [start, end] (UTC iCalendar values).
+     *
+     * Each emitted list is bounded to 32 events. A new batch is not requested from Rust until the
+     * downstream collector resumes. A cancelled collector closes the underlying HTTP response;
+     * transport errors propagate rather than completing the flow successfully. The raw ICS and
+     * detached overrides are retained exactly as with [getEventsInRange].
+     */
+    @Throws(CancellationException::class, CaldavBridgeException::class)
+    fun streamEventsInRange(
+        credentials: DavAccount,
+        calendarUrl: String,
+        start: String,
+        end: String,
+    ): Flow<List<RemoteDavEvent>>
 
     /** Fetch only hrefs and etags for VEVENT resources overlapping [start, end]. */
     @Throws(CancellationException::class, CaldavBridgeException::class)

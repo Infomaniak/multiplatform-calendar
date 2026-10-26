@@ -50,6 +50,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeve
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -391,6 +393,54 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun downloadEventsByRange_streamsMultipleBatches_andPersistsAllRawIcs() = runTest {
+        val accountId = AccountId(18)
+        database.accountDao().insert(AccountEntity(accountId))
+        val url = "https://dav.example/cal/stream/"
+        val events = (1..65).map { n ->
+            remoteEvent(url = "${url}$n.ics", uid = "stream-$n", icsData = "BEGIN:VCALENDAR\r\nUID:stream-$n\r\nEND:VCALENDAR")
+        }
+        val remote = FakeCalendarSyncRemoteSource(listOf(RemoteDavCalendar(url = url, displayName = "Stream"))).apply {
+            rangeEvents[url] = events
+        }
+
+        repositoryWith(remote).downloadEventsByRange(
+            accountId, fakeCredentials(), Instant.parse("2026-06-15T00:00:00Z"), Instant.parse("2026-06-16T00:00:00Z"),
+        )
+
+        assertEquals(listOf(32, 32, 1), remote.streamBatchSizes)
+        assertEquals(0, remote.fullRangeRequestCount)
+        assertEquals(65, database.eventDao().observeEvents(CalendarId(url)).first().size)
+        events.forEach { assertEquals(it.icsData, database.eventDao().getRawIcs(EventId(it.url))) }
+    }
+
+    @Test
+    fun downloadEventsByRange_failureAfterFirstBatch_doesNotLosePersistedEvents() = runTest {
+        val accountId = AccountId(19)
+        database.accountDao().insert(AccountEntity(accountId))
+        val url = "https://dav.example/cal/interrupted/"
+        val events = (1..33).map { n -> remoteEvent(url = "${url}$n.ics", uid = "partial-$n") }
+        val remote = FakeCalendarSyncRemoteSource(listOf(RemoteDavCalendar(url = url, displayName = "Partial"))).apply {
+            rangeEvents[url] = events
+            failStreamAfterBatch = 1
+        }
+
+        repositoryWith(remote).downloadEventsByRange(
+            accountId, fakeCredentials(), Instant.parse("2026-06-15T00:00:00Z"), Instant.parse("2026-06-16T00:00:00Z"),
+        )
+
+        assertEquals(32, database.eventDao().observeEvents(CalendarId(url)).first().size)
+        // A retry must use the existing-range reconciliation rather than silently claiming completion.
+        remote.failStreamAfterBatch = null
+        remote.rangeRefs[url] = events.map { RemoteDavEventRef(url = it.url, etag = it.etag) }
+        remote.eventsByUrl.putAll(events.associateBy(RemoteDavEvent::url))
+        repositoryWith(remote).downloadEventsByRange(
+            accountId, fakeCredentials(), Instant.parse("2026-06-15T00:00:00Z"), Instant.parse("2026-06-16T00:00:00Z"),
+        )
+        assertEquals(33, database.eventDao().observeEvents(CalendarId(url)).first().size)
+    }
+
+    @Test
     fun downloadEventsByRange_existingRange_reconcilesRefsAndFetchesOnlyChangedEvents() = runTest {
         val accountId = AccountId(5)
         database.accountDao().insert(AccountEntity(accountId))
@@ -618,6 +668,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         var lastRangeEnd: String? = null
         var fullRangeRequestCount: Int = 0
         var refRangeRequestCount: Int = 0
+        val streamBatchSizes: MutableList<Int> = mutableListOf()
+        var failStreamAfterBatch: Int? = null
         var lastMultigetUrls: List<String> = emptyList()
         var onGetEventsInRange: (suspend () -> Unit)? = null
 
@@ -634,6 +686,21 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             lastRangeEnd = end
             onGetEventsInRange?.invoke()
             return rangeEvents[calendarUrl].orEmpty()
+        }
+
+        override fun streamEventsInRange(
+            credentials: DavAccount,
+            calendarUrl: String,
+            start: String,
+            end: String,
+        ): Flow<List<RemoteDavEvent>> = flow {
+            lastRangeStart = start
+            lastRangeEnd = end
+            for (batch in rangeEvents[calendarUrl].orEmpty().chunked(32)) {
+                if (streamBatchSizes.size == failStreamAfterBatch) error("Simulated stream failure")
+                streamBatchSizes += batch.size
+                emit(batch)
+            }
         }
 
         override suspend fun getEventRefsInRange(

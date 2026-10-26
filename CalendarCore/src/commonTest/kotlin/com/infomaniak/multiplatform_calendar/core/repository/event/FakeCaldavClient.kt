@@ -33,6 +33,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecu
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 /** Fake remote source: records create/delete calls and returns [patchedEvent] for patch/build,
  *  optionally folding the [RemoteEventEdit] into it via [applyEdit] to emulate the Rust bridge. */
@@ -63,6 +65,10 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     override suspend fun updateCalendar(credentials: DavAccount, calendarUrl: String, edit: RemoteCalendarEdit) = Unit
     override suspend fun getEventsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
         emptyList<RemoteDavEvent>()
+
+    override fun streamEventsInRange(
+        credentials: DavAccount, calendarUrl: String, start: String, end: String,
+    ): Flow<List<RemoteDavEvent>> = emptyFlow()
 
     override suspend fun getEventRefsInRange(credentials: DavAccount, calendarUrl: String, start: String, end: String) =
         emptyList<RemoteDavEventRef>()

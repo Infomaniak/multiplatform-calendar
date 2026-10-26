@@ -36,6 +36,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavOrganizer
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventChangeRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventSyncDelta
@@ -43,7 +44,6 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcal
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOccurrenceSlot
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
@@ -56,6 +56,11 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVTim
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import uniffi.caldav_bridge.AlarmEntry
 import uniffi.caldav_bridge.AlarmRepetitionSpec
@@ -94,6 +99,7 @@ import uniffi.caldav_bridge.calendarQueryTimerangeRefs as rustCalendarQueryTimer
 import uniffi.caldav_bridge.createEvent as rustCreateEvent
 import uniffi.caldav_bridge.deleteEvent as rustDeleteEvent
 import uniffi.caldav_bridge.discover as rustDiscover
+import uniffi.caldav_bridge.openCalendarRangeStream as rustOpenCalendarRangeStream
 import uniffi.caldav_bridge.patchEventIcs as rustPatchEventIcs
 import uniffi.caldav_bridge.setParticipationStatus as rustSetParticipationStatus
 import uniffi.caldav_bridge.syncCollection as rustSyncCollection
@@ -163,6 +169,34 @@ internal class RustCaldavBridge(
             return entries.map(EventEntry::toRemoteEvent)
         } catch (e: CaldavException) {
             throw e.toCaldavBridgeException("getEventsInRange")
+        }
+    }
+
+    override fun streamEventsInRange(
+        credentials: DavAccount,
+        calendarUrl: String,
+        start: String,
+        end: String,
+    ): Flow<List<RemoteDavEvent>> = flow {
+        val stream = try {
+            rustOpenCalendarRangeStream(credentials.toRust(), calendarUrl, start, end)
+        } catch (e: CaldavException) {
+            throw e.toCaldavBridgeException("streamEventsInRange")
+        }
+
+        try {
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                val entries = try {
+                    stream.nextBatch()
+                } catch (e: CaldavException) {
+                    throw e.toCaldavBridgeException("streamEventsInRange.nextBatch")
+                } ?: break
+                emit(entries.map(EventEntry::toRemoteEvent))
+            }
+        } finally {
+            // The generated async close may suspend even when the collector was cancelled.
+            withContext(NonCancellable) { stream.closeStream() }
         }
     }
 

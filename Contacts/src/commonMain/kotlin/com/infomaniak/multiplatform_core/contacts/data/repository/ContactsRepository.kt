@@ -112,7 +112,7 @@ internal class ContactsRepository(
     suspend fun sync(accountIds: Set<AccountId>) {
         val failures = coroutineScope {
             accountIds.ifEmpty { tokenByAccount.getAccountIds() }
-                .map { accountId -> async { syncFailure(accountId) } }
+                .map { accountId -> async { catchFailure { syncContactsOf(accountId) } } }
                 .awaitAll()
                 .filterNotNull()
         }
@@ -150,8 +150,8 @@ internal class ContactsRepository(
         }
     }
 
-    private suspend fun syncFailure(accountId: AccountId): Exception? = try {
-        syncAccount(accountId)
+    private suspend fun catchFailure(block: suspend () -> Unit): Exception? = try {
+        block()
         null
     } catch (exception: CancellationException) {
         throw exception
@@ -159,7 +159,7 @@ internal class ContactsRepository(
         exception
     }
 
-    private suspend fun syncAccount(accountId: AccountId) {
+    private suspend fun syncContactsOf(accountId: AccountId) {
         syncMutex(accountId).withLock {
             val token = tokenByAccount.getToken(accountId) ?: throw ContactsException(ContactsErrorCause.AccountNotInitialized(accountId))
             when (val fetch = remoteDataSource.getContacts(token, dao.account(accountId)?.etag)) {

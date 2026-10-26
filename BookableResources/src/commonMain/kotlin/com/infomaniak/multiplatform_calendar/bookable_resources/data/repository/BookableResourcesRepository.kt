@@ -74,7 +74,7 @@ internal class BookableResourcesRepository(
     suspend fun sync(accountIds: Set<AccountId>) {
         val failures = coroutineScope {
             accountIds.ifEmpty { tokenByAccount.getAccountIds() }
-                .map { accountId -> async { syncFailure(accountId) } }
+                .map { accountId -> async { catchFailure { syncBookableResourcesOf(accountId) } } }
                 .awaitAll()
                 .filterNotNull()
         }
@@ -129,8 +129,8 @@ internal class BookableResourcesRepository(
             .associate { (key, periods) -> BookableResourceUuid(key) to periods.map(ApiBusyPeriod::toBusyPeriod) }
     }
 
-    private suspend fun syncFailure(accountId: AccountId): Exception? = try {
-        syncAccount(accountId)
+    private suspend fun catchFailure(block: suspend () -> Unit): Exception? = try {
+        block()
         null
     } catch (exception: CancellationException) {
         throw exception
@@ -138,7 +138,7 @@ internal class BookableResourcesRepository(
         exception
     }
 
-    private suspend fun syncAccount(accountId: AccountId) {
+    private suspend fun syncBookableResourcesOf(accountId: AccountId) {
         syncMutex(accountId).withLock {
             val resources = remoteDataSource.getBookableResources(getToken(accountId))
                 .filter(ApiBookableResource::isMeetingRoom)

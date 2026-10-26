@@ -36,6 +36,7 @@ mod props;
 
 mod calendars;
 mod events;
+mod event_stream;
 
 #[cfg(test)]
 mod alarms_tests;

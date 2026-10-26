@@ -6,6 +6,7 @@ Thin [UniFFI](https://mozilla.github.io/uniffi-rs/) wrapper around [fast-dav-rs]
 
 - **Discover** calendars for a given CalDAV account
 - **Fetch** events with typed iCalendar fields (summary, dtstart, dtend, rrule, …) parsed via [icalendar](https://docs.rs/icalendar)
+- **Stream** time-range queries with bounded batches of 32 events using an async UniFFI object and a cold Kotlin `Flow` (pull-based backpressure; close aborts HTTP)
 - **Create / Update / Delete** events
 
 ## Prerequisites

@@ -34,7 +34,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exc
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
+import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -52,7 +52,7 @@ import kotlin.time.Instant
 internal class BookableResourcesRepository(
     database: BookableResourcesDatabase,
     private val remoteDataSource: BookableResourcesRemoteDataSource,
-    private val tokenStore: AccountTokenStore,
+    private val tokenStore: InMemoryAccountTokens,
 ) {
 
     private val dao = database.bookableResourceDao()

@@ -26,7 +26,7 @@ import kotlin.native.HiddenFromObjC
 
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
-public class AccountTokenStore {
+public class InMemoryAccountTokens {
 
     private val mutex = Mutex()
     private val tokens = mutableMapOf<AccountId, AccessToken>()

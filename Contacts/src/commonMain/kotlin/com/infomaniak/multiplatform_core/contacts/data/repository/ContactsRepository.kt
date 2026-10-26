@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_core.contacts.data.repository
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
+import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
@@ -56,7 +56,7 @@ internal class ContactsRepository(
     database: ContactsDatabase,
     private val remoteDataSource: ContactsRemoteDataSource,
     private val deviceContactsProvider: DeviceContactsProvider,
-    private val tokenStore: AccountTokenStore,
+    private val tokenStore: InMemoryAccountTokens,
     private val deviceContactsScope: CoroutineScope,
 ) {
 

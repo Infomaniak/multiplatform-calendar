@@ -28,7 +28,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exc
 import com.infomaniak.multiplatform_calendar.bookable_resources.utils.bookableResourcesCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
+import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -47,7 +47,7 @@ public class BookableResourcesManager internal constructor(
     private val repository = BookableResourcesRepository(
         database = database,
         remoteDataSource = BookableResourcesRemoteDataSource(httpClient),
-        tokenStore = AccountTokenStore(),
+        tokenStore = InMemoryAccountTokens(),
     )
 
     /** @param database Host Room database declaring the bookable resources tables. */

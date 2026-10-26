@@ -27,7 +27,7 @@ import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.O
 import com.infomaniak.multiplatform_core.organisations.utils.organisationsCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
+import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import io.ktor.client.HttpClient
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
@@ -41,7 +41,7 @@ public class OrganisationsManager internal constructor(
     private val repository = OrganisationsRepository(
         database = database,
         remoteDataSource = OrganisationsRemoteDataSource(httpClient),
-        tokenStore = AccountTokenStore(),
+        tokenStore = InMemoryAccountTokens(),
     )
 
     public constructor(database: OrganisationsDatabase) : this(

@@ -27,7 +27,7 @@ import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.O
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.account.utils.AccountTokenStore
+import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -38,7 +38,7 @@ import kotlin.coroutines.cancellation.CancellationException
 internal class OrganisationsRepository(
     database: OrganisationsDatabase,
     private val remoteDataSource: OrganisationsRemoteDataSource,
-    private val tokenStore: AccountTokenStore,
+    private val tokenStore: InMemoryAccountTokens,
 ) {
 
     private val dao = database.organisationDao()

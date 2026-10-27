@@ -19,22 +19,31 @@ package com.infomaniak.multiplatform_calendar.core.utils
 
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
+import platform.Foundation.NSLock
 
 internal actual class RecordingSQLiteDriver actual constructor(
     private val delegate: SQLiteDriver,
 ) : SQLiteDriver {
 
+    private val lock = NSLock()
+    private val statements = mutableListOf<String>()
+
     actual val preparedSql: List<String>
-        field = mutableListOf<String>()
+        get() = lock.withLock { statements.toList() }
 
     actual fun clear() {
-        preparedSql.clear()
+        lock.withLock { statements.clear() }
     }
 
-    override val hasConnectionPool: Boolean get() = delegate.hasConnectionPool
+    override val hasConnectionPool: Boolean
+        get() = delegate.hasConnectionPool
 
     actual override fun open(fileName: String): SQLiteConnection {
-        return RecordingConnection(delegate.open(fileName)) { sql -> preparedSql += sql }
+        return RecordingConnection(delegate.open(fileName)) { sql ->
+            lock.withLock {
+                statements.add(sql)
+            }
+        }
     }
 
     private class RecordingConnection(
@@ -50,3 +59,11 @@ internal actual class RecordingSQLiteDriver actual constructor(
     }
 }
 
+private inline fun <T> NSLock.withLock(block: () -> T): T {
+    lock()
+    return try {
+        block()
+    } finally {
+        unlock()
+    }
+}

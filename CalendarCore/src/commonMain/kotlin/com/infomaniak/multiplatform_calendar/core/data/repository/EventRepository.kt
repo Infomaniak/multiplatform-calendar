@@ -94,6 +94,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavHttpException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -105,6 +106,7 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -755,18 +757,46 @@ internal class EventRepository(
      * Answer the invitation as [reply], for the whole resource or as far along the series as [target] says.
      *
      * Only the user's `PARTSTAT` changes, the server relaying it to the organizer (RFC 6638 §3.2.2).
+     * The server may rewrite the attendee's copy once the organizer got the reply, after the write
+     * returned: on a precondition failure, the version it now holds is stored and answered again.
      */
     suspend fun updateParticipationStatus(credentials: DavAccount, target: OccurrenceTarget, reply: ParticipationReply) {
         val scope = (target as? OccurrenceTarget.Recurring)?.scope
         require(scope != RecurrenceScope.ThisAndFollowing) { "An attendee cannot split the series of the organizer" }
 
         val masterId = target.occurrenceId.masterId
-        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
-        val replyScope = when (scope) {
-            RecurrenceScope.ThisOccurrence -> occurrenceReplyScope(target.recurrenceId, entity)
-            else -> RemoteReplyScope.Series
-        } ?: return
         val emails = accountDao.getAccount(getAccountIdByEventId(masterId))?.emails.orEmpty()
+        try {
+            answerInvitation(credentials, target, reply, emails)
+        } catch (e: CaldavHttpException) {
+            if (e.statusCode != HttpStatusCode.PreconditionFailed.value) throw e
+            if (!storeServerVersion(credentials, masterId) || !answerInvitation(credentials, target, reply, emails)) throw e
+        }
+    }
+
+    private suspend fun storeServerVersion(credentials: DavAccount, eventId: EventId): Boolean {
+        val calendarId = eventDao.getEvent(eventId)?.calendarId ?: return false
+        val stored = readStoredVersion(credentials, calendarId, eventId.url) ?: return false
+        eventDao.upsertEventWithRawIcs(
+            stored.toSyncedUpsert(ref = RemoteDavEventRef(url = eventId.url, etag = stored.etag), calendarId = calendarId),
+        )
+        return true
+    }
+
+    /** Whether there was something to answer: the event and, for a single occurrence, that occurrence. */
+    private suspend fun answerInvitation(
+        credentials: DavAccount,
+        target: OccurrenceTarget,
+        reply: ParticipationReply,
+        emails: List<String>,
+    ): Boolean {
+        val masterId = target.occurrenceId.masterId
+        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return false
+        val replyScope = when {
+            target is OccurrenceTarget.Recurring && target.scope == RecurrenceScope.ThisOccurrence ->
+                occurrenceReplyScope(target.recurrenceId, entity)
+            else -> RemoteReplyScope.Series
+        } ?: return false
 
         val patched = caldavClient.setParticipationStatus(
             icsData = previousIcs,
@@ -777,6 +807,7 @@ internal class EventRepository(
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
+        return true
     }
 
     private fun ParticipationReply.toStatus(): ParticipationStatus = when (this) {

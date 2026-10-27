@@ -58,7 +58,7 @@ internal class OrganisationsRepository(
     suspend fun sync(accountIds: Set<AccountId>) {
         val failures = coroutineScope {
             accountIds.ifEmpty { tokenByAccount.getAccountIds() }
-                .map { accountId -> async { catchingFailure { syncOrganisationsOf(accountId) } } }
+                .map { accountId -> async { catchFailure { syncOrganisationsOf(accountId) } } }
                 .awaitAll()
                 .filterNotNull()
         }
@@ -71,7 +71,7 @@ internal class OrganisationsRepository(
     suspend fun getOrganisation(accountId: AccountId, id: OrganisationId): Organisation? =
         dao.getOrganisation(accountId, id)?.toOrganisation()
 
-    private suspend fun catchingFailure(block: suspend () -> Unit): Exception? = try {
+    private suspend fun catchFailure(block: suspend () -> Unit): Exception? = try {
         block()
         null
     } catch (exception: CancellationException) {

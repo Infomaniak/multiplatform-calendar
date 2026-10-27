@@ -314,29 +314,35 @@ internal class EventRepository(
         persistWrite(credentials, data.calendarId, written = built, ref = ref)
     }
 
-    suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
+    suspend fun updateEvent(
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
+        eventId: EventId,
+        data: EventEditData,
+    ) {
         val (entity, previousIcs) = eventDao.getEventWithRawIcs(eventId) ?: return
         val now = Clock.System.now().toICalUtcDateTime()
         // patchEventIcs returns the patched event reparsed from its final ICS, so the persisted
         // row mirrors exactly what is written to the server (bumped SEQUENCE, refreshed
         // DTSTAMP/LAST-MODIFIED, preserved server-only fields) with no Kotlin-side re-derivation.
         val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
-        writePatchedEvent(credentials, eventId, entity, data, patched)
+        writePatchedEvent(sourceCredentials, destinationCredentials, eventId, entity, data, patched)
     }
 
     /** Send a patched resource off, moving it to another calendar when that is what the edit asks. */
     private suspend fun writePatchedEvent(
-        credentials: DavAccount,
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
         eventId: EventId,
         entity: EventEntity,
         data: EventEditData,
         patched: RemoteDavEvent,
     ) {
         if (data.calendarId == entity.calendarId) {
-            val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
-            persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
+            val ref = caldavClient.updateEvent(sourceCredentials, eventId.url, entity.etag, patched.icsData)
+            persistWrite(sourceCredentials, entity.calendarId, written = patched, ref = ref)
         } else {
-            updateCrossCalendarEvent(credentials, eventId, data, patched)
+            updateCrossCalendarEvent(sourceCredentials, destinationCredentials, eventId, data, patched)
         }
     }
 
@@ -447,13 +453,20 @@ internal class EventRepository(
      * Apply [data] to what [target] designates: the whole resource — which is all a plain event, and
      * a series named by its master, can mean — or as far along the series as the scope it carries.
      */
-    suspend fun updateEvent(credentials: DavAccount, target: OccurrenceTarget, data: EventEditData) {
-        if (target !is OccurrenceTarget.Recurring) return updateEvent(credentials, target.occurrenceId.masterId, data)
+    suspend fun updateEvent(
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
+        target: OccurrenceTarget,
+        data: EventEditData,
+    ) {
+        if (target !is OccurrenceTarget.Recurring) {
+            return updateEvent(sourceCredentials, destinationCredentials, target.occurrenceId.masterId, data)
+        }
         val occurrenceId = target.recurrenceId
         when (target.scope) {
-            RecurrenceScope.AllOccurrences -> updateSeriesFrom(credentials, occurrenceId, data)
-            RecurrenceScope.ThisOccurrence -> overrideOccurrence(credentials, occurrenceId, data)
-            RecurrenceScope.ThisAndFollowing -> splitSeriesAt(credentials, occurrenceId, data)
+            RecurrenceScope.AllOccurrences -> updateSeriesFrom(sourceCredentials, destinationCredentials, occurrenceId, data)
+            RecurrenceScope.ThisOccurrence -> overrideOccurrence(sourceCredentials, occurrenceId, data)
+            RecurrenceScope.ThisAndFollowing -> splitSeriesAt(sourceCredentials, destinationCredentials, occurrenceId, data)
         }
     }
 
@@ -471,7 +484,8 @@ internal class EventRepository(
      * Refused when the rule does not generate the pivot, see [SeriesSplit.pivotFollowsTheRule].
      */
     private suspend fun splitSeriesAt(
-        credentials: DavAccount,
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
         occurrenceId: OccurrenceId.Recurrence,
         data: EventEditData,
     ) {
@@ -484,7 +498,7 @@ internal class EventRepository(
         if (master.excludes(pivotStart)) return
         val split = master.splitAt(pivotStart, defaultZone = zone)
         // Nothing precedes the pivot, so there is no head to leave behind: the whole series is moving.
-        if (split.head == null) return updateSeriesFrom(credentials, occurrenceId, data)
+        if (split.head == null) return updateSeriesFrom(sourceCredentials, destinationCredentials, occurrenceId, data)
         require(split.pivotFollowsTheRule) {
             "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
         }
@@ -497,7 +511,7 @@ internal class EventRepository(
         val seedContent = pivotSeed?.content ?: entity.content
         val alarmOrigin = if (data.alarms is AlarmListEdit.Replace) seedContent.alarms else entity.content.alarms
         createTail(
-            credentials,
+            destinationCredentials,
             tail = SeriesTail.of(master, pivotStart, edit = data.statingAlarmsOf(entity), split),
             carried = overrides.mapNotNull { it.carriedAfter(pivotStart, master) },
             source = SeriesSource(sourceIcs, pivotSeed?.toRemoteRecurrenceId(master)),
@@ -506,7 +520,7 @@ internal class EventRepository(
         )
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
-        truncateSeriesFrom(credentials, occurrenceId)
+        truncateSeriesFrom(sourceCredentials, occurrenceId)
     }
 
     /**
@@ -646,7 +660,8 @@ internal class EventRepository(
      * override in the same resource, so the series and its exceptions never disagree between two requests.
      */
     private suspend fun updateSeriesFrom(
-        credentials: DavAccount,
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
         occurrenceId: OccurrenceId.Recurrence,
         data: EventEditData,
     ) {
@@ -691,7 +706,7 @@ internal class EventRepository(
             )
         }
 
-        writePatchedEvent(credentials, masterId, entity, masterEdit, patched)
+        writePatchedEvent(sourceCredentials, destinationCredentials, masterId, entity, masterEdit, patched)
     }
 
     /**
@@ -785,14 +800,15 @@ internal class EventRepository(
     }
 
     private suspend fun updateCrossCalendarEvent(
-        credentials: DavAccount,
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
         eventId: EventId,
         data: EventEditData,
         patched: RemoteDavEvent,
     ) {
-        val ref = caldavClient.createEvent(credentials, data.calendarId.url, patched.icsData)
-        deleteEvent(credentials, eventId)
-        persistWrite(credentials, data.calendarId, written = patched, ref = ref)
+        val ref = caldavClient.createEvent(destinationCredentials, data.calendarId.url, patched.icsData)
+        deleteEvent(sourceCredentials, eventId)
+        persistWrite(destinationCredentials, data.calendarId, written = patched, ref = ref)
     }
 
     /**

@@ -62,6 +62,8 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     val replies = mutableListOf<Reply>()
     /** Every write in the order it was issued, for the tests that care about which one lands first. */
     val calls = mutableListOf<String>()
+    /** The credentials of each remote write, keyed by the calendar url for a create and the event url otherwise. */
+    val writeCredentials = mutableListOf<Pair<String, DavAccount>>()
 
     data class Reply(val icsData: String, val scope: RemoteReplyScope, val emails: List<String>, val partStat: String)
 
@@ -122,14 +124,18 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     override suspend fun createEvent(credentials: DavAccount, calendarUrl: String, icsData: String): RemoteDavEventRef {
         creates += calendarUrl to icsData
         calls += "create"
+        writeCredentials += calendarUrl to credentials
         return createdRef
     }
 
-    override suspend fun updateEvent(credentials: DavAccount, eventUrl: String, etag: String, icsData: String) =
-        RemoteDavEventRef(url = eventUrl, etag = updatedEtag ?: etag)
+    override suspend fun updateEvent(credentials: DavAccount, eventUrl: String, etag: String, icsData: String): RemoteDavEventRef {
+        writeCredentials += eventUrl to credentials
+        return RemoteDavEventRef(url = eventUrl, etag = updatedEtag ?: etag)
+    }
 
     override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) {
         deletes += eventUrl to etag
+        writeCredentials += eventUrl to credentials
     }
 }
 

@@ -95,7 +95,8 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             eventId = oldId,
             data = editData(title = "Renamed", calendarId = target),
         )
@@ -153,13 +154,38 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             eventId = oldId,
             data = editData(title = "Original", calendarId = target),
         )
 
         val moved = database.eventDao().getEvent(EventId("https://cal/target/event.ics"))!!
         assertEquals("royalblue", moved.content.colorIcalName)
+    }
+
+    @Test
+    fun updateEvent_crossAccountMove_createsWithTheDestinationAndDeletesWithTheSource() = runTest {
+        val source = CalendarId("calendar://source")
+        val target = CalendarId("calendar://target")
+        seedCalendar(calendarId = source)
+        seedCalendar(accountId = OTHER_ACCOUNT_ID, calendarId = target)
+
+        val oldId = EventId("https://cal/source/event.ics")
+        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = oldId, calendarId = source, etag = "etag-old"), "BEGIN:VEVENT")))
+        fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/target/event.ics", etag = "etag-new")
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = OTHER_CREDENTIALS,
+            eventId = oldId,
+            data = editData(title = "Original", calendarId = target),
+        )
+
+        assertEquals(
+            listOf("calendar://target" to OTHER_CREDENTIALS, oldId.url to CREDENTIALS),
+            fakeCaldav.writeCredentials,
+        )
     }
 
     /**
@@ -189,7 +215,8 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         )
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             eventId = eventId,
             data = editData(title = "Renamed"),
         )
@@ -292,7 +319,8 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         )
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             eventId = eventId,
             data = editData(title = "Renamed"), // no recurrence, no alarms
         )

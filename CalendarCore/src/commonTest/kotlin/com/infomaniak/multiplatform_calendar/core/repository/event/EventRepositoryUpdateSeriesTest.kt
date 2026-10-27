@@ -60,7 +60,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.ThisOccurrence,
@@ -97,7 +98,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.ThisOccurrence,
@@ -129,7 +131,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.ThisOccurrence,
@@ -163,7 +166,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         // An override has no resource of its own, so there is nothing to move.
         assertFailsWith<IllegalArgumentException> {
             repository.updateEvent(
-                credentials = CREDENTIALS,
+                sourceCredentials = CREDENTIALS,
+                destinationCredentials = CREDENTIALS,
                 target = OccurrenceTarget.Recurring(
                     occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                     RecurrenceScope.ThisOccurrence,
@@ -185,7 +189,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.AllOccurrences,
@@ -223,7 +228,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
                 RecurrenceScope.AllOccurrences,
@@ -259,7 +265,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
                 RecurrenceScope.AllOccurrences,
@@ -293,7 +300,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
                 RecurrenceScope.AllOccurrences,
@@ -341,7 +349,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.ThisOccurrence,
@@ -371,7 +380,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             // Same title as the master's: only the hour moves.
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
@@ -402,7 +412,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 17, 10, 0)),
                 RecurrenceScope.AllOccurrences,
@@ -431,7 +442,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", emptyList())))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.AllOccurrences,
@@ -467,7 +479,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(override))))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(
                 occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)),
                 RecurrenceScope.AllOccurrences,
@@ -491,7 +504,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         val shown = checkNotNull(repository.getEditData(occurrenceId))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
             data = shown.copy(description = "Agenda"),
         )
@@ -517,7 +531,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         val shown = checkNotNull(repository.getEditData(occurrenceId))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
             data = shown.copy(title = "Renamed", attendees = listOf(CAROL)),
         )
@@ -561,7 +576,8 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         val edit = checkNotNull(repository.getEditData(occurrenceId))
 
         repository.updateEvent(
-            credentials = CREDENTIALS,
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
             target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
             data = edit.copy(attendees = edit.attendees + CAROL),
         )

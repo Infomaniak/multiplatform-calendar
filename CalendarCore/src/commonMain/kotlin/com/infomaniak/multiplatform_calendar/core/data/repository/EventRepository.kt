@@ -42,6 +42,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyDotColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
@@ -92,9 +93,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
@@ -308,7 +311,7 @@ internal class EventRepository(
         val now = Clock.System.now().toICalUtcDateTime()
         val built = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
-        eventDao.upsertEventWithRawIcs(built.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
+        persistWrite(credentials, data.calendarId, written = built, ref = ref)
     }
 
     suspend fun updateEvent(credentials: DavAccount, eventId: EventId, data: EventEditData) {
@@ -331,7 +334,7 @@ internal class EventRepository(
     ) {
         if (data.calendarId == entity.calendarId) {
             val ref = caldavClient.updateEvent(credentials, eventId.url, entity.etag, patched.icsData)
-            eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+            persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
         } else {
             updateCrossCalendarEvent(credentials, eventId, data, patched)
         }
@@ -401,7 +404,7 @@ internal class EventRepository(
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
-        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+        persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
     /**
@@ -437,7 +440,7 @@ internal class EventRepository(
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
-        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+        persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
     /**
@@ -549,7 +552,7 @@ internal class EventRepository(
         val calendarId = tail.data.calendarId
 
         val ref = caldavClient.createEvent(credentials, calendarUrl = calendarId.url, resource.icsData)
-        eventDao.upsertEventWithRawIcs(resource.toSyncedUpsert(ref = ref, calendarId = calendarId))
+        persistWrite(credentials, calendarId, written = resource, ref = ref)
     }
 
     /** The [carried] overrides the [tail] takes over, redefined instance by instance in [built]. */
@@ -730,7 +733,7 @@ internal class EventRepository(
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
-        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+        persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
     /**
@@ -758,7 +761,7 @@ internal class EventRepository(
             stamp = Clock.System.now().toICalUtcDateTime(),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
-        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = entity.calendarId))
+        persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
     private fun ParticipationReply.toStatus(): ParticipationStatus = when (this) {
@@ -789,7 +792,30 @@ internal class EventRepository(
     ) {
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, patched.icsData)
         deleteEvent(credentials, eventId)
-        eventDao.upsertEventWithRawIcs(patched.toSyncedUpsert(ref = ref, calendarId = data.calendarId))
+        persistWrite(credentials, data.calendarId, written = patched, ref = ref)
+    }
+
+    /**
+     * Store what a write left on the server. A server stating no ETag stored something else than [written]
+     * (RFC 4791 §5.3.4), e.g. a `SCHEDULE-STATUS` added while delivering a reply, so that version is read
+     * back. Should the read fail, [written] is kept without an ETag until the next sync replaces it.
+     */
+    private suspend fun persistWrite(
+        credentials: DavAccount,
+        calendarId: CalendarId,
+        written: RemoteDavEvent,
+        ref: RemoteDavEventRef,
+    ) {
+        val stored = if (ref.etag.isEmpty()) readStoredVersion(credentials, calendarId, ref.url) else null
+        val upsert = stored?.toSyncedUpsert(ref = ref.copy(etag = stored.etag), calendarId = calendarId)
+            ?: written.toSyncedUpsert(ref = ref, calendarId = calendarId)
+        eventDao.upsertEventWithRawIcs(upsert)
+    }
+
+    private suspend fun readStoredVersion(credentials: DavAccount, calendarId: CalendarId, eventUrl: String): RemoteDavEvent? {
+        return runCatching { caldavClient.getEventsByUrls(credentials, calendarId.url, listOf(eventUrl)).singleOrNull() }
+            .cancellable()
+            .getOrNull()
     }
 
     /**

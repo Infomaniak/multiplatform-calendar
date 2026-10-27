@@ -39,6 +39,12 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeve
 internal class FakeCaldavClient : CalendarSyncRemoteSource {
     var patchedEvent: RemoteDavEvent = remoteDavEvent(icsData = "BEGIN:VEVENT\nUID:1\nEND:VEVENT")
     var createdRef: RemoteDavEventRef = RemoteDavEventRef(url = "", etag = "")
+    /** The ETag an update answers with; null echoes the one it was sent. */
+    var updatedEtag: String? = null
+    /** What [getEventsByUrls] finds on the server, unless [fetchFailure] makes it throw. */
+    var storedEvents: List<RemoteDavEvent> = emptyList()
+    var fetchFailure: Throwable? = null
+    val fetches = mutableListOf<Pair<String, List<String>>>()
     /**
      * When set, emulates the real Rust bridge: it rewrites the ICS from the edit and reparses it, so the
      * returned event reflects the edited recurrence/alarms. Null (default) returns [patchedEvent] verbatim,
@@ -70,8 +76,11 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
         RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
 
-    override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
-        emptyList<RemoteDavEvent>()
+    override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>): List<RemoteDavEvent> {
+        fetches += calendarUrl to eventUrls
+        fetchFailure?.let { throw it }
+        return storedEvents.filter { it.url in eventUrls }
+    }
 
     override suspend fun patchEventIcs(icsData: String, edit: RemoteEventEdit): RemoteDavEvent {
         patches += edit
@@ -117,7 +126,7 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     }
 
     override suspend fun updateEvent(credentials: DavAccount, eventUrl: String, etag: String, icsData: String) =
-        RemoteDavEventRef(url = eventUrl, etag = etag)
+        RemoteDavEventRef(url = eventUrl, etag = updatedEtag ?: etag)
 
     override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) {
         deletes += eventUrl to etag

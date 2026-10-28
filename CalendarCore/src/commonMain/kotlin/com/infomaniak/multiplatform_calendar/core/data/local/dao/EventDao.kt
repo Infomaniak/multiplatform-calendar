@@ -23,6 +23,8 @@ import androidx.room3.Transaction
 import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.ANCHORED_TIMING
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.FLOATING_TIMING
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.OVERRIDE_ANCHORED
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.OVERRIDE_FLOATING
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_ANCHORED
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_FLOATING
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmBoundsEntity
@@ -218,8 +220,23 @@ internal abstract class EventDao {
         // Overrides have no ETag of their own, so a server-side removal leaves no tombstone: the
         // incoming list is authoritative for its master, and whatever is missing from it is stale.
         val incomingKeys = batch.overrides.groupBy(EventOverrideEntity::masterId)
-        for (event in batch.events) {
-            deleteStaleOverridesOf(event.id, incomingKeys[event.id]?.map { it.recurrenceKey }.orEmpty())
+        val masterIdsWithoutOverrides = ArrayList<EventId>(batch.events.size)
+
+        batch.events.forEach { event ->
+            val keptOverrides = incomingKeys[event.id]
+
+            if (keptOverrides.isNullOrEmpty()) {
+                masterIdsWithoutOverrides.add(event.id)
+            } else {
+                deleteStaleOverridesOf(
+                    masterId = event.id,
+                    keptKeys = keptOverrides.map(EventOverrideEntity::recurrenceKey),
+                )
+            }
+        }
+
+        if (masterIdsWithoutOverrides.isNotEmpty()) {
+            deleteAllOverridesOf(masterIdsWithoutOverrides)
         }
     }
 
@@ -240,6 +257,9 @@ internal abstract class EventDao {
 
     @Query("DELETE FROM event_overrides WHERE masterId = :masterId AND recurrenceKey NOT IN (:keptKeys)")
     protected abstract suspend fun deleteStaleOverridesOf(masterId: EventId, keptKeys: List<RecurrenceKey>)
+
+    @Query("DELETE FROM event_overrides WHERE masterId IN (:masterIds)")
+    protected abstract suspend fun deleteAllOverridesOf(masterIds: List<EventId>)
 
     @Query("SELECT * FROM event_overrides WHERE masterId = :masterId ORDER BY recurrenceKey")
     abstract suspend fun getOverridesOf(masterId: EventId): List<EventOverrideEntity>

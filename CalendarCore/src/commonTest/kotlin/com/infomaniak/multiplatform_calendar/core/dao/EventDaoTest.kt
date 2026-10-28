@@ -39,6 +39,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import com.infomaniak.multiplatform_calendar.core.utils.RecordingSQLiteDriver
 import com.infomaniak.multiplatform_calendar.core.utils.seedEvents
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
@@ -60,6 +61,7 @@ import kotlin.test.assertTrue
 class EventDaoTest : RobolectricTestsBase() {
 
     private lateinit var database: CalendarDatabase
+    private lateinit var recordingDriver: RecordingSQLiteDriver
     private lateinit var accountDao: AccountDao
     private lateinit var calendarDao: CalendarDao
     private lateinit var eventDao: EventDao
@@ -67,7 +69,8 @@ class EventDaoTest : RobolectricTestsBase() {
     @BeforeTest
     fun setUp() {
         val databaseConfig = DatabaseProviderFactory.createTestDatabaseConfig()
-        database = databaseConfig.getCalendarDatabase(driver = DatabaseProviderFactory.driver(), inMemory = true)
+        recordingDriver = RecordingSQLiteDriver(DatabaseProviderFactory.driver())
+        database = databaseConfig.getCalendarDatabase(driver = recordingDriver, inMemory = true)
         accountDao = database.accountDao()
         calendarDao = database.calendarDao()
         eventDao = database.eventDao()
@@ -497,6 +500,60 @@ class EventDaoTest : RobolectricTestsBase() {
         eventDao.upsert(listOf(EventWithRawIcs(event, "BEGIN:VEVENT\nV2")))
 
         assertEquals("BEGIN:VEVENT\nV2", eventDao.getRawIcs(eventId))
+    }
+
+    @Test
+    fun upsertEventsWithRawIcs_with64EventsAnd5OverrideMasters_issues6OverrideCleanupQueries() = runTest {
+        val accountId = AccountId(71)
+        val calendarId = CalendarId("calendar://bulk-upsert")
+        seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
+        val batch = (1..64).map { index ->
+            val start = LocalDateTime(2026, 6, 15 + ((index - 1) / 20), (index - 1) % 20, 0)
+            val event = createEvent(
+                eventId = EventId("event://bulk-$index"),
+                calendarId = calendarId,
+                dtStart = start,
+                dtEndEffective = LocalDateTime(start.date, LocalTime(start.hour + 1, 0)),
+            )
+            val overrides = if (index <= 5) listOf(createOverride(event.id, start)) else emptyList()
+            EventWithRawIcs(event, "", overrides)
+        }
+
+        recordingDriver.clear()
+        eventDao.upsert(batch)
+
+        val deleteAllCount = recordingDriver.preparedSql.countContains("DELETE FROM event_overrides WHERE masterId IN")
+        val deleteStaleCount = recordingDriver.preparedSql.countContains("DELETE FROM event_overrides WHERE masterId =")
+        assertEquals(1, deleteAllCount)
+        // Some native drivers cache prepared statements and reuse the same SQL across executions,
+        // so we assert the logical range instead of an exact prepare-count per master.
+        assertTrue(deleteStaleCount in 1..5)
+        assertTrue((deleteAllCount + deleteStaleCount) in 2..6)
+    }
+
+    @Test
+    fun upsertEventsWithRawIcs_whenNoMasterHasOverrides_callsDeleteAllOverridesOnlyOnce() = runTest {
+        val accountId = AccountId(72)
+        val calendarId = CalendarId("calendar://bulk-upsert-no-overrides")
+        seedCalendar(accountId = accountId, calendarId = calendarId, isVisible = true)
+        val batch = (1..64).map { index ->
+            val start = LocalDateTime(2026, 6, 20 + ((index - 1) / 20), (index - 1) % 20, 0)
+            val event = createEvent(
+                eventId = EventId("event://bulk-no-override-$index"),
+                calendarId = calendarId,
+                dtStart = start,
+                dtEndEffective = LocalDateTime(start.date, LocalTime(start.hour + 1, 0)),
+            )
+            EventWithRawIcs(event, "", overrides = emptyList())
+        }
+
+        recordingDriver.clear()
+        eventDao.upsert(batch)
+
+        val deleteAllCount = recordingDriver.preparedSql.countContains("DELETE FROM event_overrides WHERE masterId IN")
+        val deleteStaleCount = recordingDriver.preparedSql.countContains("DELETE FROM event_overrides WHERE masterId =")
+        assertEquals(1, deleteAllCount)
+        assertEquals(0, deleteStaleCount)
     }
 
     private suspend fun seedEvents(events: List<EventEntity>) {
@@ -1213,5 +1270,9 @@ class EventDaoTest : RobolectricTestsBase() {
                 ),
             ),
         )
+    }
+
+    private fun List<String>.countContains(fragment: String): Int {
+        return count { sql -> sql.contains(fragment) }
     }
 }

@@ -770,13 +770,17 @@ internal class EventRepository(
             answerInvitation(credentials, target, reply, emails)
         } catch (e: CaldavHttpException) {
             if (e.statusCode != HttpStatusCode.PreconditionFailed.value) throw e
-            if (!storeServerVersion(credentials, masterId) || !answerInvitation(credentials, target, reply, emails)) throw e
+            if (!storeServerVersion(credentials, masterId, conflict = e)) throw e
+            if (!answerInvitation(credentials, target, reply, emails)) throw e
         }
     }
 
-    private suspend fun storeServerVersion(credentials: DavAccount, eventId: EventId): Boolean {
+    private suspend fun storeServerVersion(credentials: DavAccount, eventId: EventId, conflict: Throwable): Boolean {
         val calendarId = eventDao.getEvent(eventId)?.calendarId ?: return false
-        val stored = readStoredVersion(credentials, calendarId, eventId.url) ?: return false
+        val stored = runCatching { caldavClient.getEventsByUrls(credentials, calendarId.url, listOf(eventId.url)).singleOrNull() }
+            .cancellable()
+            .onFailure(conflict::addSuppressed)
+            .getOrNull() ?: return false
         eventDao.upsertEventWithRawIcs(
             stored.toSyncedUpsert(ref = RemoteDavEventRef(url = eventId.url, etag = stored.etag), calendarId = calendarId),
         )

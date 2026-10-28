@@ -191,6 +191,23 @@ internal class EventRepositoryParticipationTest : EventRepositoryTestBase() {
     }
 
     @Test
+    fun updateParticipationStatus_preconditionFailedAndReadFailing_reportsTheReadFailureWithTheConflict() = runTest {
+        val event = seedPlainEvent()
+        val failure = preconditionFailed()
+        val readFailure = IllegalStateException("read failed")
+        fakeCaldav.updateFailures += failure
+        fakeCaldav.fetchFailure = readFailure
+
+        val thrown = assertFailsWith<CaldavHttpException> {
+            repository.updateParticipationStatus(CREDENTIALS, OccurrenceTarget.Single(OccurrenceId.Master(event.id)), ParticipationReply.Declined)
+        }
+
+        assertSame(failure, thrown)
+        assertEquals(listOf<Throwable>(readFailure), thrown.suppressedExceptions)
+        assertEquals(1, fakeCaldav.updates.size)
+    }
+
+    @Test
     fun updateParticipationStatus_otherHttpFailure_isNotRetried() = runTest {
         val event = seedPlainEvent()
         fakeCaldav.updateFailures += CaldavHttpException(statusCode = HttpStatusCode.Forbidden.value, operation = "Update", message = "Forbidden", cause = null)

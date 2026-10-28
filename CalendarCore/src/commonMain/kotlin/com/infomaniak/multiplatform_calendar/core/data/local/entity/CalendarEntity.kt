@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 
 
 @Entity(
@@ -49,7 +50,7 @@ internal data class CalendarEntity(
     val ctag: String? = null,
     val syncToken: String? = null,
     val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
-    val organisationId: Long? = null,
+    val organisationId: OrganisationId? = null,
     val calendarType: String = "basic",
     val isDefaultCalendar: Boolean = false,
 )

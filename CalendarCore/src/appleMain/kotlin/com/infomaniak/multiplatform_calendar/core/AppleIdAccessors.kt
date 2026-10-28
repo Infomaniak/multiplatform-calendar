@@ -32,6 +32,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Upcom
  */
 public val Calendar.idValue: String get() = id.url
 public val Calendar.accountIdValue: Long get() = accountId.value
+public val Calendar.organisationIdValue: Long? get() = organisationId?.value
 
 /**
  * Persistent event identifier (master DB/CalDAV id).

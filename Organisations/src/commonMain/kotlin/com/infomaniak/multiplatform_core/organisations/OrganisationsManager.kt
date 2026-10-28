@@ -29,6 +29,9 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -71,4 +74,8 @@ public class OrganisationsManager internal constructor(
     @Throws(OrganisationsException::class, CancellationException::class)
     public suspend fun getOrganisation(accountId: AccountId, id: OrganisationId): Organisation? =
         organisationsCall { repository.getOrganisation(accountId, id) }
+
+    /** Reads the local organisations only, sorted by name. */
+    public fun observeOrganisations(accountId: AccountId): Flow<List<Organisation>> =
+        repository.observeOrganisations(accountId).flowOn(Dispatchers.Default)
 }

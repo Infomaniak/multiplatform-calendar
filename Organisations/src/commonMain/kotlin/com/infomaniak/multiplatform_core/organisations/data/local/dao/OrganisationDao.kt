@@ -24,6 +24,7 @@ import androidx.room3.Upsert
 import com.infomaniak.multiplatform_core.organisations.data.local.entity.OrganisationEntity
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlinx.coroutines.flow.Flow
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
@@ -46,4 +47,7 @@ public interface OrganisationDao {
 
     @Query("SELECT * FROM organisations WHERE accountId = :accountId AND id = :id")
     public suspend fun getOrganisation(accountId: AccountId, id: OrganisationId): OrganisationEntity?
+
+    @Query("SELECT * FROM organisations WHERE accountId = :accountId ORDER BY name ASC")
+    public fun observeOrganisations(accountId: AccountId): Flow<List<OrganisationEntity>>
 }

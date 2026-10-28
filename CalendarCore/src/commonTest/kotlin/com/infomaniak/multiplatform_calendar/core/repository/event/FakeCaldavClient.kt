@@ -44,6 +44,9 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     /** What [getEventsByUrls] finds on the server, unless [fetchFailure] makes it throw. */
     var storedEvents: List<RemoteDavEvent> = emptyList()
     var fetchFailure: Throwable? = null
+    /** Thrown by the next updates, one per update, before they succeed again. */
+    val updateFailures = ArrayDeque<Throwable>()
+    val updates = mutableListOf<Pair<String, String>>()
     val fetches = mutableListOf<Pair<String, List<String>>>()
     /**
      * When set, emulates the real Rust bridge: it rewrites the ICS from the edit and reparses it, so the
@@ -130,6 +133,8 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
 
     override suspend fun updateEvent(credentials: DavAccount, eventUrl: String, etag: String, icsData: String): RemoteDavEventRef {
         writeCredentials += eventUrl to credentials
+        updates += etag to icsData
+        updateFailures.removeFirstOrNull()?.let { throw it }
         return RemoteDavEventRef(url = eventUrl, etag = updatedEtag ?: etag)
     }
 

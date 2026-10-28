@@ -27,6 +27,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavHttpException
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOccurrenceSlot
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
@@ -152,7 +155,7 @@ internal class EventRepositoryParticipationTest : EventRepositoryTestBase() {
     fun updateParticipationStatus_preconditionFailed_answersAgainOnTheVersionTheServerHolds() = runTest {
         val event = seedPlainEvent()
         fakeCaldav.updateFailures += preconditionFailed()
-        fakeCaldav.storedEvents = listOf(remoteDavEvent(icsData = "SERVER-ICS").copy(url = event.id.url, etag = "etag-server"))
+        fakeCaldav.storedEvents = listOf(serverEvent(event.id))
 
         repository.updateParticipationStatus(CREDENTIALS, OccurrenceTarget.Single(OccurrenceId.Master(event.id)), ParticipationReply.Declined)
 
@@ -162,11 +165,23 @@ internal class EventRepositoryParticipationTest : EventRepositoryTestBase() {
     }
 
     @Test
+    fun updateParticipationStatus_preconditionFailedOnceTheUserWasRemoved_keepsTheServerVersionWithoutAnsweringAgain() = runTest {
+        val event = seedPlainEvent()
+        fakeCaldav.updateFailures += preconditionFailed()
+        fakeCaldav.storedEvents = listOf(serverEvent(event.id, attendees = emptyList()))
+
+        repository.updateParticipationStatus(CREDENTIALS, OccurrenceTarget.Single(OccurrenceId.Master(event.id)), ParticipationReply.Declined)
+
+        assertEquals(1, fakeCaldav.updates.size)
+        assertEquals("etag-server", eventDao().getEvent(event.id)!!.etag)
+    }
+
+    @Test
     fun updateParticipationStatus_preconditionFailedTwice_fails() = runTest {
         val event = seedPlainEvent()
         val second = preconditionFailed()
         fakeCaldav.updateFailures += listOf(preconditionFailed(), second)
-        fakeCaldav.storedEvents = listOf(remoteDavEvent(icsData = "SERVER-ICS").copy(url = event.id.url, etag = "etag-server"))
+        fakeCaldav.storedEvents = listOf(serverEvent(event.id))
 
         val failure = assertFailsWith<CaldavHttpException> {
             repository.updateParticipationStatus(CREDENTIALS, OccurrenceTarget.Single(OccurrenceId.Master(event.id)), ParticipationReply.Declined)
@@ -234,6 +249,28 @@ internal class EventRepositoryParticipationTest : EventRepositoryTestBase() {
     }
 
     @Test
+    fun updateParticipationStatus_allOccurrencesPreconditionFailed_answersAgainWhenOnlyAnInstanceInvitesTheUser() = runTest {
+        seedSeries()
+        fakeCaldav.updateFailures += preconditionFailed()
+        val series = serverSeries(dtend = "20260615T110000Z", rrule = "FREQ=DAILY;COUNT=3")
+        val invitedInstance = RemoteDavEventOverride(
+            recurrenceId = "20260616T100000Z",
+            recurrenceIdTzid = null,
+            recurrenceIdValueType = RemoteIcalDateValueType.DateTime,
+            isThisAndFuture = false,
+            content = series.content,
+        )
+        fakeCaldav.storedEvents = listOf(
+            series.copy(content = series.content.copy(attendees = emptyList()), overrides = listOf(invitedInstance)),
+        )
+
+        repository.updateParticipationStatus(CREDENTIALS, recurring(RecurrenceScope.AllOccurrences), ParticipationReply.Accepted)
+
+        assertEquals(2, fakeCaldav.updates.size)
+        assertEquals(RemoteReplyScope.Series, fakeCaldav.replies.last().scope)
+    }
+
+    @Test
     fun updateParticipationStatus_thisOccurrenceGoneFromTheServer_fails() = runTest {
         seedSeries()
         val failure = preconditionFailed()
@@ -249,8 +286,11 @@ internal class EventRepositoryParticipationTest : EventRepositoryTestBase() {
     }
 
     private fun serverSeries(dtend: String, rrule: String) =
-        remoteDavEvent(icsData = "SERVER-ICS", dtstart = "20260615T100000Z", dtend = dtend, rrule = rrule)
+        remoteDavEvent(icsData = "SERVER-ICS", dtstart = "20260615T100000Z", dtend = dtend, rrule = rrule, attendees = listOf(USER))
             .copy(url = seriesId.url, etag = "etag-server")
+
+    private fun serverEvent(eventId: EventId, attendees: List<RemoteDavAttendee> = listOf(USER)) =
+        remoteDavEvent(icsData = "SERVER-ICS", attendees = attendees).copy(url = eventId.url, etag = "etag-server")
 
     private suspend fun seedPlainEvent() = dailyMasterEntity(EventId("https://cal/main/plain.ics"), CALENDAR_ID)
         .copy(rrule = null, hasRecurrence = false, recurrenceBounds = null, etag = "etag-local")
@@ -261,4 +301,15 @@ internal class EventRepositoryParticipationTest : EventRepositoryTestBase() {
 
     private fun preconditionFailed() =
         CaldavHttpException(statusCode = HttpStatusCode.PreconditionFailed.value, operation = "Update", message = "Precondition Failed", cause = null)
+
+    private companion object {
+        val USER = RemoteDavAttendee(
+            email = ACCOUNT_EMAILS.first(),
+            displayName = null,
+            status = "NEEDS-ACTION",
+            role = "REQ-PARTICIPANT",
+            userType = "INDIVIDUAL",
+            responseNeeded = true,
+        )
+    }
 }

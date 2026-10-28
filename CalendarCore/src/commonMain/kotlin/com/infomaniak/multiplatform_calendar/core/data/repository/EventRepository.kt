@@ -758,7 +758,8 @@ internal class EventRepository(
      *
      * Only the user's `PARTSTAT` changes, the server relaying it to the organizer (RFC 6638 §3.2.2).
      * The server may rewrite the attendee's copy once the organizer got the reply, after the write
-     * returned: on a precondition failure, the version it now holds is stored and answered again.
+     * returned: on a precondition failure, the version it now holds is stored and answered again, unless
+     * it no longer invites the user.
      */
     suspend fun updateParticipationStatus(credentials: DavAccount, target: OccurrenceTarget, reply: ParticipationReply) {
         val scope = (target as? OccurrenceTarget.Recurring)?.scope
@@ -771,7 +772,21 @@ internal class EventRepository(
         } catch (e: CaldavHttpException) {
             if (e.statusCode != HttpStatusCode.PreconditionFailed.value) throw e
             if (!storeServerVersion(credentials, masterId, conflict = e)) throw e
+            if (!isInvited(target, emails)) return
             if (!answerInvitation(credentials, target, reply, emails)) throw e
+        }
+    }
+
+    private suspend fun isInvited(target: OccurrenceTarget, emails: List<String>): Boolean {
+        val masterId = target.occurrenceId.masterId
+        val master = eventDao.getEvent(masterId) ?: return false
+        val contents = if (target is OccurrenceTarget.Recurring && target.scope == RecurrenceScope.ThisOccurrence) {
+            listOf(eventDao.getOverrideOf(masterId, target.recurrenceId.recurrenceKey)?.content ?: master.content)
+        } else {
+            listOf(master.content) + eventDao.getOverridesOf(masterId).map { it.content }
+        }
+        return contents.any { content ->
+            content.attendees.any { attendee -> emails.any { it.equals(attendee.email, ignoreCase = true) } }
         }
     }
 

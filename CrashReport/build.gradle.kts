@@ -40,4 +40,10 @@ kotlin {
     macosArm64()
 
     explicitApi()
+
+    sourceSets {
+        androidMain.dependencies {
+            compileOnly(kmpCalendar.sentry)
+        }
+    }
 }

@@ -58,7 +58,7 @@ multiplatform-calendar/
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 | **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
-| **CrashReport**      | `CrashReport` interface the host app implements to report errors to Sentry |
+| **CrashReport**      | `CrashReport` interface the host app provides to report errors, with a Sentry-backed `AndroidCrashReport` |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |

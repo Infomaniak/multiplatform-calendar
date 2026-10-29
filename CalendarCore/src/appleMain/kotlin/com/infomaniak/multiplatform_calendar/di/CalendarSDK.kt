@@ -17,13 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.di
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.configureCaldavClient
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
 import com.infomaniak.multiplatform_core.contacts.ContactsSettings
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.DependencyGraph
 import dev.zacsweers.metro.Provides

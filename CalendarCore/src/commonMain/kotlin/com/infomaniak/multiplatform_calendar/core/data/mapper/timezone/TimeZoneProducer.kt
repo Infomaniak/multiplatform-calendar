@@ -17,8 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper.timezone
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import kotlinx.datetime.TimeZone
 
 /**

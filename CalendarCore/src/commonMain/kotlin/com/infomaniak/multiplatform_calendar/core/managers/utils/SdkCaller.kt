@@ -17,13 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers.utils
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetErrorCause
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetException
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn

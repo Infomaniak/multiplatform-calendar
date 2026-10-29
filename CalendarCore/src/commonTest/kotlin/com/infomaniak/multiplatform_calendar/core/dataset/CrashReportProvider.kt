@@ -17,9 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.core.dataset
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.BreadcrumbType
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
+import com.infomaniak.multiplatform_core.crashreport.BreadcrumbType
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 
 object CrashReportProvider {
     val noOp: CrashReport by lazy {

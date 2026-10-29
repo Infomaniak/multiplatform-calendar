@@ -26,6 +26,8 @@ multiplatform-calendar/
 │   └── build.gradle.kts             # Bridge module build (UniFFI/Cargo, Metro)
 ├── CalendarResources/               # Shared Compose Multiplatform recurrence strings and translations
 │   └── src/commonMain/composeResources/  # values/ and values-<lang>/strings.xml
+├── CrashReport/                     # CrashReport interface implemented by the host app
+│   └── build.gradle.kts             # CrashReport module build (publish)
 ├── Contacts/                        # Standalone KMP contacts module (server address book + device contacts)
 │   ├── src/commonMain/              # ContactsManager, merge/search/sync logic, Room tables and database, Ktor remote source
 │   ├── src/androidMain/             # AndroidDeviceContactsProvider (ContactsContract)
@@ -56,6 +58,7 @@ multiplatform-calendar/
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
 | **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
+| **CrashReport**      | `CrashReport` interface the host app implements to report errors to Sentry |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
@@ -109,6 +112,7 @@ generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to
 `:Meet` and `:BookableResources` are exported the same way (`MeetException`, `BookableResourcesManager` and their types) but, being
 specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` and `…bookable_resources` packages.
 `:Organisations` is exported too (`OrganisationsManager` and its types), under `com.infomaniak.multiplatform_core.organisations`.
+`:CrashReport` is exported too (`CrashReport`, `CrashReportLevel`, `BreadcrumbType`), under `com.infomaniak.multiplatform_core.crashreport`.
 
 `:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet, BookableResources and Organisations, and is **not** exported. Like `:Account`, it uses the
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.

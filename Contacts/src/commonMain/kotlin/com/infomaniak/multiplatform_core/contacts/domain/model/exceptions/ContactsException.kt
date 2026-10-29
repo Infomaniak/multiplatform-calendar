@@ -17,8 +17,10 @@
  */
 package com.infomaniak.multiplatform_core.contacts.domain.model.exceptions
 
+import com.infomaniak.multiplatform_core.crashreport.ModuleHandledException
+
 /** Single exception thrown by the contacts module; [errorCause] tells what went wrong. */
 public class ContactsException internal constructor(
     public val errorCause: ContactsErrorCause,
     cause: Throwable? = null,
-) : Exception(errorCause.message, cause)
+) : Exception(errorCause.message, cause), ModuleHandledException

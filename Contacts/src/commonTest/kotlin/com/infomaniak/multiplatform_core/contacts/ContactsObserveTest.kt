@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -90,6 +91,7 @@ class ContactsObserveTest : RobolectricTestsBase() {
             database = testDatabase(),
             appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = deviceContactsProvider,
+            crashReport = NoOpCrashReport,
             httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         )
         val emissions = Channel<Map<String, Contact>>(Channel.UNLIMITED)
@@ -110,6 +112,7 @@ class ContactsObserveTest : RobolectricTestsBase() {
             database = testDatabase(),
             appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = deviceContactsProvider,
+            crashReport = NoOpCrashReport,
             httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         )
         val emissions = Channel<Map<String, Contact>>(Channel.UNLIMITED)

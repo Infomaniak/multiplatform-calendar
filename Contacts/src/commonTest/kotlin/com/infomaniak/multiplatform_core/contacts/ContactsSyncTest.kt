@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -98,6 +99,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
             database = testDatabase(),
             appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
+            crashReport = NoOpCrashReport,
             httpClient = HttpClient(MockEngine) {
                 install(ContentNegotiation) { json(testJson()) }
                 engine {
@@ -131,6 +133,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
             database = database,
             appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
+            crashReport = NoOpCrashReport,
             httpClient = testHttpClient(
                 apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),
                 etag = null,
@@ -188,6 +191,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
             database = testDatabase(),
             appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = FakeDeviceContactsProvider(listOf(DeviceContact(email = "john@x.com", name = "John"))),
+            crashReport = NoOpCrashReport,
             httpClient = HttpClient(MockEngine) { engine { addHandler { throw IOException("offline") } } },
         ).apply { initTestAccount() }
 
@@ -198,6 +202,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
         database = testDatabase(),
         appEnvironment = AppEnvironment.Prod,
         deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
+        crashReport = NoOpCrashReport,
         httpClient = HttpClient(MockEngine) { engine { addHandler(handler) } },
     ).apply { initTestAccount() }
 }

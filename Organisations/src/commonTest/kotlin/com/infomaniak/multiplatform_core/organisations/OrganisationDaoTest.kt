@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_core.organisations
 import com.infomaniak.multiplatform_core.organisations.data.local.entity.OrganisationEntity
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -56,6 +57,15 @@ class OrganisationDaoTest : RobolectricTestsBase() {
         assertNull(dao.getOrganisation(ACCOUNT_ID, ORGANISATION_ID))
         assertEquals(OTHER_ORGANISATION_ID, dao.getOrganisation(ACCOUNT_ID, OTHER_ORGANISATION_ID)?.id)
         assertEquals(ORGANISATION_ID, dao.getOrganisation(OTHER_ACCOUNT_ID, ORGANISATION_ID)?.id)
+    }
+
+    @Test
+    fun organisationsOfAnAccountAreObservedSortedByName() = runTest {
+        val zeta = organisation(id = ORGANISATION_ID, name = "Zeta")
+        val alpha = organisation(id = OTHER_ORGANISATION_ID, name = "Alpha")
+        dao.upsertOrganisations(listOf(zeta, alpha, organisation(accountId = OTHER_ACCOUNT_ID)))
+
+        assertEquals(listOf(alpha, zeta), dao.observeOrganisations(ACCOUNT_ID).first())
     }
 
     private fun organisation(

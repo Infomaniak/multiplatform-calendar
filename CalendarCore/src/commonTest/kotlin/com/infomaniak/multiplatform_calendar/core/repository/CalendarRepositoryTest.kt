@@ -48,6 +48,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeve
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
+import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -125,12 +126,12 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
 
         val calendarId = CalendarId(calendarUrl)
         val entity = database.calendarDao().findById(calendarId)!!
-        assertEquals(42L, entity.organisationId)
+        assertEquals(OrganisationId(42), entity.organisationId)
         assertEquals("basic", entity.calendarType)
         assertTrue(entity.isDefaultCalendar)
 
         val calendar = repository.getCalendar(calendarId)
-        assertEquals(42L, calendar.organisationId)
+        assertEquals(OrganisationId(42), calendar.organisationId)
         assertEquals(CalendarType.Basic, calendar.calendarType)
         assertTrue(calendar.isDefaultCalendar)
     }

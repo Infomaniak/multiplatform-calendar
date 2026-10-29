@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
@@ -32,6 +33,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Upcom
  */
 public val Calendar.idValue: String get() = id.url
 public val Calendar.accountIdValue: Long get() = accountId.value
+public val Calendar.organisationIdValue: Long? get() = organisationId?.value
+public val CalendarSection.accountIdValue: Long get() = accountId.value
 
 /**
  * Persistent event identifier (master DB/CalDAV id).

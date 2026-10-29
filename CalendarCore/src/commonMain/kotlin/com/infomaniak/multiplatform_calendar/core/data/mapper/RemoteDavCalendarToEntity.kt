@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 
 /**
  * Maps each remote calendar to a [CalendarEntity], preserving local-only fields (e.g.
@@ -49,7 +50,7 @@ private fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
     caldavColor = parseHexColor(color),
     ctag = ctag,
     accessLevel = accessLevel.toEntity(),
-    organisationId = organisationId,
+    organisationId = organisationId?.let(::OrganisationId),
     calendarType = calendarType,
     isDefaultCalendar = isDefaultCalendar,
 )

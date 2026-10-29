@@ -17,12 +17,14 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toSections
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
@@ -36,10 +38,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Upcom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
+import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
+import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -52,9 +58,12 @@ import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -70,6 +79,7 @@ public class CalendarManager internal constructor(
     private val calendarRepository: CalendarRepository,
     private val eventRepository: EventRepository,
     private val meetManager: MeetManager,
+    private val organisationsManager: OrganisationsManager,
     private val sdkCaller: SdkCaller,
 ) {
 
@@ -78,10 +88,13 @@ public class CalendarManager internal constructor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    public fun observeCalendars(): Flow<List<Calendar>> {
+    public fun observeCalendars(): Flow<List<CalendarSection>> {
         return sdkCaller.flow(operation = "observe calendars") {
             nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
-                calendarRepository.observeCalendars(accountIds)
+                combine(
+                    calendarRepository.observeCalendars(accountIds),
+                    observeOrganisationsByAccount(accountIds),
+                ) { calendars, organisationsByAccount -> calendars.toSections(organisationsByAccount) }
             }
         }
     }
@@ -197,6 +210,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
+        launch { syncOrganisations() }
         sdkCaller.run(operation = "sync events for all accounts") {
             accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
@@ -320,6 +334,15 @@ public class CalendarManager internal constructor(
             val credentials = accountRepository.getCredentials(accountId)
             eventRepository.deleteEvent(credentials, target)
         }
+    }
+
+    private fun observeOrganisationsByAccount(accountIds: Set<AccountId>): Flow<Map<AccountId, List<Organisation>>> = combine(
+        accountIds.map { accountId -> organisationsManager.observeOrganisations(accountId).map { accountId to it } },
+    ) { organisationsOfAccounts -> organisationsOfAccounts.toMap() }
+
+    /** Failures are only reported, so they never fail the calendars sync. */
+    private suspend fun syncOrganisations() {
+        runCatching { sdkCaller.run(operation = "sync organisations") { organisationsManager.sync() } }.cancellable()
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

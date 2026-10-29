@@ -31,6 +31,8 @@ import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.cancellation.CancellationException
@@ -70,6 +72,9 @@ internal class OrganisationsRepository(
 
     suspend fun getOrganisation(accountId: AccountId, id: OrganisationId): Organisation? =
         dao.getOrganisation(accountId, id)?.toOrganisation()
+
+    fun observeOrganisations(accountId: AccountId): Flow<List<Organisation>> =
+        dao.observeOrganisations(accountId).map { entities -> entities.map { it.toOrganisation() } }
 
     private suspend fun catchFailure(block: suspend () -> Unit): Exception? = try {
         block()

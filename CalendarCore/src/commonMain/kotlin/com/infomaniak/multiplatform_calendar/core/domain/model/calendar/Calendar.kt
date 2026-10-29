@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.calendar
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
@@ -31,7 +32,8 @@ public data class Calendar(
     val colors: CalendarColors,
     val isVisible: Boolean,
     val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
-    val organisationId: Long? = null,
+    @HiddenFromObjC
+    val organisationId: OrganisationId? = null,
     val calendarType: CalendarType = CalendarType.Basic,
     val isDefaultCalendar: Boolean = false,
 )

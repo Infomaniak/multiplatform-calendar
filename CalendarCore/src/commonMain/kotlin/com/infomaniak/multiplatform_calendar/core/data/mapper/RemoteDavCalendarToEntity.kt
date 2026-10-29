@@ -19,8 +19,8 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.parseHexColor
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
@@ -30,7 +30,7 @@ import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
  * [CalendarEntity.isVisible]) from [existingByCalendarId] when a matching row exists.
  *
  * Without this merge, an `@Upsert` of the mapped remote rows would reset the local prefs to their
- * entity defaults on every sync (`isVisible = true`, …).
+ * creation defaults on every sync (`isVisible = isDefaultCalendar`, …).
  */
 internal fun List<RemoteDavCalendar>.toEntitiesPreservingLocalPrefs(
     accountId: AccountId,
@@ -53,4 +53,5 @@ private fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(
     organisationId = organisationId?.let(::OrganisationId),
     calendarType = calendarType,
     isDefaultCalendar = isDefaultCalendar,
+    isVisible = isDefaultCalendar,
 )

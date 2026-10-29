@@ -46,7 +46,7 @@ internal data class CalendarEntity(
     val displayName: String,
     val color: CalendarSourceColor?,
     val caldavColor: Int? = null,
-    val isVisible: Boolean = true,
+    val isVisible: Boolean = false,
     val ctag: String? = null,
     val syncToken: String? = null,
     val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,

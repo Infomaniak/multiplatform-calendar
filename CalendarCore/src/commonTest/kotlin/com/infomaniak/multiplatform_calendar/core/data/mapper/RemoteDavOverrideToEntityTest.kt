@@ -17,6 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
@@ -39,7 +41,7 @@ import kotlin.test.assertTrue
 class RemoteDavOverrideToEntityTest {
 
     @Test
-    fun overrideIsKeyedOnItsRecurrenceIdNotOnItsMovedStart() {
+    fun overrideIsKeyedOnItsRecurrenceIdNotOnItsMovedStart() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000",
             dtStartTzid = "Europe/Zurich",
@@ -56,7 +58,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun originalBoundsSpanTheMastersDuration() {
+    fun originalBoundsSpanTheMastersDuration() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             dtend = "20260615T113000Z",
@@ -72,7 +74,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun floatingOverrideHasNoAbsoluteOriginalBounds() {
+    fun floatingOverrideHasNoAbsoluteOriginalBounds() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000",
             overrides = listOf(override(recurrenceId = "20260617T100000", dtstart = "20260617T140000")),
@@ -86,7 +88,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun allDayOverrideIsKeyedOnItsDate() {
+    fun allDayOverrideIsKeyedOnItsDate() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615",
             overrides = listOf(
@@ -105,7 +107,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun cancelledOverrideKeepsItsStatusRatherThanBecomingAnExDate() {
+    fun cancelledOverrideKeepsItsStatusRatherThanBecomingAnExDate() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             overrides = listOf(override(recurrenceId = "20260617T100000Z", dtstart = "20260617T100000Z", status = "CANCELLED")),
@@ -118,7 +120,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun overrideMeetRoomUrl_isPreservedInOverrideContent() {
+    fun overrideMeetRoomUrl_isPreservedInOverrideContent() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             overrides = listOf(
@@ -136,7 +138,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun overrideWhoseFormDiffersFromTheMasterIsSkippedWithoutLosingItsSiblings() {
+    fun overrideWhoseFormDiffersFromTheMasterIsSkippedWithoutLosingItsSiblings() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             overrides = listOf(
@@ -152,7 +154,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun utcRecurrenceIdIsNormalisedIntoTheZonedMastersOwnForm() {
+    fun utcRecurrenceIdIsNormalisedIntoTheZonedMastersOwnForm() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000",
             dtStartTzid = "Europe/Zurich",
@@ -167,7 +169,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun zonedRecurrenceIdIsNormalisedIntoTheUtcMastersOwnForm() {
+    fun zonedRecurrenceIdIsNormalisedIntoTheUtcMastersOwnForm() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T080000Z",
             overrides = listOf(
@@ -181,7 +183,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun bareRecurrenceIdOnAnAnchoredMasterInheritsItsZone() {
+    fun bareRecurrenceIdOnAnAnchoredMasterInheritsItsZone() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000",
             dtStartTzid = "Europe/Zurich",
@@ -198,7 +200,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun zonedRecurrenceIdCannotIdentifyAnInstanceOfAFloatingMaster() {
+    fun zonedRecurrenceIdCannotIdentifyAnInstanceOfAFloatingMaster() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000",
             overrides = listOf(
@@ -210,7 +212,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun utcRecurrenceIdCannotIdentifyAnInstanceOfAFloatingMaster() {
+    fun utcRecurrenceIdCannotIdentifyAnInstanceOfAFloatingMaster() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000",
             overrides = listOf(override(recurrenceId = "20260617T080000Z", dtstart = "20260617T140000")),
@@ -220,7 +222,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun originalEndFollowsTheMastersOwnDtEndZone() {
+    fun originalEndFollowsTheMastersOwnDtEndZone() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T090000",
             dtStartTzid = "America/New_York",
@@ -237,7 +239,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun thisAndFutureOnANonRecurringEventIsNotReportedAsADroppedRecurrence() {
+    fun thisAndFutureOnANonRecurringEventIsNotReportedAsADroppedRecurrence() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             overrides = listOf(override(recurrenceId = "20260617T100000Z", dtstart = "20260617T140000Z", isThisAndFuture = true)),
@@ -247,7 +249,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun thisAndFutureOverrideIsKeptAsAPlainSingleInstanceOverride() {
+    fun thisAndFutureOverrideIsKeptAsAPlainSingleInstanceOverride() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             rrule = "FREQ=DAILY;COUNT=5",
@@ -262,7 +264,7 @@ class RemoteDavOverrideToEntityTest {
     }
 
     @Test
-    fun editingASeriesKeepsTheOverridesCarriedByThePatchedIcs() {
+    fun editingASeriesKeepsTheOverridesCarriedByThePatchedIcs() = withNoOpCrashReport {
         val event = remoteEvent(
             dtstart = "20260615T100000Z",
             rrule = "FREQ=DAILY;COUNT=5",
@@ -362,4 +364,5 @@ class RemoteDavOverrideToEntityTest {
     )
 }
 
+context(_: CrashReport)
 private fun RemoteDavEvent.toTimingEntity() = content.toTimingEntity(url)

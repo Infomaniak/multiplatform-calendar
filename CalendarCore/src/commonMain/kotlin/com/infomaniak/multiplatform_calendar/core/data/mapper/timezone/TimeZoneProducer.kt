@@ -17,7 +17,8 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper.timezone
 
-import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import kotlinx.datetime.TimeZone
 
 /**
@@ -31,10 +32,10 @@ import kotlinx.datetime.TimeZone
  *        and retry with the trailing path (e.g. `Europe/Paris`), which is usually a valid IANA id.
  *     3. [MS_TO_IANA_TIME_ZONES] fallback for Microsoft's non-IANA names
  *        (e.g. `Romance Standard Time` → `Europe/Paris`).
- *   If none match we throw [com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException], which causes the caller to skip
- *   the whole event rather than guess.
+ *   If none match, the TZID is reported to [CrashReport] and the value falls back to `TimeZone.UTC`.
  * - otherwise (floating)     → `null` (the recipient supplies its local zone at display time).
  */
+context(crashReport: CrashReport)
 internal fun resolveTimeZone(
     isAllDay: Boolean,
     rawValue: String,
@@ -48,7 +49,11 @@ internal fun resolveTimeZone(
         .recoverCatching { TimeZone.of(stripGloballyUniqueTzidPrefix(tzid)) }
         .recoverCatching { TimeZone.of(MS_TO_IANA_TIME_ZONES.getValue(tzid)) }
         .recoverCatching {
-            it.logFailuresToSentry("Unknown $propertyName TZID '$tzid' for event $eventUrl")//TODO:sentry log with extra for eventUrl
+            crashReport.capture(
+                message = "Unknown $propertyName TZID",
+                data = mapOf("tzid" to tzid, "eventUrl" to eventUrl),
+                level = CrashReportLevel.Warning,
+            )
             TimeZone.UTC
         }
         .getOrNull()

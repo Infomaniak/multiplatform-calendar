@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.timezone.resolveTimeZone
@@ -39,6 +40,7 @@ import kotlin.time.Duration
  * Shared by a master and its overrides, which describe their position with the very same properties.
  */
 @Throws(CaldavParsingException::class)
+context(_: CrashReport)
 internal fun RemoteDavEventContent.toTimingEntity(url: String): EventTimingEntity {
     val rawStart = dtstart ?: throw CaldavParsingException("DTSTART is required for event $url")
     val rawEnd = dtend

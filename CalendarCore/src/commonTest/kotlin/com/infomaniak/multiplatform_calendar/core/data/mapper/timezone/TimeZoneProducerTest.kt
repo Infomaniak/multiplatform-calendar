@@ -17,6 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper.timezone
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
+import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
+import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,26 +29,26 @@ import kotlin.test.assertNull
 class TimeZoneProducerTest {
 
     @Test
-    fun allDay_returnsNull() {
+    fun allDay_returnsNull() = withNoOpCrashReport {
         assertNull(resolve(isAllDay = true, rawValue = "20260615", tzid = null))
         // Even with a TZID, all-day trumps everything.
         assertNull(resolve(isAllDay = true, rawValue = "20260615", tzid = "Europe/Paris"))
     }
 
     @Test
-    fun utcSuffix_returnsUtc() {
+    fun utcSuffix_returnsUtc() = withNoOpCrashReport {
         assertEquals(TimeZone.UTC, resolve(isAllDay = false, rawValue = "20260615T100000Z", tzid = null))
         // Z suffix trumps a TZID (defensive: no TZID should coexist with Z per RFC 5545, but if it does, Z wins).
         assertEquals(TimeZone.UTC, resolve(isAllDay = false, rawValue = "20260615T100000Z", tzid = "Europe/Paris"))
     }
 
     @Test
-    fun validIanaTzid_resolves() {
+    fun validIanaTzid_resolves() = withNoOpCrashReport {
         assertEquals(TimeZone.of("Europe/Paris"), resolve(isAllDay = false, rawValue = "20260615T100000", tzid = "Europe/Paris"))
     }
 
     @Test
-    fun mozillaGloballyUniqueTzid_isStrippedAndResolved() {
+    fun mozillaGloballyUniqueTzid_isStrippedAndResolved() = withNoOpCrashReport {
         // RFC 5545 §3.2.19 "globally unique" form used by Thunderbird / Mozilla.
         assertEquals(
             TimeZone.of("Europe/Paris"),
@@ -53,7 +57,7 @@ class TimeZoneProducerTest {
     }
 
     @Test
-    fun freeassociationGloballyUniqueTzid_isStrippedAndResolved() {
+    fun freeassociationGloballyUniqueTzid_isStrippedAndResolved() = withNoOpCrashReport {
         // Same RFC 5545 §3.2.19 "globally unique" form, emitted by GNOME Evolution.
         assertEquals(
             TimeZone.of("Europe/Paris"),
@@ -66,7 +70,7 @@ class TimeZoneProducerTest {
     }
 
     @Test
-    fun msTzid_isMappedToIana() {
+    fun msTzid_isMappedToIana() = withNoOpCrashReport {
         assertEquals(
             TimeZone.of("Europe/Paris"),
             resolve(isAllDay = false, rawValue = "20260615T100000", tzid = "Romance Standard Time"),
@@ -74,16 +78,24 @@ class TimeZoneProducerTest {
     }
 
     @Test
-    fun unknownTzid_fallsBackToUtc() {
-        // Neither valid IANA, nor globally-unique prefix, nor MS mapping → UTC fallback (logged to Sentry).
-        assertEquals(TimeZone.UTC, resolve(isAllDay = false, rawValue = "20260615T100000", tzid = "Middle/Earth"))
+    fun unknownTzid_fallsBackToUtcAndIsReported() {
+        val crashReport = RecordingCrashReport()
+
+        // Neither valid IANA, nor globally-unique prefix, nor MS mapping.
+        val zone = with(crashReport) { resolve(isAllDay = false, rawValue = "20260615T100000", tzid = "Middle/Earth") }
+
+        assertEquals(TimeZone.UTC, zone)
+        val capture = crashReport.captures.single()
+        assertEquals(mapOf("tzid" to "Middle/Earth", "eventUrl" to "event://test"), capture.data)
+        assertEquals(CrashReportLevel.Warning, capture.level)
     }
 
     @Test
-    fun floating_noTzidNoUtcSuffix_returnsNull() {
+    fun floating_noTzidNoUtcSuffix_returnsNull() = withNoOpCrashReport {
         assertNull(resolve(isAllDay = false, rawValue = "20260615T100000", tzid = null))
     }
 
+    context(_: CrashReport)
     private fun resolve(isAllDay: Boolean, rawValue: String, tzid: String?): TimeZone? =
         resolveTimeZone(isAllDay, rawValue, tzid, eventUrl = "event://test", propertyName = "DTSTART")
 }

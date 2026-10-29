@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
@@ -29,28 +30,28 @@ class RemoteDavEventToEntityMeetRoomTest {
     private val calendarId = CalendarId("calendar://tests")
 
     @Test
-    fun meetRoomUrl_isStoredInContentEntity() {
+    fun meetRoomUrl_isStoredInContentEntity() = withNoOpCrashReport {
         val entity = remoteEvent(meetRoomUrl = "https://kmeet.infomaniak.com/lvqx-ozai-jeae-zdnd").toEntity(calendarId)
 
         assertEquals("https://kmeet.infomaniak.com/lvqx-ozai-jeae-zdnd", entity.content.meetRoomUrl)
     }
 
     @Test
-    fun missingMeetRoomUrl_staysNull() {
+    fun missingMeetRoomUrl_staysNull() = withNoOpCrashReport {
         val entity = remoteEvent(meetRoomUrl = null).toEntity(calendarId)
 
         assertNull(entity.content.meetRoomUrl)
     }
 
     @Test
-    fun bookableUuid_isStoredInContentEntity() {
+    fun bookableUuid_isStoredInContentEntity() = withNoOpCrashReport {
         val entity = remoteEvent(bookableUuid = "bookable-id").toEntity(calendarId)
 
         assertEquals("bookable-id", entity.content.bookableUuid)
     }
 
     @Test
-    fun missingBookableUuid_staysNull() {
+    fun missingBookableUuid_staysNull() = withNoOpCrashReport {
         val entity = remoteEvent(bookableUuid = null).toEntity(calendarId)
 
         assertNull(entity.content.bookableUuid)

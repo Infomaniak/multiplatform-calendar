@@ -207,7 +207,13 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val ids = listOf("a", "b").map { CalendarId("https://dav.example/cal/$it/") }
         ids.forEach { id ->
             database.calendarDao().insert(
-                CalendarEntity(id = id, accountId = accountId, displayName = id.url, color = null),
+                CalendarEntity(
+                    id = id,
+                    accountId = accountId,
+                    displayName = id.url,
+                    color = null,
+                    isVisible = true,
+                ),
             )
         }
         val repository = CalendarRepository(

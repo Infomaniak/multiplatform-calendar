@@ -17,10 +17,10 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper.timezone
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
-import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
+import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -64,6 +64,7 @@ kotlin {
             api(project(":Account"))
             api(project(":CalendarKmpDav"))
             api(project(":Contacts"))
+            api(project(":CrashReport"))
             api(project(":Meet"))
             api(project(":BookableResources"))
             api(project(":Organisations"))
@@ -161,5 +162,6 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         export(project(":Organisations"))
         // AccountId and AccessToken are shared by the calendar, contacts, meet and meeting rooms public APIs.
         export(project(":Account"))
+        export(project(":CrashReport"))
     }
 }

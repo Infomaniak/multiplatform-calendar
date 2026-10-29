@@ -15,15 +15,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.crashreporting
 
-/**
- * Breadcrumb types for Sentry. Controls how the icon/color is displayed in the UI on Sentry's webpage.
- *
- * @param value The value used in the JSON payload.
- * @see <a href="https://develop.sentry.dev/sdk/data-model/event-payloads/breadcrumbs/#breadcrumb-types">Sentry Documentation</a>
- */
-public enum class BreadcrumbType(public val value: String) {
-    Default("default"),
-    HTTP("http"),
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    alias(kmpCalendar.plugins.android.kmp.library)
+    alias(kmpCalendar.plugins.kotlin.multiplatform)
+    alias(kmpCalendar.plugins.publish)
+}
+
+kotlin {
+    android {
+        namespace = "com.infomaniak.multiplatform_core.crashreport"
+        compileSdk = property("kmp.compileSdk").toString().toInt()
+        minSdk = property("kmp.minSdk").toString().toInt()
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_21)
+        }
+    }
+
+    iosArm64()
+    iosSimulatorArm64()
+    macosArm64()
+
+    explicitApi()
+
+    sourceSets {
+        androidMain.dependencies {
+            compileOnly(kmpCalendar.sentry)
+        }
+    }
 }

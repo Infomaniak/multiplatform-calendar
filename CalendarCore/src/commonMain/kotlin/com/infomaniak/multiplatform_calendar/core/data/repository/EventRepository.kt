@@ -17,8 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReportLevel
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
@@ -103,6 +101,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecu
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn

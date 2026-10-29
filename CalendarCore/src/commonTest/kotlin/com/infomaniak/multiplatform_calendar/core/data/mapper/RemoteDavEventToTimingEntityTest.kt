@@ -17,13 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventContent
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant

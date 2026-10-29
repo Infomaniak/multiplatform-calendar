@@ -15,6 +15,7 @@ metro = "1.4.2" # See https://github.com/ZacSweers/metro/blob/main/docs/compatib
 room3 = "3.0.3"
 skie = "0.10.15"
 serialization = "1.11.0"
+sentry = "8.58.0"
 sqlite = "2.7.1"
 robolectric = "4.16.1"
 # Rust
@@ -39,6 +40,7 @@ ktor-client-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version
 ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 material-kolor = { module = "com.materialkolor:material-color-utilities", version.ref = "materialKolor" }
+sentry = { group = "io.sentry", name = "sentry", version.ref = "sentry" }
 #Test
 android-test = { module = "androidx.test:core-ktx", version.ref = "coreKtx" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }

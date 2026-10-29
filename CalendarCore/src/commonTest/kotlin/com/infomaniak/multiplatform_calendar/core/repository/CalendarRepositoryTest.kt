@@ -25,8 +25,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntit
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
-import com.infomaniak.multiplatform_calendar.core.dataset.CrashReportProvider
-import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -48,6 +46,8 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecu
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteReplyScope
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteVeventSeed
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
+import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -162,7 +162,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         caldavClient = remote,
         accountDao = database.accountDao(),
         calendarDao = database.calendarDao(),
-        crashReport = CrashReportProvider.noOp,
+        crashReport = NoOpCrashReport,
         eventDao = database.eventDao(),
     )
 
@@ -189,7 +189,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             FakeCalendarSyncRemoteSource(calendars = emptyList()),
             accountDao = database.accountDao(),
             database.calendarDao(),
-            CrashReportProvider.noOp,
+            NoOpCrashReport,
             database.eventDao(),
         )
 
@@ -213,7 +213,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             FakeCalendarSyncRemoteSource(calendars = emptyList()),
             accountDao = database.accountDao(),
             database.calendarDao(),
-            CrashReportProvider.noOp,
+            NoOpCrashReport,
             database.eventDao(),
         )
 
@@ -280,7 +280,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             caldavClient = remote,
             accountDao = database.accountDao(),
             calendarDao = database.calendarDao(),
-            crashReport = CrashReportProvider.noOp,
+            crashReport = NoOpCrashReport,
             eventDao = database.eventDao(),
         )
 
@@ -347,7 +347,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             remote,
             database.accountDao(),
             database.calendarDao(),
-            CrashReportProvider.noOp,
+            NoOpCrashReport,
             database.eventDao(),
         )
 
@@ -376,7 +376,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             caldavClient = remote,
             accountDao = database.accountDao(),
             calendarDao = database.calendarDao(),
-            crashReport = CrashReportProvider.noOp,
+            crashReport = NoOpCrashReport,
             eventDao = database.eventDao(),
         )
 
@@ -412,7 +412,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             remote,
             database.accountDao(),
             database.calendarDao(),
-            CrashReportProvider.noOp,
+            NoOpCrashReport,
             database.eventDao(),
         )
 
@@ -482,7 +482,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             caldavClient = remote,
             accountDao = database.accountDao(),
             calendarDao = database.calendarDao(),
-            crashReport = CrashReportProvider.noOp,
+            crashReport = NoOpCrashReport,
             eventDao = database.eventDao(),
         )
 

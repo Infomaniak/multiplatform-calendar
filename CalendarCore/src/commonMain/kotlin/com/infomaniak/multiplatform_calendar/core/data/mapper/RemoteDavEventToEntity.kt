@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
-import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventAttachmentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
@@ -53,6 +52,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavE
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteEventAttachment
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 

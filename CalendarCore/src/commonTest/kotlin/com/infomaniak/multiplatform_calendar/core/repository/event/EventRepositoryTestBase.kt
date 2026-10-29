@@ -32,7 +32,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.eventBounds
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
-import com.infomaniak.multiplatform_calendar.core.dataset.RecordingCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
@@ -57,6 +56,7 @@ import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone

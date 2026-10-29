@@ -44,7 +44,6 @@ import com.infomaniak.multiplatform_calendar.core.extensions.forEachCancellable
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
-import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -109,7 +108,7 @@ internal class CalendarRepository(
                 }
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
-                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
             }
         }
     }
@@ -154,7 +153,7 @@ internal class CalendarRepository(
                 }
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
-                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
             }
         }
     }

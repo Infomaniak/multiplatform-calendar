@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
@@ -28,5 +29,5 @@ public interface MeetModule {
 
     @SingleIn(AppScope::class)
     @Provides
-    private fun provideMeetManager(): MeetManager = MeetManager()
+    private fun provideMeetManager(crashReport: CrashReport): MeetManager = MeetManager(crashReport)
 }

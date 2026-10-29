@@ -19,21 +19,22 @@ package com.infomaniak.multiplatform_calendar.meet.utils
 
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetErrorCause
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.FailureKind
+import com.infomaniak.multiplatform_core.crashreport.ModuleCaller
 import kotlinx.io.IOException
-import kotlin.coroutines.cancellation.CancellationException
 
-internal suspend inline fun <T> meetCall(crossinline block: suspend () -> T): T = withContext(Dispatchers.Default) {
-    try {
-        block()
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (exception: MeetException) {
-        throw exception
-    } catch (exception: IOException) {
-        throw MeetException(MeetErrorCause.Network, exception)
-    } catch (exception: Exception) {
-        throw MeetException(MeetErrorCause.Unknown(exception), exception)
+internal class MeetCaller(crashReport: CrashReport) : ModuleCaller<MeetException>(crashReport, errorMessage = "Meet call failed") {
+
+    override fun kindOf(failure: Throwable): FailureKind = when (failure) {
+        is MeetException -> FailureKind.Handled
+        is IOException -> FailureKind.Network
+        else -> FailureKind.Unexpected
+    }
+
+    override fun convert(failure: Exception): MeetException = when (failure) {
+        is MeetException -> failure
+        is IOException -> MeetException(MeetErrorCause.Network, failure)
+        else -> MeetException(MeetErrorCause.Unknown(failure), failure)
     }
 }

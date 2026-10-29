@@ -47,6 +47,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":Account"))
+            api(project(":CrashReport"))
             implementation(kmpCalendar.kotlinx.coroutines.core)
             implementation(project(":Network"))
             implementation(kmpCalendar.kotlinx.serialization)

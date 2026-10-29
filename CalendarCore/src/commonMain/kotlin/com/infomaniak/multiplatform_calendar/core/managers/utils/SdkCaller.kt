@@ -20,8 +20,6 @@ package com.infomaniak.multiplatform_calendar.core.managers.utils
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
-import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetErrorCause
-import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetException
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import com.infomaniak.multiplatform_core.crashreport.ModuleHandledException
@@ -85,7 +83,6 @@ internal class SdkCaller(private val crashReport: CrashReport) {
             is CalendarSdkException -> throw this
             is RustNetworkException -> addNetworkBreadcrumb(errorMessage)
             is ModuleHandledException -> Unit
-            is MeetException if errorCause == MeetErrorCause.Network -> addNetworkBreadcrumb(errorMessage)
             is OrganisationsException if errorCause == OrganisationsErrorCause.Network -> addNetworkBreadcrumb(errorMessage)
             else -> crashReport.capture(errorMessage, exception = this)
         }

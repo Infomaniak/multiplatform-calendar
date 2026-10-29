@@ -17,7 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions
 
+import com.infomaniak.multiplatform_core.crashreport.ModuleHandledException
+
 public class MeetException internal constructor(
     public val errorCause: MeetErrorCause,
     cause: Throwable? = null,
-) : Exception(errorCause.message, cause)
+) : Exception(errorCause.message, cause), ModuleHandledException

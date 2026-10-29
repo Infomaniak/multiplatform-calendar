@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmRepetitionEntity
@@ -37,14 +38,14 @@ class RemoteDavEventToEntityAlarmTest {
     private val calendarId = CalendarId("calendar://alarms")
 
     @Test
-    fun eventWithNoAlarms_producesEmptyList() {
+    fun eventWithNoAlarms_producesEmptyList() = withNoOpCrashReport {
         val entity = remoteEvent(alarms = emptyList()).toEntity(calendarId).content
 
         assertTrue(entity.alarms.isEmpty())
     }
 
     @Test
-    fun relativeTrigger_isParsedToNegativeMillis_andRelatedToDefaultsToStart() {
+    fun relativeTrigger_isParsedToNegativeMillis_andRelatedToDefaultsToStart() = withNoOpCrashReport {
         val remote = alarm(triggerDuration = "-PT15M", triggerRelatedTo = "START")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
@@ -54,7 +55,7 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun relatedToEnd_isPreserved() {
+    fun relatedToEnd_isPreserved() = withNoOpCrashReport {
         val remote = alarm(triggerDuration = "PT0S", triggerRelatedTo = "END")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
@@ -63,7 +64,7 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun absoluteTrigger_isParsedToEpochMillis_andRelatedToFallsBackToStart() {
+    fun absoluteTrigger_isParsedToEpochMillis_andRelatedToFallsBackToStart() = withNoOpCrashReport {
         val remote = alarm(triggerDuration = null, triggerAbsolute = "20260615T090000Z", triggerRelatedTo = "")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
@@ -73,7 +74,7 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun action_isUppercased_evenForUnknownValues() {
+    fun action_isUppercased_evenForUnknownValues() = withNoOpCrashReport {
         val remote = alarm(action = "procedure", triggerDuration = "-PT5M")
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
@@ -81,7 +82,7 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun multipleAlarms_arePreservedInOrder() {
+    fun multipleAlarms_arePreservedInOrder() = withNoOpCrashReport {
         val firstAlarm = alarm(triggerDuration = "-PT30M", description = "First")
         val secondAlarm = alarm(triggerDuration = "-PT5M", description = "Second")
         val entity = remoteEvent(alarms = listOf(firstAlarm, secondAlarm)).toEntity(calendarId).content
@@ -91,14 +92,14 @@ class RemoteDavEventToEntityAlarmTest {
 
 
     @Test
-    fun serverUid_isKeptOnTheEntity() {
+    fun serverUid_isKeptOnTheEntity() = withNoOpCrashReport {
         val entity = remoteEvent(alarms = listOf(alarm(uid = "valarm-uid-1"))).toEntity(calendarId)
 
         assertEquals("valarm-uid-1", entity.content.alarms.single().uid)
     }
 
     @Test
-    fun repetition_isKeptOnTheEntity() {
+    fun repetition_isKeptOnTheEntity() = withNoOpCrashReport {
         val remote = alarm(repetition = RemoteAlarmRepetition(count = 2, interval = "PT300S"))
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
@@ -106,7 +107,7 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun repetitionWithAnUnreadableInterval_isDropped() {
+    fun repetitionWithAnUnreadableInterval_isDropped() = withNoOpCrashReport {
         val remote = alarm(repetition = RemoteAlarmRepetition(count = 2, interval = "soon"))
         val entity = remoteEvent(alarms = listOf(remote)).toEntity(calendarId).content.alarms.single()
 
@@ -114,7 +115,7 @@ class RemoteDavEventToEntityAlarmTest {
     }
 
     @Test
-    fun repetitionBreakingRfc5545_isDropped() {
+    fun repetitionBreakingRfc5545_isDropped() = withNoOpCrashReport {
         val invalid = listOf(
             RemoteAlarmRepetition(count = -1, interval = "PT5M"),
             RemoteAlarmRepetition(count = 2, interval = "PT0S"),

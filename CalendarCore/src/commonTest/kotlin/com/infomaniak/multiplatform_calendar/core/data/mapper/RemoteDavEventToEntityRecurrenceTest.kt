@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -138,7 +139,7 @@ class RemoteDavEventToEntityRecurrenceTest {
     }
 
     @Test
-    fun rdatePeriod_isDropped() {
+    fun rdatePeriod_isDropped() = withNoOpCrashReport {
         val remote = remoteEvent(
             rrule = "FREQ=DAILY",
             rDates = listOf(
@@ -156,7 +157,7 @@ class RemoteDavEventToEntityRecurrenceTest {
     }
 
     @Test
-    fun rdateDate_forAllDay_isParsed() {
+    fun rdateDate_forAllDay_isParsed() = withNoOpCrashReport {
         val remote = remoteEvent(
             rrule = "FREQ=DAILY",
             dtstart = "20260615",
@@ -176,7 +177,7 @@ class RemoteDavEventToEntityRecurrenceTest {
     }
 
     @Test
-    fun rdateDate_onTimedEvent_isParsed() {
+    fun rdateDate_onTimedEvent_isParsed() = withNoOpCrashReport {
         val remote = remoteEvent(
             rrule = "FREQ=DAILY",
             dtstart = "20260615T100000Z",
@@ -195,7 +196,7 @@ class RemoteDavEventToEntityRecurrenceTest {
     }
 
     @Test
-    fun exdateDate_onTimedEvent_isParsed() {
+    fun exdateDate_onTimedEvent_isParsed() = withNoOpCrashReport {
         val remote = remoteEvent(
             rrule = "FREQ=DAILY",
             dtstart = "20260615T100000Z",

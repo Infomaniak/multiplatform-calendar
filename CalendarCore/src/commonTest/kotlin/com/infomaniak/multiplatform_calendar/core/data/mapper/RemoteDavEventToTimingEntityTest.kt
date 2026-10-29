@@ -17,7 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
+import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
@@ -41,7 +43,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- All-day (VALUE=DATE) -------------------------------------------------------------------
 
     @Test
-    fun allDay_storesBothZonesAsNull_andEpochAnchoredInUtc() {
+    fun allDay_storesBothZonesAsNull_andEpochAnchoredInUtc() = withNoOpCrashReport {
         val timing = remoteEvent(
             dtstart = "20260615", // VALUE=DATE
             dtend = "20260616",
@@ -57,7 +59,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- UTC (Z suffix) -------------------------------------------------------------------------
 
     @Test
-    fun utcEvent_storesUtcZone_andAnchoredInstants() {
+    fun utcEvent_storesUtcZone_andAnchoredInstants() = withNoOpCrashReport {
         val timing = remoteEvent(
             dtstart = "20260615T100000Z",
             dtend = "20260615T110000Z",
@@ -73,7 +75,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- Zoned (TZID) ---------------------------------------------------------------------------
 
     @Test
-    fun zonedEvent_storesTzid_andAnchoredInstantsInThatZone() {
+    fun zonedEvent_storesTzid_andAnchoredInstantsInThatZone() = withNoOpCrashReport {
         val timing = remoteEvent(
             dtstart = "20260615T140000",
             dtStartTzid = "Europe/Paris",
@@ -90,7 +92,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- Cross-zone (RFC 5545 §3.8.2.2) ---------------------------------------------------------
 
     @Test
-    fun flightEvent_keepsBothZonesIndependent() {
+    fun flightEvent_keepsBothZonesIndependent() = withNoOpCrashReport {
         val timing = remoteEvent(
             dtstart = "20260615T090000",
             dtStartTzid = "America/New_York",
@@ -105,7 +107,7 @@ class RemoteDavEventToTimingEntityTest {
     }
 
     @Test
-    fun zonedEvent_dtendWithoutOwnTzid_inheritsStartZone() {
+    fun zonedEvent_dtendWithoutOwnTzid_inheritsStartZone() = withNoOpCrashReport {
         // RFC 5545: a bare local DATE-TIME on DTEND inherits DTSTART's anchor unless flagged UTC.
         val timing = remoteEvent(
             dtstart = "20260615T140000",
@@ -121,7 +123,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- Floating (FORM #1: no TZID, no Z) ------------------------------------------------------
 
     @Test
-    fun floatingEvent_storesBothZonesAndInstantsAsNull() {
+    fun floatingEvent_storesBothZonesAndInstantsAsNull() = withNoOpCrashReport {
         val timing = remoteEvent(
             dtstart = "20260615T100000",
             dtend = "20260615T110000",
@@ -137,7 +139,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- DURATION -------------------------------------------------------------------------------
 
     @Test
-    fun durationEvent_computesDtEndEffective_fromStartPlusDuration() {
+    fun durationEvent_computesDtEndEffective_fromStartPlusDuration() = withNoOpCrashReport {
         val timing = remoteEvent(
             dtstart = "20260615T100000Z",
             dtend = null,
@@ -151,7 +153,7 @@ class RemoteDavEventToTimingEntityTest {
     }
 
     @Test
-    fun allDayEvent_withNoDtEnd_defaultsToPlusOneDay() {
+    fun allDayEvent_withNoDtEnd_defaultsToPlusOneDay() = withNoOpCrashReport {
         // RFC 5545 §3.6.1: an all-day event without DTEND spans one day.
         val timing = remoteEvent(
             dtstart = "20260615",
@@ -164,7 +166,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- Windows TZIDs (Outlook / Exchange / M365) ---------------------------------------------
 
     @Test
-    fun windowsTzid_dtstartAndDtendCanUseDifferentWindowsZones() {
+    fun windowsTzid_dtstartAndDtendCanUseDifferentWindowsZones() = withNoOpCrashReport {
         val timing = remoteEvent(
             dtstart = "20260615T090000",
             dtStartTzid = "Eastern Standard Time",
@@ -179,7 +181,7 @@ class RemoteDavEventToTimingEntityTest {
     // ---- Errors ---------------------------------------------------------------------------------
 
     @Test
-    fun missingDtstart_throwsCaldavParsingException() {
+    fun missingDtstart_throwsCaldavParsingException() = withNoOpCrashReport {
         val remote = remoteEvent(dtstart = null)
         assertFailsWith<CaldavParsingException> { remote.toTimingEntity() }
     }
@@ -187,35 +189,35 @@ class RemoteDavEventToTimingEntityTest {
     // ---- Classification & categories ------------------------------------------------------------
 
     @Test
-    fun classification_standardValue_isParsedCaseInsensitively() {
+    fun classification_standardValue_isParsedCaseInsensitively() = withNoOpCrashReport {
         val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "private").toEntity(calendarId).content
 
         assertEquals(Classification.Private, entity.classification)
     }
 
     @Test
-    fun classification_customValue_isPrivate() {
+    fun classification_customValue_isPrivate() = withNoOpCrashReport {
         val entity = remoteEvent(dtstart = "20260615T100000Z", classification = "X-CUSTOM").toEntity(calendarId).content
 
         assertEquals(Classification.Private, entity.classification)
     }
 
     @Test
-    fun classification_absent_isPublic() {
+    fun classification_absent_isPublic() = withNoOpCrashReport {
         val entity = remoteEvent(dtstart = "20260615T100000Z", classification = null).toEntity(calendarId).content
 
         assertEquals(Classification.Public, entity.classification)
     }
 
     @Test
-    fun categories_areSplitTrimmedAndBlanksDropped() {
+    fun categories_areSplitTrimmedAndBlanksDropped() = withNoOpCrashReport {
         val entity = remoteEvent(dtstart = "20260615T100000Z", categories = " work , ,personal ").toEntity(calendarId).content
 
         assertEquals(listOf("work", "personal"), entity.categories)
     }
 
     @Test
-    fun categories_preserveEscapedTextChars() {
+    fun categories_preserveEscapedTextChars() = withNoOpCrashReport {
         // RFC 5545 §3.3.11: comma-separated TEXT values with \, \\ \; \n escapes.
         val entity = remoteEvent(
             dtstart = "20260615T100000Z",
@@ -226,7 +228,7 @@ class RemoteDavEventToTimingEntityTest {
     }
 
     @Test
-    fun categories_absentOrBlank_isNull() {
+    fun categories_absentOrBlank_isNull() = withNoOpCrashReport {
         assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = null).toEntity(calendarId).content.categories)
         assertNull(remoteEvent(dtstart = "20260615T100000Z", categories = " , ").toEntity(calendarId).content.categories)
     }
@@ -274,4 +276,5 @@ class RemoteDavEventToTimingEntityTest {
     private fun LocalDateTime.toEpochMs(zone: TimeZone): Long = toInstant(zone).toEpochMilliseconds()
 }
 
+context(_: CrashReport)
 private fun RemoteDavEvent.toTimingEntity() = content.toTimingEntity(url)

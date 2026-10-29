@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventAttachmentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
@@ -56,6 +57,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 
 @Throws(CaldavParsingException::class)
+context(_: CrashReport)
 internal fun RemoteDavEvent.toEntity(
     calendarId: CalendarId,
     recurrence: ResolvedRecurrence = ResolvedRecurrence(),
@@ -80,6 +82,7 @@ internal fun RemoteDavEvent.toEntity(
 
 /** The VEVENT body, mapped identically for a master and for a `RECURRENCE-ID` override. */
 @Throws(CaldavParsingException::class)
+context(_: CrashReport)
 internal fun RemoteDavEventContent.toContentEntity(url: String) = EventContentEntity(
     summary = summary ?: "",
     description = description,
@@ -144,6 +147,7 @@ internal fun RemoteDavEvent.resolveRecurrence(): RecurrenceRule? {
 }
 
 @Throws(RecurrenceDroppedException::class)
+context(_: CrashReport)
 internal fun RemoteDavEvent.resolveRecurrenceSet(): ResolvedRecurrence {
     val form = content.dtStartForm()
     return ResolvedRecurrence(
@@ -172,6 +176,7 @@ private fun RecurrenceUntil.matchesDtStartForm(form: DtStartForm): Boolean = whe
 }
 
 @Throws(RecurrenceDroppedException::class)
+context(_: CrashReport)
 private fun RemoteDavEvent.parseIcalDateValues(
     values: List<RemoteIcalDateValue>,
     propertyName: String,
@@ -181,6 +186,7 @@ private fun RemoteDavEvent.parseIcalDateValues(
 }
 
 @Throws(RecurrenceDroppedException::class)
+context(_: CrashReport)
 private fun RemoteIcalDateValue.toIcalDateValue(
     propertyName: String,
     form: DtStartForm,
@@ -204,6 +210,7 @@ private fun RemoteIcalDateValue.toIcalDateValue(
 }
 
 @Throws(RecurrenceDroppedException::class)
+context(_: CrashReport)
 private fun RemoteIcalDateValue.toDateTimeIcalValue(
     form: DtStartForm,
     propertyName: String,
@@ -246,6 +253,7 @@ private fun RemoteIcalDateValue.toDateTimeIcalValue(
  * rows mirror exactly what was written to the server, detached overrides included.
  */
 @Throws(CaldavParsingException::class)
+context(_: CrashReport)
 internal fun RemoteDavEvent.toSyncedUpsert(ref: RemoteDavEventRef, calendarId: CalendarId): EventWithRawIcs {
     val synced = copy(url = ref.url, etag = ref.etag)
     val recurrence = runCatching { synced.resolveRecurrenceSet() }.getOrDefault(ResolvedRecurrence())

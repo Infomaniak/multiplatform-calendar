@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.dataset.withNoOpCrashReport
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
@@ -33,7 +34,7 @@ class RemoteDavEventToEntityAttendeeTest {
     private val calendarId = CalendarId("https://cal/tests/")
 
     @Test
-    fun organizer_isMappedToItsOwnColumn_separateFromAttendees() {
+    fun organizer_isMappedToItsOwnColumn_separateFromAttendees() = withNoOpCrashReport {
         val entity = remoteEvent(
             organizer = RemoteDavOrganizer(email = "boss@example.com", displayName = "Boss"),
             attendees = listOf(attendee("guest@example.com")),
@@ -45,14 +46,14 @@ class RemoteDavEventToEntityAttendeeTest {
     }
 
     @Test
-    fun absentOrganizer_yieldsNullColumn() {
+    fun absentOrganizer_yieldsNullColumn() = withNoOpCrashReport {
         val entity = remoteEvent(organizer = null, attendees = emptyList()).toEntity(calendarId).content
 
         assertNull(entity.organizer)
     }
 
     @Test
-    fun organizerAlsoListedAsAttendee_keepsBothEntriesDistinct() {
+    fun organizerAlsoListedAsAttendee_keepsBothEntriesDistinct() = withNoOpCrashReport {
         val entity = remoteEvent(
             organizer = RemoteDavOrganizer(email = "boss@example.com", displayName = "Boss"),
             attendees = listOf(attendee("boss@example.com")),
@@ -64,7 +65,7 @@ class RemoteDavEventToEntityAttendeeTest {
     }
 
     @Test
-    fun userType_isMapped_individualWhenAbsent_unknownWhenUnrecognised() {
+    fun userType_isMapped_individualWhenAbsent_unknownWhenUnrecognised() = withNoOpCrashReport {
         val entity = remoteEvent(
             organizer = null,
             attendees = listOf(
@@ -78,7 +79,7 @@ class RemoteDavEventToEntityAttendeeTest {
     }
 
     @Test
-    fun delegatedStatus_isMapped() {
+    fun delegatedStatus_isMapped() = withNoOpCrashReport {
         val entity = remoteEvent(organizer = null, attendees = listOf(attendee("guest@example.com", status = "DELEGATED")))
             .toEntity(calendarId).content
 

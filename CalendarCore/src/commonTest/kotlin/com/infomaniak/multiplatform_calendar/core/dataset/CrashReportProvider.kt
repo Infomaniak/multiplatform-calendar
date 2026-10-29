@@ -27,6 +27,8 @@ object CrashReportProvider {
     }
 }
 
+inline fun withNoOpCrashReport(block: CrashReport.() -> Unit) = CrashReportProvider.noOp.block()
+
 class NoOpCrashReport : CrashReport {
 
     override fun addBreadcrumb(

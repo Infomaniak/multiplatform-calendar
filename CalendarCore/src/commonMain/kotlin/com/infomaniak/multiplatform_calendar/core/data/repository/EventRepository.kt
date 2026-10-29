@@ -797,7 +797,9 @@ internal class EventRepository(
             .onFailure(conflict::addSuppressed)
             .getOrNull() ?: return false
         eventDao.upsertEventWithRawIcs(
-            stored.toSyncedUpsert(ref = RemoteDavEventRef(url = eventId.url, etag = stored.etag), calendarId = calendarId),
+            with(crashReport) {
+                stored.toSyncedUpsert(ref = RemoteDavEventRef(url = eventId.url, etag = stored.etag), calendarId = calendarId)
+            },
         )
         return true
     }
@@ -873,8 +875,10 @@ internal class EventRepository(
         ref: RemoteDavEventRef,
     ) {
         val stored = if (ref.etag.isEmpty()) readStoredVersion(credentials, calendarId, ref.url) else null
-        val upsert = stored?.toSyncedUpsert(ref = ref.copy(etag = stored.etag), calendarId = calendarId)
-            ?: written.toSyncedUpsert(ref = ref, calendarId = calendarId)
+        val upsert = with(crashReport) {
+            stored?.toSyncedUpsert(ref = ref.copy(etag = stored.etag), calendarId = calendarId)
+                ?: written.toSyncedUpsert(ref = ref, calendarId = calendarId)
+        }
         eventDao.upsertEventWithRawIcs(upsert)
     }
 

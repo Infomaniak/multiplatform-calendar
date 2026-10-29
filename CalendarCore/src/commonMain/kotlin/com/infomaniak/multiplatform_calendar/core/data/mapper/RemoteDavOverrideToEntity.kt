@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.core.crashreporting.CrashReport
 import com.infomaniak.multiplatform_calendar.core.data.exception.CaldavParsingException
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
@@ -40,6 +41,7 @@ import kotlinx.datetime.toLocalDateTime
  *
  * A malformed sibling is skipped on its own rather than costing the whole series.
  */
+context(_: CrashReport)
 internal fun RemoteDavEvent.toOverrideEntities(masterTiming: EventTimingEntity): List<EventOverrideEntity> {
     val masterId = EventId(url)
     return overrides.mapNotNull { override ->
@@ -48,6 +50,7 @@ internal fun RemoteDavEvent.toOverrideEntities(masterTiming: EventTimingEntity):
 }
 
 @Throws(CaldavParsingException::class)
+context(_: CrashReport)
 private fun RemoteDavEventOverride.toEntity(
     masterId: EventId,
     url: String,
@@ -84,6 +87,7 @@ private class OriginalPosition(
  * as the expander does for `EXDATE`/`RDATE`. Keying on the raw wall-clock would orphan a foreign zone.
  */
 @Throws(CaldavParsingException::class)
+context(_: CrashReport)
 private fun RemoteDavEventOverride.resolveOriginalPosition(
     url: String,
     masterTiming: EventTimingEntity,

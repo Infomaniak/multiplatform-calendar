@@ -44,7 +44,6 @@ import com.infomaniak.multiplatform_calendar.core.extensions.forEachCancellable
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.forEachParallelLimited
-import com.infomaniak.multiplatform_calendar.core.forCoreKmp.logFailuresToSentry
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -109,7 +108,7 @@ internal class CalendarRepository(
                 }
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
-                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
             }
         }
     }
@@ -154,7 +153,7 @@ internal class CalendarRepository(
                 }
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
-                it.logFailuresToSentry(message = "Skip calendar ${calendarEntity.id}")
+                crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
             }
         }
     }
@@ -251,7 +250,7 @@ internal class CalendarRepository(
         val entities = ArrayList<EventWithRawIcs>(EVENT_BATCH_SIZE)
 
         remoteEvents.forEachCancellable { event ->
-            val recurrence = runCatching { event.resolveRecurrenceSet() }
+            val recurrence = runCatching { with(crashReport) { event.resolveRecurrenceSet() } }
                 .onRecurrenceDropped { reason -> logDroppedRecurrence(event, reason) }
                 .getOrElse { ResolvedRecurrence() }
             // RANGE=THISANDFUTURE is kept as a plain single-instance override, like sabre/dav does:
@@ -261,14 +260,16 @@ internal class CalendarRepository(
             }
 
             val eventWithRawIcs = runCatching {
-                val entity = event.toEntity(calendarId, recurrence = recurrence)
-                // A suspended series is rendered as a single event, so its overrides would never
-                // be applied — keeping them would only make the master surface at their positions.
-                val overrides = when {
-                    recurrence.hasRecurrence -> event.toOverrideEntities(entity.content.timing)
-                    else -> emptyList()
+                with(crashReport) {
+                    val entity = event.toEntity(calendarId, recurrence = recurrence)
+                    // A suspended series is rendered as a single event, so its overrides would never
+                    // be applied — keeping them would only make the master surface at their positions.
+                    val overrides = when {
+                        recurrence.hasRecurrence -> event.toOverrideEntities(entity.content.timing)
+                        else -> emptyList()
+                    }
+                    EventWithRawIcs(entity, event.icsData, overrides)
                 }
-                EventWithRawIcs(entity, event.icsData, overrides)
             }.onFailure { crashReport.capture(message = "Skip event ${event.url}", exception = it) }
                 .getOrNull()
 

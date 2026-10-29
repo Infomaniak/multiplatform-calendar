@@ -35,6 +35,8 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exc
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -46,13 +48,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
+
+private const val FETCH_ERROR_MESSAGE = "Bookable resource fetch failed"
 
 internal class BookableResourcesRepository(
     database: BookableResourcesDatabase,
     private val remoteDataSource: BookableResourcesRemoteDataSource,
     private val tokenByAccount: InMemoryAccountTokens,
+    private val crashReport: CrashReport,
 ) {
 
     private val dao = database.bookableResourceDao()
@@ -147,7 +153,7 @@ internal class BookableResourcesRepository(
         }
     }
 
-    // Failures are ignored. Concurrent collectors wait for the fetch in progress, then fetch only if the resource is still missing.
+    // Failures are reported, not thrown. Concurrent collectors wait for the fetch in progress, then fetch only if the resource is still missing.
     private suspend fun fetchMissingResource(accountId: AccountId, uuid: BookableResourceUuid) {
         resourceFetchMutex(accountId to uuid).withLock {
             try {
@@ -159,7 +165,10 @@ internal class BookableResourcesRepository(
                 }
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (_: Exception) {
+            } catch (_: IOException) {
+                crashReport.addBreadcrumb(message = FETCH_ERROR_MESSAGE, category = "network", level = CrashReportLevel.Warning)
+            } catch (exception: Exception) {
+                crashReport.capture(FETCH_ERROR_MESSAGE, exception = exception)
             }
         }
     }

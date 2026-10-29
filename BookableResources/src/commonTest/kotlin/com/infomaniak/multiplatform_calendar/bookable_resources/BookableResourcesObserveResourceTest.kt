@@ -27,17 +27,22 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
+import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
 
 class BookableResourcesObserveResourceTest : RobolectricTestsBase() {
 
@@ -87,7 +92,7 @@ class BookableResourcesObserveResourceTest : RobolectricTestsBase() {
             respondJson(success(resourceJson()))
         }
 
-        val first = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect {} }
+        val first = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect() }
         firstRequest.await()
         val second = async { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).filterNotNull().first() }
         // Leaves the second collector the time to wait for the first fetch.
@@ -108,7 +113,7 @@ class BookableResourcesObserveResourceTest : RobolectricTestsBase() {
             respondJson(success(resourceJson()))
         }
 
-        val job = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect {} }
+        val job = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect() }
         requested.await()
         manager.removeAccount(ACCOUNT_ID)
         answer.complete(Unit)
@@ -146,11 +151,38 @@ class BookableResourcesObserveResourceTest : RobolectricTestsBase() {
     fun fetchFailureStaysNull() = assertResourceStaysNull { throw IOException("offline") }
 
     @Test
+    fun unexpectedFetchFailureIsReported() = runTest {
+        val crashReport = RecordingCrashReport()
+        val manager = testManager(crashReport = crashReport) { throw IllegalStateException("boom") }
+
+        val job = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect() }
+        awaitUntil { crashReport.exceptionCaptures.isNotEmpty() }
+        job.cancel()
+
+        val capture = crashReport.exceptionCaptures.single()
+        assertEquals("Bookable resource fetch failed", capture.message)
+        assertEquals("boom", capture.exception.message)
+    }
+
+    @Test
+    fun networkFetchFailureIsNotCaptured() = runTest {
+        val crashReport = RecordingCrashReport()
+        val manager = testManager(crashReport = crashReport) { throw IOException("offline") }
+
+        val job = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect() }
+        // Leaves the fetch the time to report the failure, if it were to.
+        withContext(Dispatchers.Default) { delay(200) }
+        job.cancel()
+
+        assertTrue(crashReport.exceptionCaptures.isEmpty())
+    }
+
+    @Test
     fun uuidIsEncodedInThePath() = runTest {
         val requested = CompletableDeferred<HttpRequestData>()
         val manager = testManager { requested.complete(it); respondJson(error("object_not_found"), HttpStatusCode.NotFound) }
 
-        val job = launch { manager.observeResource(ACCOUNT_ID, BookableResourceUuid("../all")).collect {} }
+        val job = launch { manager.observeResource(ACCOUNT_ID, BookableResourceUuid("../all")).collect() }
         val request = requested.await()
         job.cancel()
 
@@ -177,6 +209,10 @@ class BookableResourcesObserveResourceTest : RobolectricTestsBase() {
 
         assertNull(emissions.tryReceive().getOrNull())
         assertEquals(emptyList(), manager.storedResourceNames())
+    }
+
+    private suspend fun awaitUntil(condition: () -> Boolean) = withContext(Dispatchers.Default) {
+        withTimeout(5.seconds) { while (!condition()) delay(10) }
     }
 
     private fun error(code: String) = """{ "result": "error", "error": { "code": "$code", "description": "" } }"""

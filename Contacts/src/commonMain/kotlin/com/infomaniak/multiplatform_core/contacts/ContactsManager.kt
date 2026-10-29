@@ -28,7 +28,8 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
-import com.infomaniak.multiplatform_core.contacts.utils.contactsCall
+import com.infomaniak.multiplatform_core.contacts.utils.ContactsCaller
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,8 +45,11 @@ public class ContactsManager internal constructor(
     internal val database: ContactsDatabase,
     httpClient: HttpClient,
     deviceContactsProvider: DeviceContactsProvider,
+    crashReport: CrashReport,
     deviceContactsScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
+
+    private val contactsCaller = ContactsCaller(crashReport)
 
     private val repository = ContactsRepository(
         database = database,
@@ -62,9 +66,11 @@ public class ContactsManager internal constructor(
     public constructor(
         database: ContactsDatabase,
         deviceContactsProvider: DeviceContactsProvider,
+        crashReport: CrashReport,
     ) : this(
         database = database,
         deviceContactsProvider = deviceContactsProvider,
+        crashReport = crashReport,
         httpClient = createContactsHttpClient(),
     )
 
@@ -74,11 +80,11 @@ public class ContactsManager internal constructor(
      */
     @Throws(ContactsException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
-        contactsCall { repository.initAccount(accountId, accessToken) }
+        contactsCaller { repository.initAccount(accountId, accessToken) }
 
     /** Forgets the token of [accountId] and deletes its local contacts. */
     @Throws(ContactsException::class, CancellationException::class)
-    public suspend fun removeAccount(accountId: AccountId): Unit = contactsCall { repository.removeAccount(accountId) }
+    public suspend fun removeAccount(accountId: AccountId): Unit = contactsCaller { repository.removeAccount(accountId) }
 
     /**
      * Returns the contacts matching [query], merging the locally synced server contacts with the device contacts,
@@ -95,7 +101,7 @@ public class ContactsManager internal constructor(
         query: String,
         accountIds: Set<AccountId> = emptySet(),
         limit: Int = DEFAULT_SEARCH_LIMIT,
-    ): List<Contact> = contactsCall { repository.search(accountIds, query, limit) }
+    ): List<Contact> = contactsCaller { repository.search(accountIds, query, limit) }
 
     /**
      * The local contact of each of these [emails] that has one, updated on every sync or device contacts change.
@@ -124,7 +130,7 @@ public class ContactsManager internal constructor(
     @OptIn(ExperimentalObjCRefinement::class)
     @HiddenFromObjC
     @Throws(ContactsException::class, CancellationException::class)
-    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = contactsCall { repository.sync(accountIds) }
+    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = contactsCaller { repository.sync(accountIds) }
 
     internal companion object {
         const val DEFAULT_SEARCH_LIMIT: Int = 10

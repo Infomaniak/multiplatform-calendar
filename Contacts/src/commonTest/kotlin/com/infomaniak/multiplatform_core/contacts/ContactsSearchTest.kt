@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -225,6 +226,7 @@ class ContactsSearchTest : RobolectricTestsBase() {
     private suspend fun deviceContactsManager(provider: FakeDeviceContactsProvider) = ContactsManager(
         database = testDatabase(),
         deviceContactsProvider = provider,
+        crashReport = NoOpCrashReport,
         httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         deviceContactsScope = CoroutineScope(Dispatchers.Unconfined),
     ).apply { initTestAccount() }

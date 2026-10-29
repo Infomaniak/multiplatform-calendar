@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
@@ -102,10 +103,63 @@ class CalendarsToSectionsTest {
         assertEquals(listOf(CalendarSection(ACCOUNT_ID, FIRST_ORGANISATION, listOf(calendar))), sections)
     }
 
+    @Test
+    fun theOrganisationOfTheDefaultCalendarComesFirst() {
+        val ofFirst = calendar("a", organisationId = FIRST_ORGANISATION.id)
+        val default = calendar("b", organisationId = SECOND_ORGANISATION.id, isDefaultCalendar = true)
+
+        val sections = listOf(ofFirst, default).toSections(
+            organisationsByAccount = mapOf(ACCOUNT_ID to listOf(FIRST_ORGANISATION, SECOND_ORGANISATION)),
+        )
+
+        assertEquals(listOf(SECOND_ORGANISATION, FIRST_ORGANISATION), sections.map { it.organisation })
+    }
+
+    @Test
+    fun theUnknownOrganisationStaysLastEvenWithTheDefaultCalendar() {
+        val known = calendar("a", organisationId = FIRST_ORGANISATION.id)
+        val default = calendar("b", organisationId = null, isDefaultCalendar = true)
+
+        val sections = listOf(default, known).toSections(
+            organisationsByAccount = mapOf(ACCOUNT_ID to listOf(FIRST_ORGANISATION)),
+        )
+
+        assertEquals(listOf(FIRST_ORGANISATION, null), sections.map { it.organisation })
+    }
+
+    @Test
+    fun organisationsAreSortedIgnoringCase() {
+        val lowercase = Organisation(OrganisationId(30), "alpha")
+        val uppercase = Organisation(OrganisationId(40), "Beta")
+
+        val sections = listOf(
+            calendar("a", organisationId = uppercase.id),
+            calendar("b", organisationId = lowercase.id),
+        ).toSections(organisationsByAccount = mapOf(ACCOUNT_ID to listOf(uppercase, lowercase)))
+
+        assertEquals(listOf(lowercase, uppercase), sections.map { it.organisation })
+    }
+
+    @Test
+    fun calendarsComeDefaultFirstThenByNameIgnoringCaseThenRooms() {
+        val room = calendar("Aaa room", organisationId = FIRST_ORGANISATION.id, calendarType = CalendarType.Bookable)
+        val upper = calendar("Zeta", organisationId = FIRST_ORGANISATION.id)
+        val lower = calendar("beta", organisationId = FIRST_ORGANISATION.id)
+        val default = calendar("Yota", organisationId = FIRST_ORGANISATION.id, isDefaultCalendar = true)
+
+        val sections = listOf(room, upper, lower, default).toSections(
+            organisationsByAccount = mapOf(ACCOUNT_ID to listOf(FIRST_ORGANISATION)),
+        )
+
+        assertEquals(listOf(default, lower, upper, room), sections.single().calendars)
+    }
+
     private fun calendar(
         name: String,
         accountId: AccountId = ACCOUNT_ID,
         organisationId: OrganisationId?,
+        isDefaultCalendar: Boolean = false,
+        calendarType: CalendarType = CalendarType.Basic,
     ) = Calendar(
         id = CalendarId("https://dav.example/cal/$name/"),
         accountId = accountId,
@@ -113,6 +167,8 @@ class CalendarsToSectionsTest {
         colors = CalendarColors.from(null),
         isVisible = true,
         organisationId = organisationId,
+        calendarType = calendarType,
+        isDefaultCalendar = isDefaultCalendar,
     )
 
     private companion object {

@@ -19,17 +19,31 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 
-/** Sections follow the accounts order of [organisationsByAccount], then the organisation name; the unknown organisation comes last. */
+/**
+ * Per account, in the order of [organisationsByAccount]: the organisation holding the default calendar, the other ones
+ * by name, then the unknown organisation. Within a section: the default calendar, the others by name, then the rooms.
+ */
 internal fun List<Calendar>.toSections(organisationsByAccount: Map<AccountId, List<Organisation>>): List<CalendarSection> {
     val calendarsByAccount = groupBy(Calendar::accountId)
     return organisationsByAccount.flatMap { (accountId, organisations) ->
         val organisationsById = organisations.associateBy(Organisation::id)
         calendarsByAccount[accountId].orEmpty()
             .groupBy { calendar -> calendar.organisationId?.let(organisationsById::get) }
-            .map { (organisation, calendars) -> CalendarSection(accountId, organisation, calendars) }
-            .sortedWith(compareBy({ it.organisation == null }, { it.organisation?.name }))
+            .map { (organisation, calendars) -> CalendarSection(accountId, organisation, calendars.sortedWith(calendarOrder)) }
+            .sortedWith(sectionOrder)
     }
 }
+
+private val sectionOrder = compareBy<CalendarSection>(
+    { it.organisation == null },
+    { section -> section.calendars.none(Calendar::isDefaultCalendar) },
+).thenBy(nullsLast(String.CASE_INSENSITIVE_ORDER)) { it.organisation?.name }
+
+private val calendarOrder = compareBy<Calendar>(
+    { !it.isDefaultCalendar },
+    { it.calendarType == CalendarType.Bookable },
+).thenBy(String.CASE_INSENSITIVE_ORDER, Calendar::displayName)

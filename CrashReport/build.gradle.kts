@@ -45,5 +45,8 @@ kotlin {
         androidMain.dependencies {
             compileOnly(kmpCalendar.sentry)
         }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
 }

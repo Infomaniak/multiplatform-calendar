@@ -19,10 +19,14 @@ package com.infomaniak.multiplatform_core.network.model
 
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.Serializable
 
 /** Envelope of every Infomaniak API response. */
 @Serializable
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 public data class ApiResponse<T>(
     val result: String,
     val data: T? = null,
@@ -33,4 +37,6 @@ public data class ApiResponse<T>(
 }
 
 /** Decodes the [ApiResponse] envelope and returns its data, or throws an [ApiErrorException]. */
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 public suspend inline fun <reified T> HttpResponse.asSuccess(): T = body<ApiResponse<T>>().asSuccess()

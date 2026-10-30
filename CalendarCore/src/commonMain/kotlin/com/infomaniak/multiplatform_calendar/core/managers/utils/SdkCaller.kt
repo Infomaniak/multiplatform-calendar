@@ -21,8 +21,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.Calend
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
-import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
+import com.infomaniak.multiplatform_core.crashreport.FailureKind
 import com.infomaniak.multiplatform_core.crashreport.ModuleHandledException
+import com.infomaniak.multiplatform_core.crashreport.reportFailure
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -77,15 +78,13 @@ internal class SdkCaller(private val crashReport: CrashReport) {
     }
 
     private fun Throwable.logToSentryIfNeeded(errorMessage: String) {
-        when (this) {
-            is CalendarSdkException -> throw this
-            is RustNetworkException -> addNetworkBreadcrumb(errorMessage)
-            is ModuleHandledException -> Unit
-            else -> crashReport.capture(errorMessage, exception = this)
-        }
+        if (this is CalendarSdkException) throw this
+        crashReport.reportFailure(this, errorMessage, ::kindOf)
     }
 
-    private fun addNetworkBreadcrumb(message: String) {
-        crashReport.addBreadcrumb(message = message, category = "network", level = CrashReportLevel.Warning)
+    private fun kindOf(failure: Throwable): FailureKind = when (failure) {
+        is RustNetworkException -> FailureKind.Network
+        is ModuleHandledException -> FailureKind.Handled
+        else -> FailureKind.Unexpected
     }
 }

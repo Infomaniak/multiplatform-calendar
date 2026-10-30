@@ -63,7 +63,7 @@ multiplatform-calendar/
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
 | **Organisations**    | Infomaniak organisations the account belongs to: id and name                                  |
-| **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
+| **Network**          | Shared Infomaniak API client: `ApiEnvironment`, `createHttpClient`, `ApiResponse`, `ApiErrorException` |
 
 ### Recurrence localization
 
@@ -114,8 +114,16 @@ specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` a
 `:Organisations` is exported too (`OrganisationsManager` and its types), under `com.infomaniak.multiplatform_core.organisations`.
 `:CrashReport` is exported too (`CrashReport`, `CrashReportLevel`, `BreadcrumbType`), under `com.infomaniak.multiplatform_core.crashreport`.
 
-`:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet, BookableResources and Organisations, and is **not** exported. Like `:Account`, it uses the
-`com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
+`:Network` is an `api` dependency of CalendarCore, Contacts, Meet, BookableResources and Organisations, and is exported for
+`ApiEnvironment` only: the rest of its API (`createHttpClient`, `ApiResponse`, …) is `@HiddenFromObjC`. Like `:Account`, it
+uses the `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
+
+### API environment
+
+`ApiEnvironment` (`Prod`, `Preprod` or `Custom(domain)`) selects the Infomaniak servers. It is required: the host app
+provides it to the graph, which passes it to every manager. Each module reaches its API at a subdomain of
+`ApiEnvironment.domain`: `api.` (CalendarCore, Organisations), `calendar.` (Meet, BookableResources), `mail.` (Contacts
+and their avatars) and `sync.` (CalDAV).
 
 CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts, BookableResources and Organisations only declare their entities and
 DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `BookableResourcesDatabase`, `OrganisationsDatabase`) that `CalendarDatabase` implements.
@@ -174,7 +182,7 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 - **Android**: `AppGraph` (in the Android app) is the `@DependencyGraph`. Core contributes shared graph accessors
   (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The `:CalendarKmpDav` module contributes `CaldavClientModule`.
   The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); its tables live in
-  `CalendarDatabase`. `AccountManager.initAccount` / `removeAccount` also init / remove
+  `CalendarDatabase`. `AppGraph` provides the `ApiEnvironment`. `AccountManager.initAccount` / `removeAccount` also init / remove
   the account in `ContactsManager`. Likewise, `:BookableResources` is wired by Core (`BookableResourcesModule`), its tables live in
   `CalendarDatabase`, and `AccountManager` initializes / removes the account in `BookableResourcesManager` too. `:Organisations` is wired the same
   way (`OrganisationsModule`, `OrganisationsManager`). `:Meet` is
@@ -182,11 +190,12 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
   inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `bookableResourcesManager` / `organisationsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
-  `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `contacts` giving the path of the dedicated contacts database.
+  `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `calendar` giving the `ApiEnvironment` and `contacts` the
+  path of the dedicated contacts database.
 
 ### Bookable resources
 
-`BookableResourcesManager` reads the bookable resources API on `calendar.infomaniak.com` and keeps only the `meeting_room`
+`BookableResourcesManager` reads the bookable resources API on `calendar.<domain>` and keeps only the `meeting_room`
 ones. `sync` replaces the local resources of each account (the API sends no ETag); `observeResource(accountId, uuid)` resolves the
 `X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a resource missing locally, staying `null` when that fails.
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the
@@ -194,13 +203,13 @@ ones. `sync` replaces the local resources of each account (the API sends no ETag
 
 ### Organisations
 
-`OrganisationsManager` reads `GET /1/accounts` on `api.infomaniak.com` and keeps every organisation, whatever its access.
+`OrganisationsManager` reads `GET /1/accounts` on `api.<domain>` and keeps every organisation, whatever its access.
 `sync` replaces the local organisations of each account; `getOrganisation(accountId, id)` reads them locally only.
 
 ### kMeet
 
 `CalendarManager.generateMeetRoom(calendarId)` creates a new kMeet room on each call, for the account of that calendar:
-`MeetManager` calls `GET /api/pim/calendar/meet-room` on `calendar.infomaniak.com`; failures are thrown as
+`MeetManager` calls `GET /api/pim/calendar/meet-room` on `calendar.<domain>`; failures are thrown as
 `CalendarSdkException`, with the `MeetException` as `cause`. The returned `MeetRoom` goes in `EventEditData.meetRoom`: saving the edit writes the `X-INFOMANIAK-MEET-ROOM-URL` property
 of the CalDAV event, and `null` removes it. Like the web, the room also gets a localized block (`CalendarResources`) in
 `DESCRIPTION`, between the `/*---…---*/` markers the edit already hides: saving a new room appends its block in place of

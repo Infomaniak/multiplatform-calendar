@@ -24,6 +24,8 @@ import io.ktor.http.URLProtocol
 import io.ktor.http.path
 import io.ktor.serialization.kotlinx.json.DefaultJson
 import io.ktor.serialization.kotlinx.json.json
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
@@ -32,7 +34,8 @@ import kotlinx.serialization.json.JsonNamingStrategy
  * Creates an [HttpClient] for an Infomaniak API reached at `https://[host]/[basePath]`, exchanging snake_case JSON.
  * The engine is the platform one: OkHttp on Android, Darwin on Apple.
  */
-@OptIn(ExperimentalSerializationApi::class)
+@OptIn(ExperimentalSerializationApi::class, ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 public fun createHttpClient(host: String, basePath: String): HttpClient = HttpClient {
     install(ContentNegotiation) {
         json(

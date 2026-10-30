@@ -58,7 +58,7 @@ public class AccountManager internal constructor(
         credentials: DavCredentials,
         accessToken: AccessToken,
     ): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "initAccount $accountId") {
+        sdkCaller(operation = "initAccount $accountId") {
             accountLifecycleMutex.withLock {
                 accountRepository.storeCredentials(accountId, credentials.toRemote())
                 contactsManager.initAccount(accountId, accessToken)
@@ -71,7 +71,7 @@ public class AccountManager internal constructor(
 
     @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun removeAccount(accountId: AccountId): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "removeAccount $accountId") {
+        sdkCaller(operation = "removeAccount $accountId") {
             accountLifecycleMutex.withLock {
                 accountRepository.removeCredentials(accountId)
                 contactsManager.removeAccount(accountId)
@@ -84,7 +84,7 @@ public class AccountManager internal constructor(
 
     @Throws(CalendarSdkException::class, CancellationException::class)
     public suspend fun retrieveDavCredential(authToken: AccessToken, login: String? = null): DavCredentials {
-        return sdkCaller.run(operation = "retrieveDavCredential") {
+        return sdkCaller(operation = "retrieveDavCredential") {
             accountRepository.retrieveDavCredential(authToken, login)
         }
     }

@@ -50,7 +50,7 @@ internal class SdkCaller(private val crashReport: CrashReport) {
      * @param operation Description used in error reports.
      * @throws CalendarSdkException If the operation fails.
      */
-    internal suspend inline fun <T> run(
+    internal suspend inline operator fun <T> invoke(
         operation: String,
         crossinline block: suspend () -> T,
     ): T {

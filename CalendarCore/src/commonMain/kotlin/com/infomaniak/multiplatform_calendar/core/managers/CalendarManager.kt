@@ -203,7 +203,7 @@ public class CalendarManager internal constructor(
         occurrenceId: OccurrenceId,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
     ): Event? = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "get occurrence $occurrenceId") {
+        sdkCaller(operation = "get occurrence $occurrenceId") {
             eventRepository.observeOccurrence(occurrenceId, timeZone).first()
         }
     }
@@ -211,7 +211,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         launch { syncOrganisations() }
-        sdkCaller.run(operation = "sync events for all accounts") {
+        sdkCaller(operation = "sync events for all accounts") {
             accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
             }
@@ -224,7 +224,7 @@ public class CalendarManager internal constructor(
         start: Instant,
         end: Instant,
     ): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "download events from $start to $end") {
+        sdkCaller(operation = "download events from $start to $end") {
             accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.downloadEventsByRange(
                     accountId = accountId,
@@ -238,7 +238,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateCalendar(calendarId: CalendarId, edit: CalendarEditData): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "update calendar $calendarId") {
+        sdkCaller(operation = "update calendar $calendarId") {
             if (edit.hasAnyChanges) {
                 val credentials = getCredentialsForCalendar(calendarId)
                 calendarRepository.updateCalendar(credentials, calendarId, edit)
@@ -249,14 +249,14 @@ public class CalendarManager internal constructor(
     /** Make [calendarId] the only visible calendar, across all accounts, in a single local update. */
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun showOnlyCalendar(calendarId: CalendarId): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "show only calendar $calendarId") {
+        sdkCaller(operation = "show only calendar $calendarId") {
             calendarRepository.showOnlyCalendar(calendarId)
         }
     }
 
     /** Each call creates a new kMeet room, with the account of [calendarId]. */
     @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun generateMeetRoom(calendarId: CalendarId): MeetRoom = sdkCaller.run(
+    public suspend fun generateMeetRoom(calendarId: CalendarId): MeetRoom = sdkCaller(
         operation = "generate a kMeet room for calendar $calendarId",
     ) {
         val accountId = calendarRepository.getCalendar(calendarId).accountId
@@ -266,7 +266,7 @@ public class CalendarManager internal constructor(
 
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun createEvent(data: EventEditData): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "create event in calendar ${data.calendarId}") {
+        sdkCaller(operation = "create event in calendar ${data.calendarId}") {
             val credentials = getCredentialsForCalendar(data.calendarId)
             eventRepository.createEvent(credentials, data)
         }
@@ -279,7 +279,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateEvent(target: OccurrenceTarget, data: EventEditData): Unit =
         withContext(Dispatchers.Default) {
-            sdkCaller.run(operation = "update $target") {
+            sdkCaller(operation = "update $target") {
                 val sourceAccountId = eventRepository.getAccountIdByEventId(target.occurrenceId.masterId)
                 val sourceCredentials = accountRepository.getCredentials(sourceAccountId)
                 val destinationCredentials = getCredentialsForCalendar(data.calendarId)
@@ -297,7 +297,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun updateParticipationStatus(target: OccurrenceTarget, reply: ParticipationReply): Unit =
         withContext(Dispatchers.Default) {
-            sdkCaller.run(operation = "reply $reply to $target") {
+            sdkCaller(operation = "reply $reply to $target") {
                 val accountId = eventRepository.getAccountIdByEventId(target.occurrenceId.masterId)
                 val credentials = accountRepository.getCredentials(accountId)
                 eventRepository.updateParticipationStatus(credentials, target, reply)
@@ -316,7 +316,7 @@ public class CalendarManager internal constructor(
      */
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun getEditData(occurrenceId: OccurrenceId): EventEditData? = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "read edit data of event $occurrenceId") {
+        sdkCaller(operation = "read edit data of event $occurrenceId") {
             eventRepository.getEditData(occurrenceId)
         }
     }
@@ -329,7 +329,7 @@ public class CalendarManager internal constructor(
      */
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun deleteEvent(target: OccurrenceTarget): Unit = withContext(Dispatchers.Default) {
-        sdkCaller.run(operation = "delete $target") {
+        sdkCaller(operation = "delete $target") {
             val accountId = eventRepository.getAccountIdByEventId(target.occurrenceId.masterId)
             val credentials = accountRepository.getCredentials(accountId)
             eventRepository.deleteEvent(credentials, target)
@@ -342,7 +342,7 @@ public class CalendarManager internal constructor(
 
     /** Failures are only reported, so they never fail the calendars sync. */
     private suspend fun syncOrganisations() {
-        runCatching { sdkCaller.run(operation = "sync organisations") { organisationsManager.sync() } }.cancellable()
+        runCatching { sdkCaller(operation = "sync organisations") { organisationsManager.sync() } }.cancellable()
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

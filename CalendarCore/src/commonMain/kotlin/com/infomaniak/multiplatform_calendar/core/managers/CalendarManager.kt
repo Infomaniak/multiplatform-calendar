@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSections
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
@@ -79,6 +80,7 @@ public class CalendarManager internal constructor(
     private val calendarRepository: CalendarRepository,
     private val eventRepository: EventRepository,
     private val meetManager: MeetManager,
+    private val bookableResourcesManager: BookableResourcesManager,
     private val organisationsManager: OrganisationsManager,
     private val sdkCaller: SdkCaller,
 ) {
@@ -211,6 +213,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         launch { syncOrganisations() }
+        launch { syncBookableResources() }
         sdkCaller(operation = "sync events for all accounts") {
             accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
@@ -343,6 +346,11 @@ public class CalendarManager internal constructor(
     /** Failures are only reported, so they never fail the calendars sync. */
     private suspend fun syncOrganisations() {
         runCatching { sdkCaller(operation = "sync organisations") { organisationsManager.sync() } }.cancellable()
+    }
+
+    /** Failures are only reported, so they never fail the calendars sync. */
+    private suspend fun syncBookableResources() {
+        runCatching { sdkCaller(operation = "sync bookable resources") { bookableResourcesManager.sync() } }.cancellable()
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

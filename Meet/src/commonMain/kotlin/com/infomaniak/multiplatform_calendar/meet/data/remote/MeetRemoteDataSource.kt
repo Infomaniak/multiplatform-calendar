@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.meet.data.remote.model.ApiMeetRoom
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetErrorCause
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import com.infomaniak.multiplatform_core.network.model.asSuccess
 import io.ktor.client.HttpClient
@@ -28,10 +29,10 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
 
-private const val CALENDAR_API_HOST = "calendar.infomaniak.com"
 private const val MEET_ROOM_ROUTE = "pim/calendar/meet-room"
 
-internal fun createMeetHttpClient(): HttpClient = createHttpClient(host = CALENDAR_API_HOST, basePath = "api/")
+internal fun createMeetHttpClient(apiEnvironment: ApiEnvironment): HttpClient =
+    createHttpClient(host = "calendar.${apiEnvironment.domain}", basePath = "api/")
 
 internal class MeetRemoteDataSource(private val httpClient: HttpClient) {
 

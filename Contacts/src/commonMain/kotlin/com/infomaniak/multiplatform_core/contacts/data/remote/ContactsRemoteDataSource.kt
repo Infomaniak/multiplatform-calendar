@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import com.infomaniak.multiplatform_core.network.model.asSuccess
 import io.ktor.client.HttpClient
@@ -33,9 +34,10 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 
-internal const val MAIL_API_HOST = "mail.infomaniak.com"
+internal val ApiEnvironment.mailApiHost: String get() = "mail.$domain"
 
-internal fun createContactsHttpClient(): HttpClient = createHttpClient(host = MAIL_API_HOST, basePath = "api/")
+internal fun createContactsHttpClient(apiEnvironment: ApiEnvironment): HttpClient =
+    createHttpClient(host = apiEnvironment.mailApiHost, basePath = "api/")
 
 internal class ContactsRemoteDataSource(private val httpClient: HttpClient) {
 

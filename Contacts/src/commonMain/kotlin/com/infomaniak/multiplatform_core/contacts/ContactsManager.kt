@@ -23,12 +23,14 @@ import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteDataSource
 import com.infomaniak.multiplatform_core.contacts.data.remote.createContactsHttpClient
+import com.infomaniak.multiplatform_core.contacts.data.remote.mailApiHost
 import com.infomaniak.multiplatform_core.contacts.data.repository.ContactsRepository
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.contactsCall
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +45,7 @@ import kotlin.native.HiddenFromObjC
 public class ContactsManager internal constructor(
     internal val database: ContactsDatabase,
     httpClient: HttpClient,
+    apiEnvironment: ApiEnvironment,
     deviceContactsProvider: DeviceContactsProvider,
     deviceContactsScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
@@ -53,6 +56,7 @@ public class ContactsManager internal constructor(
         deviceContactsProvider = deviceContactsProvider,
         tokenByAccount = InMemoryAccountTokens(),
         deviceContactsScope = deviceContactsScope,
+        mailApiHost = apiEnvironment.mailApiHost,
     )
 
     /**
@@ -62,10 +66,12 @@ public class ContactsManager internal constructor(
     public constructor(
         database: ContactsDatabase,
         deviceContactsProvider: DeviceContactsProvider,
+        apiEnvironment: ApiEnvironment,
     ) : this(
         database = database,
         deviceContactsProvider = deviceContactsProvider,
-        httpClient = createContactsHttpClient(),
+        httpClient = createContactsHttpClient(apiEnvironment),
+        apiEnvironment = apiEnvironment,
     )
 
     /**

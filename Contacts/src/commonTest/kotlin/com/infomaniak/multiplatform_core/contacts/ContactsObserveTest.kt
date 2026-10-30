@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_core.contacts
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -87,6 +88,7 @@ class ContactsObserveTest : RobolectricTestsBase() {
         val deviceContactsProvider = FakeDeviceContactsProvider(initialContacts = null)
         val manager = ContactsManager(
             database = testDatabase(),
+            apiEnvironment = ApiEnvironment.Prod,
             deviceContactsProvider = deviceContactsProvider,
             httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         )
@@ -106,6 +108,7 @@ class ContactsObserveTest : RobolectricTestsBase() {
         val deviceContactsProvider = FakeDeviceContactsProvider(emptyList())
         val manager = ContactsManager(
             database = testDatabase(),
+            apiEnvironment = ApiEnvironment.Prod,
             deviceContactsProvider = deviceContactsProvider,
             httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         )

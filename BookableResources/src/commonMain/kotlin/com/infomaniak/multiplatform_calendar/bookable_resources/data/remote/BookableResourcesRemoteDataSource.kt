@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Boo
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import com.infomaniak.multiplatform_core.network.model.asSuccess
 import io.ktor.client.HttpClient
@@ -39,9 +40,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 
-internal const val CALENDAR_API_HOST = "calendar.infomaniak.com"
-
-internal fun createBookableResourcesHttpClient(): HttpClient = createHttpClient(host = CALENDAR_API_HOST, basePath = "api/")
+internal fun createBookableResourcesHttpClient(apiEnvironment: ApiEnvironment): HttpClient =
+    createHttpClient(host = "calendar.${apiEnvironment.domain}", basePath = "api/")
 
 internal class BookableResourcesRemoteDataSource(private val httpClient: HttpClient) {
 

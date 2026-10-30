@@ -42,11 +42,15 @@ kotlin {
     explicitApi()
 
     sourceSets {
+        commonMain.dependencies {
+            api(kmpCalendar.kotlinx.coroutines.core)
+        }
         androidMain.dependencies {
             compileOnly(kmpCalendar.sentry)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation(kmpCalendar.kotlinx.coroutines.test)
         }
     }
 }

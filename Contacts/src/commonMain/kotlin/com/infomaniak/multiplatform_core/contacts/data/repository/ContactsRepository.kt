@@ -210,9 +210,9 @@ private fun merge(deviceContacts: List<ContactMatch>, apiContacts: List<ContactM
     return mergedByKey.values.toList()
 }
 
-/** The device contact, completed with what only the API knows: its avatar if it has none, and its ranking. */
+/** The device contact, completed with what the API knows: its avatar, preferred over the device photo, and its ranking. */
 private fun ContactMatch.completedWith(apiContact: ContactMatch): ContactMatch = copy(
-    avatar = avatar ?: apiContact.avatar,
+    avatar = apiContact.avatar ?: avatar,
     comesFromApi = true,
     contactedTimes = apiContact.contactedTimes,
     isInAddressBook = apiContact.isInAddressBook,

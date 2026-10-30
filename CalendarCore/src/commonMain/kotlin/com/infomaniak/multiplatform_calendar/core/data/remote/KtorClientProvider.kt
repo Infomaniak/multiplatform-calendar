@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.remote
 
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
@@ -28,5 +29,6 @@ import io.ktor.client.HttpClient
 public interface KtorClientProvider {
     @Provides
     @SingleIn(AppScope::class)
-    private fun provideHttpClient(): HttpClient = createHttpClient(host = "api.infomaniak.com", basePath = "2/")
+    private fun provideHttpClient(apiEnvironment: ApiEnvironment): HttpClient =
+        createHttpClient(host = "api.${apiEnvironment.domain}", basePath = "2/")
 }

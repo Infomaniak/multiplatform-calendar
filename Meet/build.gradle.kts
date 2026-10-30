@@ -48,7 +48,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":Account"))
             implementation(kmpCalendar.kotlinx.coroutines.core)
-            implementation(project(":Network"))
+            api(project(":Network"))
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.bundles.ktor)
         }

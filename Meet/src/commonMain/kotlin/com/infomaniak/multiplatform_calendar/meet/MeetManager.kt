@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.meet.utils.meetCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import io.ktor.client.HttpClient
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -33,7 +34,7 @@ public class MeetManager internal constructor(httpClient: HttpClient) {
     private val remoteDataSource = MeetRemoteDataSource(httpClient)
     private val tokenByAccount = InMemoryAccountTokens()
 
-    public constructor() : this(httpClient = createMeetHttpClient())
+    public constructor(apiEnvironment: ApiEnvironment) : this(httpClient = createMeetHttpClient(apiEnvironment))
 
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =

@@ -49,7 +49,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":Account"))
             implementation(kmpCalendar.kotlinx.coroutines.core)
-            implementation(project(":Network"))
+            api(project(":Network"))
             api(kmpCalendar.kotlinx.datetime)
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.kotlinx.serialization)

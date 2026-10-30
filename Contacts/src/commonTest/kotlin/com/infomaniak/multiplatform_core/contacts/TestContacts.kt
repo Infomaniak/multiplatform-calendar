@@ -30,6 +30,7 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -107,9 +108,11 @@ internal suspend fun testManager(
     etag: String? = "\"etag-1\"",
     deviceContacts: List<DeviceContact> = emptyList(),
     initAccount: Boolean = true,
+    apiEnvironment: ApiEnvironment = ApiEnvironment.Prod,
     onRequest: (HttpRequestData) -> Unit = {},
 ): ContactsManager = ContactsManager(
     database = testDatabase(),
+    apiEnvironment = apiEnvironment,
     deviceContactsProvider = FakeDeviceContactsProvider(deviceContacts),
     httpClient = testHttpClient(apiContacts, etag, onRequest),
 ).apply {

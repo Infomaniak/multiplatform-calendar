@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -46,6 +47,7 @@ public class AccountManager internal constructor(
     private val bookableResourcesManager: BookableResourcesManager,
     private val organisationsManager: OrganisationsManager,
     private val sdkCaller: SdkCaller,
+    private val apiEnvironment: ApiEnvironment,
 ) {
 
     /** Makes each [initAccount] / [removeAccount] update the calendar, the contacts, kMeet, the bookable resources and the organisations as a single step. */
@@ -60,7 +62,7 @@ public class AccountManager internal constructor(
     ): Unit = withContext(Dispatchers.Default) {
         sdkCaller.run(operation = "initAccount $accountId") {
             accountLifecycleMutex.withLock {
-                accountRepository.storeCredentials(accountId, credentials.toRemote())
+                accountRepository.storeCredentials(accountId, credentials.toRemote(apiEnvironment))
                 contactsManager.initAccount(accountId, accessToken)
                 meetManager.initAccount(accountId, accessToken)
                 bookableResourcesManager.initAccount(accountId, accessToken)

@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.ContactsLookup
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
@@ -34,9 +35,11 @@ public interface ContactsModule {
     private fun provideContactsManager(
         database: ContactsDatabase,
         deviceContactsProvider: DeviceContactsProvider,
+        apiEnvironment: ApiEnvironment,
     ): ContactsManager = ContactsManager(
         database = database,
         deviceContactsProvider = deviceContactsProvider,
+        apiEnvironment = apiEnvironment,
     )
 
     @Provides

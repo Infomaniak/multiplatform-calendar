@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_core.organisations.utils.organisationsCall
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -47,9 +48,9 @@ public class OrganisationsManager internal constructor(
         tokenByAccount = InMemoryAccountTokens(),
     )
 
-    public constructor(database: OrganisationsDatabase) : this(
+    public constructor(database: OrganisationsDatabase, apiEnvironment: ApiEnvironment) : this(
         database = database,
-        httpClient = createOrganisationsHttpClient(),
+        httpClient = createOrganisationsHttpClient(apiEnvironment),
     )
 
     /** The token is kept in memory only: call it at startup and on login. Does not sync. */

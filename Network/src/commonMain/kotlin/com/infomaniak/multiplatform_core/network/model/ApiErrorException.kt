@@ -17,5 +17,10 @@
  */
 package com.infomaniak.multiplatform_core.network.model
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
+
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 public class ApiErrorException(response: ApiResponse<*>) :
     Exception("API error: result=${response.result}, error=${response.error}")

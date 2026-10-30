@@ -17,7 +17,11 @@
  */
 package com.infomaniak.multiplatform_core.network.model
 
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.Serializable
 
 @Serializable
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
 public data class ApiError(val code: String, val description: String)

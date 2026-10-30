@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
@@ -29,6 +30,8 @@ public interface OrganisationsModule {
 
     @SingleIn(AppScope::class)
     @Provides
-    private fun provideOrganisationsManager(database: CalendarDatabase): OrganisationsManager =
-        OrganisationsManager(database = database)
+    private fun provideOrganisationsManager(
+        database: CalendarDatabase,
+        apiEnvironment: ApiEnvironment,
+    ): OrganisationsManager = OrganisationsManager(database = database, apiEnvironment = apiEnvironment)
 }

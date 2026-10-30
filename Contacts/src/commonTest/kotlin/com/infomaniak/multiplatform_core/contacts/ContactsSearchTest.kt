@@ -17,11 +17,11 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
-import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -52,7 +52,7 @@ class ContactsSearchTest : RobolectricTestsBase() {
                 Contact(
                     email = "john@x.com",
                     name = "John Doe",
-                    avatar = ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/john.png", accountId = ACCOUNT_ID),
+                    avatar = ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/john.png", accountId = ACCOUNT_ID),
                     comesFromApi = true,
                 ),
             ),
@@ -224,6 +224,7 @@ class ContactsSearchTest : RobolectricTestsBase() {
     /** Unconfined, so that the change observer runs before the next search. */
     private suspend fun deviceContactsManager(provider: FakeDeviceContactsProvider) = ContactsManager(
         database = testDatabase(),
+        apiEnvironment = ApiEnvironment.Prod,
         deviceContactsProvider = provider,
         httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         deviceContactsScope = CoroutineScope(Dispatchers.Unconfined),

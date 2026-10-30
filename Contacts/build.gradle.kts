@@ -51,7 +51,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":Account"))
-            implementation(project(":Network"))
+            api(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.kotlinx.serialization)
             implementation(kmpCalendar.bundles.ktor)

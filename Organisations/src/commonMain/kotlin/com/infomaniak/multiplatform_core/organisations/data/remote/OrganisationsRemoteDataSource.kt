@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_core.organisations.data.remote.model.ApiOrga
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsErrorCause
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import com.infomaniak.multiplatform_core.network.model.asSuccess
 import io.ktor.client.HttpClient
@@ -29,9 +30,8 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
 
-internal const val INFOMANIAK_API_HOST = "api.infomaniak.com"
-
-internal fun createOrganisationsHttpClient(): HttpClient = createHttpClient(host = INFOMANIAK_API_HOST, basePath = "1/")
+internal fun createOrganisationsHttpClient(apiEnvironment: ApiEnvironment): HttpClient =
+    createHttpClient(host = "api.${apiEnvironment.domain}", basePath = "1/")
 
 internal class OrganisationsRemoteDataSource(private val httpClient: HttpClient) {
 

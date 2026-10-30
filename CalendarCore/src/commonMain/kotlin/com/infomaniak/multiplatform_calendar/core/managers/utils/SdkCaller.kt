@@ -20,12 +20,10 @@ package com.infomaniak.multiplatform_calendar.core.managers.utils
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.RustNetworkException
-import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetErrorCause
-import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetException
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
-import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
-import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsErrorCause
-import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
+import com.infomaniak.multiplatform_core.crashreport.FailureKind
+import com.infomaniak.multiplatform_core.crashreport.ModuleHandledException
+import com.infomaniak.multiplatform_core.crashreport.reportFailure
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -52,7 +50,7 @@ internal class SdkCaller(private val crashReport: CrashReport) {
      * @param operation Description used in error reports.
      * @throws CalendarSdkException If the operation fails.
      */
-    internal suspend inline fun <T> run(
+    internal suspend inline operator fun <T> invoke(
         operation: String,
         crossinline block: suspend () -> T,
     ): T {
@@ -80,16 +78,13 @@ internal class SdkCaller(private val crashReport: CrashReport) {
     }
 
     private fun Throwable.logToSentryIfNeeded(errorMessage: String) {
-        when (this) {
-            is CalendarSdkException -> throw this
-            is RustNetworkException -> addNetworkBreadcrumb(errorMessage)
-            is MeetException if errorCause == MeetErrorCause.Network -> addNetworkBreadcrumb(errorMessage)
-            is OrganisationsException if errorCause == OrganisationsErrorCause.Network -> addNetworkBreadcrumb(errorMessage)
-            else -> crashReport.capture(errorMessage, exception = this)
-        }
+        if (this is CalendarSdkException) throw this
+        crashReport.reportFailure(this, errorMessage, ::kindOf)
     }
 
-    private fun addNetworkBreadcrumb(message: String) {
-        crashReport.addBreadcrumb(message = message, category = "network", level = CrashReportLevel.Warning)
+    private fun kindOf(failure: Throwable): FailureKind = when (failure) {
+        is RustNetworkException -> FailureKind.Network
+        is ModuleHandledException -> FailureKind.Handled
+        else -> FailureKind.Unexpected
     }
 }

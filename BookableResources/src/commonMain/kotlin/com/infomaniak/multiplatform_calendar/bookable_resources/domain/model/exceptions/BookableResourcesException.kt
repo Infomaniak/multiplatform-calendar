@@ -17,7 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions
 
+import com.infomaniak.multiplatform_core.crashreport.ModuleHandledException
+
 public class BookableResourcesException internal constructor(
     public val errorCause: BookableResourcesErrorCause,
     cause: Throwable? = null,
-) : Exception(errorCause.message, cause)
+) : Exception(errorCause.message, cause), ModuleHandledException

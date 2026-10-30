@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
@@ -29,6 +30,6 @@ public interface BookableResourcesModule {
 
     @SingleIn(AppScope::class)
     @Provides
-    private fun provideBookableResourcesManager(database: CalendarDatabase): BookableResourcesManager =
-        BookableResourcesManager(database = database)
+    private fun provideBookableResourcesManager(database: CalendarDatabase, crashReport: CrashReport): BookableResourcesManager =
+        BookableResourcesManager(database = database, crashReport = crashReport)
 }

@@ -17,23 +17,24 @@
  */
 package com.infomaniak.multiplatform_calendar.bookable_resources.utils
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.io.IOException
-import kotlin.coroutines.cancellation.CancellationException
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.FailureKind
+import com.infomaniak.multiplatform_core.crashreport.ModuleCaller
+import kotlinx.io.IOException
 
-internal suspend inline fun <T> bookableResourcesCall(crossinline block: suspend () -> T): T = withContext(Dispatchers.Default) {
-    try {
-        block()
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (exception: BookableResourcesException) {
-        throw exception
-    } catch (exception: IOException) {
-        throw BookableResourcesException(BookableResourcesErrorCause.Network, exception)
-    } catch (exception: Exception) {
-        throw BookableResourcesException(BookableResourcesErrorCause.Unknown(exception), exception)
+internal class BookableResourcesCaller(crashReport: CrashReport) : ModuleCaller<BookableResourcesException>(crashReport, errorMessage = "Bookable resources call failed") {
+
+    override fun kindOf(failure: Throwable): FailureKind = when (failure) {
+        is BookableResourcesException -> FailureKind.Handled
+        is IOException -> FailureKind.Network
+        else -> FailureKind.Unexpected
+    }
+
+    override fun convert(failure: Exception): BookableResourcesException = when (failure) {
+        is BookableResourcesException -> failure
+        is IOException -> BookableResourcesException(BookableResourcesErrorCause.Network, failure)
+        else -> BookableResourcesException(BookableResourcesErrorCause.Unknown(failure), failure)
     }
 }

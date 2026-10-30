@@ -19,22 +19,22 @@ package com.infomaniak.multiplatform_core.contacts.utils
 
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.FailureKind
+import com.infomaniak.multiplatform_core.crashreport.ModuleCaller
 import kotlinx.io.IOException
-import kotlin.coroutines.cancellation.CancellationException
 
-/** Runs a public call off the main thread and wraps any failure in [ContactsException]. */
-internal suspend inline fun <T> contactsCall(crossinline block: suspend () -> T): T = withContext(Dispatchers.Default) {
-    try {
-        block()
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (exception: ContactsException) {
-        throw exception
-    } catch (exception: IOException) {
-        throw ContactsException(ContactsErrorCause.Network, exception)
-    } catch (exception: Exception) {
-        throw ContactsException(ContactsErrorCause.Unknown(exception), exception)
+internal class ContactsCaller(crashReport: CrashReport) : ModuleCaller<ContactsException>(crashReport, errorMessage = "Contacts call failed") {
+
+    override fun kindOf(failure: Throwable): FailureKind = when (failure) {
+        is ContactsException -> FailureKind.Handled
+        is IOException -> FailureKind.Network
+        else -> FailureKind.Unexpected
+    }
+
+    override fun convert(failure: Exception): ContactsException = when (failure) {
+        is ContactsException -> failure
+        is IOException -> ContactsException(ContactsErrorCause.Network, failure)
+        else -> ContactsException(ContactsErrorCause.Unknown(failure), failure)
     }
 }

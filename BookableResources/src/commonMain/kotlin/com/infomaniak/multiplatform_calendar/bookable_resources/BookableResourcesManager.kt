@@ -25,10 +25,11 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Boo
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
-import com.infomaniak.multiplatform_calendar.bookable_resources.utils.bookableResourcesCall
+import com.infomaniak.multiplatform_calendar.bookable_resources.utils.BookableResourcesCaller
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -42,28 +43,32 @@ import kotlin.time.Instant
 public class BookableResourcesManager internal constructor(
     internal val database: BookableResourcesDatabase,
     httpClient: HttpClient,
+    crashReport: CrashReport,
 ) {
 
+    private val bookableResourcesCaller = BookableResourcesCaller(crashReport)
     private val repository = BookableResourcesRepository(
         database = database,
         remoteDataSource = BookableResourcesRemoteDataSource(httpClient),
         tokenByAccount = InMemoryAccountTokens(),
+        crashReport = crashReport,
     )
 
     /** @param database Host Room database declaring the bookable resources tables. */
-    public constructor(database: BookableResourcesDatabase) : this(
+    public constructor(database: BookableResourcesDatabase, crashReport: CrashReport) : this(
         database = database,
         httpClient = createBookableResourcesHttpClient(),
+        crashReport = crashReport,
     )
 
     /** The token is kept in memory only: call it at startup and on login. Does not sync. */
     @Throws(BookableResourcesException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
-        bookableResourcesCall { repository.initAccount(accountId, accessToken) }
+        bookableResourcesCaller { repository.initAccount(accountId, accessToken) }
 
     /** Also deletes the local bookable resources of [accountId]. */
     @Throws(BookableResourcesException::class, CancellationException::class)
-    public suspend fun removeAccount(accountId: AccountId): Unit = bookableResourcesCall { repository.removeAccount(accountId) }
+    public suspend fun removeAccount(accountId: AccountId): Unit = bookableResourcesCaller { repository.removeAccount(accountId) }
 
     /**
      * When some accounts fail, the others still complete, then the first failure is thrown.
@@ -72,7 +77,7 @@ public class BookableResourcesManager internal constructor(
     @OptIn(ExperimentalObjCRefinement::class)
     @HiddenFromObjC
     @Throws(BookableResourcesException::class, CancellationException::class)
-    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = bookableResourcesCall { repository.sync(accountIds) }
+    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = bookableResourcesCaller { repository.sync(accountIds) }
 
     /** Sorted by name. */
     public fun observeResources(accountId: AccountId): Flow<List<BookableResource>> =
@@ -95,7 +100,7 @@ public class BookableResourcesManager internal constructor(
         end: Instant,
         timeZone: TimeZone,
         rrule: String? = null,
-    ): Map<BookableResourceUuid, Boolean> = bookableResourcesCall {
+    ): Map<BookableResourceUuid, Boolean> = bookableResourcesCaller {
         repository.availability(accountId, uuid = null, start, end, timeZone, rrule)
     }
 
@@ -107,7 +112,7 @@ public class BookableResourcesManager internal constructor(
         end: Instant,
         timeZone: TimeZone,
         rrule: String? = null,
-    ): Boolean = bookableResourcesCall {
+    ): Boolean = bookableResourcesCaller {
         repository.availability(accountId, uuid, start, end, timeZone, rrule)[uuid] == true
     }
 
@@ -120,5 +125,5 @@ public class BookableResourcesManager internal constructor(
         uuids: Set<BookableResourceUuid>,
         from: Instant,
         to: Instant,
-    ): Map<BookableResourceUuid, List<BusyPeriod>> = bookableResourcesCall { repository.busyPeriods(accountId, uuids, from, to) }
+    ): Map<BookableResourceUuid, List<BusyPeriod>> = bookableResourcesCaller { repository.busyPeriods(accountId, uuids, from, to) }
 }

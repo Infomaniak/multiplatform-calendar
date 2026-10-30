@@ -24,10 +24,11 @@ import com.infomaniak.multiplatform_core.organisations.data.repository.Organisat
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
-import com.infomaniak.multiplatform_core.organisations.utils.organisationsCall
+import com.infomaniak.multiplatform_core.organisations.utils.OrganisationsCaller
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -39,27 +40,30 @@ import kotlin.native.HiddenFromObjC
 public class OrganisationsManager internal constructor(
     internal val database: OrganisationsDatabase,
     httpClient: HttpClient,
+    crashReport: CrashReport,
 ) {
 
+    private val organisationsCaller = OrganisationsCaller(crashReport)
     private val repository = OrganisationsRepository(
         database = database,
         remoteDataSource = OrganisationsRemoteDataSource(httpClient),
         tokenByAccount = InMemoryAccountTokens(),
     )
 
-    public constructor(database: OrganisationsDatabase) : this(
+    public constructor(database: OrganisationsDatabase, crashReport: CrashReport) : this(
         database = database,
         httpClient = createOrganisationsHttpClient(),
+        crashReport = crashReport,
     )
 
     /** The token is kept in memory only: call it at startup and on login. Does not sync. */
     @Throws(OrganisationsException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
-        organisationsCall { repository.initAccount(accountId, accessToken) }
+        organisationsCaller { repository.initAccount(accountId, accessToken) }
 
     /** Also deletes the local organisations of [accountId]. */
     @Throws(OrganisationsException::class, CancellationException::class)
-    public suspend fun removeAccount(accountId: AccountId): Unit = organisationsCall { repository.removeAccount(accountId) }
+    public suspend fun removeAccount(accountId: AccountId): Unit = organisationsCaller { repository.removeAccount(accountId) }
 
     /**
      * When some accounts fail, the others still complete, then the first failure is thrown.
@@ -68,12 +72,12 @@ public class OrganisationsManager internal constructor(
     @OptIn(ExperimentalObjCRefinement::class)
     @HiddenFromObjC
     @Throws(OrganisationsException::class, CancellationException::class)
-    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = organisationsCall { repository.sync(accountIds) }
+    public suspend fun sync(accountIds: Set<AccountId> = emptySet()): Unit = organisationsCaller { repository.sync(accountIds) }
 
     /** Reads the local organisations only. */
     @Throws(OrganisationsException::class, CancellationException::class)
     public suspend fun getOrganisation(accountId: AccountId, id: OrganisationId): Organisation? =
-        organisationsCall { repository.getOrganisation(accountId, id) }
+        organisationsCaller { repository.getOrganisation(accountId, id) }
 
     /** Reads the local organisations only, sorted by name. */
     public fun observeOrganisations(accountId: AccountId): Flow<List<Organisation>> =

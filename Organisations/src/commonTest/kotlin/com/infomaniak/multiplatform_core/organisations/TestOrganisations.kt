@@ -21,6 +21,7 @@ import androidx.room3.Room
 import androidx.room3.RoomDatabase
 import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import com.infomaniak.multiplatform_core.organisations.data.local.OrganisationsDatabase
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsErrorCause
@@ -89,7 +90,11 @@ internal fun testHttpClient(
 internal suspend fun testManager(
     initAccount: Boolean = true,
     handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
-): OrganisationsManager = OrganisationsManager(database = testDatabase(), httpClient = testHttpClient(handler))
+): OrganisationsManager = OrganisationsManager(
+    database = testDatabase(),
+    httpClient = testHttpClient(handler),
+    crashReport = NoOpCrashReport,
+)
     .apply { if (initAccount) initAccount(ACCOUNT_ID, AccessToken("token")) }
 
 internal suspend fun OrganisationsManager.storedOrganisationNames(accountId: AccountId = ACCOUNT_ID): List<String> =

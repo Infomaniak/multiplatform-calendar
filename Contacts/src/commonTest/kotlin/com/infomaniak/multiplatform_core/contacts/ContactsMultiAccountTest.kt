@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import com.infomaniak.multiplatform_core.network.model.ApiResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -132,6 +133,7 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
     private suspend fun managerWithBothAccounts() = ContactsManager(
         database = testDatabase(),
         deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
+        crashReport = NoOpCrashReport,
         httpClient = httpClient(),
     ).apply {
         initAccount(ACCOUNT_1, AccessToken(TOKEN_1))

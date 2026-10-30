@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetEr
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -93,7 +94,7 @@ class MeetManagerTest {
             install(ContentNegotiation) { json(testJson()) }
             engine { addHandler { request -> requests.add(request); handler(request) } }
         }
-        return MeetManager(httpClient).apply { if (initAccount) initAccount(ACCOUNT_ID, AccessToken(TOKEN)) }
+        return MeetManager(httpClient, NoOpCrashReport).apply { if (initAccount) initAccount(ACCOUNT_ID, AccessToken(TOKEN)) }
     }
 
     private fun MockRequestHandleScope.respondJson(body: String, status: HttpStatusCode = HttpStatusCode.OK) =

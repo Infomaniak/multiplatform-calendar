@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.utils.bookableRe
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
+import com.infomaniak.multiplatform_core.network.ApiEnvironment
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -51,9 +52,9 @@ public class BookableResourcesManager internal constructor(
     )
 
     /** @param database Host Room database declaring the bookable resources tables. */
-    public constructor(database: BookableResourcesDatabase) : this(
+    public constructor(database: BookableResourcesDatabase, apiEnvironment: ApiEnvironment) : this(
         database = database,
-        httpClient = createBookableResourcesHttpClient(),
+        httpClient = createBookableResourcesHttpClient(apiEnvironment),
     )
 
     /** The token is kept in memory only: call it at startup and on login. Does not sync. */

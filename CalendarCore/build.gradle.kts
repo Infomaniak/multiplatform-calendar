@@ -69,7 +69,7 @@ kotlin {
             api(project(":BookableResources"))
             api(project(":Organisations"))
             implementation(project(":CalendarResources"))
-            implementation(project(":Network"))
+            api(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
             implementation(kmpCalendar.androidx.sqlite.bundled)
             implementation(kmpCalendar.kotlinx.serialization)
@@ -163,5 +163,6 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         // AccountId and AccessToken are shared by the calendar, contacts, meet and meeting rooms public APIs.
         export(project(":Account"))
         export(project(":CrashReport"))
+        export(project(":Network"))
     }
 }

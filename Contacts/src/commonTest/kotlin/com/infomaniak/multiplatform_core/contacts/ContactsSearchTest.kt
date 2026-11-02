@@ -61,7 +61,7 @@ class ContactsSearchTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun devicePhotoWinsOverTheApiAvatar() = runTest {
+    fun apiAvatarWinsOverTheDevicePhoto() = runTest {
         val manager = testManager(
             apiContacts = listOf(ApiContact(name = "John Doe", emails = listOf("john@x.com"), avatar = "/avatar/john.png")),
             deviceContacts = listOf(DeviceContact(email = "john@x.com", name = "John Doe", avatarId = "photo-john")),
@@ -69,7 +69,19 @@ class ContactsSearchTest : RobolectricTestsBase() {
 
         val avatar = manager.search("john", setOf(ACCOUNT_ID)).single().avatar
 
-        assertEquals("photo-john", (avatar as ContactAvatar.Device).id)
+        assertEquals(ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/john.png", accountId = ACCOUNT_ID), avatar)
+    }
+
+    @Test
+    fun devicePhotoIsKeptWhenTheApiHasNoAvatar() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(ApiContact(name = "John Doe", emails = listOf("john@x.com"))),
+            deviceContacts = listOf(DeviceContact(email = "john@x.com", name = "John Doe", avatarId = "photo-john")),
+        )
+
+        val avatar = manager.search("john", setOf(ACCOUNT_ID)).single().avatar
+
+        assertEquals(ContactAvatar.Device("photo-john"), avatar)
     }
 
     @Test

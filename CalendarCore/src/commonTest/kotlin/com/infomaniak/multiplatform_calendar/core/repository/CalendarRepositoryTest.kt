@@ -398,6 +398,57 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun downloadEventsByRange_skipsHiddenCalendars() = runTest {
+        val accountId = AccountId(11)
+        database.accountDao().insert(AccountEntity(accountId))
+        val visibleCalendarUrl = "https://dav.example/cal/visible/"
+        val hiddenCalendarUrl = "https://dav.example/cal/hidden/"
+        val visibleCalendarId = CalendarId(visibleCalendarUrl)
+        val hiddenCalendarId = CalendarId(hiddenCalendarUrl)
+        database.calendarDao().upsert(
+            listOf(
+                CalendarEntity(
+                    id = visibleCalendarId,
+                    accountId = accountId,
+                    displayName = "Visible",
+                    color = null,
+                    isVisible = true,
+                ),
+                CalendarEntity(
+                    id = hiddenCalendarId,
+                    accountId = accountId,
+                    displayName = "Hidden",
+                    color = null,
+                    isVisible = false,
+                ),
+            ),
+        )
+        val visibleEvent = remoteEvent(url = "${visibleCalendarUrl}visible.ics", uid = "uid-visible")
+        val hiddenEvent = remoteEvent(url = "${hiddenCalendarUrl}hidden.ics", uid = "uid-hidden")
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(
+                RemoteDavCalendar(url = visibleCalendarUrl, displayName = "Visible"),
+                RemoteDavCalendar(url = hiddenCalendarUrl, displayName = "Hidden"),
+            ),
+        ).apply {
+            rangeEvents[visibleCalendarUrl] = listOf(visibleEvent)
+            rangeEvents[hiddenCalendarUrl] = listOf(hiddenEvent)
+        }
+        val repository = repositoryWith(remote)
+
+        repository.downloadEventsByRange(
+            accountId = accountId,
+            credentials = fakeCredentials(),
+            start = Instant.parse("2026-06-15T00:00:00Z"),
+            end = Instant.parse("2026-06-16T00:00:00Z"),
+        )
+
+        assertEquals(listOf(visibleCalendarUrl), remote.rangedCalendarUrls)
+        assertEquals(listOf(visibleEvent.url), database.eventDao().observeEvents(visibleCalendarId).first().map { it.id.url })
+        assertEquals(emptyList(), database.eventDao().observeEvents(hiddenCalendarId).first())
+    }
+
+    @Test
     fun downloadEventsByRange_existingRange_reconcilesRefsAndFetchesOnlyChangedEvents() = runTest {
         val accountId = AccountId(5)
         database.accountDao().insert(AccountEntity(accountId))
@@ -626,6 +677,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         var fullRangeRequestCount: Int = 0
         var refRangeRequestCount: Int = 0
         var lastMultigetUrls: List<String> = emptyList()
+        val rangedCalendarUrls: MutableList<String> = mutableListOf()
         var onGetEventsInRange: (suspend () -> Unit)? = null
 
         override suspend fun discover(credentials: DavAccount) = RemoteDavDiscovery(userEmails, calendars)
@@ -637,6 +689,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             end: String,
         ): List<RemoteDavEvent> {
             fullRangeRequestCount++
+            rangedCalendarUrls += calendarUrl
             lastRangeStart = start
             lastRangeEnd = end
             onGetEventsInRange?.invoke()

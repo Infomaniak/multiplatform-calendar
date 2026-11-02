@@ -125,7 +125,7 @@ internal class CalendarRepository(
         val startLocalDateTime = start.toLocalDateTime(TimeZone.UTC)
         val endLocalDateTime = end.toLocalDateTime(TimeZone.UTC)
 
-        calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
+        calendarDao.getVisibleCalendarsByAccountId(accountId).forEachParallelLimited(limit = 4) { calendarEntity ->
             runCatching {
                 val localEvents = eventDao.getEventRefsInRange(
                     calendarId = calendarEntity.id,

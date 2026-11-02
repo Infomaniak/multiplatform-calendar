@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_core.organisations
 
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.organisations.data.local.OrganisationsDatabase
 import com.infomaniak.multiplatform_core.organisations.data.remote.OrganisationsRemoteDataSource
 import com.infomaniak.multiplatform_core.organisations.data.remote.createOrganisationsHttpClient
@@ -47,9 +48,9 @@ public class OrganisationsManager internal constructor(
         tokenByAccount = InMemoryAccountTokens(),
     )
 
-    public constructor(database: OrganisationsDatabase) : this(
+    public constructor(database: OrganisationsDatabase, appEnvironment: AppEnvironment) : this(
         database = database,
-        httpClient = createOrganisationsHttpClient(),
+        httpClient = createOrganisationsHttpClient(appEnvironment),
     )
 
     /** The token is kept in memory only: call it at startup and on login. Does not sync. */

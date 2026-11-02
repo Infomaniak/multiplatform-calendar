@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseConfig
 import com.infomaniak.multiplatform_calendar.core.di.CalendarCoreGraph
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.configureCaldavClient
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.di.CaldavClientModule
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.ContactsSettings
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import dev.zacsweers.metro.AppScope
@@ -45,6 +46,7 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
             @Provides databaseConfig: DatabaseConfig,
             @Provides crashReport: CrashReport,
             @Provides contactsSettings: ContactsSettings,
+            @Provides appEnvironment: AppEnvironment,
         ): CalendarSDK
     }
 }
@@ -58,6 +60,7 @@ internal abstract class CalendarSDK internal constructor() : CalendarCoreGraph, 
  */
 public data class CalendarSettings(
     val databasePath: String,
+    val appEnvironment: AppEnvironment,
     val caldavSettings: CaldavClientSettings? = null,
 )
 
@@ -69,6 +72,7 @@ public data class CalendarSettings(
  * let sdk = CalendarSDKProvider.shared.sdk(
  *     calendar: CalendarSettings(
  *         databasePath: "/path/to/calendar.db",
+ *         appEnvironment: AppEnvironment.Prod.shared,
  *         caldavSettings: CaldavClientSettings(userAgent: "Infomaniak Calendar/1.0", requestTimeoutSeconds: 30),
  *     ),
  *     crashReport: crashReport,
@@ -96,6 +100,7 @@ public object CalendarSDKProvider {
             databaseConfig = DatabaseConfig(path = calendar.databasePath),
             crashReport = crashReport,
             contactsSettings = contacts,
+            appEnvironment = calendar.appEnvironment,
         )
     }
 }

@@ -1,0 +1,20 @@
+<resources>
+    <string name="every_day">Chaque jour</string>
+    <string name="every_week">Chaque semaine</string>
+    <string name="every_month">Chaque mois</string>
+    <string name="every_year">Chaque année</string>
+    <string name="every_interval">Toutes les %1$d %2$s</string>
+    <string name="plural_day">jours</string>
+    <string name="plural_week">semaines</string>
+    <string name="plural_month">mois</string>
+    <string name="plural_year">ans</string>
+    <string name="day_mo">lundi</string>
+    <string name="day_tu">mardi</string>
+    <string name="day_we">mercredi</string>
+    <string name="day_th">jeudi</string>
+    <string name="day_fr">vendredi</string>
+    <string name="day_sa">samedi</string>
+    <string name="day_su">dimanche</string>
+    <string name="days_clause"> : %1$s</string>
+    <string name="count_clause"> (%1$d occurrences)</string>
+</resources>

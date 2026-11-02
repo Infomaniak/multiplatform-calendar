@@ -68,4 +68,5 @@ include(
     ":BookableResources",
     ":Organisations",
     ":Network",
+    ":RecurrenceWeb",
 )

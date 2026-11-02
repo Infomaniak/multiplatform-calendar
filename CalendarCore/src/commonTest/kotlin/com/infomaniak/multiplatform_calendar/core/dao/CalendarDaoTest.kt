@@ -79,6 +79,37 @@ class CalendarDaoTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun getVisibleCalendarsByAccountId_returnsOnlyVisibleCalendarsForAccountSortedByDisplayName() = runTest {
+        val accountId = AccountId(1)
+        val otherAccountId = AccountId(2)
+        accountDao.insert(AccountEntity(id = accountId))
+        accountDao.insert(AccountEntity(id = otherAccountId))
+        val zuluVisible = calendar(id = "calendar://zulu", accountId = accountId, displayName = "Zulu", isVisible = true)
+        val alphaVisible =
+            calendar(id = "calendar://alpha", accountId = accountId, displayName = "Alpha", isVisible = true)
+        val mikeHidden = calendar(id = "calendar://mike", accountId = accountId, displayName = "Mike", isVisible = false)
+        val otherVisible =
+            calendar(id = "calendar://other", accountId = otherAccountId, displayName = "Aardvark", isVisible = true)
+        calendarDao.upsert(listOf(zuluVisible, alphaVisible, mikeHidden, otherVisible))
+
+        assertEquals(listOf(alphaVisible, zuluVisible), calendarDao.getVisibleCalendarsByAccountId(accountId))
+    }
+
+    @Test
+    fun getVisibleCalendarsByAccountId_returnsEmptyListWhenNoVisibleCalendarExists() = runTest {
+        val accountId = AccountId(1)
+        accountDao.insert(AccountEntity(id = accountId))
+        calendarDao.upsert(
+            listOf(
+                calendar(id = "calendar://hidden-1", accountId = accountId, isVisible = false),
+                calendar(id = "calendar://hidden-2", accountId = accountId, isVisible = false),
+            ),
+        )
+
+        assertEquals(emptyList(), calendarDao.getVisibleCalendarsByAccountId(accountId))
+    }
+
+    @Test
     fun observeByAccountIds_returnsRequestedAccountsCalendarsSortedByDisplayName() = runTest {
         val firstAccountId = AccountId(1)
         val secondAccountId = AccountId(2)

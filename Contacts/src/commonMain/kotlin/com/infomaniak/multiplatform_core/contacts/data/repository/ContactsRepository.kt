@@ -25,7 +25,6 @@ import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccou
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
 import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsFetch
 import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteDataSource
-import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
@@ -58,6 +57,7 @@ internal class ContactsRepository(
     private val deviceContactsProvider: DeviceContactsProvider,
     private val tokenByAccount: InMemoryAccountTokens,
     private val deviceContactsScope: CoroutineScope,
+    private val mailApiHost: String,
 ) {
 
     private val dao = database.contactDao()
@@ -166,7 +166,7 @@ internal class ContactsRepository(
                 is ContactsFetch.NotModified -> Unit
                 is ContactsFetch.Success -> dao.replaceContacts(
                     account = ContactAccountEntity(id = accountId, etag = fetch.etag),
-                    contacts = fetch.contacts.flatMap { it.toEntities(accountId) },
+                    contacts = fetch.contacts.flatMap { it.toEntities(accountId, mailApiHost) },
                 )
             }
         }
@@ -277,14 +277,14 @@ private fun DeviceContact.toContactMatch(): ContactMatch = ContactMatch(
     isInAddressBook = true,
 )
 
-private fun ApiContact.toEntities(accountId: AccountId): List<ContactEntity> {
+private fun ApiContact.toEntities(accountId: AccountId, mailApiHost: String): List<ContactEntity> {
     val contactName = name.orEmpty()
     return emails.filter { it.isNotBlank() }.map { email ->
         ContactEntity(
             accountId = accountId,
             email = email,
             name = contactName,
-            avatarUrl = avatar?.let { "https://$MAIL_API_HOST$it" },
+            avatarUrl = avatar?.let { "https://$mailApiHost$it" },
             contactedTimes = contactedTimes?.get(email),
             isInAddressBook = !other,
             nameNormalized = contactName.normalizedForSearch(),

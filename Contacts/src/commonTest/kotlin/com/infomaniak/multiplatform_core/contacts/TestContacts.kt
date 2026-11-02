@@ -23,6 +23,7 @@ import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.local.StandaloneContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
@@ -107,9 +108,11 @@ internal suspend fun testManager(
     etag: String? = "\"etag-1\"",
     deviceContacts: List<DeviceContact> = emptyList(),
     initAccount: Boolean = true,
+    appEnvironment: AppEnvironment = AppEnvironment.Prod,
     onRequest: (HttpRequestData) -> Unit = {},
 ): ContactsManager = ContactsManager(
     database = testDatabase(),
+    appEnvironment = appEnvironment,
     deviceContactsProvider = FakeDeviceContactsProvider(deviceContacts),
     httpClient = testHttpClient(apiContacts, etag, onRequest),
 ).apply {

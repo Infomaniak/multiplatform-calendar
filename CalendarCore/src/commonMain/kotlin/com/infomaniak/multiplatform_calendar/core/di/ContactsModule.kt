@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_calendar.core.data.repository.ContactsLookup
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
@@ -34,9 +35,11 @@ public interface ContactsModule {
     private fun provideContactsManager(
         database: ContactsDatabase,
         deviceContactsProvider: DeviceContactsProvider,
+        appEnvironment: AppEnvironment,
     ): ContactsManager = ContactsManager(
         database = database,
         deviceContactsProvider = deviceContactsProvider,
+        appEnvironment = appEnvironment,
     )
 
     @Provides

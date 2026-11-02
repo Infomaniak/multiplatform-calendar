@@ -19,7 +19,7 @@ package com.infomaniak.multiplatform_core.contacts
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
@@ -75,7 +75,7 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
         manager.sync()
 
         assertEquals(
-            listOf(ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/bob.png", accountId = ACCOUNT_2)),
+            listOf(ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/bob.png", accountId = ACCOUNT_2)),
             manager.search("bob").map { it.avatar },
         )
     }
@@ -131,6 +131,7 @@ class ContactsMultiAccountTest : RobolectricTestsBase() {
     /** Inits both accounts, without syncing them. */
     private suspend fun managerWithBothAccounts() = ContactsManager(
         database = testDatabase(),
+        appEnvironment = AppEnvironment.Prod,
         deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
         httpClient = httpClient(),
     ).apply {

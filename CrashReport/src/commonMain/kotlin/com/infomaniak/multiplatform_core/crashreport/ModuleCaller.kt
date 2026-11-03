@@ -18,6 +18,9 @@
 package com.infomaniak.multiplatform_core.crashreport
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
@@ -41,13 +44,32 @@ public abstract class ModuleCaller<E>(
         }
     }
 
+    public fun <T> flow(upstream: Flow<T>): Flow<T> = upstream
+        .catch { failure -> throw if (failure is Exception && failure !is CancellationException) reportAndConvert(failure) else failure }
+        .flowOn(Dispatchers.Default)
+
+    public inline fun reportingFailures(block: () -> Unit) {
+        try {
+            block()
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            report(exception)
+        }
+    }
+
     protected abstract fun kindOf(failure: Throwable): FailureKind
 
     protected abstract fun convert(failure: Exception): E
 
     @PublishedApi
-    internal fun reportAndConvert(failure: Exception): E {
+    internal fun report(failure: Exception) {
         crashReport.reportFailure(failure, errorMessage, ::kindOf)
+    }
+
+    @PublishedApi
+    internal fun reportAndConvert(failure: Exception): E {
+        report(failure)
         return convert(failure)
     }
 }

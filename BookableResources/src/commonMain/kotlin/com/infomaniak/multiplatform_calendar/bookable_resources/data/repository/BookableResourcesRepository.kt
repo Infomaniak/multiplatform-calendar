@@ -32,11 +32,10 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Bus
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Equipment
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
+import com.infomaniak.multiplatform_calendar.bookable_resources.utils.BookableResourcesCaller
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
-import com.infomaniak.multiplatform_core.crashreport.CrashReport
-import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -48,17 +47,14 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlinx.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
-
-private const val FETCH_ERROR_MESSAGE = "Bookable resource fetch failed"
 
 internal class BookableResourcesRepository(
     database: BookableResourcesDatabase,
     private val remoteDataSource: BookableResourcesRemoteDataSource,
     private val tokenByAccount: InMemoryAccountTokens,
-    private val crashReport: CrashReport,
+    private val bookableResourcesCaller: BookableResourcesCaller,
 ) {
 
     private val dao = database.bookableResourceDao()
@@ -156,19 +152,13 @@ internal class BookableResourcesRepository(
     // Failures are reported, not thrown. Concurrent collectors wait for the fetch in progress, then fetch only if the resource is still missing.
     private suspend fun fetchMissingResource(accountId: AccountId, uuid: BookableResourceUuid) {
         resourceFetchMutex(accountId to uuid).withLock {
-            try {
+            bookableResourcesCaller.reportingFailures {
                 if (dao.hasResource(accountId, uuid)) return
                 val token = tokenByAccount.getToken(accountId) ?: return
                 val resource = remoteDataSource.getBookableResource(token, uuid)?.takeIf(ApiBookableResource::isMeetingRoom) ?: return
                 syncMutex(accountId).withLock {
                     if (tokenByAccount.getToken(accountId) != null) dao.upsertResources(listOf(resource.toEntity(accountId)))
                 }
-            } catch (exception: CancellationException) {
-                throw exception
-            } catch (_: IOException) {
-                crashReport.addBreadcrumb(message = FETCH_ERROR_MESSAGE, category = "network", level = CrashReportLevel.Warning)
-            } catch (exception: Exception) {
-                crashReport.capture(FETCH_ERROR_MESSAGE, exception = exception)
             }
         }
     }

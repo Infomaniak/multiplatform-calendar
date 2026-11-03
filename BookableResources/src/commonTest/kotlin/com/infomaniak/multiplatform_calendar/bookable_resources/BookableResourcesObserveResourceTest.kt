@@ -160,14 +160,23 @@ class BookableResourcesObserveResourceTest : RobolectricTestsBase() {
         job.cancel()
 
         val capture = crashReport.exceptionCaptures.single()
-        assertEquals("Bookable resource fetch failed", capture.message)
+        assertEquals("Bookable resources call failed", capture.message)
         assertEquals("boom", capture.exception.message)
     }
 
     @Test
-    fun networkFetchFailureIsNotCaptured() = runTest {
+    fun networkFetchFailureIsNotCaptured() = assertFetchFailureIsNotCaptured { throw IOException("offline") }
+
+    @Test
+    fun apiFetchFailureIsNotCaptured() = assertFetchFailureIsNotCaptured {
+        respondJson(error("internal_error"), HttpStatusCode.InternalServerError)
+    }
+
+    private fun assertFetchFailureIsNotCaptured(
+        response: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
+    ) = runTest {
         val crashReport = RecordingCrashReport()
-        val manager = testManager(crashReport = crashReport) { throw IOException("offline") }
+        val manager = testManager(crashReport = crashReport, handler = response)
 
         val job = launch { manager.observeResource(ACCOUNT_ID, RESOURCE_UUID).collect() }
         // Leaves the fetch the time to report the failure, if it were to.

@@ -17,23 +17,24 @@
  */
 package com.infomaniak.multiplatform_core.organisations.utils
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.io.IOException
-import kotlin.coroutines.cancellation.CancellationException
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.FailureKind
+import com.infomaniak.multiplatform_core.crashreport.ModuleCaller
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsErrorCause
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
+import kotlinx.io.IOException
 
-internal suspend inline fun <T> organisationsCall(crossinline block: suspend () -> T): T = withContext(Dispatchers.Default) {
-    try {
-        block()
-    } catch (exception: CancellationException) {
-        throw exception
-    } catch (exception: OrganisationsException) {
-        throw exception
-    } catch (exception: IOException) {
-        throw OrganisationsException(OrganisationsErrorCause.Network, exception)
-    } catch (exception: Exception) {
-        throw OrganisationsException(OrganisationsErrorCause.Unknown(exception), exception)
+internal class OrganisationsCaller(crashReport: CrashReport) : ModuleCaller<OrganisationsException>(crashReport, errorMessage = "Organisations call failed") {
+
+    override fun kindOf(failure: Throwable): FailureKind = when (failure) {
+        is OrganisationsException -> FailureKind.Handled
+        is IOException -> FailureKind.Network
+        else -> FailureKind.Unexpected
+    }
+
+    override fun convert(failure: Exception): OrganisationsException = when (failure) {
+        is OrganisationsException -> failure
+        is IOException -> OrganisationsException(OrganisationsErrorCause.Network, failure)
+        else -> OrganisationsException(OrganisationsErrorCause.Unknown(failure), failure)
     }
 }

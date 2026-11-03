@@ -17,7 +17,9 @@
  */
 package com.infomaniak.multiplatform_core.organisations.domain.model.exceptions
 
+import com.infomaniak.multiplatform_core.crashreport.ModuleHandledException
+
 public class OrganisationsException internal constructor(
     public val errorCause: OrganisationsErrorCause,
     cause: Throwable? = null,
-) : Exception(errorCause.message, cause)
+) : Exception(errorCause.message, cause), ModuleHandledException

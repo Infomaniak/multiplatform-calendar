@@ -27,6 +27,8 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exc
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -88,8 +90,13 @@ internal fun testHttpClient(
 
 internal suspend fun testManager(
     initAccount: Boolean = true,
+    crashReport: CrashReport = NoOpCrashReport,
     handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
-): BookableResourcesManager = BookableResourcesManager(database = testDatabase(), httpClient = testHttpClient(handler))
+): BookableResourcesManager = BookableResourcesManager(
+    database = testDatabase(),
+    httpClient = testHttpClient(handler),
+    crashReport = crashReport,
+)
     .apply { if (initAccount) initAccount(ACCOUNT_ID, AccessToken("token")) }
 
 internal suspend fun BookableResourcesManager.storedResourceNames(accountId: AccountId = ACCOUNT_ID): List<String> =

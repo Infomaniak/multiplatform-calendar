@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
@@ -36,10 +37,12 @@ public interface ContactsModule {
         database: ContactsDatabase,
         deviceContactsProvider: DeviceContactsProvider,
         appEnvironment: AppEnvironment,
+        crashReport: CrashReport,
     ): ContactsManager = ContactsManager(
         database = database,
         deviceContactsProvider = deviceContactsProvider,
         appEnvironment = appEnvironment,
+        crashReport = crashReport,
     )
 
     @Provides

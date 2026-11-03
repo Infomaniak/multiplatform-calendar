@@ -19,6 +19,9 @@ package com.infomaniak.multiplatform_core.crashreport
 
 import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport.ExceptionCapture
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,6 +51,41 @@ class ModuleCallerTest {
     @Test
     fun cancellationIsNotReported() = runTest {
         assertFailsWith<CancellationException> { caller { throw CancellationException("cancelled") } }
+        assertTrue(crashReport.exceptionCaptures.isEmpty())
+    }
+
+    @Test
+    fun flowValuesAreEmitted() = runTest {
+        assertEquals(listOf(1, 2), caller.flow(flowOf(1, 2)).toList())
+    }
+
+    @Test
+    fun flowFailureIsReportedAndConverted() = runTest {
+        val failure = IllegalStateException("boom")
+
+        val exception = assertFailsWith<TestException> { caller.flow(flow<Int> { throw failure }).toList() }
+        assertSame(failure, exception.cause)
+        assertEquals(listOf(ExceptionCapture(MESSAGE, failure)), crashReport.exceptionCaptures)
+    }
+
+    @Test
+    fun flowCancellationIsNotReported() = runTest {
+        assertFailsWith<CancellationException> { caller.flow(flow<Int> { throw CancellationException("cancelled") }).toList() }
+        assertTrue(crashReport.exceptionCaptures.isEmpty())
+    }
+
+    @Test
+    fun reportingFailuresReportsAndSwallowsFailure() = runTest {
+        val failure = IllegalStateException("boom")
+
+        caller.reportingFailures { throw failure }
+
+        assertEquals(listOf(ExceptionCapture(MESSAGE, failure)), crashReport.exceptionCaptures)
+    }
+
+    @Test
+    fun reportingFailuresRethrowsCancellation() = runTest {
+        assertFailsWith<CancellationException> { caller.reportingFailures { throw CancellationException("cancelled") } }
         assertTrue(crashReport.exceptionCaptures.isEmpty())
     }
 

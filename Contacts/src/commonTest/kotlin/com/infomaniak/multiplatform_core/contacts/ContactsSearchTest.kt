@@ -22,9 +22,15 @@ import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
+import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
+import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
+import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport.ExceptionCapture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -244,12 +250,30 @@ class ContactsSearchTest : RobolectricTestsBase() {
         assertEquals(1, manager.search("john", setOf(ACCOUNT_ID)).size)
     }
 
+    @Test
+    fun deviceContactsChangesFailureIsReported() = runTest {
+        val failure = IllegalStateException("boom")
+        val crashReport = RecordingCrashReport()
+        val provider = object : DeviceContactsProvider {
+            override suspend fun read() = emptyList<DeviceContact>()
+            override val changes: Flow<Unit> = flow { throw failure }
+        }
+        val manager = deviceContactsManager(provider, crashReport)
+
+        manager.search("john", setOf(ACCOUNT_ID))
+
+        assertEquals(listOf(ExceptionCapture("Contacts call failed", failure)), crashReport.exceptionCaptures)
+    }
+
     /** Unconfined, so that the change observer runs before the next search. */
-    private suspend fun deviceContactsManager(provider: FakeDeviceContactsProvider) = ContactsManager(
+    private suspend fun deviceContactsManager(
+        provider: DeviceContactsProvider,
+        crashReport: CrashReport = NoOpCrashReport,
+    ) = ContactsManager(
         database = testDatabase(),
         appEnvironment = AppEnvironment.Prod,
         deviceContactsProvider = provider,
-        crashReport = NoOpCrashReport,
+        crashReport = crashReport,
         httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         deviceContactsScope = CoroutineScope(Dispatchers.Unconfined),
     ).apply { initTestAccount() }

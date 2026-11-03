@@ -32,9 +32,7 @@ import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import io.ktor.client.HttpClient
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
@@ -52,7 +50,7 @@ public class BookableResourcesManager internal constructor(
         database = database,
         remoteDataSource = BookableResourcesRemoteDataSource(httpClient),
         tokenByAccount = InMemoryAccountTokens(),
-        crashReport = crashReport,
+        bookableResourcesCaller = bookableResourcesCaller,
     )
 
     /** @param database Host Room database declaring the bookable resources tables. */
@@ -86,11 +84,11 @@ public class BookableResourcesManager internal constructor(
 
     /** Sorted by name. */
     public fun observeResources(accountId: AccountId): Flow<List<BookableResource>> =
-        repository.observeResources(accountId).flowOn(Dispatchers.Default)
+        bookableResourcesCaller.flow(repository.observeResources(accountId))
 
     /** A resource missing locally is fetched; null when that fails or the account cannot book it. */
     public fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResource?> =
-        repository.observeResource(accountId, uuid).flowOn(Dispatchers.Default)
+        bookableResourcesCaller.flow(repository.observeResource(accountId, uuid))
 
     /**
      * Always hits the network.

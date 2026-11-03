@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
@@ -95,6 +96,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
         val secondContacts = listOf(ApiContact(name = "Jane", emails = listOf("jane@x.com")))
         val manager = ContactsManager(
             database = testDatabase(),
+            appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
             httpClient = HttpClient(MockEngine) {
                 install(ContentNegotiation) { json(testJson()) }
@@ -127,6 +129,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
         val database = testDatabase()
         val manager = ContactsManager(
             database = database,
+            appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
             httpClient = testHttpClient(
                 apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),
@@ -183,6 +186,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
     fun searchStillReturnsDeviceContactsWhenOffline() = runTest {
         val manager = ContactsManager(
             database = testDatabase(),
+            appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = FakeDeviceContactsProvider(listOf(DeviceContact(email = "john@x.com", name = "John"))),
             httpClient = HttpClient(MockEngine) { engine { addHandler { throw IOException("offline") } } },
         ).apply { initTestAccount() }
@@ -192,6 +196,7 @@ class ContactsSyncTest : RobolectricTestsBase() {
 
     private suspend fun managerWithHandler(handler: MockRequestHandler) = ContactsManager(
         database = testDatabase(),
+        appEnvironment = AppEnvironment.Prod,
         deviceContactsProvider = FakeDeviceContactsProvider(emptyList()),
         httpClient = HttpClient(MockEngine) { engine { addHandler(handler) } },
     ).apply { initTestAccount() }

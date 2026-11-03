@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
@@ -87,6 +88,7 @@ class ContactsObserveTest : RobolectricTestsBase() {
         val deviceContactsProvider = FakeDeviceContactsProvider(initialContacts = null)
         val manager = ContactsManager(
             database = testDatabase(),
+            appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = deviceContactsProvider,
             httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         )
@@ -106,6 +108,7 @@ class ContactsObserveTest : RobolectricTestsBase() {
         val deviceContactsProvider = FakeDeviceContactsProvider(emptyList())
         val manager = ContactsManager(
             database = testDatabase(),
+            appEnvironment = AppEnvironment.Prod,
             deviceContactsProvider = deviceContactsProvider,
             httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         )

@@ -48,6 +48,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":Account"))
+            api(project(":AppEnvironment"))
             implementation(kmpCalendar.kotlinx.coroutines.core)
             implementation(project(":Network"))
             api(kmpCalendar.kotlinx.datetime)

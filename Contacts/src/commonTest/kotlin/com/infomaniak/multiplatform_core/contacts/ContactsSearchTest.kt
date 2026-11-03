@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
-import com.infomaniak.multiplatform_core.contacts.data.remote.MAIL_API_HOST
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
@@ -52,12 +52,22 @@ class ContactsSearchTest : RobolectricTestsBase() {
                 Contact(
                     email = "john@x.com",
                     name = "John Doe",
-                    avatar = ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/john.png", accountId = ACCOUNT_ID),
+                    avatar = ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/john.png", accountId = ACCOUNT_ID),
                     comesFromApi = true,
                 ),
             ),
             results,
         )
+    }
+
+    @Test
+    fun avatarIsOnThePreprodMailHost() = runTest {
+        assertEquals("https://mail.preprod.dev.infomaniak.ch/avatar/john.png", syncedAvatarUrl(AppEnvironment.Preprod))
+    }
+
+    @Test
+    fun avatarIsOnTheCustomMailHost() = runTest {
+        assertEquals("https://mail.example.test/avatar/john.png", syncedAvatarUrl(AppEnvironment.Custom("example.test")))
     }
 
     @Test
@@ -69,7 +79,7 @@ class ContactsSearchTest : RobolectricTestsBase() {
 
         val avatar = manager.search("john", setOf(ACCOUNT_ID)).single().avatar
 
-        assertEquals(ContactAvatar.Remote(url = "https://$MAIL_API_HOST/avatar/john.png", accountId = ACCOUNT_ID), avatar)
+        assertEquals(ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/john.png", accountId = ACCOUNT_ID), avatar)
     }
 
     @Test
@@ -236,8 +246,17 @@ class ContactsSearchTest : RobolectricTestsBase() {
     /** Unconfined, so that the change observer runs before the next search. */
     private suspend fun deviceContactsManager(provider: FakeDeviceContactsProvider) = ContactsManager(
         database = testDatabase(),
+        appEnvironment = AppEnvironment.Prod,
         deviceContactsProvider = provider,
         httpClient = testHttpClient(apiContacts = emptyList(), etag = null),
         deviceContactsScope = CoroutineScope(Dispatchers.Unconfined),
     ).apply { initTestAccount() }
+
+    private suspend fun syncedAvatarUrl(appEnvironment: AppEnvironment): String? {
+        val manager = testManager(
+            apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"), avatar = "/avatar/john.png")),
+            appEnvironment = appEnvironment,
+        )
+        return (manager.search("john", setOf(ACCOUNT_ID)).single().avatar as? ContactAvatar.Remote)?.url
+    }
 }

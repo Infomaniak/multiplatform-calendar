@@ -37,7 +37,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -61,6 +60,7 @@ public class ContactsManager internal constructor(
         tokenByAccount = InMemoryAccountTokens(),
         deviceContactsScope = deviceContactsScope,
         mailApiHost = appEnvironment.mailApiHost,
+        contactsCaller = contactsCaller,
     )
 
     /**
@@ -119,7 +119,7 @@ public class ContactsManager internal constructor(
     public fun observeContacts(
         emails: Set<String>,
         preferredAccountId: AccountId? = null,
-    ): Flow<Map<String, Contact>> = repository.observeContacts(emails, preferredAccountId).flowOn(Dispatchers.Default)
+    ): Flow<Map<String, Contact>> = contactsCaller.flow(repository.observeContacts(emails, preferredAccountId))
 
     /** To call once the access to the device contacts is granted, so that [observeContacts] reads them. */
     @OptIn(ExperimentalObjCRefinement::class)

@@ -32,6 +32,7 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
+import com.infomaniak.multiplatform_core.contacts.utils.ContactsCaller
 import com.infomaniak.multiplatform_core.contacts.utils.MatchTier
 import com.infomaniak.multiplatform_core.contacts.utils.contactNameComparator
 import com.infomaniak.multiplatform_core.contacts.utils.normalizedForSearch
@@ -58,6 +59,7 @@ internal class ContactsRepository(
     private val tokenByAccount: InMemoryAccountTokens,
     private val deviceContactsScope: CoroutineScope,
     private val mailApiHost: String,
+    private val contactsCaller: ContactsCaller,
 ) {
 
     private val dao = database.contactDao()
@@ -192,9 +194,11 @@ internal class ContactsRepository(
         if (isObservingDeviceContacts) return
         isObservingDeviceContacts = true
         deviceContactsScope.launch {
-            deviceContactsProvider.changes.collect {
-                deviceContactsMutex.withLock { deviceContacts = null }
-                deviceContactsVersion.update { it + 1 }
+            contactsCaller.reportingFailures {
+                deviceContactsProvider.changes.collect {
+                    deviceContactsMutex.withLock { deviceContacts = null }
+                    deviceContactsVersion.update { it + 1 }
+                }
             }
         }
     }

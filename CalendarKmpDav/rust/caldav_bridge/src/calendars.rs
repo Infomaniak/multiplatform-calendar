@@ -95,11 +95,12 @@ pub(crate) fn infomaniak_properties(xml: &str) -> Result<HashMap<String, Calenda
                 props.default_calendar = default == "1";
             }
         }
-        result.insert(normalize_href(href), props);
+        result.entry(normalize_href(href)).or_insert(props);
     }
     Ok(result)
 }
 
+/// A calendar the server lists several times is kept once, from its first response.
 pub(crate) fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEntry>, CaldavError> {
     let items = parse_multistatus_bytes(bytes)
         .map_err(|error| map_fast_dav_error("ListCalendars", error))?
@@ -108,15 +109,15 @@ pub(crate) fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEnt
         .map_err(|error| bridge_error("ListCalendars", format!("invalid UTF-8: {error}")))?;
     let mut custom = infomaniak_properties(xml)?;
 
-    Ok(items.into_iter().filter(|item| item.is_calendar).map(|item| {
-        let extra = custom.remove(&normalize_href(&item.href)).unwrap_or_default();
+    Ok(items.into_iter().filter(|item| item.is_calendar).filter_map(|item| {
+        let extra = custom.remove(&normalize_href(&item.href))?;
         let access_level = if extra.has_privileges {
             access_level(&item.current_user_privileges)
         } else {
             CalendarAccessLevel::ReadWrite
         };
 
-        CalendarEntry {
+        Some(CalendarEntry {
             display_name: calendar_display_name(&item.href, item.displayname),
             url: item.href,
             color: item.calendar_color,
@@ -128,7 +129,7 @@ pub(crate) fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEnt
             account_id: extra.account_id,
             calendar_type: default_calendar_type(extra.calendar_type),
             default_calendar: extra.default_calendar,
-        }
+        })
     }).collect())
 }
 

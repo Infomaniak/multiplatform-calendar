@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemote
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
@@ -28,7 +27,6 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
-import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -44,8 +42,8 @@ public class AccountManager internal constructor(
     private val accountRepository: AccountRepository,
     private val contactsManager: ContactsManager,
     private val meetManager: MeetManager,
-    private val bookableResourcesManager: BookableResourcesManager,
-    private val organisationsManager: OrganisationsManager,
+    private val calendarBookableResourcesManager: CalendarBookableResourcesManager,
+    private val calendarOrganisationsManager: CalendarOrganisationsManager,
     private val sdkCaller: SdkCaller,
     private val appEnvironment: AppEnvironment,
 ) {
@@ -65,8 +63,8 @@ public class AccountManager internal constructor(
                 accountRepository.storeCredentials(accountId, credentials.toRemote(appEnvironment))
                 contactsManager.initAccount(accountId, accessToken)
                 meetManager.initAccount(accountId, accessToken)
-                bookableResourcesManager.initAccount(accountId, accessToken)
-                organisationsManager.initAccount(accountId, accessToken)
+                calendarBookableResourcesManager.bookableResourcesManager.initAccount(accountId, accessToken)
+                calendarOrganisationsManager.organisationsManager.initAccount(accountId, accessToken)
             }
         }
     }
@@ -78,8 +76,8 @@ public class AccountManager internal constructor(
                 accountRepository.removeCredentials(accountId)
                 contactsManager.removeAccount(accountId)
                 meetManager.removeAccount(accountId)
-                bookableResourcesManager.removeAccount(accountId)
-                organisationsManager.removeAccount(accountId)
+                calendarBookableResourcesManager.bookableResourcesManager.removeAccount(accountId)
+                calendarOrganisationsManager.organisationsManager.removeAccount(accountId)
             }
         }
     }

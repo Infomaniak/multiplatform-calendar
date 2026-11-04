@@ -17,7 +17,6 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
-import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSections
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
@@ -45,7 +44,6 @@ import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -80,8 +78,8 @@ public class CalendarManager internal constructor(
     private val calendarRepository: CalendarRepository,
     private val eventRepository: EventRepository,
     private val meetManager: MeetManager,
-    private val bookableResourcesManager: BookableResourcesManager,
-    private val organisationsManager: OrganisationsManager,
+    private val calendarBookableResourcesManager: CalendarBookableResourcesManager,
+    private val calendarOrganisationsManager: CalendarOrganisationsManager,
     private val sdkCaller: SdkCaller,
 ) {
 
@@ -340,17 +338,19 @@ public class CalendarManager internal constructor(
     }
 
     private fun observeOrganisationsByAccount(accountIds: Set<AccountId>): Flow<Map<AccountId, List<Organisation>>> = combine(
-        accountIds.map { accountId -> organisationsManager.observeOrganisations(accountId).map { accountId to it } },
+        accountIds.map { accountId -> calendarOrganisationsManager.organisationsManager.observeOrganisations(accountId).map { accountId to it } },
     ) { organisationsOfAccounts -> organisationsOfAccounts.toMap() }
 
     /** Failures are only reported, so they never fail the calendars sync. */
     private suspend fun syncOrganisations() {
-        runCatching { sdkCaller(operation = "sync organisations") { organisationsManager.sync() } }.cancellable()
+        runCatching { sdkCaller(operation = "sync organisations") { calendarOrganisationsManager.organisationsManager.sync() } }.cancellable()
     }
 
     /** Failures are only reported, so they never fail the calendars sync. */
     private suspend fun syncBookableResources() {
-        runCatching { sdkCaller(operation = "sync bookable resources") { bookableResourcesManager.sync() } }.cancellable()
+        runCatching {
+            sdkCaller(operation = "sync bookable resources") { calendarBookableResourcesManager.bookableResourcesManager.sync() }
+        }.cancellable()
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

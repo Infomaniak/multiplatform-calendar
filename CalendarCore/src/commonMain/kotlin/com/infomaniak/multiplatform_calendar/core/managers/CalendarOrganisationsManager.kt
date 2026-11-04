@@ -17,10 +17,13 @@
  */
 package com.infomaniak.multiplatform_calendar.core.managers
 
+import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import dev.zacsweers.metro.AppScope
@@ -32,9 +35,13 @@ import kotlin.coroutines.cancellation.CancellationException
 @Inject
 public class CalendarOrganisationsManager internal constructor(
     private val calendarRepository: CalendarRepository,
-    private val organisationsManager: OrganisationsManager,
+    database: CalendarDatabase,
     private val sdkCaller: SdkCaller,
+    appEnvironment: AppEnvironment,
+    crashReport: CrashReport,
 ) {
+
+    internal val organisationsManager = OrganisationsManager(database, appEnvironment, crashReport)
 
     /** The organisation [calendarId] belongs to, from the local organisations only. */
     @Throws(CalendarSdkException::class, CancellationException::class)

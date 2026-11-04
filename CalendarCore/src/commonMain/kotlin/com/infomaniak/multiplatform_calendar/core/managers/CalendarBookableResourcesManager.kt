@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
+import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toResourceAvailabilityQuery
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -28,6 +29,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
@@ -48,9 +51,13 @@ import kotlin.time.Instant
 @Inject
 public class CalendarBookableResourcesManager internal constructor(
     private val calendarRepository: CalendarRepository,
-    private val bookableResourcesManager: BookableResourcesManager,
+    database: CalendarDatabase,
     private val sdkCaller: SdkCaller,
+    appEnvironment: AppEnvironment,
+    crashReport: CrashReport,
 ) {
+
+    internal val bookableResourcesManager = BookableResourcesManager(database, appEnvironment, crashReport)
 
     /** Sorted by name; empty while [calendarId] is missing. */
     public fun observeResources(calendarId: CalendarId): Flow<List<BookableResource>> =

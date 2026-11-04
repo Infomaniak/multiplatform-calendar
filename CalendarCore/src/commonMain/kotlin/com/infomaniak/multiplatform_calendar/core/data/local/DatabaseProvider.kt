@@ -57,7 +57,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
     return getRoomDatabaseBuilder(inMemory)
         .setDriver(driver)
         .setQueryCoroutineContext(Dispatchers.IO)
-        .fallbackToDestructiveMigration(dropAllTables = true) //TODO: replace with proper migrations when the database schema is stable
+        .fallbackToDestructiveMigrationOnDowngrade(true)
         .build()
 }
 
@@ -73,7 +73,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
         BookableResourceEntity::class,
         OrganisationEntity::class,
     ],
-    version = 25,
+    version = 1,
     exportSchema = true,
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)

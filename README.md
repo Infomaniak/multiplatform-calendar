@@ -191,7 +191,8 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The `:CalendarKmpDav` module contributes `CaldavClientModule`.
   The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); its tables live in
   `CalendarDatabase`. `AppGraph` provides the `AppEnvironment`. `AccountManager.initAccount` / `removeAccount` also init / remove
-  the account in `ContactsManager`. `BookableResourcesManager` and `OrganisationsManager` are not graph bindings: each is created
+  the account in `ContactsManager`, whose own `initAccount` / `removeAccount` are therefore `@HostManagedContactsApi` (an opt-in
+  only the embedding module makes) and hidden from Swift. `BookableResourcesManager` and `OrganisationsManager` are not graph bindings: each is created
   and owned by its CalendarCore facade (`CalendarBookableResourcesManager`, `CalendarOrganisationsManager`), so the app cannot
   inject them. Their tables live in `CalendarDatabase`; `AccountManager` initializes / removes the account in them too, and
   `CalendarManager.syncEvents` also syncs the organisations and the bookable resources. `:Meet` is

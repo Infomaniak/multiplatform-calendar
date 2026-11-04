@@ -49,6 +49,10 @@ kotlin {
     macosArm64()
 
     sourceSets {
+        matching { it.name.endsWith("Test") }.configureEach {
+            languageSettings.optIn("com.infomaniak.multiplatform_core.contacts.HostManagedContactsApi")
+        }
+
         commonMain.dependencies {
             api(project(":Account"))
             api(project(":AppEnvironment"))

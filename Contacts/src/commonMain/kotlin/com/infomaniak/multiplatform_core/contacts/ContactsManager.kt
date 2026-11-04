@@ -84,11 +84,17 @@ public class ContactsManager internal constructor(
      * Registers [accountId] with its [accessToken], kept in memory only. Call it at startup and on login; it does not
      * sync, call [sync] for that.
      */
+    @HostManagedContactsApi
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
     @Throws(ContactsException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
         contactsCaller { repository.initAccount(accountId, accessToken) }
 
     /** Forgets the token of [accountId] and deletes its local contacts. */
+    @HostManagedContactsApi
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
     @Throws(ContactsException::class, CancellationException::class)
     public suspend fun removeAccount(accountId: AccountId): Unit = contactsCaller { repository.removeAccount(accountId) }
 

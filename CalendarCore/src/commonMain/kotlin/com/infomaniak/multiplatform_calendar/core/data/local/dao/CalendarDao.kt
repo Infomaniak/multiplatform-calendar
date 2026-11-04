@@ -40,6 +40,9 @@ internal interface CalendarDao {
     @Query("SELECT * FROM calendars WHERE accountId = :accountId ORDER BY displayName ASC")
     suspend fun getByAccountId(accountId: AccountId): List<CalendarEntity>
 
+    @Query("SELECT * FROM calendars WHERE accountId = :accountId AND isVisible = 1 ORDER BY displayName ASC")
+    suspend fun getVisibleCalendarsByAccountId(accountId: AccountId): List<CalendarEntity>
+
     @Query("SELECT * FROM calendars WHERE id = :id LIMIT 1")
     suspend fun findById(id: CalendarId): CalendarEntity?
 

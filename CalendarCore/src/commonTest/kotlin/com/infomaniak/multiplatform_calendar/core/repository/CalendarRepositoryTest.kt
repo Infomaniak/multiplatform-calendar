@@ -271,7 +271,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val toDelete = remoteEvent(url = "${calendarUrl}to-delete.ics", uid = "uid-delete")
         val changed = remoteEvent(url = "${calendarUrl}changed.ics", uid = "uid-changed")
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = listOf(toDelete)
             syncResults[calendarUrl] = RemoteEventSyncDelta(
@@ -346,7 +346,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
                 "END:VEVENT\r\n"
         val event = remoteEvent(url = eventUrl, uid = "uid-raw", icsData = icsData)
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = listOf(event)
         }
@@ -375,7 +375,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val start = Instant.parse("2026-06-15T10:00:00Z")
         val end = Instant.parse("2026-06-15T12:00:00Z")
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = listOf(inRange)
         }
@@ -398,6 +398,57 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun downloadEventsByRange_skipsHiddenCalendars() = runTest {
+        val accountId = AccountId(11)
+        database.accountDao().insert(AccountEntity(accountId))
+        val visibleCalendarUrl = "https://dav.example/cal/visible/"
+        val hiddenCalendarUrl = "https://dav.example/cal/hidden/"
+        val visibleCalendarId = CalendarId(visibleCalendarUrl)
+        val hiddenCalendarId = CalendarId(hiddenCalendarUrl)
+        database.calendarDao().upsert(
+            listOf(
+                CalendarEntity(
+                    id = visibleCalendarId,
+                    accountId = accountId,
+                    displayName = "Visible",
+                    color = null,
+                    isVisible = true,
+                ),
+                CalendarEntity(
+                    id = hiddenCalendarId,
+                    accountId = accountId,
+                    displayName = "Hidden",
+                    color = null,
+                    isVisible = false,
+                ),
+            ),
+        )
+        val visibleEvent = remoteEvent(url = "${visibleCalendarUrl}visible.ics", uid = "uid-visible")
+        val hiddenEvent = remoteEvent(url = "${hiddenCalendarUrl}hidden.ics", uid = "uid-hidden")
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(
+                RemoteDavCalendar(url = visibleCalendarUrl, displayName = "Visible"),
+                RemoteDavCalendar(url = hiddenCalendarUrl, displayName = "Hidden"),
+            ),
+        ).apply {
+            rangeEvents[visibleCalendarUrl] = listOf(visibleEvent)
+            rangeEvents[hiddenCalendarUrl] = listOf(hiddenEvent)
+        }
+        val repository = repositoryWith(remote)
+
+        repository.downloadEventsByRange(
+            accountId = accountId,
+            credentials = fakeCredentials(),
+            start = Instant.parse("2026-06-15T00:00:00Z"),
+            end = Instant.parse("2026-06-16T00:00:00Z"),
+        )
+
+        assertEquals(listOf(visibleCalendarUrl), remote.rangedCalendarUrls)
+        assertEquals(listOf(visibleEvent.url), database.eventDao().observeEvents(visibleCalendarId).first().map { it.id.url })
+        assertEquals(emptyList(), database.eventDao().observeEvents(hiddenCalendarId).first())
+    }
+
+    @Test
     fun downloadEventsByRange_existingRange_reconcilesRefsAndFetchesOnlyChangedEvents() = runTest {
         val accountId = AccountId(5)
         database.accountDao().insert(AccountEntity(accountId))
@@ -411,7 +462,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val start = Instant.parse("2026-06-15T10:00:00Z")
         val end = Instant.parse("2026-06-15T16:00:00Z")
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = listOf(unchanged, changedBefore, deleted)
         }
@@ -451,7 +502,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val invalid = remoteEvent(url = "${calendarUrl}invalid.ics", uid = "uid-2", dtstart = null)
         val validAfter = remoteEvent(url = "${calendarUrl}valid-after.ics", uid = "uid-3")
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = listOf(validBefore, invalid, validAfter)
         }
@@ -481,7 +532,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val calendarUrl = "https://dav.example/cal/only-bad/"
         val calendarId = CalendarId(calendarUrl)
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = listOf(remoteEvent(url = "${calendarUrl}bad.ics", uid = "u", dtstart = null))
         }
@@ -509,7 +560,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         // Valid event whose RRULE is missing FREQ: the recurrence is dropped, but the event must still be persisted.
         val event = remoteEvent(url = "${calendarUrl}bad-rrule.ics", uid = "u", rrule = "COUNT=5")
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = listOf(event)
         }
@@ -545,7 +596,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         // Each event has an invalid RRULE that would be dropped and logged if the loop ever processed it.
         val events = (1..3).map { remoteEvent(url = "${calendarUrl}e$it.ics", uid = "u$it", rrule = "COUNT=5") }
         val remote = FakeCalendarSyncRemoteSource(
-            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal", isDefaultCalendar = true)),
         ).apply {
             rangeEvents[calendarUrl] = events
             // Cancel the parent sync job right after events are fetched, before the per-event loop runs.
@@ -626,6 +677,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         var fullRangeRequestCount: Int = 0
         var refRangeRequestCount: Int = 0
         var lastMultigetUrls: List<String> = emptyList()
+        val rangedCalendarUrls: MutableList<String> = mutableListOf()
         var onGetEventsInRange: (suspend () -> Unit)? = null
 
         override suspend fun discover(credentials: DavAccount) = RemoteDavDiscovery(userEmails, calendars)
@@ -637,6 +689,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             end: String,
         ): List<RemoteDavEvent> {
             fullRangeRequestCount++
+            rangedCalendarUrls += calendarUrl
             lastRangeStart = start
             lastRangeEnd = end
             onGetEventsInRange?.invoke()

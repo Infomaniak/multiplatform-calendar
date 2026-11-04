@@ -79,7 +79,7 @@ fn parse_discovered_calendars_empty_privilege_set_in_200_maps_to_none() {
 }
 
 #[test]
-fn parse_discovered_calendars_missing_privilege_property_falls_back_to_read_write() {
+fn parse_discovered_calendars_missing_privilege_property_falls_back_to_read() {
 	let xml = r#"<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:response>
@@ -97,7 +97,7 @@ fn parse_discovered_calendars_missing_privilege_property_falls_back_to_read_writ
 	let calendars = parse_discovered_calendars(xml.as_bytes()).expect("must parse");
 
 	assert_eq!(calendars.len(), 1);
-	assert_eq!(calendars[0].access_level, CalendarAccessLevel::ReadWrite);
+	assert_eq!(calendars[0].access_level, CalendarAccessLevel::Read);
 }
 
 #[test]

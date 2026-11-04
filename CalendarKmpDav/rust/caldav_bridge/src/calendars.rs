@@ -114,7 +114,7 @@ pub(crate) fn parse_discovered_calendars(bytes: &[u8]) -> Result<Vec<CalendarEnt
         let access_level = if extra.has_privileges {
             access_level(&item.current_user_privileges)
         } else {
-            CalendarAccessLevel::ReadWrite
+            CalendarAccessLevel::Read
         };
 
         Some(CalendarEntry {

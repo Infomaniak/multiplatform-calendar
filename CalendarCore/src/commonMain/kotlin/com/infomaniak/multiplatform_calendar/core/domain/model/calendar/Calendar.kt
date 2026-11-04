@@ -31,7 +31,7 @@ public data class Calendar(
     val displayName: String,
     val colors: CalendarColors,
     val isVisible: Boolean,
-    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
+    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ,
     @HiddenFromObjC
     val organisationId: OrganisationId? = null,
     val calendarType: CalendarType = CalendarType.Basic,

@@ -25,7 +25,7 @@ data class RemoteDavCalendar(
     val color: String? = null,
     val description: String? = null,
     val ctag: String? = null,
-    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ_WRITE,
+    val accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ,
     val organisationId: Long? = null,
     val calendarType: String = "basic",
     val isDefaultCalendar: Boolean = false,

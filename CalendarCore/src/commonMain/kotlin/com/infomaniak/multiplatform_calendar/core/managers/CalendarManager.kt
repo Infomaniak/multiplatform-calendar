@@ -42,6 +42,7 @@ import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
@@ -256,6 +257,7 @@ public class CalendarManager internal constructor(
     }
 
     /** Each call creates a new kMeet room, with the account of [calendarId]. */
+    @OptIn(HostManagedMeetApi::class)
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun generateMeetRoom(calendarId: CalendarId): MeetRoom = sdkCaller(
         operation = "generate a kMeet room for calendar $calendarId",

@@ -29,6 +29,8 @@ import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import io.ktor.client.HttpClient
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 public class MeetManager internal constructor(httpClient: HttpClient, crashReport: CrashReport) {
 
@@ -41,14 +43,23 @@ public class MeetManager internal constructor(httpClient: HttpClient, crashRepor
         crashReport = crashReport,
     )
 
+    @HostManagedMeetApi
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun initAccount(accountId: AccountId, accessToken: AccessToken): Unit =
         meetCaller { tokenByAccount.put(accountId, accessToken) }
 
+    @HostManagedMeetApi
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun removeAccount(accountId: AccountId): Unit = meetCaller { tokenByAccount.remove(accountId) }
 
     /** Each call creates a new kMeet room. */
+    @HostManagedMeetApi
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
     @Throws(MeetException::class, CancellationException::class)
     public suspend fun generateRoomUrl(accountId: AccountId): String = meetCaller {
         val token = tokenByAccount.getToken(accountId) ?: throw MeetException(MeetErrorCause.AccountNotInitialized(accountId))

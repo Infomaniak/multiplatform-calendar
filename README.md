@@ -197,6 +197,7 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   inject them. Their tables live in `CalendarDatabase`; `AccountManager` initializes / removes the account in them too, and
   `CalendarManager.syncEvents` also syncs the organisations and the bookable resources. `:Meet` is
   wired by Core (`MeetModule`) and has no table; `AccountManager` initializes / removes the account in `MeetManager` too.
+  `MeetManager`'s functions are `@HostManagedMeetApi` and hidden from Swift: consumers go through `CalendarManager.generateMeetRoom`.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
   inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `calendarBookableResourcesManager` / `calendarOrganisationsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via

@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
+import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
@@ -37,7 +38,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
-@OptIn(HostManagedContactsApi::class)
+@OptIn(HostManagedContactsApi::class, HostManagedMeetApi::class)
 @SingleIn(AppScope::class)
 @Inject
 public class AccountManager internal constructor(

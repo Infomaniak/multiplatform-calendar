@@ -11,19 +11,25 @@ const CN_PARAM: &str = "CN";
 const ROLE_PARAM: &str = "ROLE";
 const CUTYPE_PARAM: &str = "CUTYPE";
 
+/// Reads the event's `ORGANIZER`, so [`apply_organizer_change`] must run first.
 pub(crate) fn apply_attendees_change(event: &mut icalendar::Event, change: &AttendeesChange) {
     let AttendeesChange::Set { attendees } = change else { return };
 
     let stored = event.multi_properties().get(ATTENDEE).cloned().unwrap_or_default();
     let stored_line = |email: &str| stored.iter().find(|line| has_email(line, email));
+    let organizer = event.properties().get(ORGANIZER).map(|line| strip_mailto(line.value()).to_owned());
+    let new_line = |email: &str| new_attendee(email, organizer.as_deref());
 
     event.remove_multi_property(ATTENDEE);
     for attendee in attendees {
         let line = match attendee {
-            AttendeeEdit::Kept { email } => stored_line(email).cloned().unwrap_or_else(|| new_attendee(email)),
-            AttendeeEdit::Written { email, display_name, role, user_type } => {
-                written_attendee(stored_line(email), email, display_name, role.as_deref(), user_type.as_deref())
-            }
+            AttendeeEdit::Kept { email } => stored_line(email).cloned().unwrap_or_else(|| new_line(email)),
+            AttendeeEdit::Written { email, display_name, role, user_type } => written_attendee(
+                stored_line(email).cloned().unwrap_or_else(|| new_line(email)),
+                display_name,
+                role.as_deref(),
+                user_type.as_deref(),
+            ),
         };
         event.append_multi_property(line);
     }
@@ -47,15 +53,8 @@ pub(crate) fn apply_organizer_change(event: &mut icalendar::Event, change: &Orga
     }
 }
 
-/// The line of an [`AttendeeEdit::Written`]: the stored one, or a new one, with the parameters it changes.
-fn written_attendee(
-    stored: Option<&Property>,
-    email: &str,
-    display_name: &NameChange,
-    role: Option<&str>,
-    user_type: Option<&str>,
-) -> Property {
-    let line = stored.cloned().unwrap_or_else(|| new_attendee(email));
+/// `line` with the parameters an [`AttendeeEdit::Written`] changes.
+fn written_attendee(line: Property, display_name: &NameChange, role: Option<&str>, user_type: Option<&str>) -> Property {
     let line = match display_name {
         NameChange::Unchanged => line,
         NameChange::Set { name } => with_param(&line, CN_PARAM, Some(name)),
@@ -71,11 +70,13 @@ fn written_attendee(
     }
 }
 
-fn new_attendee(email: &str) -> Property {
-    Property::new(ATTENDEE, mailto(email))
-        .add_parameter("PARTSTAT", "NEEDS-ACTION")
-        .add_parameter("RSVP", "TRUE")
-        .done()
+fn new_attendee(email: &str, organizer: Option<&str>) -> Property {
+    let mut line = Property::new(ATTENDEE, mailto(email));
+    if organizer.is_some_and(|organizer| organizer.eq_ignore_ascii_case(email)) {
+        line.add_parameter("PARTSTAT", "ACCEPTED").done()
+    } else {
+        line.add_parameter("PARTSTAT", "NEEDS-ACTION").add_parameter("RSVP", "TRUE").done()
+    }
 }
 
 /// `line` with its `key` parameter set to `value`, or removed when `None`.

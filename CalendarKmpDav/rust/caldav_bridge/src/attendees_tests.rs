@@ -170,6 +170,41 @@ fn build_writes_the_attendees_and_organizer() {
 }
 
 #[test]
+fn build_writes_the_organizer_as_an_accepted_attendee() {
+    let built = build_event_ics(
+        edit(
+            attendees(vec![written("Me@x.com", Some("Me"), "REQ-PARTICIPANT")]),
+            OrganizerChange::Set { email: "me@x.com".into(), display_name: Some("Me".into()) },
+        ),
+        None,
+    )
+    .unwrap();
+
+    let ics = unfolded(&built);
+    assert!(ics.contains("ATTENDEE;CN=Me;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPANT:mailto:Me@x.com"), "{ics}");
+}
+
+#[test]
+fn adding_the_stored_organizer_as_attendee_writes_it_accepted() {
+    let change = attendees(vec![kept("bob@x.com"), written("boss@x.com", None, "REQ-PARTICIPANT")]);
+
+    let patched = patch_event_ics(&event_ics(&stored_participants()), edit(change, OrganizerChange::Unchanged)).unwrap();
+
+    let ics = unfolded(&patched);
+    assert!(ics.contains("ATTENDEE;PARTSTAT=ACCEPTED;ROLE=REQ-PARTICIPANT:mailto:boss@x.com"), "{ics}");
+}
+
+#[test]
+fn an_attendee_becoming_organizer_keeps_its_stored_status() {
+    let change = OrganizerChange::Set { email: "bob@x.com".into(), display_name: None };
+
+    let patched =
+        patch_event_ics(&event_ics(&stored_participants()), edit(attendees(vec![kept("bob@x.com")]), change)).unwrap();
+
+    assert!(unfolded(&patched).contains(BOB), "{}", patched.ics_data);
+}
+
+#[test]
 fn detaching_an_occurrence_edits_the_attendees_it_takes_from_the_master() {
     let recurrence_id = RecurrenceIdSpec { tzid: None, is_date_only: false, value: "20260617T100000Z".into() };
     let change = attendees(vec![kept("room@x.com"), written("dave@x.com", None, "REQ-PARTICIPANT")]);

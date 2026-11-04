@@ -38,8 +38,12 @@ internal fun List<RemoteDavCalendar>.toEntitiesPreservingLocalPrefs(
 ): List<CalendarEntity> = map { remoteCalendar ->
     val freshEntity = remoteCalendar.toEntity(accountId)
     existingByCalendarId[freshEntity.id]
-        ?.let { existing -> freshEntity.copy(isVisible = existing.isVisible) }
-        ?: freshEntity
+        ?.let { existing ->
+            freshEntity.copy(
+                isVisible = existing.isVisible,
+                syncToken = existing.syncToken,
+            )
+        } ?: freshEntity
 }
 
 private fun RemoteDavCalendar.toEntity(accountId: AccountId) = CalendarEntity(

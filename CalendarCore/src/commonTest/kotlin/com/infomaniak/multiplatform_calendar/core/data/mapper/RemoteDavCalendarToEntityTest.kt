@@ -81,5 +81,28 @@ class RemoteDavCalendarToEntityTest {
         assertTrue(mapped.isDefaultCalendar)
         assertFalse(mapped.isVisible)
     }
-}
 
+    @Test
+    fun toEntitiesPreservingLocalPrefs_keepsExistingSyncToken() {
+        val remote = RemoteDavCalendar(
+            url = "https://dav.example/cal/default/",
+            displayName = "Default",
+            isDefaultCalendar = true,
+        )
+        val calendarId = CalendarId(remote.url)
+        val existing = CalendarEntity(
+            id = calendarId,
+            accountId = accountId,
+            displayName = "Default",
+            color = null,
+            syncToken = "sync-token-1",
+        )
+
+        val mapped = listOf(remote).toEntitiesPreservingLocalPrefs(
+            accountId = accountId,
+            existingByCalendarId = mapOf(calendarId to existing),
+        ).single()
+
+        assertEquals("sync-token-1", mapped.syncToken)
+    }
+}

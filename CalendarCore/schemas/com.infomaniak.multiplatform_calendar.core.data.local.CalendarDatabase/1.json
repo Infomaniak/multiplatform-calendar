@@ -1,17 +1,23 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 18,
-    "identityHash": "a780f4bc0b5ae3c326ac90596f3faf94",
+    "version": 1,
+    "identityHash": "905861f6628e9309097d992bf3031c5e",
     "entities": [
       {
         "tableName": "accounts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `emails` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
             "columnName": "id",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emails",
+            "columnName": "emails",
+            "affinity": "TEXT",
             "notNull": true
           }
         ],
@@ -24,7 +30,7 @@
       },
       {
         "tableName": "calendars",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `displayName` TEXT NOT NULL, `color` INTEGER, `caldavColor` INTEGER, `isVisible` INTEGER NOT NULL, `ctag` TEXT, `syncToken` TEXT, `accessLevel` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `accountId` INTEGER NOT NULL, `displayName` TEXT NOT NULL, `color` INTEGER, `caldavColor` INTEGER, `isVisible` INTEGER NOT NULL, `ctag` TEXT, `syncToken` TEXT, `accessLevel` TEXT NOT NULL, `organisationId` INTEGER, `calendarType` TEXT NOT NULL, `isDefaultCalendar` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -75,6 +81,23 @@
             "columnName": "accessLevel",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "organisationId",
+            "columnName": "organisationId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "calendarType",
+            "columnName": "calendarType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDefaultCalendar",
+            "columnName": "isDefaultCalendar",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -110,7 +133,7 @@
       },
       {
         "tableName": "events",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `calendarId` TEXT NOT NULL, `rrule` TEXT, `rDates` TEXT NOT NULL, `exDates` TEXT NOT NULL, `hasRecurrence` INTEGER NOT NULL, `etag` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `timeBlocking` TEXT, `classification` TEXT, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `meetRoomUrl` TEXT, `bookableUuid` TEXT, `attachments` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, `minAlarmOffsetMs` INTEGER, `maxAlarmOffsetMs` INTEGER, `minAbsoluteAlarmMs` INTEGER, `maxAbsoluteAlarmMs` INTEGER, `firstOccurrenceInstantMs` INTEGER, `lastPossibleOccurrenceEndInstantMs` INTEGER, `lastOccurrenceEndLocalDateTime` TEXT, `recurrenceBoundKind` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`calendarId`) REFERENCES `calendars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `calendarId` TEXT NOT NULL, `rrule` TEXT, `rDates` TEXT NOT NULL, `exDates` TEXT NOT NULL, `hasRecurrence` INTEGER NOT NULL, `etag` TEXT NOT NULL, `isSynced` INTEGER NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `timeBlocking` TEXT, `classification` TEXT NOT NULL, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `meetRoomUrl` TEXT, `bookableUuid` TEXT, `attachments` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, `minAlarmOffsetMs` INTEGER, `maxAlarmOffsetMs` INTEGER, `minAbsoluteAlarmMs` INTEGER, `maxAbsoluteAlarmMs` INTEGER, `firstOccurrenceInstantMs` INTEGER, `lastPossibleOccurrenceEndInstantMs` INTEGER, `lastOccurrenceEndLocalDateTime` TEXT, `recurrenceBoundKind` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`calendarId`) REFERENCES `calendars`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -203,7 +226,8 @@
           {
             "fieldPath": "content.classification",
             "columnName": "classification",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "content.priority",
@@ -403,7 +427,7 @@
       },
       {
         "tableName": "event_overrides",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`masterId` TEXT NOT NULL, `recurrenceKey` TEXT NOT NULL, `recurrenceIdValue` TEXT NOT NULL, `recurrenceIdTzid` TEXT, `originalStartInstantMs` INTEGER, `originalEndInstantMs` INTEGER, `originalStartLocalDateTime` TEXT NOT NULL, `originalEndLocalDateTime` TEXT NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `timeBlocking` TEXT, `classification` TEXT, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `meetRoomUrl` TEXT, `bookableUuid` TEXT, `attachments` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, `minAlarmOffsetMs` INTEGER, `maxAlarmOffsetMs` INTEGER, `minAbsoluteAlarmMs` INTEGER, `maxAbsoluteAlarmMs` INTEGER, PRIMARY KEY(`masterId`, `recurrenceKey`), FOREIGN KEY(`masterId`) REFERENCES `events`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`masterId` TEXT NOT NULL, `recurrenceKey` TEXT NOT NULL, `recurrenceIdValue` TEXT NOT NULL, `recurrenceIdTzid` TEXT, `originalStartInstantMs` INTEGER, `originalEndInstantMs` INTEGER, `originalStartLocalDateTime` TEXT NOT NULL, `originalEndLocalDateTime` TEXT NOT NULL, `summary` TEXT NOT NULL, `description` TEXT, `location` TEXT, `created` TEXT, `lastModified` TEXT, `dtStamp` TEXT, `status` TEXT, `timeBlocking` TEXT, `classification` TEXT NOT NULL, `priority` INTEGER, `sequence` INTEGER, `categories` TEXT, `attendees` TEXT NOT NULL, `organizer` TEXT, `alarms` TEXT NOT NULL, `meetRoomUrl` TEXT, `bookableUuid` TEXT, `attachments` TEXT NOT NULL, `colorArgb` INTEGER, `colorIcalName` TEXT, `dtStart` TEXT NOT NULL, `dtEnd` TEXT, `duration` TEXT, `dtEndEffective` TEXT NOT NULL, `startTimeZone` TEXT, `endTimeZone` TEXT, `dtStartInstantMs` INTEGER, `dtEndInstantMs` INTEGER, `isAllDay` INTEGER NOT NULL, `minAlarmOffsetMs` INTEGER, `maxAlarmOffsetMs` INTEGER, `minAbsoluteAlarmMs` INTEGER, `maxAbsoluteAlarmMs` INTEGER, PRIMARY KEY(`masterId`, `recurrenceKey`), FOREIGN KEY(`masterId`) REFERENCES `events`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "masterId",
@@ -494,7 +518,8 @@
           {
             "fieldPath": "content.classification",
             "columnName": "classification",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "content.priority",
@@ -718,11 +743,200 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "contactAccounts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `etag` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "etag",
+            "columnName": "etag",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "contacts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` INTEGER NOT NULL, `email` TEXT NOT NULL, `name` TEXT NOT NULL, `avatarUrl` TEXT, `contactedTimes` INTEGER, `isInAddressBook` INTEGER NOT NULL, `nameNormalized` TEXT NOT NULL, `emailNormalized` TEXT NOT NULL, PRIMARY KEY(`accountId`, `email`, `name`), FOREIGN KEY(`accountId`) REFERENCES `contactAccounts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "email",
+            "columnName": "email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "avatarUrl",
+            "columnName": "avatarUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "contactedTimes",
+            "columnName": "contactedTimes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "isInAddressBook",
+            "columnName": "isInAddressBook",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nameNormalized",
+            "columnName": "nameNormalized",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emailNormalized",
+            "columnName": "emailNormalized",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "email",
+            "name"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "contactAccounts",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "accountId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "bookableResources",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` INTEGER NOT NULL, `uuid` TEXT NOT NULL, `name` TEXT NOT NULL, `color` INTEGER, `description` TEXT, `location` TEXT, `floor` INTEGER, `capacity` INTEGER, `equipments` TEXT NOT NULL, PRIMARY KEY(`accountId`, `uuid`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uuid",
+            "columnName": "uuid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "location",
+            "columnName": "location",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "floor",
+            "columnName": "floor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "capacity",
+            "columnName": "capacity",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "equipments",
+            "columnName": "equipments",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "uuid"
+          ]
+        }
+      },
+      {
+        "tableName": "organisations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` INTEGER NOT NULL, `id` INTEGER NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`accountId`, `id`))",
+        "fields": [
+          {
+            "fieldPath": "accountId",
+            "columnName": "accountId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "accountId",
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a780f4bc0b5ae3c326ac90596f3faf94')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '905861f6628e9309097d992bf3031c5e')"
     ]
   }
 }

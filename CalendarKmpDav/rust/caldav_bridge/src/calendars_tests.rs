@@ -79,7 +79,7 @@ fn parse_discovered_calendars_empty_privilege_set_in_200_maps_to_none() {
 }
 
 #[test]
-fn parse_discovered_calendars_missing_privilege_property_falls_back_to_read_write() {
+fn parse_discovered_calendars_missing_privilege_property_falls_back_to_read() {
 	let xml = r#"<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:response>
@@ -97,7 +97,7 @@ fn parse_discovered_calendars_missing_privilege_property_falls_back_to_read_writ
 	let calendars = parse_discovered_calendars(xml.as_bytes()).expect("must parse");
 
 	assert_eq!(calendars.len(), 1);
-	assert_eq!(calendars[0].access_level, CalendarAccessLevel::ReadWrite);
+	assert_eq!(calendars[0].access_level, CalendarAccessLevel::Read);
 }
 
 #[test]
@@ -125,3 +125,46 @@ fn parse_discovered_calendars_read_privilege_maps_to_read() {
 	assert_eq!(calendars[0].access_level, CalendarAccessLevel::Read);
 }
 
+
+#[test]
+fn parse_discovered_calendars_keeps_first_response_of_duplicated_calendar() {
+	let xml = r#"<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:I="http://infomaniak.com/ns">
+  <D:response>
+	<D:href>/dav/cal/shared/</D:href>
+	<D:propstat>
+	  <D:prop>
+		<D:displayname>First</D:displayname>
+		<D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
+		<D:current-user-privilege-set>
+		  <D:privilege><D:read/></D:privilege>
+		</D:current-user-privilege-set>
+		<I:account-id>42</I:account-id>
+	  </D:prop>
+	  <D:status>HTTP/1.1 200 OK</D:status>
+	</D:propstat>
+  </D:response>
+  <D:response>
+	<D:href>/dav/cal/shared/</D:href>
+	<D:propstat>
+	  <D:prop>
+		<D:displayname>Second</D:displayname>
+		<D:resourcetype><D:collection/><C:calendar/></D:resourcetype>
+		<D:current-user-privilege-set>
+		  <D:privilege><D:read/></D:privilege>
+		  <D:privilege><D:write/></D:privilege>
+		</D:current-user-privilege-set>
+		<I:account-id>99</I:account-id>
+	  </D:prop>
+	  <D:status>HTTP/1.1 200 OK</D:status>
+	</D:propstat>
+  </D:response>
+</D:multistatus>"#;
+
+	let calendars = parse_discovered_calendars(xml.as_bytes()).expect("must parse");
+
+	assert_eq!(calendars.len(), 1);
+	assert_eq!(calendars[0].display_name, "First");
+	assert_eq!(calendars[0].access_level, CalendarAccessLevel::Read);
+	assert_eq!(calendars[0].account_id, Some(42));
+}

@@ -326,9 +326,9 @@ request.
 
 ### Extra CalDAV properties
 
-`list_calendars` does not request the `current-user-privilege-set` (RFC 3744), mapped to a `CalendarAccessLevel`: the
-crate issues its own `Depth: 1` PROPFIND on the home-set and reads it with fast-dav's multistatus parser (see
-`rust/caldav_bridge/src/props.rs`). This request is **best-effort**: when it fails, the calendars default to read-write.
+Calendar discovery issues its own `Depth: 1` PROPFIND on the home-set (`rust/caldav_bridge/src/calendars.rs`) and maps
+the `current-user-privilege-set` (RFC 3744) to a `CalendarAccessLevel` (`rust/caldav_bridge/src/props.rs`). When the
+server omits that property, the calendar defaults to read-only.
 
 Discovery also reads the principal's `calendar-user-address-set` (RFC 6638) through fast-dav's
 `discover_schedule_endpoints` (`rust/caldav_bridge/src/principal.rs`). Only its `mailto:` entries are kept, without their

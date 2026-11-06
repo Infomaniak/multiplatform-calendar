@@ -30,6 +30,7 @@ internal fun Event.toSummary(accountEmails: List<String> = listOf("me@example.co
     timing = timing,
     hasAttendees = attendees.isNotEmpty(),
     hasMeetRoom = !meetRoomUrl.isNullOrBlank(),
+    hasPlace = !location.isNullOrBlank() && bookableUuid.isNullOrBlank(),
     isBookable = !bookableUuid.isNullOrBlank(),
     isRecurring = isOccurrence || timing.hasRecurrenceSet(),
     myStatus = attendees.firstOrNull { attendee ->

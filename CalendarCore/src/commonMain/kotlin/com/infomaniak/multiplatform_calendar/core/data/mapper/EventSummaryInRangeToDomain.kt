@@ -74,6 +74,7 @@ private fun EventSummaryContent.toDomain(
     timing = timing.toDomain(recurrenceRule = recurrenceRule, rDates = rDates, exDates = exDates),
     hasAttendees = attendees.isNotEmpty(),
     hasMeetRoom = !meetRoomUrl.isNullOrBlank(),
+    hasPlace = !location.isNullOrBlank() && bookableUuid.isNullOrBlank(),
     isBookable = !bookableUuid.isNullOrBlank(),
     isRecurring = isRecurring,
     myStatus = attendees.firstOrNull { attendee ->

@@ -23,6 +23,7 @@ import kotlin.native.HiddenFromObjC
 /**
  * An event as shown in a list; the whole event is read from `CalendarManager.observeOccurrence`.
  *
+ * @property hasPlace Whether it has a [location] and no bookable room, which takes precedence over it.
  * @property isBookable Whether the event has an `X-INFOMANIAK-BOOKABLE` property.
  * @property isRecurring Part of a series, overrides included.
  * @property myStatus The answer of the user to the invitation, `null` when they are not among the attendees.
@@ -38,6 +39,7 @@ public data class EventSummary(
     val timing: EventTiming,
     val hasAttendees: Boolean,
     val hasMeetRoom: Boolean,
+    val hasPlace: Boolean,
     val isBookable: Boolean,
     val isRecurring: Boolean,
     val myStatus: ParticipationStatus?,

@@ -576,12 +576,33 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
     }
 
     @Test
+    fun observeVisibleEvents_flagsThePlace() = runTest {
+        seedCalendar()
+
+        val summary = observeSingleListedEvent { copy(location = "Paris", bookableUuid = "") }
+
+        assertTrue(summary.hasPlace)
+        assertEquals("Paris", summary.location)
+    }
+
+    @Test
+    fun observeVisibleEvents_flagsNoPlaceWhenTheRoomTakesPrecedence() = runTest {
+        seedCalendar()
+
+        val summary = observeSingleListedEvent { copy(location = "Paris", bookableUuid = "uuid") }
+
+        assertFalse(summary.hasPlace)
+        assertEquals("Paris", summary.location)
+    }
+
+    @Test
     fun observeVisibleEvents_flagsNothingOnAPlainEvent() = runTest {
         seedCalendar()
 
         val summary = observeSingleListedEvent { copy(meetRoomUrl = " ", bookableUuid = "") }
 
         assertFalse(summary.hasMeetRoom)
+        assertFalse(summary.hasPlace)
         assertFalse(summary.isBookable)
         assertFalse(summary.isRecurring)
     }

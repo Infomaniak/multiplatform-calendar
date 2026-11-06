@@ -24,14 +24,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 internal fun Event.toSummary(accountEmails: List<String> = listOf("me@example.com")): EventSummary = EventSummary(
     occurrenceId = occurrenceId,
     title = title,
-    location = location,
+    location = (location as? Location.Place)?.text,
     status = status,
     colors = colors,
     timing = timing,
     hasAttendees = attendees.isNotEmpty(),
     hasMeetRoom = !meetRoomUrl.isNullOrBlank(),
-    hasPlace = !location.isNullOrBlank() && bookableUuid.isNullOrBlank(),
-    isBookable = !bookableUuid.isNullOrBlank(),
+    hasPlace = location is Location.Place,
+    isBookable = location is Location.BookableRoom,
     isRecurring = isOccurrence || timing.hasRecurrenceSet(),
     myStatus = attendees.firstOrNull { attendee ->
         accountEmails.any { it.equals(attendee.email, ignoreCase = true) }

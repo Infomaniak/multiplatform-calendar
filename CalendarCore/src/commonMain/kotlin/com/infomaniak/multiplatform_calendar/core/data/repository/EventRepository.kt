@@ -57,6 +57,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOv
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationReply
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -111,6 +112,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -137,6 +139,7 @@ internal class EventRepository(
     private val eventDao: EventDao,
     private val crashReport: CrashReport,
     private val contactsLookup: ContactsLookup,
+    private val bookableResourceLookup: BookableResourceLookup,
 ) {
 
     /**
@@ -279,7 +282,7 @@ internal class EventRepository(
         )
     }
 
-    /** This occurrence, with the contacts of its attendees and of its organizer. */
+    /** This occurrence, with the contacts of its attendees and of its organizer, and its bookable room resolved. */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeOccurrence(
         occurrenceId: OccurrenceId,
@@ -297,8 +300,19 @@ internal class EventRepository(
             }.flowOn(Dispatchers.Default)
         }
         return occurrence.flatMapLatest { event ->
-            event?.let { contactsLookup.observeContacts(it.contactEmails, it.accountId).map(it::withContacts) } ?: flowOf(null)
+            if (event == null) return@flatMapLatest flowOf(null)
+            combine(
+                contactsLookup.observeContacts(event.contactEmails, event.accountId),
+                observeResolvedLocation(event.location, event.accountId),
+            ) { contacts, location ->
+                event.withContacts(contacts).copy(location = location)
+            }
         }
+    }
+
+    private fun observeResolvedLocation(location: Location?, accountId: AccountId): Flow<Location?> = when (location) {
+        is Location.BookableRoom -> bookableResourceLookup.observeResource(accountId, location.uuid).map { location.copy(resource = it) }
+        is Location.Place, null -> flowOf(location)
     }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {

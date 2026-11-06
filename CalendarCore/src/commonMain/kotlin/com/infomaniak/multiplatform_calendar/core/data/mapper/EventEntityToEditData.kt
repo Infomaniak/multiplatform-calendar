@@ -43,7 +43,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.removeMarkedBlocks
 internal fun EventEntity.toEditData(): EventEditData = EventEditData(
     title = content.summary,
     timing = content.timing.toDomain(recurrenceRule = rrule, rDates = rDates, exDates = exDates),
-    location = content.location,
+    location = content.toLocation(),
     description = content.description?.removeMarkedBlocks(),
     timeBlocking = content.timeBlocking,
     calendarId = calendarId,
@@ -63,7 +63,7 @@ internal fun EventEntity.toEditData(): EventEditData = EventEditData(
 internal fun EventOverrideEntity.toEditData(calendarId: CalendarId): EventEditData = EventEditData(
     title = content.summary,
     timing = content.timing.toDomain(),
-    location = content.location,
+    location = content.toLocation(),
     description = content.description?.removeMarkedBlocks(),
     timeBlocking = content.timeBlocking,
     calendarId = calendarId,

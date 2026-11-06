@@ -216,6 +216,11 @@ the recurrence rule itself and repeats it in the zone of the event start (the de
 RDATE and EXDATE are not checked, the API taking none. Its flows follow the calendar: they emit no resource while it is
 missing, for instance once its account is removed.
 
+An event's `location` is a `Location`: a `Place` (the `LOCATION` text) or a `BookableRoom` (that uuid, preferred when both
+are set). `observeOccurrence` resolves its `BookableResource` through `observeResource`, so a room missing locally is fetched
+and emitted once known; `getEditData` reads it from the database only, leaving `resource` `null` when it is not stored.
+Editing a room keeps the `LOCATION` text; editing a place drops the room.
+
 ### Organisations
 
 `OrganisationsManager` reads `GET /1/accounts` on `api.<domain>` and keeps every organisation, whatever its access.

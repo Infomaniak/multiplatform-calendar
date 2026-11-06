@@ -34,7 +34,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event
 internal fun EventEditData.withSeriesChanges(before: EventEditData, after: EventEditData): EventEditData? {
     var carried = this
     if (after.title != before.title) carried = carried.copy(title = after.title)
-    if (after.location != before.location) carried = carried.copy(location = after.location)
+    if (after.location.unresolved() != before.location.unresolved()) carried = carried.copy(location = after.location)
     if (after.description != before.description) carried = carried.copy(description = after.description)
     if (after.timeBlocking != before.timeBlocking) carried = carried.copy(timeBlocking = after.timeBlocking)
     if (after.eventColor != before.eventColor) carried = carried.copy(eventColor = after.eventColor)
@@ -50,3 +50,5 @@ internal fun EventEditData.withSeriesChanges(before: EventEditData, after: Event
 
     return carried.takeIf { it != this }
 }
+
+private fun Location?.unresolved(): Location? = if (this is Location.BookableRoom) copy(resource = null) else this

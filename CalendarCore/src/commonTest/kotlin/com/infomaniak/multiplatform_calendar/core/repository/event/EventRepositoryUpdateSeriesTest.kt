@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Organizer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
@@ -587,6 +588,48 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         assertEquals(expected, fakeCaldav.patches.single().organizerChange)
         val otherEdit = fakeCaldav.overrideUpserts.single { (recurrenceId, _) -> recurrenceId.value == "20260617T100000Z" }
         assertEquals(expected, otherEdit.second.organizerChange)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_leavesTheOverridesWithoutTheRoomTheEditOpenedOn() = runTest {
+        val seeded = seedSeriesWithDistinctOverrides()
+        val master = seeded.copy(content = seeded.content.copy(bookableUuid = ROOM.uuid.value))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", eventDao().getOverridesOf(master.id))))
+        bookableResourceLookup.resources.value = listOf(ROOM)
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0))
+        val shown = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = shown.copy(title = "Renamed"),
+        )
+
+        assertEquals(ROOM.uuid.value, fakeCaldav.patches.single().bookableUuid)
+        val other = fakeCaldav.overrideUpserts.single { (recurrenceId, _) -> recurrenceId.value == "20260617T100000Z" }.second
+        assertEquals("Room C", other.location)
+        assertEquals(null, other.bookableUuid)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_carriesTheRoomToTheOverridesAndKeepsTheirText() = runTest {
+        val master = seedSeriesWithDistinctOverrides()
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0))
+        val shown = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = shown.copy(location = Location.BookableRoom(ROOM.uuid, ROOM)),
+        )
+
+        assertEquals(ROOM.uuid.value, fakeCaldav.patches.single().bookableUuid)
+        val overrideEdits = fakeCaldav.overrideUpserts.associate { (recurrenceId, edit) -> recurrenceId.value to edit }
+        overrideEdits.values.forEach { assertEquals(ROOM.uuid.value, it.bookableUuid) }
+        assertEquals("Room B", overrideEdits.getValue("20260616T100000Z").location)
+        assertEquals("Room C", overrideEdits.getValue("20260617T100000Z").location)
     }
 
     /** A daily series whose 16th and 17th are detached, each with fields the master does not have. */

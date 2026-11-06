@@ -115,6 +115,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -614,7 +615,7 @@ internal class EventRepository(
                     previousColorArgb = tail.data.eventColor?.argb,
                     previousDescription = override.content.description,
                     previousMeetRoomUrl = override.content.meetRoomUrl,
-                    previousBookableUuid = override.content.bookableUuid,
+                    previousLocation = override.content.location,
                     previousAlarms = tailAlarms,
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
@@ -640,8 +641,18 @@ internal class EventRepository(
      * The timing is the slot the occurrence is *displayed* on, which is what [updateEvent] expects of an
      * edit prepared on an occurrence, carrying the master's rule so that a whole-series edit keeps the
      * recurrence it did not touch.
+     *
+     * A bookable room comes with its resource as stored locally.
      */
     suspend fun getEditData(occurrenceId: OccurrenceId): EventEditData? {
+        val data = getStoredEditData(occurrenceId) ?: return null
+        val room = data.location as? Location.BookableRoom ?: return data
+        val accountId = accountDao.getAccountIdByEventId(occurrenceId.masterId) ?: return data
+        val resource = bookableResourceLookup.observeResource(accountId, room.uuid).first()
+        return data.copy(location = room.copy(resource = resource))
+    }
+
+    private suspend fun getStoredEditData(occurrenceId: OccurrenceId): EventEditData? {
         val entity = eventDao.getEvent(occurrenceId.masterId) ?: return null
         val master = entity.toEditData()
         if (occurrenceId !is OccurrenceId.Recurrence) return master
@@ -715,7 +726,7 @@ internal class EventRepository(
                     previousColorArgb = override.content.colorArgb,
                     previousDescription = override.content.description,
                     previousMeetRoomUrl = override.content.meetRoomUrl,
-                    previousBookableUuid = override.content.bookableUuid,
+                    previousLocation = override.content.location,
                     previousAlarms = override.content.alarms,
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
@@ -760,7 +771,7 @@ internal class EventRepository(
                 previousColorArgb = shown.colorArgb,
                 previousDescription = shown.description,
                 previousMeetRoomUrl = shown.meetRoomUrl,
-                previousBookableUuid = shown.bookableUuid,
+                previousLocation = shown.location,
                 previousAlarms = shown.alarms,
                 previousAttendees = shown.attendees,
                 previousOrganizer = shown.organizer,
@@ -864,7 +875,7 @@ internal class EventRepository(
         val recurrenceId = existing?.toRemoteRecurrenceId(masterTiming)
             ?: occurrenceId.recurrenceKey.toRemoteRecurrenceId(masterTiming)
             ?: return null
-        val slot = getEditData(occurrenceId)?.timing?.toOccurrenceSlot() ?: return null
+        val slot = getStoredEditData(occurrenceId)?.timing?.toOccurrenceSlot() ?: return null
         return RemoteReplyScope.Occurrence(recurrenceId, slot)
     }
 
@@ -1087,7 +1098,7 @@ private fun SeriesTail.toRemoteEdit(
     previous = null,
     previousDescription = seed.description,
     previousMeetRoomUrl = seed.meetRoomUrl,
-    previousBookableUuid = seed.bookableUuid,
+    previousLocation = seed.location,
     exDates = DateListEdit.Set(master.exDates.movedTail(tail = this)),
     rDates = DateListEdit.Set(master.rDates.movedTail(tail = this)),
     previousAttendees = seed.attendees,

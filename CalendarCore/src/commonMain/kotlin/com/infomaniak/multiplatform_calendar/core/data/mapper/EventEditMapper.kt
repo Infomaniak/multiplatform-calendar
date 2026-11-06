@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdi
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ZonedWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -87,7 +88,7 @@ internal fun EventEditData.toRemoteEdit(
     knownOverrides: List<EventOverrideEntity> = emptyList(),
     previousDescription: String? = previous?.content?.description,
     previousMeetRoomUrl: String? = previous?.content?.meetRoomUrl,
-    previousBookableUuid: String? = previous?.content?.bookableUuid,
+    previousLocation: String? = previous?.content?.location,
     previousAttendees: List<AttendeeEntity> = previous?.content?.attendees.orEmpty(),
     previousOrganizer: OrganizerEntity? = previous?.content?.organizer,
     alarmOrigin: List<AlarmEntity> = previous?.content?.alarms.orEmpty(),
@@ -101,11 +102,11 @@ internal fun EventEditData.toRemoteEdit(
         dtEnd = dtEnd.value,
         dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
-        location = location?.ifBlank { null },
+        location = location.toIcalLocation(previousLocation),
         description = description.withMarkedBlocksFrom(previousDescription.withMeetRoomBlock(previousMeetRoomUrl, meetRoom)),
         transp = timeBlocking?.toIcalString(),
         meetRoomUrl = meetRoom?.url,
-        bookableUuid = previousBookableUuid,
+        bookableUuid = (location as? Location.BookableRoom)?.uuid?.value,
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previous?.content?.colorArgb),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
@@ -142,7 +143,7 @@ internal fun EventEditData.toOverrideEdit(
     previousColorArgb: Int?,
     previousDescription: String?,
     previousMeetRoomUrl: String?,
-    previousBookableUuid: String?,
+    previousLocation: String?,
     previousAlarms: List<AlarmEntity>,
     previousAttendees: List<AttendeeEntity>,
     previousOrganizer: OrganizerEntity?,
@@ -157,11 +158,11 @@ internal fun EventEditData.toOverrideEdit(
         dtEnd = dtEnd.value,
         dtEndTzid = dtEnd.tzid,
         allDay = timing.isAllDay,
-        location = location?.ifBlank { null },
+        location = location.toIcalLocation(previousLocation),
         description = description.withMarkedBlocksFrom(previousDescription.withMeetRoomBlock(previousMeetRoomUrl, meetRoom)),
         transp = timeBlocking?.toIcalString(),
         meetRoomUrl = meetRoom?.url,
-        bookableUuid = previousBookableUuid,
+        bookableUuid = (location as? Location.BookableRoom)?.uuid?.value,
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previousColorArgb),
         recurrenceChange = Unchanged,
@@ -181,6 +182,12 @@ internal fun EventEditData.toOverrideEdit(
         organizerChange = resolveOrganizerChange(previousOrganizer),
         stamp = stamp,
     )
+}
+
+private fun Location?.toIcalLocation(previousLocation: String?): String? = when (this) {
+    is Location.Place -> text.ifBlank { null }
+    is Location.BookableRoom -> previousLocation?.ifBlank { null }
+    null -> null
 }
 
 /** The bounds of this timing, in the forms [RemoteEventEdit] describes. */

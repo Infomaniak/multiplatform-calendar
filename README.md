@@ -206,6 +206,11 @@ ones. `sync` replaces the local resources of each account (the API sends no ETag
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the
 `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
 
+An event's `location` is a `Location`: a `Place` (the `LOCATION` text) or a `BookableRoom` (that uuid, preferred when both
+are set). `observeOccurrence` resolves its `BookableResource` through `observeResource`, so a room missing locally is fetched
+and emitted once known; `getEditData` reads it from the database only, leaving `resource` `null` when it is not stored.
+Editing a room keeps the `LOCATION` text; editing a place drops the room.
+
 ### Organisations
 
 `OrganisationsManager` reads `GET /1/accounts` on `api.<domain>` and keeps every organisation, whatever its access.

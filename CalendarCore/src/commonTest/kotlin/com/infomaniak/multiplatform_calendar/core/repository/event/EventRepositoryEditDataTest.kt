@@ -28,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -84,6 +85,19 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         // Not `Set`: the rule read back is equal to the stored one, so nothing is rewritten at all.
         // Had it been lost on the way, this would read `Cleared`.
         assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange, "the rule the edit never touched")
+    }
+
+    @Test
+    fun getEditData_resolvesTheBookableRoom() = runTest {
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("https://cal/main/room.ics"), CALENDAR_ID)
+        val withRoom = master.copy(content = master.content.copy(location = "Paris", bookableUuid = ROOM.uuid.value))
+        eventDao().upsert(listOf(EventWithRawIcs(withRoom, "BEGIN:VEVENT")))
+        bookableResourceLookup.resources.value = listOf(ROOM)
+
+        val data = assertNotNull(repository.getEditData(OccurrenceId.Master(master.id)))
+
+        assertEquals(Location.BookableRoom(ROOM.uuid, ROOM), data.location)
     }
 
     /**

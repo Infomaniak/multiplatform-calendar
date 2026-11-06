@@ -47,9 +47,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Participati
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceBoundKind
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory

@@ -27,8 +27,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone

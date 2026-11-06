@@ -23,8 +23,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceI
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationReply
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavHttpException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee

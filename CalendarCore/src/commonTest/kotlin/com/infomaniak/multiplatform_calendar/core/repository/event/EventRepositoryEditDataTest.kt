@@ -33,9 +33,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceI
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceBoundKind
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedBounds
 import com.infomaniak.multiplatform_calendar.core.extensions.markedBlock
 import com.infomaniak.multiplatform_calendar.core.utils.upsert

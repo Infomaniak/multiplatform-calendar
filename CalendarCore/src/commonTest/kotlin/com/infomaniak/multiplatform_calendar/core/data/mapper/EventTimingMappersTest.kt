@@ -21,8 +21,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.allDayTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.floatingTiming
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import kotlinx.datetime.LocalDate

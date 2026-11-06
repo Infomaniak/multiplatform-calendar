@@ -73,7 +73,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.rebasedOnto
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.splitAt

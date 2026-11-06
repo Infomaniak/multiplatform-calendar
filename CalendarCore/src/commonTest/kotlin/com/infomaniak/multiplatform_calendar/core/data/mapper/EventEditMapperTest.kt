@@ -31,9 +31,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlockin
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.allDayTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.floatingTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange

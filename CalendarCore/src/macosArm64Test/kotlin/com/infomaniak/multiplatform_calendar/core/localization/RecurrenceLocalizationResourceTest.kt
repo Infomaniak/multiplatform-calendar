@@ -27,11 +27,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ZonedWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.toLocalizedString
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.resolveOccurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString

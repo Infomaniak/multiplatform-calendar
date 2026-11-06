@@ -21,13 +21,13 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.movedTo
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.Occurrence
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.recurrenceKeyAt
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Daily
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Hourly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Minutely
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Secondly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Weekly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.isExceededBy
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Daily
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Hourly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Minutely
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Secondly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Weekly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.isExceededBy
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.startWallClock
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.Completed
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome.StoppedByConsecutiveEmptyPeriods
@@ -177,7 +177,8 @@ internal object RecurrenceExpander {
         occurrenceStartInstant: Instant,
         inputEnd: Instant,
     ): Boolean {
-        val countReached = rrule.occurrenceCount != null && count >= rrule.occurrenceCount
+        val maxOccurrences = rrule.occurrenceCount
+        val countReached = maxOccurrences != null && count >= maxOccurrences
         val untilPassed = rrule.until.isExceededBy(occurrenceStartLocal, occurrenceStartInstant)
         // Candidates are globally increasing: once past the window nothing else can overlap.
         val pastWindow = occurrenceStartInstant >= inputEnd

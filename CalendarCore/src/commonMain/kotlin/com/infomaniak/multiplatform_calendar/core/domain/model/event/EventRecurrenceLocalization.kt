@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.toLocalizedString
 
 /**
  * Describes this event's RRULE using the recurrence master's DTSTART context.

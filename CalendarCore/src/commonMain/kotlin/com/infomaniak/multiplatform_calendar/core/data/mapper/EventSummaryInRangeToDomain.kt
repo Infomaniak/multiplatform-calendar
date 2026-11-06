@@ -27,7 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceI
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventSummaryWithAlarms
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 
 internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
     val calendarSourceColor = CalendarColors.from(calendarColorArgb).sourceColor

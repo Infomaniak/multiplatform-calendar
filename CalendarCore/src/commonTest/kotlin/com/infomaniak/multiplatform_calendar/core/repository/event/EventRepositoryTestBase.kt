@@ -18,6 +18,8 @@
 package com.infomaniak.multiplatform_calendar.core.repository.event
 
 import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
@@ -71,6 +73,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
     protected lateinit var repository: EventRepository
     protected lateinit var fakeCaldav: FakeCaldavClient
     protected lateinit var contactsLookup: FakeContactsLookup
+    protected lateinit var bookableResourceLookup: FakeBookableResourceLookup
     private lateinit var crashReport: RecordingCrashReport
 
     @BeforeTest
@@ -83,12 +86,14 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         fakeCaldav = FakeCaldavClient()
         crashReport = RecordingCrashReport()
         contactsLookup = FakeContactsLookup()
+        bookableResourceLookup = FakeBookableResourceLookup()
         repository = EventRepository(
             accountDao = database.accountDao(),
             caldavClient = fakeCaldav,
             eventDao = database.eventDao(),
             crashReport = crashReport,
             contactsLookup = contactsLookup,
+            bookableResourceLookup = bookableResourceLookup,
         )
     }
 
@@ -274,5 +279,15 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
             role = AttendeeRole.Requested,
         )
         val PARIS = TimeZone.of("Europe/Paris")
+        val ROOM = BookableResource(
+            uuid = BookableResourceUuid("room-uuid"),
+            name = "Room A",
+            color = null,
+            description = null,
+            location = null,
+            floor = null,
+            capacity = null,
+            equipments = emptyList(),
+        )
     }
 }

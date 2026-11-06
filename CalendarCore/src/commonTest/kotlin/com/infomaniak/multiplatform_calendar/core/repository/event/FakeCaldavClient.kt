@@ -194,7 +194,7 @@ internal fun remoteDavEvent(
 
 /**
  * Emulates the Rust bridge's edit round-trip, narrowly: RRULE set/cleared/untouched, VALARM list replaced or kept,
- * kMeet room URL set or cleared. Other fields keep the values of [base].
+ * kMeet room URL and bookable set or cleared. Other fields keep the values of [base].
  */
 internal fun bridgeApplyingEdit(base: RemoteDavEvent, edit: RemoteEventEdit): RemoteDavEvent = base.copy(
     rrule = when (val change = edit.recurrenceChange) {
@@ -205,6 +205,7 @@ internal fun bridgeApplyingEdit(base: RemoteDavEvent, edit: RemoteEventEdit): Re
     content = base.content.copy(
         alarms = edit.alarms?.map { it.toRemoteDavAlarm() } ?: base.content.alarms,
         meetRoomUrl = edit.meetRoomUrl,
+        bookableUuid = edit.bookableUuid,
     ),
 )
 

@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
@@ -248,6 +249,34 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         val alice = Contact(email = ALICE.email, name = "Alice", avatar = null, comesFromApi = true)
         contactsLookup.contacts.value = listOf(alice)
         assertEquals(alice, emissions.receive()?.attendees?.single()?.contact)
+    }
+
+    @Test
+    fun observeOccurrence_resolvesTheBookableRoom() = runTest {
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://with-room"), CALENDAR_ID)
+        eventDao().upsert(listOf(EventWithRawIcs(master.withBookableUuid(ROOM.uuid.value), "")))
+        bookableResourceLookup.resources.value = listOf(ROOM)
+
+        val observed = repository.observeOccurrence(OccurrenceId.Master(master.id), TimeZone.UTC).first()
+
+        assertEquals(Location.BookableRoom(ROOM.uuid, ROOM), observed?.location)
+        assertEquals(listOf(ACCOUNT_ID), bookableResourceLookup.accountIds)
+    }
+
+    @Test
+    fun observeOccurrence_followsTheBookableRoom() = runTest {
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("event://room-changing"), CALENDAR_ID)
+        eventDao().upsert(listOf(EventWithRawIcs(master.withBookableUuid(ROOM.uuid.value), "")))
+        val emissions = Channel<Event?>(Channel.UNLIMITED)
+        backgroundScope.launch {
+            repository.observeOccurrence(OccurrenceId.Master(master.id), TimeZone.UTC).collect(emissions::send)
+        }
+
+        assertEquals(Location.BookableRoom(ROOM.uuid, resource = null), emissions.receive()?.location)
+        bookableResourceLookup.resources.value = listOf(ROOM)
+        assertEquals(Location.BookableRoom(ROOM.uuid, ROOM), emissions.receive()?.location)
     }
 
     @Test
@@ -641,6 +670,8 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
     }
 
     private fun EventEntity.withPeople() = copy(content = content.copy(attendees = listOf(ALICE), organizer = OWNER))
+
+    private fun EventEntity.withBookableUuid(uuid: String) = copy(content = content.copy(bookableUuid = uuid))
 
     private fun floatingEvent(calendarId: CalendarId): EventEntity {
         val dtStart = LocalDateTime(2026, 6, 15, 10, 0)

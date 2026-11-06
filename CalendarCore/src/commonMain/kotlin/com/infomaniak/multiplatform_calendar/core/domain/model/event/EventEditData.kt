@@ -32,11 +32,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
  * @property attendees The whole list: an attendee left out is removed. Requires an [organizer] when not empty.
  * @property meetRoom From [CalendarManager.generateMeetRoom][com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.generateMeetRoom];
  * `null` removes it.
+ * @property location A [Location.BookableRoom] keeps the `LOCATION` text the event already has.
  */
 public data class EventEditData(
     val title: String,
     val timing: EventTiming,
-    val location: String?,
+    val location: Location?,
     val description: String?,
     val timeBlocking: TimeBlocking?,
     val calendarId: CalendarId,

@@ -1,6 +1,6 @@
 /*
  * Infomaniak Calendar - Multiplatform
- * Copyright (C) 2026-2026 Infomaniak Network SA
+ * Copyright (C) 2026 Infomaniak Network SA
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,21 +15,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.recurrence.localization
 
-/** Reason a RRULE cannot be safely expanded. Logged to Sentry at the sync boundary. */
-internal enum class RecurrenceRuleFailureReason {
-    MalformedGrammar,
-    MissingFrequency,
-    CountAndUntilTogether,
-    InvalidByDayOrdinalForFrequency,
-    InvalidByMonthDayForFrequency,
-    InvalidByYearDayFrequency,
-    InvalidByWeekNoFrequency,
-    BySetPosWithoutByRule,
-    LeapSecondUnsupported,
-    UnsupportedRscale,
-    UntilTypeMismatch,
-    RecurrenceDateTypeMismatch,
-    RdatePeriodUnsupported,
+import org.jetbrains.compose.resources.PluralStringResource
+import org.jetbrains.compose.resources.StringResource
+
+internal interface RecurrenceStringResolver {
+    suspend fun string(resource: StringResource, vararg formatArgs: Any): String
+
+    suspend fun plural(
+        resource: PluralStringResource,
+        quantity: Int,
+        vararg formatArgs: Any,
+    ): String
 }

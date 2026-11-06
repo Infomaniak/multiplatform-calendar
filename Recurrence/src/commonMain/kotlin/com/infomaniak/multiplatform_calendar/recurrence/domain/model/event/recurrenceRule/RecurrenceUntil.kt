@@ -15,14 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
-import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
-import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
-import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
+import com.infomaniak.multiplatform_calendar.recurrence.extensions.toICalDate
+import com.infomaniak.multiplatform_calendar.recurrence.extensions.toICalLocalDateTime
+import com.infomaniak.multiplatform_calendar.recurrence.extensions.toICalUtcDateTime
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
@@ -61,7 +61,7 @@ internal fun RecurrenceUntil.toICalString(): String = when (this) {
  * compared in its own domain so a floating or DATE `UNTIL` is not widened to an absolute instant.
  */
 @OptIn(ExperimentalTime::class)
-internal fun RecurrenceUntil?.isExceededBy(localStart: LocalDateTime, instantStart: Instant): Boolean = when (this) {
+public fun RecurrenceUntil?.isExceededBy(localStart: LocalDateTime, instantStart: Instant): Boolean = when (this) {
     null -> false
     is DateOnly -> localStart.date > date
     is Floating -> localStart > dateTime

@@ -15,17 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.localization
+package com.infomaniak.multiplatform_calendar.recurrence.extensions
 
-import org.jetbrains.compose.resources.PluralStringResource
-import org.jetbrains.compose.resources.StringResource
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
-internal interface RecurrenceStringResolver {
-    suspend fun string(resource: StringResource, vararg formatArgs: Any): String
-
-    suspend fun plural(
-        resource: PluralStringResource,
-        quantity: Int,
-        vararg formatArgs: Any,
-    ): String
+internal suspend inline fun <T, R> List<T>.mapCancellable(transform: suspend (T) -> R): List<R> {
+    return List(size) { index ->
+        currentCoroutineContext().ensureActive()
+        transform(this[index])
+    }
 }

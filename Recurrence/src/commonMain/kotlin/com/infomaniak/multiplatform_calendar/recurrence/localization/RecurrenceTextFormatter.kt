@@ -16,14 +16,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.infomaniak.multiplatform_calendar.core.localization
+package com.infomaniak.multiplatform_calendar.recurrence.localization
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
-import com.infomaniak.multiplatform_calendar.core.domain.recurrence.RecurrenceCandidateSet.inheritsDtStartWeekdayForWeekNumber
-import com.infomaniak.multiplatform_calendar.core.extensions.mapCancellable
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.recurrence.extensions.mapCancellable
 import com.infomaniak.multiplatform_calendar.resources.Res
 import com.infomaniak.multiplatform_calendar.resources.recurrence_at_hour
 import com.infomaniak.multiplatform_calendar.resources.recurrence_at_hours
@@ -546,4 +545,11 @@ private fun List<DayOfWeek>.sortedDaysOfWeek(weekStart: DayOfWeek?): List<DayOfW
 private fun weekOrder(weekStart: DayOfWeek?): List<DayOfWeek> {
     val startIndex = DayOfWeek.entries.indexOf(weekStart ?: DayOfWeek.MONDAY)
     return DayOfWeek.entries.drop(startIndex) + DayOfWeek.entries.take(startIndex)
+}
+
+private fun RecurrenceRule.inheritsDtStartWeekdayForWeekNumber(): Boolean {
+    return byWeekNumber.isNotEmpty()
+            && byDay.isEmpty()
+            && byMonthDay.isEmpty()
+            && byYearDay.isEmpty()
 }

@@ -15,10 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule
 
 /** Total result of [RecurrenceRuleParser.parse]: a rule is either fully supported or rejected as a whole. */
-internal sealed interface RecurrenceRuleParseResult {
-    data class Supported(val rule: RecurrenceRule) : RecurrenceRuleParseResult
-    data class Failed(val reason: RecurrenceRuleFailureReason) : RecurrenceRuleParseResult
+public sealed interface RecurrenceRuleParseResult {
+    public data class Supported(val rule: RecurrenceRule) : RecurrenceRuleParseResult
+    public data class Failed(val reason: RecurrenceRuleFailureReason) : RecurrenceRuleParseResult
 }

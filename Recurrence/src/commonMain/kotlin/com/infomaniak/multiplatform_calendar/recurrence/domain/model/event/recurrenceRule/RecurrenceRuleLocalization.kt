@@ -16,9 +16,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule
 
-import com.infomaniak.multiplatform_calendar.core.localization.RecurrenceTextFormatter
+import com.infomaniak.multiplatform_calendar.recurrence.localization.RecurrenceTextFormatter
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 

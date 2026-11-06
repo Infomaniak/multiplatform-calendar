@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule
 
 /**
  * The nature of a recurring series' upper bound, stored alongside the bound instant so the range
@@ -33,7 +33,7 @@ package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
  *   expander at read time. Not to be confused with an *unknown* end — the end is known, just not
  *   pre-computed.
  */
-internal enum class RecurrenceBoundKind {
+public enum class RecurrenceBoundKind {
     Finite,
     Infinite,
     FiniteDeferred,

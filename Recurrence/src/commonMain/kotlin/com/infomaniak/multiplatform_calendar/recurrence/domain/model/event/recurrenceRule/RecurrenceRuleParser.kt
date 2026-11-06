@@ -15,45 +15,45 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Daily
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Monthly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Weekly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency.Yearly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.BySetPosWithoutByRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.CountAndUntilTogether
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByDayOrdinalForFrequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByMonthDayForFrequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByWeekNoFrequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByYearDayFrequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.LeapSecondUnsupported
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MissingFrequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.UnsupportedRscale
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYDAY
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYHOUR
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYMINUTE
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYMONTH
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYMONTHDAY
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYSECOND
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYSETPOS
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYWEEKNO
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.BYYEARDAY
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.COUNT
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.FREQ
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.INTERVAL
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.RSCALE
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.SKIP
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.UNTIL
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleField.WKST
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Failed
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Supported
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
-import com.infomaniak.multiplatform_calendar.core.extensions.isICalDateOnly
-import com.infomaniak.multiplatform_calendar.core.extensions.parseICalDateTime
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Daily
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Monthly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Weekly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency.Yearly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.BySetPosWithoutByRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.CountAndUntilTogether
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByDayOrdinalForFrequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByMonthDayForFrequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByWeekNoFrequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.InvalidByYearDayFrequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.LeapSecondUnsupported
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MalformedGrammar
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.MissingFrequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason.UnsupportedRscale
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYDAY
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYHOUR
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYMINUTE
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYMONTH
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYMONTHDAY
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYSECOND
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYSETPOS
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYWEEKNO
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.BYYEARDAY
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.COUNT
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.FREQ
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.INTERVAL
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.RSCALE
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.SKIP
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.UNTIL
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleField.WKST
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Failed
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleParseResult.Supported
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.Floating
+import com.infomaniak.multiplatform_calendar.recurrence.extensions.isICalDateOnly
+import com.infomaniak.multiplatform_calendar.recurrence.extensions.parseICalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlin.time.ExperimentalTime
@@ -64,11 +64,11 @@ import kotlin.time.ExperimentalTime
  * from ever expanding a rule into wrong occurrences; Sentry logging and dropping happen at the sync
  * boundary, not here.
  */
-internal object RecurrenceRuleParser {
+public object RecurrenceRuleParser {
 
     private class RuleRejectedException(val reason: RecurrenceRuleFailureReason) : Exception()
 
-    internal fun parse(rawRule: String): RecurrenceRuleParseResult {
+    public fun parse(rawRule: String): RecurrenceRuleParseResult {
         return runCatching { parseOrThrow(rawRule) }
             .fold(
                 onSuccess = { Supported(it) },

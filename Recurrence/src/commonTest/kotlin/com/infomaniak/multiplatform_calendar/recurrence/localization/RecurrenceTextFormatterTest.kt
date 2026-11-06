@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.localization
+package com.infomaniak.multiplatform_calendar.recurrence.localization
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.WeekDayNum
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate

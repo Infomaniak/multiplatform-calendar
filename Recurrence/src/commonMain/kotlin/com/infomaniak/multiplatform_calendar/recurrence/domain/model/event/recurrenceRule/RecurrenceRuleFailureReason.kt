@@ -15,28 +15,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule
+package com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule
 
-/** RFC 5545 §3.3.10 RRULE part names, shared by the parser and serializer so the tokens live in one place. */
-internal enum class RecurrenceRuleField {
-    FREQ,
-    UNTIL,
-    COUNT,
-    INTERVAL,
-    BYSECOND,
-    BYMINUTE,
-    BYHOUR,
-    BYDAY,
-    BYMONTHDAY,
-    BYYEARDAY,
-    BYWEEKNO,
-    BYMONTH,
-    BYSETPOS,
-    WKST, // WeekStart: the weekday the week begins on (affects INTERVAL grouping and BYWEEKNO).
-    RSCALE, // RFC 7529 non-Gregorian calendar scale; unsupported here.
-    SKIP;
-
-    internal companion object {
-        internal fun fromToken(token: String): RecurrenceRuleField? = entries.firstOrNull { it.name == token }
-    }
+/** Reason a RRULE cannot be safely expanded. Logged to Sentry at the sync boundary. */
+public enum class RecurrenceRuleFailureReason {
+    MalformedGrammar,
+    MissingFrequency,
+    CountAndUntilTogether,
+    InvalidByDayOrdinalForFrequency,
+    InvalidByMonthDayForFrequency,
+    InvalidByYearDayFrequency,
+    InvalidByWeekNoFrequency,
+    BySetPosWithoutByRule,
+    LeapSecondUnsupported,
+    UnsupportedRscale,
+    UntilTypeMismatch,
+    RecurrenceDateTypeMismatch,
+    RdatePeriodUnsupported,
 }

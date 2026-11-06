@@ -43,6 +43,10 @@ multiplatform-calendar/
 ├── Organisations/                   # Standalone KMP module for the Infomaniak organisations of the account
 │   ├── src/commonMain/              # OrganisationsManager, sync, Room table, Ktor remote source
 │   └── build.gradle.kts             # Organisations module build (Room, Ktor, publish)
+├── Recurrence/                      # Standalone KMP module for RFC 5545 recurrence model/parser/serializer/localization
+│   ├── src/commonMain/              # RecurrenceRule model, parser, serializer and human-readable formatter
+│   ├── src/commonTest/              # Isolated recurrence parser/formatter tests
+│   └── build.gradle.kts             # Recurrence module build (publish)
 ├── AppEnvironment/                  # AppEnvironment: the Infomaniak servers the modules reach
 │   └── build.gradle.kts             # AppEnvironment module build (publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
@@ -65,16 +69,18 @@ multiplatform-calendar/
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
 | **Organisations**    | Infomaniak organisations the account belongs to: id and name                                  |
+| **Recurrence**       | RFC 5545 recurrence model, RRULE parser/serializer, and localized rule formatting             |
 | **AppEnvironment**   | `AppEnvironment` (`Prod`, `Preprod`, `Custom(domain)`): the Infomaniak servers the modules reach |
 | **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
 
 ### Recurrence localization
 
-`CalendarCore` provides two suspend extensions for RRULE descriptions:
+The standalone `:Recurrence` module owns the recurrence model, parser/serializer and localized RRULE formatting.
+`CalendarCore` consumes it and still exposes two suspend extensions for RRULE descriptions:
 
 ```kotlin
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.toLocalizedRecurrenceString
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.toLocalizedString
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.toLocalizedString
 
 val description: String? = event.toLocalizedRecurrenceString()
 val ruleDescription: String = rule.toLocalizedString(start = dtStart, timeZone = startTimeZone)

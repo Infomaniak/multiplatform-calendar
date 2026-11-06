@@ -31,7 +31,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.SettingsReposi
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
 import com.infomaniak.multiplatform_calendar.core.domain.model.settings.CalendarNotificationSettings
 import com.infomaniak.multiplatform_calendar.core.domain.model.settings.NotificationTopic
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime

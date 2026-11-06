@@ -24,14 +24,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.AllDay
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Zoned
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.hasRecurrenceSet
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Finite
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.FiniteDeferred
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind.Infinite
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceBoundKind
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceBoundKind.Finite
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceBoundKind.FiniteDeferred
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceBoundKind.Infinite
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.DateOnly
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.DateTimeUtc
 import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
 import com.infomaniak.multiplatform_calendar.core.extensions.wallClockShift
 import kotlinx.datetime.LocalDateTime
@@ -39,7 +39,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue.Floating as FloatingDateValue
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil.Floating as FloatingUntil
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceUntil.Floating as FloatingUntil
 
 
 /**
@@ -186,22 +186,25 @@ private fun rdateOnlyBoundsEntity(
 
 private fun RecurrenceRule.baseRecurrenceBoundsEntity(timing: EventTimingEntity): RecurrenceBoundsEntity {
     val firstOccurrenceInstantMs = timing.lowBoundInstantMs()
+    val seriesUntil = until
 
     return when {
-        until == null -> RecurrenceBoundsEntity(
+        seriesUntil == null -> RecurrenceBoundsEntity(
             firstOccurrenceInstantMs = firstOccurrenceInstantMs,
             recurrenceBoundKind = if (occurrenceCount != null) FiniteDeferred else Infinite,
         )
         // Anchored series (zoned / UTC / all-day): the upper bound lives in absolute epoch ms.
         timing.dtStartInstantMs != null -> RecurrenceBoundsEntity(
             firstOccurrenceInstantMs = firstOccurrenceInstantMs,
-            lastPossibleOccurrenceEndInstantMs = until.toInstantMs(timing) + timing.anchoredDurationMs() + timing.allDayUpperBoundPaddingMs(),
+            lastPossibleOccurrenceEndInstantMs = seriesUntil.toInstantMs(timing) +
+                    timing.anchoredDurationMs() +
+                    timing.allDayUpperBoundPaddingMs(),
             recurrenceBoundKind = Finite,
         )
         // Floating DATE-TIME series: no absolute instant — the upper bound is a wall-clock.
         else -> RecurrenceBoundsEntity(
             firstOccurrenceInstantMs = firstOccurrenceInstantMs,
-            lastOccurrenceEndLocalDateTime = until.toLocalEnd(timing),
+            lastOccurrenceEndLocalDateTime = seriesUntil.toLocalEnd(timing),
             recurrenceBoundKind = Finite,
         )
     }

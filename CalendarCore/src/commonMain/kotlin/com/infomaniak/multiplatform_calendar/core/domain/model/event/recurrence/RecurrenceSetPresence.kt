@@ -18,7 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 
 /**
  * Single source of truth for what makes an event a series: a rule, dates listed one by one, or both.

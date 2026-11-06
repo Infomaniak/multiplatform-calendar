@@ -33,6 +33,7 @@ fn edit(attendees_change: AttendeesChange, organizer_change: OrganizerChange) ->
         description: None,
         transp: None,
         meet_room_url: None,
+        bookable_uuid: None,
         timezones: vec![],
         color_change: ColorChange::Unchanged,
         recurrence_change: RecurrenceChange::Unchanged,

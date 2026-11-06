@@ -42,6 +42,8 @@ mod alarms_tests;
 #[cfg(test)]
 mod attendees_tests;
 #[cfg(test)]
+mod bookable_tests;
+#[cfg(test)]
 mod events_tests;
 #[cfg(test)]
 mod meet_room_tests;

@@ -324,6 +324,7 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     description = description,
     transp = transp,
     meetRoomUrl = meetRoomUrl,
+    bookableUuid = bookableUuid,
     timezones = timeZones.map { it.toRust() },
     colorChange = colorChange.toRust(),
     recurrenceChange = recurrenceChange.toRust(),

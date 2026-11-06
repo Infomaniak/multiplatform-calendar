@@ -15,36 +15,31 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.bookable_resources
+package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
-import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import kotlinx.datetime.TimeZone
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
 
 // Swift cannot use a value class inside a collection (it is boxed there), so these pass and return raw values.
 
-@Throws(BookableResourcesException::class, CancellationException::class)
-public suspend fun BookableResourcesManager.sync(accountIds: Set<Long> = emptySet()): Unit =
-    sync(accountIds.mapTo(mutableSetOf(), ::AccountId))
+@Throws(CalendarSdkException::class, CancellationException::class)
+public suspend fun CalendarBookableResourcesManager.availabilityValues(
+    calendarId: CalendarId,
+    timing: EventTiming,
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+): Map<String, Boolean> = availability(calendarId, timing, timeZone).mapKeys { (uuid, _) -> uuid.value }
 
-@Throws(BookableResourcesException::class, CancellationException::class)
-public suspend fun BookableResourcesManager.availabilityValues(
-    accountId: AccountId,
-    start: Instant,
-    end: Instant,
-    timeZone: TimeZone,
-    rrule: String? = null,
-): Map<String, Boolean> = availability(accountId, start, end, timeZone, rrule).mapKeys { (uuid, _) -> uuid.value }
-
-@Throws(BookableResourcesException::class, CancellationException::class)
-public suspend fun BookableResourcesManager.busyPeriods(
-    accountId: AccountId,
+@Throws(CalendarSdkException::class, CancellationException::class)
+public suspend fun CalendarBookableResourcesManager.busyPeriods(
+    calendarId: CalendarId,
     uuids: Set<String>,
     from: Instant,
     to: Instant,
-): Map<String, List<BusyPeriod>> = busyPeriods(accountId, uuids.mapTo(mutableSetOf(), ::BookableResourceUuid), from, to)
+): Map<String, List<BusyPeriod>> = busyPeriods(calendarId, uuids.mapTo(mutableSetOf(), ::BookableResourceUuid), from, to)
     .mapKeys { (uuid, _) -> uuid.value }

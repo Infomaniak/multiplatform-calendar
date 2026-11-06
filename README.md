@@ -115,6 +115,9 @@ generic `com.infomaniak.multiplatform_core.*` package root, as they are meant to
 `:Meet` and `:BookableResources` are exported the same way (`MeetException`, `BookableResourcesManager` and their types) but, being
 specific to the calendar, use the `com.infomaniak.multiplatform_calendar.meet` and `…bookable_resources` packages.
 `:Organisations` is exported too (`OrganisationsManager` and its types), under `com.infomaniak.multiplatform_core.organisations`.
+Consumers do not reach the bookable resources and organisations managers, though: CalendarCore exposes calendar-level facades
+instead (`CalendarBookableResourcesManager`, `CalendarOrganisationsManager`), which take calendar types (`CalendarId`,
+`EventTiming`) and derive the account and the raw values (RRULE, …) themselves.
 `:CrashReport` is exported too (`CrashReport`, `CrashReportLevel`, `BreadcrumbType`), under `com.infomaniak.multiplatform_core.crashreport`.
 
 `:Network` is an `implementation` dependency of CalendarCore, Contacts, Meet, BookableResources and Organisations, and is **not** exported. Like `:Account`, it uses the
@@ -188,12 +191,15 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   (`CalendarCoreGraph`) plus `AndroidDatabaseModule` and `DatabaseModule`. The `:CalendarKmpDav` module contributes `CaldavClientModule`.
   The `:Contacts` module is wired by Core (`ContactsModule` + platform `DeviceContactsProvider` bindings); its tables live in
   `CalendarDatabase`. `AppGraph` provides the `AppEnvironment`. `AccountManager.initAccount` / `removeAccount` also init / remove
-  the account in `ContactsManager`. Likewise, `:BookableResources` is wired by Core (`BookableResourcesModule`), its tables live in
-  `CalendarDatabase`, and `AccountManager` initializes / removes the account in `BookableResourcesManager` too. `:Organisations` is wired the same
-  way (`OrganisationsModule`, `OrganisationsManager`). `:Meet` is
+  the account in `ContactsManager`, whose own `initAccount` / `removeAccount` are therefore `@HostManagedContactsApi` (an opt-in
+  only the embedding module makes) and hidden from Swift. `BookableResourcesManager` and `OrganisationsManager` are not graph bindings: each is created
+  and owned by its CalendarCore facade (`CalendarBookableResourcesManager`, `CalendarOrganisationsManager`), so the app cannot
+  inject them. Their tables live in `CalendarDatabase`; `AccountManager` initializes / removes the account in them too, and
+  `CalendarManager.syncEvents` also syncs the organisations and the bookable resources. `:Meet` is
   wired by Core (`MeetModule`) and has no table; `AccountManager` initializes / removes the account in `MeetManager` too.
+  `MeetManager`'s functions are `@HostManagedMeetApi` and hidden from Swift: consumers go through `CalendarManager.generateMeetRoom`.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `bookableResourcesManager` / `organisationsManager`, and inherits
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `calendarBookableResourcesManager` / `calendarOrganisationsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
   `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `calendar` giving the `AppEnvironment` and `contacts` the
   path of the dedicated contacts database.
@@ -205,11 +211,16 @@ ones. `sync` replaces the local resources of each account (the API sends no ETag
 `X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a resource missing locally, staying `null` when that fails.
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the
 `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
+`CalendarBookableResourcesManager` exposes them for a `CalendarId`, and checks availability for an `EventTiming`: it serializes
+the recurrence rule itself and repeats it in the zone of the event start (the device zone for whole-day and floating events).
+RDATE and EXDATE are not checked, the API taking none. Its flows follow the calendar: they emit no resource while it is
+missing, for instance once its account is removed.
 
 ### Organisations
 
 `OrganisationsManager` reads `GET /1/accounts` on `api.<domain>` and keeps every organisation, whatever its access.
 `sync` replaces the local organisations of each account; `getOrganisation(accountId, id)` reads them locally only.
+`CalendarOrganisationsManager.getOrganisation(calendarId)` gives the organisation of a calendar.
 
 ### kMeet
 

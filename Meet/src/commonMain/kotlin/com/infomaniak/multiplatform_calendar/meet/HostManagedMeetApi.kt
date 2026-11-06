@@ -15,13 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_core.organisations
+package com.infomaniak.multiplatform_calendar.meet
 
-import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
-import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import kotlin.coroutines.cancellation.CancellationException
-
-/** Swift cannot use a value class inside a collection (it is boxed there), so this takes raw account ids. */
-@Throws(OrganisationsException::class, CancellationException::class)
-public suspend fun OrganisationsManager.sync(accountIds: Set<Long> = emptySet()): Unit =
-    sync(accountIds.mapTo(mutableSetOf(), ::AccountId))
+@RequiresOptIn(
+    message = "Managed by the module embedding Meet (e.g. CalendarCore's AccountManager and CalendarManager): call it through that module.",
+)
+@Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.FUNCTION)
+public annotation class HostManagedMeetApi

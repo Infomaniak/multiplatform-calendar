@@ -34,6 +34,13 @@ public suspend fun ContactsManager.search(
     limit: Int = ContactsManager.DEFAULT_SEARCH_LIMIT,
 ): List<Contact> = search(query, accountIds.toAccountIds(), limit)
 
+@Throws(ContactsException::class, CancellationException::class)
+public suspend fun ContactsManager.findContact(
+    email: String,
+    name: String? = null,
+    accountIds: Set<Long> = emptySet(),
+): Contact? = findContact(email, name, accountIds.toAccountIds())
+
 /** [ContactsManager.sync] for Swift, with raw account ids. */
 @Throws(ContactsException::class, CancellationException::class)
 public suspend fun ContactsManager.sync(accountIds: Set<Long> = emptySet()): Unit = sync(accountIds.toAccountIds())

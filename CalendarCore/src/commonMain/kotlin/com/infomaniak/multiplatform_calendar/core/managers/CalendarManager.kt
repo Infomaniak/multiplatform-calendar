@@ -42,9 +42,9 @@ import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
+import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -79,7 +79,8 @@ public class CalendarManager internal constructor(
     private val calendarRepository: CalendarRepository,
     private val eventRepository: EventRepository,
     private val meetManager: MeetManager,
-    private val organisationsManager: OrganisationsManager,
+    private val calendarBookableResourcesManager: CalendarBookableResourcesManager,
+    private val calendarOrganisationsManager: CalendarOrganisationsManager,
     private val sdkCaller: SdkCaller,
 ) {
 
@@ -211,6 +212,7 @@ public class CalendarManager internal constructor(
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
         launch { syncOrganisations() }
+        launch { syncBookableResources() }
         sdkCaller(operation = "sync events for all accounts") {
             accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
                 calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
@@ -255,6 +257,7 @@ public class CalendarManager internal constructor(
     }
 
     /** Each call creates a new kMeet room, with the account of [calendarId]. */
+    @OptIn(HostManagedMeetApi::class)
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun generateMeetRoom(calendarId: CalendarId): MeetRoom = sdkCaller(
         operation = "generate a kMeet room for calendar $calendarId",
@@ -337,12 +340,19 @@ public class CalendarManager internal constructor(
     }
 
     private fun observeOrganisationsByAccount(accountIds: Set<AccountId>): Flow<Map<AccountId, List<Organisation>>> = combine(
-        accountIds.map { accountId -> organisationsManager.observeOrganisations(accountId).map { accountId to it } },
+        accountIds.map { accountId -> calendarOrganisationsManager.organisationsManager.observeOrganisations(accountId).map { accountId to it } },
     ) { organisationsOfAccounts -> organisationsOfAccounts.toMap() }
 
     /** Failures are only reported, so they never fail the calendars sync. */
     private suspend fun syncOrganisations() {
-        runCatching { sdkCaller(operation = "sync organisations") { organisationsManager.sync() } }.cancellable()
+        runCatching { sdkCaller(operation = "sync organisations") { calendarOrganisationsManager.organisationsManager.sync() } }.cancellable()
+    }
+
+    /** Failures are only reported, so they never fail the calendars sync. */
+    private suspend fun syncBookableResources() {
+        runCatching {
+            sdkCaller(operation = "sync bookable resources") { calendarBookableResourcesManager.bookableResourcesManager.sync() }
+        }.cancellable()
     }
 
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {

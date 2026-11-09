@@ -77,7 +77,8 @@ internal class ContactsRepository(
         if (normalizedQuery.isEmpty()) return emptyList()
 
         val likeQuery = "%${normalizedQuery.escapeLikeWildcards()}%"
-        val apiMatches = dao.search(accountIds.ifEmpty { dao.accountIds().toSet() }, likeQuery)
+        val apiEntities = if (accountIds.isEmpty()) dao.search(likeQuery) else dao.search(accountIds, likeQuery)
+        val apiMatches = apiEntities
             .map(ContactEntity::toContactMatch)
             .mergedAcrossAccounts()
 

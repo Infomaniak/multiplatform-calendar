@@ -48,6 +48,14 @@ public interface ContactDao {
     )
     public suspend fun search(accountIds: Set<AccountId>, likeQuery: String): List<ContactEntity>
 
+    @Query(
+        """
+        SELECT * FROM contacts
+        WHERE nameNormalized LIKE :likeQuery ESCAPE '\' OR emailNormalized LIKE :likeQuery ESCAPE '\'
+        """,
+    )
+    public suspend fun search(likeQuery: String): List<ContactEntity>
+
     @Query("SELECT * FROM contacts WHERE accountId IN (:accountIds) AND emailNormalized = :normalizedEmail")
     public suspend fun getByEmail(accountIds: Set<AccountId>, normalizedEmail: String): List<ContactEntity>
 
@@ -56,9 +64,6 @@ public interface ContactDao {
 
     @Query("SELECT * FROM contacts WHERE emailNormalized IN (:normalizedEmails)")
     public fun observeByEmails(normalizedEmails: Set<String>): Flow<List<ContactEntity>>
-
-    @Query("SELECT id FROM contactAccounts")
-    public suspend fun accountIds(): List<AccountId>
 
     @Query("SELECT * FROM contactAccounts WHERE id = :accountId")
     public suspend fun account(accountId: AccountId): ContactAccountEntity?

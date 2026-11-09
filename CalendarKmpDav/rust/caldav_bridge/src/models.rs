@@ -92,7 +92,7 @@ pub struct EventContentEntry {
     pub bookable_uuid: Option<String>,
     /// `X-INFOMANIAK-ATTACH` values with their relevant parameters.
     pub attachments: Vec<InfomaniakAttachEntry>,
-    /// Raw `X-APPLE-CALENDAR-COLOR` value (typically `#RRGGBB` or `#RRGGBBAA`).
+    /// Raw `X-INFOMANIAK-COLOR` value (always hex, typically `#RRGGBB` or `#RRGGBBAA`).
     pub color_hex: Option<String>,
     /// Raw RFC 7986 §5.9 `COLOR` value (a case-insensitive CSS3 color name).
     pub color_ical_name: Option<String>,
@@ -227,12 +227,12 @@ pub struct VTimeZoneSpec {
     pub offset: String,
 }
 
-/// Requested change to a VEVENT's color (RFC 7986 `COLOR` and/or Apple's `X-APPLE-CALENDAR-COLOR`).
+/// Requested change to a VEVENT's color (`X-INFOMANIAK-COLOR` and/or RFC 7986 `COLOR`).
 #[derive(uniffi::Enum)]
 pub enum ColorChange {
     /// Leave both properties as-is (no color emitted on create).
     Unchanged,
-    /// Write `X-APPLE-CALENDAR-COLOR:<hex>` and drop any existing `COLOR:<name>`.
+    /// Write `X-INFOMANIAK-COLOR:<hex>` (always hex) and drop any existing `COLOR:<name>`.
     Set { hex: String },
     Cleared,
 }
@@ -422,4 +422,3 @@ pub struct AlarmEdit {
     pub attach: Vec<String>,
     pub repetition: Option<AlarmRepetitionSpec>,
 }
-

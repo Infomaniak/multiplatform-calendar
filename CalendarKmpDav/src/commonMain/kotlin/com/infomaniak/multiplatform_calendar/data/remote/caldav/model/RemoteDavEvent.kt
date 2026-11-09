@@ -76,7 +76,7 @@ data class RemoteDavEventContent(
     val bookableUuid: String? = null,
     /** Parsed `X-INFOMANIAK-ATTACH` custom properties. */
     val infomaniakAttach: List<RemoteEventAttachment> = emptyList(),
-    /** Raw `X-APPLE-CALENDAR-COLOR` value (Apple extension, typically `#RRGGBB` or `#RRGGBBAA`). */
+    /** Raw `X-INFOMANIAK-COLOR` value (always a hex color, typically `#RRGGBB` or `#RRGGBBAA`). */
     val colorHex: String? = null,
     /** Raw `COLOR` value (RFC 7986 §5.9, a case-insensitive CSS3 color name). */
     val colorIcalName: String? = null,
@@ -99,4 +99,3 @@ data class RemoteDavEventOverride(
     val isThisAndFuture: Boolean,
     val content: RemoteDavEventContent,
 )
-

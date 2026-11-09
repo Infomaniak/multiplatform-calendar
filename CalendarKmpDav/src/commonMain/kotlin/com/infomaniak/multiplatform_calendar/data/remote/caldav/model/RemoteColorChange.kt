@@ -18,14 +18,14 @@
 package com.infomaniak.multiplatform_calendar.data.remote.caldav.model
 
 /**
- * Requested change to a VEVENT's color (RFC 7986 `COLOR` and/or Apple's `X-APPLE-CALENDAR-COLOR`).
+ * Requested change to a VEVENT's color (`X-INFOMANIAK-COLOR` and/or RFC 7986 `COLOR`).
  * Mirrors the Rust `ColorChange` enum at the FFI boundary.
  */
 sealed interface RemoteColorChange {
     /** Leave both properties as they are (no color emitted on create). */
     data object Unchanged : RemoteColorChange
 
-    /** Write `X-APPLE-CALENDAR-COLOR:[hex]` and drop any pre-existing `COLOR:<name>`. */
+    /** Write `X-INFOMANIAK-COLOR:[hex]` (always hex) and drop any pre-existing `COLOR:<name>`. */
     data class Set(val hex: String) : RemoteColorChange
 
     data object Cleared : RemoteColorChange

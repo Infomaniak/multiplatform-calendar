@@ -363,6 +363,7 @@ pub struct EventEdit {
     pub description: Option<String>,
     pub transp: Option<String>,
     pub meet_room_url: Option<String>,
+    pub bookable_uuid: Option<String>,
     pub timezones: Vec<VTimeZoneSpec>,
     pub color_change: ColorChange,
     pub recurrence_change: RecurrenceChange,

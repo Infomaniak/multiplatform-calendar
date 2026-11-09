@@ -21,6 +21,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 
 /**
@@ -58,6 +59,8 @@ public val Event.calendarIdValue: String get() = calendarId.url
 public val Event.accountIdValue: Long get() = accountId.value
 
 public val EventSummary.occurrenceIdValue: String get() = occurrenceId.value
+
+public val Location.BookableRoom.uuidValue: String get() = uuid.value
 
 /** Identity of one alarm firing, to diff two consecutive lists of them. */
 public val UpcomingAlarm.idValue: String get() = id.value

@@ -27,6 +27,7 @@ fn edit(meet_room_url: Option<&str>) -> EventEdit {
         description: None,
         transp: None,
         meet_room_url: meet_room_url.map(Into::into),
+        bookable_uuid: None,
         timezones: vec![],
         color_change: ColorChange::Unchanged,
         recurrence_change: RecurrenceChange::Unchanged,

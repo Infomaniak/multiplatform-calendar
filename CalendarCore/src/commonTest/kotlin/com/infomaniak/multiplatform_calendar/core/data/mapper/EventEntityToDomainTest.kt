@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.mapper
 
+import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
@@ -27,6 +28,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -62,7 +64,7 @@ class EventEntityToDomainTest {
         val event = eventEntity(description = "Some notes", location = "Paris").toDomain(calendar)
 
         assertEquals("Some notes", event.description)
-        assertEquals("Paris", event.location)
+        assertEquals(Location.Place("Paris"), event.location)
     }
 
     @Test
@@ -88,17 +90,17 @@ class EventEntityToDomainTest {
     }
 
     @Test
-    fun bookableUuid_isExposedOnDomainEvent() {
-        val event = eventEntity(bookableUuid = "bookable-id").toDomain(calendar)
+    fun bookableUuid_takesPrecedenceOverTheLocationText() {
+        val event = eventEntity(location = "Paris", bookableUuid = "bookable-id").toDomain(calendar)
 
-        assertEquals("bookable-id", event.bookableUuid)
+        assertEquals(Location.BookableRoom(BookableResourceUuid("bookable-id"), resource = null), event.location)
     }
 
     @Test
-    fun blankBookableUuid_isNormalizedToNull() {
-        val event = eventEntity(bookableUuid = "   ").toDomain(calendar)
+    fun blankBookableUuid_fallsBackToTheLocationText() {
+        val event = eventEntity(location = "Paris", bookableUuid = "   ").toDomain(calendar)
 
-        assertNull(event.bookableUuid)
+        assertEquals(Location.Place("Paris"), event.location)
     }
 
     @Test

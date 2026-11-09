@@ -57,6 +57,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOv
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationReply
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -111,8 +112,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -137,6 +140,7 @@ internal class EventRepository(
     private val eventDao: EventDao,
     private val crashReport: CrashReport,
     private val contactsLookup: ContactsLookup,
+    private val bookableResourceLookup: BookableResourceLookup,
 ) {
 
     /**
@@ -279,7 +283,7 @@ internal class EventRepository(
         )
     }
 
-    /** This occurrence, with the contacts of its attendees and of its organizer. */
+    /** This occurrence, with the contacts of its attendees and of its organizer, and its bookable room resolved. */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeOccurrence(
         occurrenceId: OccurrenceId,
@@ -297,8 +301,19 @@ internal class EventRepository(
             }.flowOn(Dispatchers.Default)
         }
         return occurrence.flatMapLatest { event ->
-            event?.let { contactsLookup.observeContacts(it.contactEmails, it.accountId).map(it::withContacts) } ?: flowOf(null)
+            if (event == null) return@flatMapLatest flowOf(null)
+            combine(
+                contactsLookup.observeContacts(event.contactEmails, event.accountId),
+                observeResolvedLocation(event.location, event.accountId),
+            ) { contacts, location ->
+                event.withContacts(contacts).copy(location = location)
+            }
         }
+    }
+
+    private fun observeResolvedLocation(location: Location?, accountId: AccountId): Flow<Location?> = when (location) {
+        is Location.BookableRoom -> bookableResourceLookup.observeResource(accountId, location.uuid).map { location.copy(resource = it) }
+        is Location.Place, null -> flowOf(location)
     }
 
     fun observeEvent(eventId: EventId): Flow<Event?> {
@@ -600,6 +615,7 @@ internal class EventRepository(
                     previousColorArgb = tail.data.eventColor?.argb,
                     previousDescription = override.content.description,
                     previousMeetRoomUrl = override.content.meetRoomUrl,
+                    previousLocation = override.content.location,
                     previousAlarms = tailAlarms,
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
@@ -625,8 +641,18 @@ internal class EventRepository(
      * The timing is the slot the occurrence is *displayed* on, which is what [updateEvent] expects of an
      * edit prepared on an occurrence, carrying the master's rule so that a whole-series edit keeps the
      * recurrence it did not touch.
+     *
+     * A bookable room comes with its resource as stored locally.
      */
     suspend fun getEditData(occurrenceId: OccurrenceId): EventEditData? {
+        val data = getStoredEditData(occurrenceId) ?: return null
+        val room = data.location as? Location.BookableRoom ?: return data
+        val accountId = accountDao.getAccountIdByEventId(occurrenceId.masterId) ?: return data
+        val resource = bookableResourceLookup.observeResource(accountId, room.uuid).first()
+        return data.copy(location = room.copy(resource = resource))
+    }
+
+    private suspend fun getStoredEditData(occurrenceId: OccurrenceId): EventEditData? {
         val entity = eventDao.getEvent(occurrenceId.masterId) ?: return null
         val master = entity.toEditData()
         if (occurrenceId !is OccurrenceId.Recurrence) return master
@@ -700,6 +726,7 @@ internal class EventRepository(
                     previousColorArgb = override.content.colorArgb,
                     previousDescription = override.content.description,
                     previousMeetRoomUrl = override.content.meetRoomUrl,
+                    previousLocation = override.content.location,
                     previousAlarms = override.content.alarms,
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
@@ -744,6 +771,7 @@ internal class EventRepository(
                 previousColorArgb = shown.colorArgb,
                 previousDescription = shown.description,
                 previousMeetRoomUrl = shown.meetRoomUrl,
+                previousLocation = shown.location,
                 previousAlarms = shown.alarms,
                 previousAttendees = shown.attendees,
                 previousOrganizer = shown.organizer,
@@ -847,7 +875,7 @@ internal class EventRepository(
         val recurrenceId = existing?.toRemoteRecurrenceId(masterTiming)
             ?: occurrenceId.recurrenceKey.toRemoteRecurrenceId(masterTiming)
             ?: return null
-        val slot = getEditData(occurrenceId)?.timing?.toOccurrenceSlot() ?: return null
+        val slot = getStoredEditData(occurrenceId)?.timing?.toOccurrenceSlot() ?: return null
         return RemoteReplyScope.Occurrence(recurrenceId, slot)
     }
 
@@ -1070,6 +1098,7 @@ private fun SeriesTail.toRemoteEdit(
     previous = null,
     previousDescription = seed.description,
     previousMeetRoomUrl = seed.meetRoomUrl,
+    previousLocation = seed.location,
     exDates = DateListEdit.Set(master.exDates.movedTail(tail = this)),
     rDates = DateListEdit.Set(master.rDates.movedTail(tail = this)),
     previousAttendees = seed.attendees,

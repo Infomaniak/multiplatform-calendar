@@ -175,7 +175,7 @@ fn parse_content(
             Some(component) => parse_infomaniak_attachments(component),
             None => Vec::new(),
         },
-        color_hex: prop(ev, "X-APPLE-CALENDAR-COLOR"),
+        color_hex: prop(ev, "X-INFOMANIAK-COLOR"),
         color_ical_name: prop(ev, "COLOR"),
         attendees: parse_attendees(ev),
         organizer: parse_organizer(ev),
@@ -984,7 +984,7 @@ pub async fn sync_collection(
         .sync_collection(calendar_url, sync_token.as_deref(), None, false, None)
         .await
         .map_err(|error| map_fast_dav_error("SyncCollection", error))?;
-    
+
     let items = result
         .items
         .into_iter()

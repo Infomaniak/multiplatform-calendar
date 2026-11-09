@@ -167,7 +167,7 @@ class EventEditMapperTest {
         assertEquals("+0100", edit.timeZones.single().offset)
     }
 
-    // ---- Per-event color (RFC 7986 `COLOR` + Apple `X-APPLE-CALENDAR-COLOR`) --------------------
+    // ---- Per-event color (Infomaniak `X-INFOMANIAK-COLOR` + RFC 7986 `COLOR`) --------------------
 
     @Test
     fun createWithoutColor_emitsUnchanged() {
@@ -177,7 +177,7 @@ class EventEditMapperTest {
     }
 
     @Test
-    fun createWithColor_emitsSetWithAppleHex() {
+    fun createWithColor_emitsSetWithInfomaniakHex() {
         val edit = editData(eventColor = 0xFF1E88E5.toInt()).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertEquals(RemoteColorChange.Set(hex = "#1E88E5FF"), edit.colorChange)
@@ -202,7 +202,7 @@ class EventEditMapperTest {
     }
 
     @Test
-    fun editChangingColor_emitsSetWithNewAppleHex() {
+    fun editChangingColor_emitsSetWithNewInfomaniakHex() {
         val previous = eventEntity(colorArgb = 0xFF1E88E5.toInt(), colorIcalName = "royalblue")
 
         val edit = editData(eventColor = 0xFFE53935.toInt()).toRemoteEdit(previous = previous, stamp = STAMP)

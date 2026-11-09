@@ -41,7 +41,7 @@ class RemoteDavEventToEntityColorTest {
     }
 
     @Test
-    fun onlyAppleHex_isStoredAsArgb_andIcalNameStaysNull() = withNoOpCrashReport {
+    fun onlyInfomaniakHex_isStoredAsArgb_andIcalNameStaysNull() = withNoOpCrashReport {
         val entity = remoteEvent(colorHex = "#1E88E5FF", colorIcalName = null).toEntity(calendarId).content
 
         assertEquals(0xFF1E88E5.toInt(), entity.colorArgb)
@@ -58,7 +58,7 @@ class RemoteDavEventToEntityColorTest {
 
     @Test
     fun bothPropertiesPresent_hexWinsOverCssName() = withNoOpCrashReport {
-        // Apple Calendar writes both with disagreeing values; the hex is authoritative.
+        // When both are present with disagreeing values, the hex property is authoritative.
         val entity = remoteEvent(colorHex = "#E53935FF", colorIcalName = "royalblue").toEntity(calendarId).content
 
         assertEquals(0xFFE53935.toInt(), entity.colorArgb)

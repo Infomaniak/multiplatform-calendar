@@ -92,7 +92,7 @@ pub struct EventContentEntry {
     pub bookable_uuid: Option<String>,
     /// `X-INFOMANIAK-ATTACH` values with their relevant parameters.
     pub attachments: Vec<InfomaniakAttachEntry>,
-    /// Raw `X-INFOMANIAK-COLOR` value (always hex, typically `#RRGGBB` or `#RRGGBBAA`).
+    /// Raw `X-INFOMANIAK-COLOR` value (always hex, typically `#RRGGBB`).
     pub color_hex: Option<String>,
     /// Raw RFC 7986 §5.9 `COLOR` value (a case-insensitive CSS3 color name).
     pub color_ical_name: Option<String>,

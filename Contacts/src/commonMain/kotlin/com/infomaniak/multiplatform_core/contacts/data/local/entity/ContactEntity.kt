@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_core.contacts.data.local.entity
 
 import androidx.room3.Entity
 import androidx.room3.ForeignKey
+import androidx.room3.Index
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
@@ -37,6 +38,7 @@ import kotlin.native.HiddenFromObjC
             onDelete = ForeignKey.CASCADE,
         ),
     ],
+    indices = [Index("emailNormalized")],
 )
 public data class ContactEntity(
     public val accountId: AccountId,

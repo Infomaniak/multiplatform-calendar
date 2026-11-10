@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local
 
+import androidx.room3.AutoMigration
 import androidx.room3.ColumnTypeConverters
 import androidx.room3.ConstructedBy
 import androidx.room3.Database
@@ -73,8 +74,9 @@ internal fun DatabaseProvider.getCalendarDatabase(
         BookableResourceEntity::class,
         OrganisationEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)

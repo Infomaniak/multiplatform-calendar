@@ -192,11 +192,18 @@ class ContactsSearchTest : RobolectricTestsBase() {
             apiContacts = listOf(
                 ApiContact(name = "John", emails = listOf("john@x.com")),
                 ApiContact(name = "Promo 50%", emails = listOf("promo@x.com")),
+                ApiContact(name = "Snake_case", emails = listOf("snake@x.com")),
+                ApiContact(name = "Back\\slash", emails = listOf("back@x.com")),
+                ApiContact(name = "O'Brien", emails = listOf("obrien@x.com")),
             ),
         )
 
-        assertEquals(listOf("Promo 50%"), manager.search("%", setOf(ACCOUNT_ID)).map { it.name })
-        assertEquals(0, manager.search("_", setOf(ACCOUNT_ID)).size)
+        listOf(setOf(ACCOUNT_ID), emptySet()).forEach { accountIds ->
+            assertEquals(listOf("Promo 50%"), manager.search("%", accountIds).map { it.name })
+            assertEquals(listOf("Snake_case"), manager.search("_", accountIds).map { it.name })
+            assertEquals(listOf("Back\\slash"), manager.search("\\", accountIds).map { it.name })
+            assertEquals(listOf("O'Brien"), manager.search("'", accountIds).map { it.name })
+        }
     }
 
     @Test

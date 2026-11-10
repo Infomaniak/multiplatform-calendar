@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_core.network
 
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.http.URLProtocol
@@ -30,10 +31,14 @@ import kotlinx.serialization.json.JsonNamingStrategy
 
 /**
  * Creates an [HttpClient] for an Infomaniak API reached at `https://[host]/[basePath]`, exchanging snake_case JSON.
- * The engine is the platform one: OkHttp on Android, Darwin on Apple.
+ * By default, all clients share one platform [engine] (OkHttp on Android, Darwin on Apple), hence one connection pool.
  */
 @OptIn(ExperimentalSerializationApi::class)
-public fun createHttpClient(host: String, basePath: String): HttpClient = HttpClient {
+public fun createHttpClient(
+    host: String,
+    basePath: String,
+    engine: HttpClientEngine = sharedHttpEngine,
+): HttpClient = HttpClient(engine) {
     install(ContentNegotiation) {
         json(
             Json(DefaultJson) {

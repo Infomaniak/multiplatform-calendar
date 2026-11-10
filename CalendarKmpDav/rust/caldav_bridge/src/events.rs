@@ -886,12 +886,12 @@ fn apply_color_change(event: &mut icalendar::Event, change: &ColorChange) {
         ColorChange::Unchanged => {}
         ColorChange::Set { hex } => {
             event.remove_property("COLOR");
-            event.remove_property("X-APPLE-CALENDAR-COLOR");
-            event.add_property("X-APPLE-CALENDAR-COLOR", hex);
+            event.remove_property("X-INFOMANIAK-COLOR");
+            event.add_property("X-INFOMANIAK-COLOR", hex);
         }
         ColorChange::Cleared => {
             event.remove_property("COLOR");
-            event.remove_property("X-APPLE-CALENDAR-COLOR");
+            event.remove_property("X-INFOMANIAK-COLOR");
         }
     }
 }

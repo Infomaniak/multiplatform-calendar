@@ -255,6 +255,14 @@ server address book is searched.
 Request it where the suggestions are first needed, e.g. when the user starts typing an attendee. Nothing else is needed
 once it is granted: the next search reads the device contacts.
 
+### Database migrations
+
+Each Room database has a migration test in its module's `androidHostTest` (e.g. `CalendarDatabaseMigrationTest`). It
+creates the database at every version below the current one, then migrates it to the current version with
+`MigrationTestHelper.runMigrationsAndValidate`, which checks the result against the exported schema. The test reads the version constant the `@Database` declares (e.g.
+`CALENDAR_DATABASE_VERSION`), so bumping it is enough to cover the new version. The exported `schemas/` are added to the
+host test assets, so these tests run in CI.
+
 ## Prerequisites
 
 Before you begin, ensure you have met the following requirements:

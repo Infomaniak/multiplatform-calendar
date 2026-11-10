@@ -115,6 +115,16 @@ public class ContactsManager internal constructor(
         limit: Int = DEFAULT_SEARCH_LIMIT,
     ): List<Contact> = contactsCaller { repository.search(accountIds, query, limit) }
 
+    /** Offline. Prefers the exact [email], then [name] exactly then without case or accents, then the [search] ranking. */
+    @OptIn(ExperimentalObjCRefinement::class)
+    @HiddenFromObjC
+    @Throws(ContactsException::class, CancellationException::class)
+    public suspend fun findContact(
+        email: String,
+        name: String? = null,
+        accountIds: Set<AccountId> = emptySet(),
+    ): Contact? = contactsCaller { repository.findContact(accountIds, email, name) }
+
     /**
      * The local contact of each of these [emails] that has one, updated on every sync or device contacts change.
      * Accounts are merged as in [search], [preferredAccountId] first; among contacts sharing an email, the best ranked

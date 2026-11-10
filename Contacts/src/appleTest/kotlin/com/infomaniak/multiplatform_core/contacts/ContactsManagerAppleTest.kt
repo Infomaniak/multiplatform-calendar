@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.Contac
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class ContactsManagerAppleTest {
 
@@ -44,5 +45,13 @@ class ContactsManagerAppleTest {
 
         assertEquals(listOf("John"), manager.search("john", accountIds = setOf(ACCOUNT_ID.value)).map { it.name })
         assertEquals(emptyList(), manager.search("john", accountIds = setOf(ACCOUNT_ID.value + 1)))
+    }
+
+    @Test
+    fun findContactTakesRawAccountIds() = runTest {
+        val manager = testManager(apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))))
+
+        assertEquals("John", manager.findContact("john@x.com", accountIds = setOf(ACCOUNT_ID.value))?.name)
+        assertNull(manager.findContact("john@x.com", accountIds = setOf(ACCOUNT_ID.value + 1)))
     }
 }

@@ -34,6 +34,7 @@ import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.Contac
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
 import com.infomaniak.multiplatform_core.contacts.utils.ContactsCaller
 import com.infomaniak.multiplatform_core.contacts.utils.MatchTier
+import com.infomaniak.multiplatform_core.contacts.utils.NameMatch
 import com.infomaniak.multiplatform_core.contacts.utils.contactNameComparator
 import com.infomaniak.multiplatform_core.contacts.utils.normalizedForSearch
 import kotlinx.coroutines.CoroutineScope
@@ -76,7 +77,8 @@ internal class ContactsRepository(
         if (normalizedQuery.isEmpty()) return emptyList()
 
         val likeQuery = "%${normalizedQuery.escapeLikeWildcards()}%"
-        val apiMatches = dao.search(accountIds.ifEmpty { dao.accountIds().toSet() }, likeQuery)
+        val apiEntities = if (accountIds.isEmpty()) dao.search(likeQuery) else dao.search(accountIds, likeQuery)
+        val apiMatches = apiEntities
             .map(ContactEntity::toContactMatch)
             .mergedAcrossAccounts()
 
@@ -92,6 +94,30 @@ internal class ContactsRepository(
             .sortedWith(contactMatchComparator(tiers::getValue))
             .take(limit)
             .map(ContactMatch::toContact)
+    }
+
+    suspend fun findContact(accountIds: Set<AccountId>, email: String, name: String?): Contact? {
+        if (email.isBlank()) return null
+
+        val normalizedEmail = email.normalizedForSearch()
+        val apiEntities = if (accountIds.isEmpty()) dao.getByEmail(normalizedEmail) else dao.getByEmail(accountIds, normalizedEmail)
+        val apiMatches = apiEntities
+            .map(ContactEntity::toContactMatch)
+            .mergedAcrossAccounts()
+
+        val deviceMatches = cachedDeviceContacts()
+            .filter { it.email.normalizedForSearch() == normalizedEmail }
+            .map(DeviceContact::toContactMatch)
+
+        val lowercaseEmail = email.lowercase()
+        val normalizedName = name?.normalizedForSearch()
+        return merge(deviceMatches, apiMatches)
+            .minWithOrNull(
+                compareBy<ContactMatch> { it.email.lowercase() != lowercaseEmail }
+                    .thenBy { NameMatch.of(name, normalizedName, it.name) }
+                    .then(contactMatchComparator { MatchTier.None }),
+            )
+            ?.toContact()
     }
 
     fun observeContacts(emails: Set<String>, preferredAccountId: AccountId?): Flow<Map<String, Contact>> {

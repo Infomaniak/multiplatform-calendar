@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local
 
+import androidx.room3.AutoMigration
 import androidx.room3.ColumnTypeConverters
 import androidx.room3.ConstructedBy
 import androidx.room3.Database
@@ -46,6 +47,8 @@ import com.infomaniak.multiplatform_core.organisations.data.local.entity.Organis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
+internal const val CALENDAR_DATABASE_VERSION = 2
+
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
 }
@@ -73,8 +76,9 @@ internal fun DatabaseProvider.getCalendarDatabase(
         BookableResourceEntity::class,
         OrganisationEntity::class,
     ],
-    version = 1,
+    version = CALENDAR_DATABASE_VERSION,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)

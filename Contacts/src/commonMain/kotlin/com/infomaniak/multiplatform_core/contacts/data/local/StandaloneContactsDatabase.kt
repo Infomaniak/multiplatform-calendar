@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_core.contacts.data.local
 
+import androidx.room3.AutoMigration
 import androidx.room3.ConstructedBy
 import androidx.room3.Database
 import androidx.room3.RoomDatabase
@@ -24,10 +25,13 @@ import androidx.room3.RoomDatabaseConstructor
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
 
+internal const val STANDALONE_CONTACTS_DATABASE_VERSION = 2
+
 @Database(
     entities = [ContactAccountEntity::class, ContactEntity::class],
-    version = 1,
+    version = STANDALONE_CONTACTS_DATABASE_VERSION,
     exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 @ConstructedBy(StandaloneContactsDatabaseConstructor::class)
 internal abstract class StandaloneContactsDatabase : RoomDatabase(), ContactsDatabase

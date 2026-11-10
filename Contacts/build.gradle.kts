@@ -37,10 +37,9 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_21)
         }
 
-        // Host tests run the common tests on the JVM. Android resources (res/, AndroidManifest)
-        // are left out to avoid unnecessary test setup overhead; enable only if a test needs them.
+        // Migration tests read the exported Room schemas as host test assets.
         withHostTest {
-            isIncludeAndroidResources = false
+            isIncludeAndroidResources = true
         }
     }
 
@@ -78,6 +77,7 @@ kotlin {
             implementation(kmpCalendar.android.test)
             implementation(kmpCalendar.robolectric)
             implementation(kmpCalendar.androidx.sqlite.bundled.jvm)
+            implementation(kmpCalendar.androidx.room.testing)
         }
 
         listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->
@@ -98,6 +98,12 @@ kotlin {
     }
 
     explicitApi()
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.hostTests.values.forEach { it.sources.assets?.addStaticSourceDirectory("$projectDir/schemas") }
+    }
 }
 
 room3 {

@@ -25,9 +25,11 @@ import androidx.room3.RoomDatabaseConstructor
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
 
+internal const val STANDALONE_CONTACTS_DATABASE_VERSION = 2
+
 @Database(
     entities = [ContactAccountEntity::class, ContactEntity::class],
-    version = 2,
+    version = STANDALONE_CONTACTS_DATABASE_VERSION,
     exportSchema = true,
     autoMigrations = [AutoMigration(from = 1, to = 2)],
 )

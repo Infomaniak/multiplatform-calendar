@@ -46,10 +46,9 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_21)
         }
 
-        // Robolectric tests run on the host. Android resources (res/, AndroidManifest) are left
-        // out to avoid unnecessary test setup overhead; enable only if a test needs them.
+        // Migration tests read the exported Room schemas as host test assets.
         withHostTest {
-            isIncludeAndroidResources = false
+            isIncludeAndroidResources = true
         }
     }
 
@@ -93,6 +92,7 @@ kotlin {
         getByName("androidHostTest").dependencies {
             implementation(kmpCalendar.android.test)
             implementation(kmpCalendar.robolectric)
+            implementation(kmpCalendar.androidx.room.testing)
         }
 
         listOf("iosArm64", "iosSimulatorArm64", "macosArm64").forEach { target ->
@@ -114,6 +114,12 @@ kotlin {
 // the final framework aggregate resources coming from the CalendarResources project dependency.
 compose.resources {
     generateResClass = always
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.hostTests.values.forEach { it.sources.assets?.addStaticSourceDirectory("$projectDir/schemas") }
+    }
 }
 
 room3 {

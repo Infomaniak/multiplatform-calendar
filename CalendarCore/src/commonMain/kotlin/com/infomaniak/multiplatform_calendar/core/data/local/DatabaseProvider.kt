@@ -47,6 +47,8 @@ import com.infomaniak.multiplatform_core.organisations.data.local.entity.Organis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
+internal const val CALENDAR_DATABASE_VERSION = 2
+
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
 }
@@ -74,7 +76,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
         BookableResourceEntity::class,
         OrganisationEntity::class,
     ],
-    version = 2,
+    version = CALENDAR_DATABASE_VERSION,
     exportSchema = true,
     autoMigrations = [AutoMigration(from = 1, to = 2)],
 )

@@ -248,6 +248,16 @@ public class CalendarManager internal constructor(
         }
     }
 
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun updateCalendarVisibility(
+        calendarId: CalendarId,
+        visible: Boolean,
+    ): Unit = withContext(Dispatchers.Default) {
+        sdkCaller(operation = "update calendar $calendarId visibility to $visible") {
+            calendarRepository.updateCalendarVisibility(calendarId, visible)
+        }
+    }
+
     /** Make [calendarId] the only visible calendar, across all accounts, in a single local update. */
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun showOnlyCalendar(calendarId: CalendarId): Unit = withContext(Dispatchers.Default) {

@@ -171,6 +171,10 @@ internal class CalendarRepository(
         }
     }
 
+    suspend fun updateCalendarVisibility(calendarId: CalendarId, isVisible: Boolean) {
+        calendarDao.updateVisibility(calendarId, isVisible)
+    }
+
     suspend fun showOnlyCalendar(calendarId: CalendarId) = calendarDao.showOnly(calendarId)
 
     private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {

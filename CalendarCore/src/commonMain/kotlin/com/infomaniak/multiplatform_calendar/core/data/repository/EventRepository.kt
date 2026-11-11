@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
@@ -33,12 +34,12 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithO
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainWithAlarms
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntities
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOccurrenceSlot
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
+import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository.Companion.EVENTS_FLOW_DEBOUNCE
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyDotColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
@@ -54,10 +55,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryWithAlarmsExpansionAccess
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationReply
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -137,6 +138,7 @@ import kotlin.time.Instant
 internal class EventRepository(
     private val accountDao: AccountDao,
     private val caldavClient: CalendarSyncRemoteSource,
+    private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
     private val crashReport: CrashReport,
     private val contactsLookup: ContactsLookup,
@@ -312,7 +314,9 @@ internal class EventRepository(
     }
 
     private fun observeResolvedLocation(location: Location?, accountId: AccountId): Flow<Location?> = when (location) {
-        is Location.BookableRoom -> bookableResourceLookup.observeResource(accountId, location.uuid).map { location.copy(resource = it) }
+        is Location.BookableRoom -> {
+            bookableResourceLookup.observeResource(accountId, location.uuid).map { location.copy(resource = it) }
+        }
         is Location.Place, null -> flowOf(location)
     }
 
@@ -329,6 +333,8 @@ internal class EventRepository(
         val built = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
         persistWrite(credentials, data.calendarId, written = built, ref = ref)
+        // Update the calendar visibility if the event is created in a hidden calendar.
+        calendarDao.ensureCalendarVisible(data.calendarId)
     }
 
     suspend fun updateEvent(
@@ -476,9 +482,20 @@ internal class EventRepository(
         target: OccurrenceTarget,
         data: EventEditData,
     ) {
-        if (target !is OccurrenceTarget.Recurring) {
-            return updateEvent(sourceCredentials, destinationCredentials, target.occurrenceId.masterId, data)
+        when (target) {
+            is OccurrenceTarget.Recurring -> updateRecurringEvent(target, sourceCredentials, destinationCredentials, data)
+            else -> updateEvent(sourceCredentials, destinationCredentials, target.occurrenceId.masterId, data)
         }
+
+        calendarDao.ensureCalendarVisible(data.calendarId)
+    }
+
+    private suspend fun updateRecurringEvent(
+        target: OccurrenceTarget.Recurring,
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
+        data: EventEditData,
+    ) {
         val occurrenceId = target.recurrenceId
         when (target.scope) {
             RecurrenceScope.AllOccurrences -> updateSeriesFrom(sourceCredentials, destinationCredentials, occurrenceId, data)
@@ -997,7 +1014,11 @@ internal class EventRepository(
  * pendant of the shift the query applies, overrides included, since their alarms are their own. Only
  * relative triggers widen it — an absolute one rings off [ringingRows], unexpanded.
  */
-private fun EventWithOverrides<EventSummaryWithAlarms>.alarmWindow(from: Instant, until: Instant, zone: TimeZone): OpenEndRange<Instant> {
+private fun EventWithOverrides<EventSummaryWithAlarms>.alarmWindow(
+    from: Instant,
+    until: Instant,
+    zone: TimeZone,
+): OpenEndRange<Instant> {
     var minOffset = Duration.ZERO
     var maxOffset = Duration.ZERO
 

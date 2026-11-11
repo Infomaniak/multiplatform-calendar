@@ -248,6 +248,16 @@ public class CalendarManager internal constructor(
         }
     }
 
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun updateCalendarVisibility(
+        calendarId: CalendarId,
+        visible: Boolean,
+    ): Unit = withContext(Dispatchers.Default) {
+        sdkCaller(operation = "update calendar $calendarId visibility to $visible") {
+            calendarRepository.updateCalendarVisibility(calendarId, visible)
+        }
+    }
+
     /** Make [calendarId] the only visible calendar, across all accounts, in a single local update. */
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun showOnlyCalendar(calendarId: CalendarId): Unit = withContext(Dispatchers.Default) {
@@ -340,7 +350,9 @@ public class CalendarManager internal constructor(
     }
 
     private fun observeOrganisationsByAccount(accountIds: Set<AccountId>): Flow<Map<AccountId, List<Organisation>>> = combine(
-        accountIds.map { accountId -> calendarOrganisationsManager.organisationsManager.observeOrganisations(accountId).map { accountId to it } },
+        accountIds.map { accountId ->
+            calendarOrganisationsManager.organisationsManager.observeOrganisations(accountId).map { accountId to it }
+        },
     ) { organisationsOfAccounts -> organisationsOfAccounts.toMap() }
 
     /** Failures are only reported, so they never fail the calendars sync. */

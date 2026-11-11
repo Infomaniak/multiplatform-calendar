@@ -334,8 +334,7 @@ internal class EventRepository(
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
         persistWrite(credentials, data.calendarId, written = built, ref = ref)
         // Update the calendar visibility if the event is created in a hidden calendar.
-        val calendar = calendarDao.observeCalendar(data.calendarId).first()
-        if (calendar?.isVisible == false) calendarDao.updateVisibility(data.calendarId, true)
+        calendarDao.ensureCalendarVisible(data.calendarId)
     }
 
     suspend fun updateEvent(

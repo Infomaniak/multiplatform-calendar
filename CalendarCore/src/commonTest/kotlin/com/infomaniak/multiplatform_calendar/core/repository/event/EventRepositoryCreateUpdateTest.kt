@@ -26,6 +26,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
@@ -33,6 +35,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Alarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmTrigger
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
@@ -256,6 +259,20 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         assertTrue(created.isSynced)
     }
 
+    @Test
+    fun createEvent_whenCalendarIsHidden_marksCalendarVisible() = runTest {
+        seedCalendar()
+        database.calendarDao().updateVisibility(CALENDAR_ID, false)
+        fakeCaldav.createdRef = RemoteDavEventRef(url = "https://cal/main/new.ics", etag = "etag-1")
+
+        repository.createEvent(
+            credentials = CREDENTIALS,
+            data = editData(title = "Fresh"),
+        )
+
+        assertEquals(true, database.calendarDao().findById(CALENDAR_ID)!!.isVisible)
+    }
+
     /**
      * End-to-end wiring on the create path: the edited RRULE and alarm flow through `toRemoteEdit` into the
      * bridge (emulated here), then the reparsed event is persisted. We read the row back from the DB and assert
@@ -326,6 +343,43 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         )
 
         assertNull(eventDao().getEvent(eventId)!!.rrule, "cleared recurrence must not survive in the DB")
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_whenCalendarIsHidden_marksCalendarVisible() = runTest {
+        seedCalendar()
+        database.calendarDao().updateVisibility(CALENDAR_ID, false)
+        val eventId = EventId("https://cal/main/event.ics")
+        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"), "BEGIN:VEVENT")))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(
+                occurrenceOf(eventId, LocalDateTime(2026, 6, 15, 10, 0)),
+                RecurrenceScope.AllOccurrences,
+            ),
+            data = editData(title = "Renamed"),
+        )
+
+        assertEquals(true, database.calendarDao().findById(CALENDAR_ID)!!.isVisible)
+    }
+
+    @Test
+    fun updateEvent_singleTarget_whenCalendarIsHidden_marksCalendarVisible() = runTest {
+        seedCalendar()
+        database.calendarDao().updateVisibility(CALENDAR_ID, false)
+        val eventId = EventId("https://cal/main/event.ics")
+        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"), "BEGIN:VEVENT")))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Single(OccurrenceId.Master(eventId)),
+            data = editData(title = "Renamed"),
+        )
+
+        assertEquals(true, database.calendarDao().findById(CALENDAR_ID)!!.isVisible)
     }
 
     private fun richEvent(id: EventId, calendarId: CalendarId, etag: String): EventEntity = EventEntity(

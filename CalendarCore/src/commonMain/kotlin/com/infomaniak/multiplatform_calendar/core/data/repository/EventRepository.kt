@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.data.repository
 
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
@@ -33,12 +34,12 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainEventWithO
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomainWithAlarms
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEditData
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntities
-import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOccurrenceSlot
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toOverrideEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteRecurrenceId
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toSyncedUpsert
+import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository.Companion.EVENTS_FLOW_DEBOUNCE
 import com.infomaniak.multiplatform_calendar.core.data.repository.utils.foldToDailyDotColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
@@ -54,10 +55,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummaryWithAlarmsExpansionAccess
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationReply
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.SeriesSplit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -137,6 +138,7 @@ import kotlin.time.Instant
 internal class EventRepository(
     private val accountDao: AccountDao,
     private val caldavClient: CalendarSyncRemoteSource,
+    private val calendarDao: CalendarDao,
     private val eventDao: EventDao,
     private val crashReport: CrashReport,
     private val contactsLookup: ContactsLookup,
@@ -331,6 +333,9 @@ internal class EventRepository(
         val built = caldavClient.buildEventIcs(data.toRemoteEdit(stamp = now, previous = null))
         val ref = caldavClient.createEvent(credentials, data.calendarId.url, built.icsData)
         persistWrite(credentials, data.calendarId, written = built, ref = ref)
+        // Update the calendar visibility if the event is created in a hidden calendar.
+        val calendar = calendarDao.observeCalendar(data.calendarId).first()
+        if (calendar?.isVisible == false) calendarDao.updateVisibility(data.calendarId, true)
     }
 
     suspend fun updateEvent(
@@ -486,6 +491,10 @@ internal class EventRepository(
             RecurrenceScope.AllOccurrences -> updateSeriesFrom(sourceCredentials, destinationCredentials, occurrenceId, data)
             RecurrenceScope.ThisOccurrence -> overrideOccurrence(sourceCredentials, occurrenceId, data)
             RecurrenceScope.ThisAndFollowing -> splitSeriesAt(sourceCredentials, destinationCredentials, occurrenceId, data)
+        }
+
+        calendarDao.observeCalendar(data.calendarId).first()?.let { calendar ->
+            if (!calendar.isVisible) calendarDao.updateVisibility(data.calendarId, true)
         }
     }
 

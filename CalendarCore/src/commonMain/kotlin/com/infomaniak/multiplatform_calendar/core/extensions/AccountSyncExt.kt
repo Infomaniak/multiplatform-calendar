@@ -34,12 +34,14 @@ internal suspend fun AccountRepository.syncAccountsWithRestartingCollection(
     if (initialAccountIds.isEmpty()) return
 
     var currentAccountId: AccountId? = null
+    var currentRunAccountIds: Set<AccountId>? = null
     currentAccountIdsFlow.collectRestartingUntilComplete(
         initialValue = initialAccountIds,
         shouldRestart = { newAccountIds ->
-            shouldRestartCurrentSync(currentAccountId, newAccountIds)
+            shouldRestartCurrentSync(currentAccountId, currentRunAccountIds, newAccountIds)
         },
         action = { accountIds ->
+            currentRunAccountIds = accountIds
             try {
                 accountIds.forEach { accountId ->
                     currentAccountId = accountId
@@ -47,6 +49,7 @@ internal suspend fun AccountRepository.syncAccountsWithRestartingCollection(
                 }
             } finally {
                 currentAccountId = null
+                currentRunAccountIds = null
             }
         },
     )
@@ -56,8 +59,15 @@ private fun AccountRepository.currentAccountIdsSnapshot(): Set<AccountId> {
     return currentAccountIdsFlow.replayCache.lastOrNull().orEmpty()
 }
 
-private fun shouldRestartCurrentSync(currentAccountId: AccountId?, newAccountIds: Set<AccountId>): Boolean {
-    return newAccountIds.isEmpty() || (currentAccountId != null && currentAccountId !in newAccountIds)
+private fun shouldRestartCurrentSync(
+    currentAccountId: AccountId?,
+    currentRunAccountIds: Set<AccountId>?,
+    newAccountIds: Set<AccountId>,
+): Boolean {
+    if (newAccountIds.isEmpty()) return true
+    if (currentAccountId != null && currentAccountId !in newAccountIds) return true
+    val plannedIds = currentRunAccountIds ?: return false
+    return newAccountIds.any { it !in plannedIds }
 }
 
 private suspend fun AccountRepository.syncAccountIfConnected(
@@ -76,4 +86,3 @@ private suspend fun AccountRepository.getCredentialsOrNull(accountId: AccountId)
         null
     }
 }
-

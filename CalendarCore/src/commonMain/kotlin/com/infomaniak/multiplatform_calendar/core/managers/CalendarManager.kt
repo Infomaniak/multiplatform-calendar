@@ -65,6 +65,8 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -87,6 +89,8 @@ public class CalendarManager internal constructor(
     private val nonEmptyAccountIdsFlow by lazy {
         accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
     }
+    @OptIn(ExperimentalAtomicApi::class)
+    private val isSyncEventLaunched = AtomicBoolean(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<CalendarSection>> {
@@ -209,14 +213,22 @@ public class CalendarManager internal constructor(
         }
     }
 
+    @OptIn(ExperimentalAtomicApi::class)
     @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun syncEvents(): Unit = withContext(Dispatchers.Default) {
-        launch { syncOrganisations() }
-        launch { syncBookableResources() }
-        sdkCaller(operation = "sync events for all accounts") {
-            accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
-                calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
+    public suspend fun syncEvents(): Unit {
+        if (!isSyncEventLaunched.compareAndSet(expectedValue = false, newValue = true)) return
+        try {
+            withContext(Dispatchers.Default) {
+                launch { syncOrganisations() }
+                launch { syncBookableResources() }
+                sdkCaller(operation = "sync events for all accounts") {
+                    accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
+                        calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
+                    }
+                }
             }
+        } finally {
+            isSyncEventLaunched.store(false)
         }
     }
 

@@ -483,18 +483,27 @@ internal class EventRepository(
         target: OccurrenceTarget,
         data: EventEditData,
     ) {
-        if (target !is OccurrenceTarget.Recurring) {
-            return updateEvent(sourceCredentials, destinationCredentials, target.occurrenceId.masterId, data)
+        when (target) {
+            is OccurrenceTarget.Recurring -> updateRecurringEvent(target, sourceCredentials, destinationCredentials, data)
+            else -> updateEvent(sourceCredentials, destinationCredentials, target.occurrenceId.masterId, data)
         }
+
+        calendarDao.observeCalendar(data.calendarId).first()?.let { calendar ->
+            if (!calendar.isVisible) calendarDao.updateVisibility(data.calendarId, true)
+        }
+    }
+
+    private suspend fun updateRecurringEvent(
+        target: OccurrenceTarget.Recurring,
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
+        data: EventEditData,
+    ) {
         val occurrenceId = target.recurrenceId
         when (target.scope) {
             RecurrenceScope.AllOccurrences -> updateSeriesFrom(sourceCredentials, destinationCredentials, occurrenceId, data)
             RecurrenceScope.ThisOccurrence -> overrideOccurrence(sourceCredentials, occurrenceId, data)
             RecurrenceScope.ThisAndFollowing -> splitSeriesAt(sourceCredentials, destinationCredentials, occurrenceId, data)
-        }
-
-        calendarDao.observeCalendar(data.calendarId).first()?.let { calendar ->
-            if (!calendar.isVisible) calendarDao.updateVisibility(data.calendarId, true)
         }
     }
 

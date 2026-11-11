@@ -312,7 +312,9 @@ internal class EventRepository(
     }
 
     private fun observeResolvedLocation(location: Location?, accountId: AccountId): Flow<Location?> = when (location) {
-        is Location.BookableRoom -> bookableResourceLookup.observeResource(accountId, location.uuid).map { location.copy(resource = it) }
+        is Location.BookableRoom -> {
+            bookableResourceLookup.observeResource(accountId, location.uuid).map { location.copy(resource = it) }
+        }
         is Location.Place, null -> flowOf(location)
     }
 

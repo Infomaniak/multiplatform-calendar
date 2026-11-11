@@ -350,7 +350,9 @@ public class CalendarManager internal constructor(
     }
 
     private fun observeOrganisationsByAccount(accountIds: Set<AccountId>): Flow<Map<AccountId, List<Organisation>>> = combine(
-        accountIds.map { accountId -> calendarOrganisationsManager.organisationsManager.observeOrganisations(accountId).map { accountId to it } },
+        accountIds.map { accountId ->
+            calendarOrganisationsManager.organisationsManager.observeOrganisations(accountId).map { accountId to it }
+        },
     ) { organisationsOfAccounts -> organisationsOfAccounts.toMap() }
 
     /** Failures are only reported, so they never fail the calendars sync. */

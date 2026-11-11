@@ -52,6 +52,9 @@ internal interface CalendarDao {
     @Update
     suspend fun update(calendar: CalendarEntity)
 
+    @Query("UPDATE calendars SET isVisible = :isVisible WHERE id = :calendarId")
+    suspend fun updateVisibility(calendarId: CalendarId, isVisible: Boolean)
+
     @Query(
         """
         UPDATE calendars SET isVisible = (id = :calendarId)

@@ -487,9 +487,7 @@ internal class EventRepository(
             else -> updateEvent(sourceCredentials, destinationCredentials, target.occurrenceId.masterId, data)
         }
 
-        calendarDao.observeCalendar(data.calendarId).first()?.let { calendar ->
-            if (!calendar.isVisible) calendarDao.updateVisibility(data.calendarId, true)
-        }
+        calendarDao.ensureCalendarVisible(data.calendarId)
     }
 
     private suspend fun updateRecurringEvent(

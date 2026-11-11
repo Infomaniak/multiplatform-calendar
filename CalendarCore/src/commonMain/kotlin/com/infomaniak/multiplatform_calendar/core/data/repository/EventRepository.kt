@@ -1008,7 +1008,11 @@ internal class EventRepository(
  * pendant of the shift the query applies, overrides included, since their alarms are their own. Only
  * relative triggers widen it — an absolute one rings off [ringingRows], unexpanded.
  */
-private fun EventWithOverrides<EventSummaryWithAlarms>.alarmWindow(from: Instant, until: Instant, zone: TimeZone): OpenEndRange<Instant> {
+private fun EventWithOverrides<EventSummaryWithAlarms>.alarmWindow(
+    from: Instant,
+    until: Instant,
+    zone: TimeZone,
+): OpenEndRange<Instant> {
     var minOffset = Duration.ZERO
     var maxOffset = Duration.ZERO
 

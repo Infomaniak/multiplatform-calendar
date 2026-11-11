@@ -210,6 +210,36 @@ class CalendarDaoTest : RobolectricTestsBase() {
         assertEquals(emptyList(), calendarDao.getByAccountId(accountId))
     }
 
+    @Test
+    fun updateVisibility_updatesOnlyRequestedCalendar() = runTest {
+        val accountId = AccountId(1)
+        val otherAccountId = AccountId(2)
+        accountDao.insert(AccountEntity(id = accountId))
+        accountDao.insert(AccountEntity(id = otherAccountId))
+        val mine = calendar(id = "calendar://mine", accountId = accountId, isVisible = true)
+        val otherSameAccount = calendar(id = "calendar://same-account", accountId = accountId, isVisible = true)
+        val otherAccountCalendar = calendar(id = "calendar://other-account", accountId = otherAccountId, isVisible = true)
+        calendarDao.upsert(listOf(mine, otherSameAccount, otherAccountCalendar))
+
+        calendarDao.updateVisibility(mine.id, isVisible = false)
+
+        assertEquals(false, calendarDao.findById(mine.id)!!.isVisible)
+        assertEquals(true, calendarDao.findById(otherSameAccount.id)!!.isVisible)
+        assertEquals(true, calendarDao.findById(otherAccountCalendar.id)!!.isVisible)
+    }
+
+    @Test
+    fun updateVisibility_isNoOpForUnknownCalendarId() = runTest {
+        val accountId = AccountId(1)
+        accountDao.insert(AccountEntity(id = accountId))
+        val existing = calendar(id = "calendar://existing", accountId = accountId, isVisible = true)
+        calendarDao.upsert(listOf(existing))
+
+        calendarDao.updateVisibility(CalendarId("calendar://unknown"), isVisible = false)
+
+        assertEquals(existing, calendarDao.findById(existing.id))
+    }
+
     private fun calendar(
         id: String,
         accountId: AccountId,

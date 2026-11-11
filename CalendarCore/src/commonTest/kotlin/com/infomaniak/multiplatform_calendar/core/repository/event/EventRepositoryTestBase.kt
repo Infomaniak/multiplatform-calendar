@@ -17,9 +17,9 @@
  */
 package com.infomaniak.multiplatform_calendar.core.repository.event
 
-import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
+import com.infomaniak.multiplatform_calendar.core.RobolectricTestsBase
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEntity
@@ -55,7 +55,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
-import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
@@ -90,6 +89,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         repository = EventRepository(
             accountDao = database.accountDao(),
             caldavClient = fakeCaldav,
+            calendarDao = database.calendarDao(),
             eventDao = database.eventDao(),
             crashReport = crashReport,
             contactsLookup = contactsLookup,

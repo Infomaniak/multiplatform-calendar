@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAlar
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteCalendarEdit
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteClassificationChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
@@ -64,6 +65,7 @@ import uniffi.caldav_bridge.AttendeeEntry
 import uniffi.caldav_bridge.AttendeesChange
 import uniffi.caldav_bridge.CaldavException
 import uniffi.caldav_bridge.CalendarEdit
+import uniffi.caldav_bridge.ClassificationChange
 import uniffi.caldav_bridge.ColorChange
 import uniffi.caldav_bridge.DateListChange
 import uniffi.caldav_bridge.DateListLine
@@ -327,6 +329,7 @@ private fun RemoteEventEdit.toRust() = EventEdit(
     bookableUuid = bookableUuid,
     timezones = timeZones.map { it.toRust() },
     colorChange = colorChange.toRust(),
+    classificationChange = classificationChange.toRust(),
     recurrenceChange = recurrenceChange.toRust(),
     exDateChange = exDateChange.toRust(),
     rDateChange = rDateChange.toRust(),
@@ -379,6 +382,12 @@ private fun RemoteColorChange.toRust(): ColorChange = when (this) {
     RemoteColorChange.Unchanged -> ColorChange.Unchanged
     is RemoteColorChange.Set -> ColorChange.Set(hex)
     RemoteColorChange.Cleared -> ColorChange.Cleared
+}
+
+private fun RemoteClassificationChange.toRust(): ClassificationChange = when (this) {
+    RemoteClassificationChange.Unchanged -> ClassificationChange.Unchanged
+    is RemoteClassificationChange.Set -> ClassificationChange.Set(value)
+    RemoteClassificationChange.Cleared -> ClassificationChange.Cleared
 }
 
 private fun RemoteRecurrenceChange.toRust(): RecurrenceChange = when (this) {

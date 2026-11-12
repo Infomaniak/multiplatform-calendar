@@ -38,6 +38,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Upcom
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
@@ -45,12 +46,16 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import com.infomaniak.multiplatform_core.crashreport.CrashReport
+import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
@@ -65,13 +70,12 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
-import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -79,6 +83,7 @@ import kotlin.time.Instant
 public class CalendarManager internal constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
+    private val crashReport: CrashReport,
     private val eventRepository: EventRepository,
     private val meetManager: MeetManager,
     private val calendarBookableResourcesManager: CalendarBookableResourcesManager,
@@ -90,7 +95,7 @@ public class CalendarManager internal constructor(
         accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
     }
     @OptIn(ExperimentalAtomicApi::class)
-    private val isSyncEventLaunched = AtomicBoolean(false)
+    private val syncEventsState = AtomicInt(SYNC_IDLE)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<CalendarSection>> {
@@ -213,27 +218,34 @@ public class CalendarManager internal constructor(
         }
     }
 
+    /**
+     * Runs a single sync at a time.
+     *
+     * Concurrent requests are coalesced into one pending pass.
+     * Calls made during an active sync return immediately.
+     */
     @OptIn(ExperimentalAtomicApi::class)
     @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun syncEvents(): Unit {
-        if (!isSyncEventLaunched.compareAndSet(expectedValue = false, newValue = true)) return
+    public suspend fun syncEvents() {
+        if (!tryStartSyncEvents()) return
+        var ownershipReleased = false
+
         try {
-            withContext(Dispatchers.Default) {
-                launch { syncOrganisations() }
-                launch { syncBookableResources() }
-                sdkCaller(operation = "sync events for all accounts") {
-                    accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
-                        calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
-                    }
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                runSyncEventsPass()
+
+                if (!shouldRunNextSyncEventsPass()) {
+                    ownershipReleased = true
+                    return
                 }
             }
         } finally {
-            isSyncEventLaunched.store(false)
+            if (!ownershipReleased) syncEventsState.store(SYNC_IDLE)
         }
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)
-    @OptIn(ExperimentalTime::class, ExperimentalCoroutinesApi::class)
     public suspend fun downloadEventsByRange(
         start: Instant,
         end: Instant,
@@ -361,6 +373,59 @@ public class CalendarManager internal constructor(
         }
     }
 
+    /**
+     * Acquires the sync ownership or queues one additional pass.
+     */
+    @OptIn(ExperimentalAtomicApi::class)
+    private fun tryStartSyncEvents(): Boolean {
+        while (true) {
+            when (syncEventsState.load()) {
+                SYNC_IDLE -> {
+                    if (syncEventsState.compareAndSet(SYNC_IDLE, SYNC_RUNNING)) return true
+                }
+                SYNC_RUNNING -> {
+                    if (syncEventsState.compareAndSet(SYNC_RUNNING, SYNC_RUNNING_WITH_PENDING)) return false
+                }
+                SYNC_RUNNING_WITH_PENDING -> return false
+            }
+        }
+    }
+
+    /**
+     * Returns true when another pass was requested during the previous one.
+     * Otherwise, releases sync ownership.
+     */
+    @OptIn(ExperimentalAtomicApi::class)
+    private fun shouldRunNextSyncEventsPass(): Boolean {
+        while (true) {
+            when (syncEventsState.load()) {
+                SYNC_RUNNING_WITH_PENDING -> {
+                    if (syncEventsState.compareAndSet(SYNC_RUNNING_WITH_PENDING, SYNC_RUNNING)) return true
+                }
+                SYNC_RUNNING -> {
+                    if (syncEventsState.compareAndSet(SYNC_RUNNING, SYNC_IDLE)) return false
+                }
+                else -> {
+                    crashReport.capture(message = "Unexpected sync events state", level = CrashReportLevel.Error)
+                    return false
+                }
+            }
+        }
+    }
+
+    /**
+     * Performs one complete sync using the latest account snapshot.
+     */
+    private suspend fun runSyncEventsPass() = withContext(Dispatchers.Default) {
+        launch { syncOrganisations() }
+        launch { syncBookableResources() }
+        sdkCaller(operation = "sync events for all accounts") {
+            accountRepository.syncCurrentAccounts { accountId, credentials ->
+                calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
+            }
+        }
+    }
+
     private fun observeOrganisationsByAccount(accountIds: Set<AccountId>): Flow<Map<AccountId, List<Organisation>>> = combine(
         accountIds.map { accountId ->
             calendarOrganisationsManager.organisationsManager.observeOrganisations(accountId).map { accountId to it }
@@ -382,5 +447,11 @@ public class CalendarManager internal constructor(
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
         val accountId = calendarRepository.getCalendar(calendarId).accountId
         return accountRepository.getCredentials(accountId)
+    }
+
+    private companion object {
+        private const val SYNC_IDLE = 0
+        private const val SYNC_RUNNING = 1
+        private const val SYNC_RUNNING_WITH_PENDING = 2
     }
 }

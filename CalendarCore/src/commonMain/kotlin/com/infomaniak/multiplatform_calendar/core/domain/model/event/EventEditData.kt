@@ -33,6 +33,8 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
  * @property meetRoom From [CalendarManager.generateMeetRoom][com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.generateMeetRoom];
  * `null` removes it.
  * @property location A [Location.BookableRoom] keeps the `LOCATION` text the event already has.
+ * @property classification Written as `CLASS`: [Classification.Private] sets `PRIVATE`, [Classification.Public]
+ * removes it (its RFC default). Left as stored when unchanged, so e.g. `CONFIDENTIAL` survives the edit.
  */
 public data class EventEditData(
     val title: String,
@@ -40,6 +42,7 @@ public data class EventEditData(
     val location: Location?,
     val description: String?,
     val timeBlocking: TimeBlocking?,
+    val classification: Classification,
     val calendarId: CalendarId,
     val eventColor: EventSourceColor?,
     val alarms: AlarmListEdit,

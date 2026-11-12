@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEd
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeType
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Organizer
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
@@ -173,6 +174,7 @@ class AttendeeEditMapperTest {
         location = null,
         description = null,
         timeBlocking = null,
+        classification = Classification.Public,
         calendarId = CalendarId("calendar://attendees"),
         eventColor = null,
         alarms = AlarmListEdit.Replace(emptyList()),

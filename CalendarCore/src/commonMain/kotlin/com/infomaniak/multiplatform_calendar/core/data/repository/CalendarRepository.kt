@@ -94,18 +94,7 @@ internal class CalendarRepository(
         syncCalendarMetadata(accountId, credentials)
         calendarDao.getByAccountId(accountId).forEachParallelLimited(limit = 2) { calendarEntity ->
             runCatching {
-                val syncResult = caldavClient.syncCollection(
-                    credentials = credentials,
-                    calendarUrl = calendarEntity.id.url,
-                    syncToken = calendarEntity.syncToken,
-                )
-                syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
-                    updateChangedEvents(credentials, calendarEntity.id, changed.map { it.eventUrl })
-                    updateDeletedEvents(calendarEntity.id, deleted.map { EventId(it.eventUrl) })
-                }
-                if (syncResult.syncToken != null && syncResult.syncToken != calendarEntity.syncToken) {
-                    calendarDao.updateSyncToken(calendarEntity.id, syncResult.syncToken)
-                }
+                syncCalendarUntilStable(credentials, calendarEntity)
             }.cancellable().onFailure {
                 if (it is RustNetworkException) throw it
                 crashReport.capture(message = "Skip calendar ${calendarEntity.id}", exception = it)
@@ -176,6 +165,28 @@ internal class CalendarRepository(
     }
 
     suspend fun showOnlyCalendar(calendarId: CalendarId) = calendarDao.showOnly(calendarId)
+
+    private suspend fun syncCalendarUntilStable(credentials: DavAccount, calendarEntity: CalendarEntity) {
+        var currentSyncToken = calendarEntity.syncToken
+        var shouldRetry: Boolean
+        do {
+            val syncResult = caldavClient.syncCollection(
+                credentials = credentials,
+                calendarUrl = calendarEntity.id.url,
+                syncToken = currentSyncToken,
+            )
+            syncResult.items.partition(RemoteEventChangeRef::isDeleted).let { (deleted, changed) ->
+                updateChangedEvents(credentials, calendarEntity.id, changed.map { it.eventUrl })
+                updateDeletedEvents(calendarEntity.id, deleted.map { EventId(it.eventUrl) })
+            }
+            val nextSyncToken = syncResult.syncToken
+            if (nextSyncToken != null && nextSyncToken != currentSyncToken) {
+                calendarDao.updateSyncToken(calendarEntity.id, nextSyncToken)
+            }
+            shouldRetry = syncResult.items.isNotEmpty() && nextSyncToken != null && nextSyncToken != currentSyncToken
+            currentSyncToken = nextSyncToken ?: currentSyncToken
+        } while (shouldRetry)
+    }
 
     private suspend fun syncCalendarMetadata(accountId: AccountId, credentials: DavAccount) {
         val discovery = caldavClient.discover(credentials)

@@ -304,6 +304,44 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun syncEvents_retriesWhileSyncCollectionHasPendingDelta() = runTest {
+        val accountId = AccountId(31)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarUrl = "https://dav.example/cal/pending-delta/"
+        val calendarId = CalendarId(calendarUrl)
+        val firstChanged = remoteEvent(url = "${calendarUrl}first.ics", uid = "uid-first")
+        val secondChanged = remoteEvent(url = "${calendarUrl}second.ics", uid = "uid-second")
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+        ).apply {
+            val sequence = ArrayDeque(
+                listOf(
+                    RemoteEventSyncDelta(
+                        syncToken = "token-2",
+                        items = listOf(RemoteEventChangeRef(eventUrl = firstChanged.url, isDeleted = false)),
+                    ),
+                    RemoteEventSyncDelta(
+                        syncToken = "token-3",
+                        items = listOf(RemoteEventChangeRef(eventUrl = secondChanged.url, isDeleted = false)),
+                    ),
+                    RemoteEventSyncDelta(syncToken = "token-3", items = emptyList()),
+                ),
+            )
+            syncCollectionHandler = { _, _ -> sequence.removeFirst() }
+            eventsByUrl[firstChanged.url] = firstChanged
+            eventsByUrl[secondChanged.url] = secondChanged
+        }
+        val repository = repositoryWith(remote)
+
+        repository.syncEvents(accountId, fakeCredentials())
+
+        val storedIds = database.eventDao().observeEvents(calendarId).first().map { it.id.url }.sorted()
+        assertEquals(listOf(firstChanged.url, secondChanged.url).sorted(), storedIds)
+        assertEquals("token-3", database.calendarDao().findById(calendarId)?.syncToken)
+        assertEquals(3, remote.syncCollectionCallsByCalendar[calendarUrl])
+    }
+
+    @Test
     fun syncEvents_batchesChangedEventsAndUpdatesSyncToken() = runTest {
         val accountId = AccountId(9)
         database.accountDao().insert(AccountEntity(accountId))
@@ -667,6 +705,8 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         private val userEmails: List<String>? = emptyList(),
     ) : CalendarSyncRemoteSource {
         val syncResults: MutableMap<String, RemoteEventSyncDelta> = mutableMapOf()
+        val syncCollectionCallsByCalendar: MutableMap<String, Int> = mutableMapOf()
+        var syncCollectionHandler: (suspend (calendarUrl: String, syncToken: String?) -> RemoteEventSyncDelta)? = null
         val eventsByUrls: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
         val eventsByUrl: MutableMap<String, RemoteDavEvent> = mutableMapOf()
         val rangeEvents: MutableMap<String, List<RemoteDavEvent>> = mutableMapOf()
@@ -708,8 +748,15 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             return rangeRefs[calendarUrl].orEmpty()
         }
 
-        override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?) =
-            syncResults[calendarUrl] ?: RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
+        override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?): RemoteEventSyncDelta {
+            syncCollectionCallsByCalendar[calendarUrl] = (syncCollectionCallsByCalendar[calendarUrl] ?: 0) + 1
+            syncCollectionHandler?.let { return it(calendarUrl, syncToken) }
+            val configured = syncResults[calendarUrl]
+            if (configured != null && syncToken == configured.syncToken) {
+                return RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
+            }
+            return configured ?: RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
+        }
 
         override suspend fun getEventsByUrls(credentials: DavAccount, calendarUrl: String, eventUrls: List<String>) =
             (eventsByUrls[chainedKey(calendarUrl, eventUrls)] ?: eventUrls.mapNotNull(eventsByUrl::get)).also {

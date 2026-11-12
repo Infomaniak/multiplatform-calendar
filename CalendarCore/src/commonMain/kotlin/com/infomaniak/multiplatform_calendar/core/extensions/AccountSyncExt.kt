@@ -21,6 +21,21 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.AccountReposit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 
+
+/**
+ * Synchronizes the current accounts once without restarting
+ * when the account list changes.
+ *
+ * A new sync pass will fetch an updated account snapshot.
+ */
+internal suspend fun AccountRepository.syncCurrentAccounts(
+    syncAction: suspend (AccountId, DavAccount) -> Unit,
+) {
+    currentAccountIdsSnapshot().forEach { accountId ->
+        syncAccountIfConnected(accountId, syncAction)
+    }
+}
+
 /**
  * Synchronizes all accounts with the provided [syncAction] function.
  * If the list of accounts changes during the synchronization, the process will restart with the new list of accounts.

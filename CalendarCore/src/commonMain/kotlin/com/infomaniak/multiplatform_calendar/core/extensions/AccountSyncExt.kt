@@ -34,14 +34,15 @@ internal suspend fun AccountRepository.syncAccountsWithRestartingCollection(
     if (initialAccountIds.isEmpty()) return
 
     var currentAccountId: AccountId? = null
-    var currentRunAccountIds: Set<AccountId>? = null
+    var plannedAccountIds: Set<AccountId>? = initialAccountIds
     currentAccountIdsFlow.collectRestartingUntilComplete(
         initialValue = initialAccountIds,
         shouldRestart = { newAccountIds ->
-            shouldRestartCurrentSync(currentAccountId, currentRunAccountIds, newAccountIds)
+            shouldRestartCurrentSync(currentAccountId, plannedAccountIds, newAccountIds).also { restart ->
+                if (restart) plannedAccountIds = newAccountIds
+            }
         },
         action = { accountIds ->
-            currentRunAccountIds = accountIds
             try {
                 accountIds.forEach { accountId ->
                     currentAccountId = accountId
@@ -49,7 +50,6 @@ internal suspend fun AccountRepository.syncAccountsWithRestartingCollection(
                 }
             } finally {
                 currentAccountId = null
-                currentRunAccountIds = null
             }
         },
     )

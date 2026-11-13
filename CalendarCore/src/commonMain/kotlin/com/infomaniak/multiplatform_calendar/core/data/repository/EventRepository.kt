@@ -899,6 +899,36 @@ internal class EventRepository(
         }
     }
 
+    private suspend fun deleteEventWithPreconditionRetry(
+        credentials: DavAccount,
+        eventId: EventId,
+        calendarId: CalendarId,
+        etag: String,
+    ) {
+        var currentEtag = etag
+        withPreconditionRetry(
+            onPreconditionFailed = { conflict ->
+                val remote = runCatching {
+                    caldavClient.getEventsByUrls(
+                        credentials = credentials,
+                        calendarUrl = calendarId.url,
+                        eventUrls = listOf(eventId.url),
+                    ).singleOrNull()
+                }.cancellable()
+                    .onFailure(conflict::addSuppressed)
+                    .getOrNull() ?: return@withPreconditionRetry false
+                currentEtag = remote.etag
+                true
+            },
+        ) {
+            deleteEventRemote(
+                credentials = credentials,
+                eventId = eventId,
+                etag = currentEtag,
+            )
+        }
+    }
+
     private suspend fun updateEventRemote(
         credentials: DavAccount,
         eventId: EventId,
@@ -910,6 +940,14 @@ internal class EventRepository(
             eventUrl = eventId.url,
             etag = etag,
             icsData = icsData,
+        )
+    }
+
+    private suspend fun deleteEventRemote(credentials: DavAccount, eventId: EventId, etag: String) {
+        caldavClient.deleteEvent(
+            credentials = credentials,
+            eventUrl = eventId.url,
+            etag = etag,
         )
     }
 

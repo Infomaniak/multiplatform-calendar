@@ -34,6 +34,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.eventBounds
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepository
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
@@ -220,6 +221,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         accountId: AccountId = ACCOUNT_ID,
         calendarId: CalendarId = CALENDAR_ID,
         color: CalendarSourceColor? = null,
+        accessLevel: CalendarAccessLevel = CalendarAccessLevel.READ,
     ) {
         database.accountDao().insert(AccountEntity(id = accountId, emails = ACCOUNT_EMAILS))
         database.calendarDao().upsert(
@@ -230,6 +232,7 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
                     displayName = "cal",
                     color = color,
                     isVisible = true,
+                    accessLevel = accessLevel,
                 ),
             ),
         )

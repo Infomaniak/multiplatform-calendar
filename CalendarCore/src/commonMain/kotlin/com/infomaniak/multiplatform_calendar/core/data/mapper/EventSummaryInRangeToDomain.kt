@@ -31,13 +31,23 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 
 internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
     val calendarSourceColor = CalendarColors.from(calendarColorArgb).sourceColor
+    val canEdit = calendarAccessLevel.canWrite
     return EventWithOverrides(
-        master = content.toDomain(OccurrenceId.Master(id), calendarSourceColor, accountEmails, rrule, rDates, exDates),
+        master = content.toDomain(
+            occurrenceId = OccurrenceId.Master(id),
+            calendarSourceColor = calendarSourceColor,
+            accountEmails = accountEmails,
+            canEdit = canEdit,
+            recurrenceRule = rrule,
+            rDates = rDates,
+            exDates = exDates,
+        ),
         overridesByOccurrenceKey = overrides.associate { override ->
             override.recurrenceKey to override.content.toDomain(
                 occurrenceId = OccurrenceId.Recurrence(id, override.recurrenceKey),
                 calendarSourceColor = calendarSourceColor,
                 accountEmails = accountEmails,
+                canEdit = canEdit,
                 isRecurring = true,
             )
         },
@@ -61,6 +71,7 @@ private fun EventSummaryContent.toDomain(
     occurrenceId: OccurrenceId,
     calendarSourceColor: Int,
     accountEmails: List<String>,
+    canEdit: Boolean,
     recurrenceRule: RecurrenceRule? = null,
     rDates: List<IcalDateValue> = emptyList(),
     exDates: List<IcalDateValue> = emptyList(),
@@ -80,4 +91,5 @@ private fun EventSummaryContent.toDomain(
     myStatus = attendees.firstOrNull { attendee ->
         accountEmails.any { it.equals(attendee.email, ignoreCase = true) }
     }?.status,
+    canEdit = canEdit,
 )

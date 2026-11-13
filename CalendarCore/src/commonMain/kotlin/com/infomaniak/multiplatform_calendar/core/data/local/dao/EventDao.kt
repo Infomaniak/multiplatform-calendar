@@ -86,6 +86,7 @@ internal abstract class EventDao {
         """
         SELECT event.id AS id,
                calendar.color AS calendarColorArgb,
+               calendar.accessLevel AS calendarAccessLevel,
                account.emails AS accountEmails,
                event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
                event.meetRoomUrl, event.bookableUuid,
@@ -132,6 +133,7 @@ internal abstract class EventDao {
         """
         SELECT event.id AS id,
                calendar.color AS calendarColorArgb,
+               calendar.accessLevel AS calendarAccessLevel,
                account.emails AS accountEmails,
                event.summary, event.location, event.status, event.attendees, event.colorArgb, event.alarms,
                event.meetRoomUrl, event.bookableUuid,

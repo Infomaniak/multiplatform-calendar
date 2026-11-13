@@ -879,6 +879,40 @@ internal class EventRepository(
         return block()
     }
 
+    private suspend fun updateEventWithPreconditionRetry(
+        credentials: DavAccount,
+        eventId: EventId,
+        icsData: String,
+    ): RemoteDavEventRef {
+        return withPreconditionRetry(
+            onPreconditionFailed = { conflict ->
+                storeServerVersion(credentials = credentials, eventId = eventId, conflict = conflict)
+            },
+        ) {
+            val current = eventDao.getEvent(eventId) ?: error("Event $eventId not found")
+            updateEventRemote(
+                credentials = credentials,
+                eventId = eventId,
+                etag = current.etag,
+                icsData = icsData,
+            )
+        }
+    }
+
+    private suspend fun updateEventRemote(
+        credentials: DavAccount,
+        eventId: EventId,
+        etag: String,
+        icsData: String,
+    ): RemoteDavEventRef {
+        return caldavClient.updateEvent(
+            credentials = credentials,
+            eventUrl = eventId.url,
+            etag = etag,
+            icsData = icsData,
+        )
+    }
+
     /** Whether there was something to answer: the event and, for a single occurrence, that occurrence. */
     private suspend fun answerInvitation(
         credentials: DavAccount,

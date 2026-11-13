@@ -670,6 +670,12 @@ internal class EventRepository(
         return data.copy(location = room.copy(resource = resource))
     }
 
+    /**
+     * The raw ICS of the resource [occurrenceId] belongs to, as last received from or written to the server.
+     * An occurrence of a series yields the whole resource: its master and every `RECURRENCE-ID` override.
+     */
+    suspend fun getIcs(occurrenceId: OccurrenceId): String? = eventDao.getRawIcs(occurrenceId.masterId)
+
     private suspend fun getStoredEditData(occurrenceId: OccurrenceId): EventEditData? {
         val entity = eventDao.getEvent(occurrenceId.masterId) ?: return null
         val master = entity.toEditData()

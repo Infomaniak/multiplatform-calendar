@@ -347,6 +347,22 @@ public class CalendarManager internal constructor(
     }
 
     /**
+     * The iCalendar text of the event [occurrenceId] belongs to, as stored locally from the last sync or
+     * write, without any network call.
+     *
+     * An occurrence of a recurring event yields the whole series resource, not the occurrence alone: the
+     * master and every `RECURRENCE-ID` override it holds.
+     *
+     * `null` when nothing is stored under that id.
+     */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun getIcs(occurrenceId: OccurrenceId): String? = withContext(Dispatchers.Default) {
+        sdkCaller(operation = "read ICS of event $occurrenceId") {
+            eventRepository.getIcs(occurrenceId)
+        }
+    }
+
+    /**
      * Delete what [target] designates, as offered by
      * [targetFor][com.infomaniak.multiplatform_calendar.core.domain.model.event.Event.targetFor].
      *

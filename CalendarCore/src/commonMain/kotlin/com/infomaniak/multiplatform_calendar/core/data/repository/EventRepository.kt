@@ -365,7 +365,11 @@ internal class EventRepository(
         patched: RemoteDavEvent,
     ) {
         if (data.calendarId == entity.calendarId) {
-            val ref = caldavClient.updateEvent(sourceCredentials, eventId.url, entity.etag, patched.icsData)
+            val ref = updateEventWithPreconditionRetry(
+                credentials = sourceCredentials,
+                eventId = eventId,
+                icsData = patched.icsData,
+            )
             persistWrite(sourceCredentials, entity.calendarId, written = patched, ref = ref)
         } else {
             updateCrossCalendarEvent(sourceCredentials, destinationCredentials, eventId, data, patched)
@@ -440,7 +444,11 @@ internal class EventRepository(
                 knownOverrides = overrides,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventWithPreconditionRetry(
+            credentials = credentials,
+            eventId = masterId,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -476,7 +484,11 @@ internal class EventRepository(
                 knownOverrides = overrides,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventWithPreconditionRetry(
+            credentials = credentials,
+            eventId = masterId,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -811,7 +823,11 @@ internal class EventRepository(
                 previousClassification = shown.classification,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventWithPreconditionRetry(
+            credentials = credentials,
+            eventId = masterId,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -973,7 +989,12 @@ internal class EventRepository(
             partStat = reply.toStatus().icalValue,
             stamp = Clock.System.now().toICalUtcDateTime(),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventRemote(
+            credentials = credentials,
+            eventId = masterId,
+            etag = entity.etag,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
         return true
     }

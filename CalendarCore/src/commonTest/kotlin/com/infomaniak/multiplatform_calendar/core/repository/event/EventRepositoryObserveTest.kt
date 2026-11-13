@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -652,6 +653,42 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
 
         assertTrue(events.any { it.title == "Moved instance" })
         assertTrue(events.all { it.isRecurring })
+    }
+
+    @Test
+    fun observeVisibleEvents_canEditAnEventOfAWritableCalendar() = runTest {
+        seedCalendar(accessLevel = CalendarAccessLevel.READ_WRITE)
+
+        val summary = observeSingleListedEvent { this }
+
+        assertTrue(summary.canEdit)
+    }
+
+    @Test
+    fun observeVisibleEvents_cannotEditAnEventOfAReadOnlyCalendar() = runTest {
+        seedCalendar(accessLevel = CalendarAccessLevel.READ)
+
+        val summary = observeSingleListedEvent { this }
+
+        assertFalse(summary.canEdit)
+    }
+
+    @Test
+    fun observeVisibleDaySlices_letsEveryOccurrenceOfASeriesBeEditedInAnOwnedCalendarOverridesIncluded() = runTest {
+        seedCalendar(accessLevel = CalendarAccessLevel.OWNER)
+        val master = dailyMasterEntity(EventId("event://daily-overridden"), CALENDAR_ID)
+        val override = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 17, 10, 0))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "", listOf(override))))
+
+        val events = repository.observeVisibleDaySlices(
+            accountIds = setOf(ACCOUNT_ID),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+        ).first().values.flatten().map { it.event }
+
+        assertTrue(events.any { it.title == "Moved instance" })
+        assertTrue(events.all { it.canEdit })
     }
 
     private suspend fun observeSingleListedEvent(attendees: List<AttendeeEntity>): EventSummary =

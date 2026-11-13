@@ -66,7 +66,7 @@ multiplatform-calendar/
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
 | **Organisations**    | Infomaniak organisations the account belongs to: id and name                                  |
 | **AppEnvironment**   | `AppEnvironment` (`Prod`, `Preprod`, `Custom(domain)`): the Infomaniak servers the modules reach |
-| **Network**          | Shared Infomaniak API client: `createHttpClient`, `ApiResponse`, `ApiErrorException`          |
+| **Network**          | Shared Infomaniak API client: `createHttpClient` (one engine for all clients), `ApiResponse`, `ApiErrorException` |
 
 ### Recurrence localization
 

@@ -371,7 +371,21 @@ internal class EventRepository(
 
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->
-            caldavClient.deleteEvent(credentials, eventId.url, event.etag)
+            try {
+                caldavClient.deleteEvent(credentials, eventId.url, event.etag)
+            } catch (e: CaldavHttpException) {
+                if (e.statusCode == HttpStatusCode.PreconditionFailed.value) {
+                    // The server rejected the deletion because the resource changed since it was last read.
+                    val remoteEvent = caldavClient.getEventsByUrls(
+                        credentials = credentials,
+                        calendarUrl = event.calendarId.url,
+                        eventUrls = listOf(eventId.url),
+                    ).firstOrNull()
+                    if (remoteEvent != null) caldavClient.deleteEvent(credentials, eventId.url, remoteEvent.etag)
+                } else {
+                    throw e
+                }
+            }
             eventDao.deleteEvent(eventId)
         }
     }

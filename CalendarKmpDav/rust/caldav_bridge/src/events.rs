@@ -13,6 +13,7 @@ use crate::ical_components::{is_begin_marker, is_end_marker, VEVENT};
 use crate::models::{
     AlarmsChange,
     AttendeeEntry,
+    ClassificationChange,
     ColorChange,
     DateListChange,
     DateListLine,
@@ -615,6 +616,7 @@ fn apply_content_fields(event: &mut icalendar::Event, edit: &EventEdit) {
     set_or_clear(event, "X-INFOMANIAK-MEET-ROOM-URL", edit.meet_room_url.as_deref());
     set_or_clear(event, "X-INFOMANIAK-BOOKABLE", edit.bookable_uuid.as_deref());
     apply_color_change(event, &edit.color_change);
+    apply_classification_change(event, &edit.classification_change);
     apply_organizer_change(event, &edit.organizer_change);
     apply_attendees_change(event, &edit.attendees_change);
 
@@ -893,6 +895,15 @@ fn apply_color_change(event: &mut icalendar::Event, change: &ColorChange) {
             event.remove_property("COLOR");
             event.remove_property("X-INFOMANIAK-COLOR");
         }
+    }
+}
+
+/// Apply a [`ClassificationChange`] onto the VEVENT (see [`ClassificationChange`] for the semantics of each variant).
+fn apply_classification_change(event: &mut icalendar::Event, change: &ClassificationChange) {
+    match change {
+        ClassificationChange::Unchanged => {}
+        ClassificationChange::Set { value } => set_or_clear(event, "CLASS", Some(value)),
+        ClassificationChange::Cleared => set_or_clear(event, "CLASS", None),
     }
 }
 

@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrid
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventBounds
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -47,6 +48,7 @@ import com.infomaniak.multiplatform_calendar.core.extensions.withMeetRoomBlock
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalDate
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalLocalDateTime
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteClassificationChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
@@ -91,6 +93,7 @@ internal fun EventEditData.toRemoteEdit(
     previousLocation: String? = previous?.content?.location,
     previousAttendees: List<AttendeeEntity> = previous?.content?.attendees.orEmpty(),
     previousOrganizer: OrganizerEntity? = previous?.content?.organizer,
+    previousClassification: Classification = previous?.content?.classification ?: Classification.Public,
     alarmOrigin: List<AlarmEntity> = previous?.content?.alarms.orEmpty(),
 ): RemoteEventEdit {
     val dtStart = timing.bounds.icalStart()
@@ -109,6 +112,7 @@ internal fun EventEditData.toRemoteEdit(
         bookableUuid = (location as? Location.BookableRoom)?.uuid?.value,
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previous?.content?.colorArgb),
+        classificationChange = resolveClassificationChange(previousClassification),
         recurrenceChange = resolveRecurrenceChange(previous?.rrule),
         exDateChange = timing.resolveDateListChange(exDates, previous, previous?.exDates),
         rDateChange = timing.resolveDateListChange(rDates, previous, previous?.rDates),
@@ -134,9 +138,9 @@ internal fun EventEditData.toRemoteEdit(
  * An override carries no recurrence set of its own (RFC 5545 §3.8.5): the rule and its `EXDATE`/`RDATE`
  * belong to the master, so every recurrence-shaped change is pinned to `Unchanged` here.
  *
- * [previousColorArgb], [previousAlarms], [previousAttendees] and [previousOrganizer] are what the
- * instance already shows — the override's own when one exists, its master's when this edit is what
- * detaches it — so an untouched field stays untouched in the resource instead of being rewritten.
+ * [previousColorArgb], [previousAlarms], [previousAttendees], [previousOrganizer] and [previousClassification]
+ * are what the instance already shows — the override's own when one exists, its master's when this edit is
+ * what detaches it — so an untouched field stays untouched in the resource instead of being rewritten.
  */
 internal fun EventEditData.toOverrideEdit(
     stamp: String,
@@ -147,6 +151,7 @@ internal fun EventEditData.toOverrideEdit(
     previousAlarms: List<AlarmEntity>,
     previousAttendees: List<AttendeeEntity>,
     previousOrganizer: OrganizerEntity?,
+    previousClassification: Classification,
     alarmOrigin: List<AlarmEntity> = previousAlarms,
 ): RemoteEventEdit {
     val dtStart = timing.bounds.icalStart()
@@ -165,6 +170,7 @@ internal fun EventEditData.toOverrideEdit(
         bookableUuid = (location as? Location.BookableRoom)?.uuid?.value,
         timeZones = timing.bounds.vTimeZones(),
         colorChange = resolveColorChange(previousColorArgb),
+        classificationChange = resolveClassificationChange(previousClassification),
         recurrenceChange = Unchanged,
         exDateChange = RemoteDateListChange.Unchanged,
         rDateChange = RemoteDateListChange.Unchanged,
@@ -236,6 +242,17 @@ private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteCol
     eventColor == null -> RemoteColorChange.Cleared
     else -> RemoteColorChange.Set(hex = eventColor.argb.toCaldavHex())
 }
+
+/**
+ * Tri-state like [resolveColorChange]: an unchanged classification leaves `CLASS` as stored, so a value it
+ * folds into [Classification.Private] (`CONFIDENTIAL`, an `X-` token) is not rewritten.
+ */
+private fun EventEditData.resolveClassificationChange(previous: Classification): RemoteClassificationChange =
+    when (classification) {
+        previous -> RemoteClassificationChange.Unchanged
+        Classification.Public -> RemoteClassificationChange.Cleared
+        Classification.Private -> RemoteClassificationChange.Set(value = Classification.Private.icalValue)
+    }
 
 /**
  * Tri-state mirror of [resolveColorChange], with the rule's `UNTIL` first coerced to the value type

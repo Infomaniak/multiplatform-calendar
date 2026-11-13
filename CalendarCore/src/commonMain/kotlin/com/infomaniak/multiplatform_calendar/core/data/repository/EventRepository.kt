@@ -636,6 +636,7 @@ internal class EventRepository(
                     previousAlarms = tailAlarms,
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
+                    previousClassification = override.content.classification,
                     alarmOrigin = override.content.alarms,
                 ),
                 // Cloned from the VEVENT it already is, so its own content survives the move.
@@ -747,6 +748,7 @@ internal class EventRepository(
                     previousAlarms = override.content.alarms,
                     previousAttendees = override.content.attendees,
                     previousOrganizer = override.content.organizer,
+                    previousClassification = override.content.classification,
                     alarmOrigin = shownAlarms,
                 ),
             )
@@ -792,6 +794,7 @@ internal class EventRepository(
                 previousAlarms = shown.alarms,
                 previousAttendees = shown.attendees,
                 previousOrganizer = shown.organizer,
+                previousClassification = shown.classification,
             ),
         )
         val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
@@ -1124,6 +1127,7 @@ private fun SeriesTail.toRemoteEdit(
     rDates = DateListEdit.Set(master.rDates.movedTail(tail = this)),
     previousAttendees = seed.attendees,
     previousOrganizer = seed.organizer,
+    previousClassification = seed.classification,
     alarmOrigin = alarmOrigin,
 )
 

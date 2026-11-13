@@ -37,6 +37,7 @@ internal fun EventEditData.withSeriesChanges(before: EventEditData, after: Event
     if (after.location.unresolved() != before.location.unresolved()) carried = carried.copy(location = after.location)
     if (after.description != before.description) carried = carried.copy(description = after.description)
     if (after.timeBlocking != before.timeBlocking) carried = carried.copy(timeBlocking = after.timeBlocking)
+    if (after.classification != before.classification) carried = carried.copy(classification = after.classification)
     if (after.eventColor != before.eventColor) carried = carried.copy(eventColor = after.eventColor)
     if (after.attendees != before.attendees) carried = carried.copy(attendees = after.attendees)
     if (after.organizer != before.organizer) carried = carried.copy(organizer = after.organizer)

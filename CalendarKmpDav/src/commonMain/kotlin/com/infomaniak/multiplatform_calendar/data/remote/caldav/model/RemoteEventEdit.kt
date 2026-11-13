@@ -44,6 +44,7 @@ data class RemoteEventEdit(
     val bookableUuid: String?,
     val timeZones: List<RemoteVTimeZone>,
     val colorChange: RemoteColorChange,
+    val classificationChange: RemoteClassificationChange = RemoteClassificationChange.Unchanged,
     val recurrenceChange: RemoteRecurrenceChange,
     val exDateChange: RemoteDateListChange,
     val rDateChange: RemoteDateListChange,

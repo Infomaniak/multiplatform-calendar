@@ -25,6 +25,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
@@ -36,6 +37,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeeEdit
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteAttendeesChange
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteClassificationChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteNameChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOrganizerChange
@@ -630,6 +632,85 @@ internal class EventRepositoryUpdateSeriesTest : EventRepositoryTestBase() {
         overrideEdits.values.forEach { assertEquals(ROOM.uuid.value, it.bookableUuid) }
         assertEquals("Room B", overrideEdits.getValue("20260616T100000Z").location)
         assertEquals("Room C", overrideEdits.getValue("20260617T100000Z").location)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_makingTheSeriesPrivate_marksOnlyTheOverridesThatWereNot() = runTest {
+        val master = seedSeriesWithMixedClassifications(masterClassification = Classification.Public)
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0))
+        val shown = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = shown.copy(classification = Classification.Private),
+        )
+
+        assertEquals(RemoteClassificationChange.Set("PRIVATE"), fakeCaldav.patches.single().classificationChange)
+        // The 16th is already private, so nothing the series changed is left to write to it.
+        val (recurrenceId, edit) = fakeCaldav.overrideUpserts.single()
+        assertEquals("20260617T100000Z", recurrenceId.value)
+        assertEquals(RemoteClassificationChange.Set("PRIVATE"), edit.classificationChange)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_makingTheSeriesPublic_clearsTheClassOfPrivateOverrides() = runTest {
+        val master = seedSeriesWithMixedClassifications(masterClassification = Classification.Private)
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0))
+        val shown = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = shown.copy(classification = Classification.Public),
+        )
+
+        assertEquals(RemoteClassificationChange.Cleared, fakeCaldav.patches.single().classificationChange)
+        val (recurrenceId, edit) = fakeCaldav.overrideUpserts.single()
+        assertEquals("20260616T100000Z", recurrenceId.value)
+        assertEquals(RemoteClassificationChange.Cleared, edit.classificationChange)
+    }
+
+    @Test
+    fun updateEvent_allOccurrences_leavesEachOverrideItsOwnClassWhenTheEditDoesNotTouchIt() = runTest {
+        val master = seedSeriesWithMixedClassifications(masterClassification = Classification.Public)
+        val occurrenceId = occurrenceOf(master.id, LocalDateTime(2026, 6, 15, 10, 0))
+        val shown = checkNotNull(repository.getEditData(occurrenceId))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrenceId, RecurrenceScope.AllOccurrences),
+            data = shown.copy(title = "Renamed"),
+        )
+
+        assertEquals(RemoteClassificationChange.Unchanged, fakeCaldav.patches.single().classificationChange)
+        val overrideEdits = fakeCaldav.overrideUpserts.associate { (recurrenceId, edit) -> recurrenceId.value to edit }
+        assertEquals(setOf("20260616T100000Z", "20260617T100000Z"), overrideEdits.keys)
+        overrideEdits.values.forEach {
+            assertEquals("Renamed", it.summary)
+            assertEquals(RemoteClassificationChange.Unchanged, it.classificationChange)
+        }
+    }
+
+    /** A daily series of [masterClassification] whose 16th is detached as private and 17th as public. */
+    private suspend fun seedSeriesWithMixedClassifications(masterClassification: Classification): EventEntity {
+        seedCalendar()
+        val base = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        val master = base.copy(content = base.content.copy(classification = masterClassification))
+        val privateBase = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 16, 10, 0))
+        val privateOverride = privateBase.copy(content = privateBase.content.copy(classification = Classification.Private))
+        val publicBase = overrideEntity(master.id, originalStart = LocalDateTime(2026, 6, 17, 10, 0))
+        val publicOverride = publicBase.copy(content = publicBase.content.copy(classification = Classification.Public))
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT", listOf(privateOverride, publicOverride))))
+
+        return master
     }
 
     /** A daily series whose 16th and 17th are detached, each with fields the master does not have. */

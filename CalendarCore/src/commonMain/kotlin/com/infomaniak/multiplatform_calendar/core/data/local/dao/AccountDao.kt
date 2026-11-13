@@ -39,6 +39,12 @@ internal interface AccountDao {
     @Query("SELECT * FROM accounts WHERE id = :accountId")
     suspend fun getAccount(accountId: AccountId): AccountEntity?
 
+    @Query("SELECT notificationsEnabled FROM accounts WHERE id = :accountId")
+    fun observeNotificationsEnabled(accountId: AccountId): Flow<Boolean?>
+
+    @Query("UPDATE accounts SET notificationsEnabled = :enabled WHERE id = :accountId")
+    suspend fun updateNotificationsEnabled(accountId: AccountId, enabled: Boolean)
+
     @Query("UPDATE accounts SET emails = :emails WHERE id = :accountId")
     suspend fun updateEmails(accountId: AccountId, emails: List<String>)
 

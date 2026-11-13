@@ -26,6 +26,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarNotificationState
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.NotificationTopic
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
@@ -253,6 +255,98 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         database.calendarDao().deleteCalendarsNotExisting(accountId, ids = emptyList())
         assertNull(displayNames.receive())
         collector.cancel()
+    }
+
+    @Test
+    fun syncEvents_keepsTheNotificationSettingsOfTheCalendarsAndTheAccount() = runTest {
+        val accountId = AccountId(11)
+        database.accountDao().insert(AccountEntity(accountId))
+        val customId = CalendarId("https://dav.example/cal/custom/")
+        val disabledId = CalendarId("https://dav.example/cal/disabled/")
+        val repository = repositoryWith(
+            FakeCalendarSyncRemoteSource(
+                calendars = listOf(customId, disabledId).map { RemoteDavCalendar(url = it.url, displayName = "Cal") },
+            ),
+        )
+        repository.syncEvents(accountId, fakeCredentials())
+        val custom = CalendarNotificationState.Custom(setOf(NotificationTopic.Reminders))
+        repository.updateCalendarNotificationState(customId, custom)
+        repository.updateCalendarNotificationState(disabledId, CalendarNotificationState.Disabled)
+        repository.updateAccountNotificationsEnabled(accountId, enabled = false)
+
+        repository.syncEvents(accountId, fakeCredentials())
+        database.accountDao().insert(AccountEntity(accountId))
+
+        assertEquals(custom, repository.getCalendarNotificationState(customId))
+        assertEquals(CalendarNotificationState.Disabled, repository.getCalendarNotificationState(disabledId))
+        assertEquals(false, repository.observeAccountNotificationsEnabled(accountId).first())
+    }
+
+    @Test
+    fun updateCalendarNotificationState_replacesTheTopicsOfACustomState() = runTest {
+        val accountId = AccountId(12)
+        database.accountDao().insert(AccountEntity(accountId))
+        val id = CalendarId("https://dav.example/cal/a/")
+        database.calendarDao().insert(CalendarEntity(id = id, accountId = accountId, displayName = "Work", color = null))
+        val repository = repositoryWith(FakeCalendarSyncRemoteSource(calendars = emptyList()))
+
+        assertEquals(CalendarNotificationState.Enabled, repository.getCalendarNotificationState(id))
+
+        repository.updateCalendarNotificationState(id, CalendarNotificationState.Custom(setOf(NotificationTopic.Reminders)))
+        repository.updateCalendarNotificationState(id, CalendarNotificationState.Disabled)
+        repository.updateCalendarNotificationState(id, CalendarNotificationState.Custom(emptySet()))
+
+        assertEquals(CalendarNotificationState.Custom(emptySet()), repository.getCalendarNotificationState(id))
+    }
+
+    @Test
+    fun observeCalendarNotificationStates_omitsTheEnabledCalendarsAndTheOtherAccounts() = runTest {
+        val accountId = AccountId(14)
+        val otherAccountId = AccountId(15)
+        listOf(accountId, otherAccountId).forEach { database.accountDao().insert(AccountEntity(it)) }
+        val (disabledId, reEnabledId, untouchedId, otherId) = listOf("disabled", "re-enabled", "untouched", "other")
+            .map { CalendarId("https://dav.example/cal/$it/") }
+        listOf(disabledId to accountId, reEnabledId to accountId, untouchedId to accountId, otherId to otherAccountId)
+            .forEach { (id, owner) ->
+                database.calendarDao().insert(CalendarEntity(id = id, accountId = owner, displayName = id.url, color = null))
+            }
+        val repository = repositoryWith(FakeCalendarSyncRemoteSource(calendars = emptyList()))
+        val custom = CalendarNotificationState.Custom(setOf(NotificationTopic.Reminders))
+        repository.updateCalendarNotificationState(disabledId, CalendarNotificationState.Disabled)
+        repository.updateCalendarNotificationState(reEnabledId, custom)
+        repository.updateCalendarNotificationState(reEnabledId, CalendarNotificationState.Enabled)
+        repository.updateCalendarNotificationState(otherId, custom)
+
+        assertEquals(
+            mapOf(disabledId to CalendarNotificationState.Disabled),
+            repository.observeCalendarNotificationStates(setOf(accountId)).first(),
+        )
+    }
+
+    @Test
+    fun deletingACalendar_deletesItsNotificationSettings() = runTest {
+        val accountId = AccountId(16)
+        database.accountDao().insert(AccountEntity(accountId))
+        val id = CalendarId("https://dav.example/cal/a/")
+        val entity = CalendarEntity(id = id, accountId = accountId, displayName = "Work", color = null)
+        database.calendarDao().insert(entity)
+        val repository = repositoryWith(FakeCalendarSyncRemoteSource(calendars = emptyList()))
+        repository.updateCalendarNotificationState(id, CalendarNotificationState.Custom(setOf(NotificationTopic.Reminders)))
+
+        database.calendarDao().deleteCalendarsNotExisting(accountId, ids = emptyList())
+        database.calendarDao().insert(entity)
+
+        assertEquals(CalendarNotificationState.Enabled, repository.getCalendarNotificationState(id))
+    }
+
+    @Test
+    fun observeAccountNotificationsEnabled_isTrueByDefault() = runTest {
+        val accountId = AccountId(13)
+        val repository = repositoryWith(FakeCalendarSyncRemoteSource(calendars = emptyList()))
+
+        assertTrue(repository.observeAccountNotificationsEnabled(accountId).first(), "unknown account")
+        database.accountDao().insert(AccountEntity(accountId))
+        assertTrue(repository.observeAccountNotificationsEnabled(accountId).first(), "new account")
     }
 
     @Test

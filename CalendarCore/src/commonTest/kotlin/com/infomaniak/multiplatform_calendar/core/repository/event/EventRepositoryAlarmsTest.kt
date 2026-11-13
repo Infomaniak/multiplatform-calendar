@@ -22,8 +22,12 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContent
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toSettingsEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.topicEntities
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarNotificationState
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.NotificationTopic
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
@@ -43,6 +47,51 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
+
+    @Test
+    fun observeUpcomingAlarms_skipsTheAccountsWithNotificationsDisabled() = runTest {
+        seedCalendar()
+        seedNearAlarm()
+
+        database.accountDao().updateNotificationsEnabled(ACCOUNT_ID, enabled = false)
+
+        assertEquals(0, nearAlarms().size)
+    }
+
+    @Test
+    fun observeUpcomingAlarms_followsTheNotificationStateOfTheCalendar() = runTest {
+        seedCalendar()
+        seedNearAlarm()
+
+        val expectedCounts = listOf(
+            CalendarNotificationState.Disabled to 0,
+            CalendarNotificationState.Custom(emptySet()) to 0,
+            CalendarNotificationState.Custom(setOf(NotificationTopic.Reminders)) to 1,
+            CalendarNotificationState.Enabled to 1,
+        )
+        expectedCounts.forEach { (state, expectedCount) ->
+            database.calendarDao().replaceNotificationSettings(
+                CALENDAR_ID,
+                state.toSettingsEntity(CALENDAR_ID),
+                state.topicEntities(CALENDAR_ID),
+            )
+            assertEquals(expectedCount, nearAlarms().size, "$state")
+        }
+    }
+
+    private suspend fun seedNearAlarm() = seedAlarmedEvent(
+        dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+        alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-10).minutes)),
+    )
+
+    private suspend fun nearAlarms() = repository.observeUpcomingAlarms(
+        accountIds = setOf(ACCOUNT_ID),
+        from = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+        horizon = 1.days,
+        limit = 10,
+        actions = setOf(AlarmAction.Display),
+        timeZone = TimeZone.UTC,
+    ).first()
 
     /** Guards the widened read window [observeUpcomingAlarms] needs: a reminder can long precede its event. */
     @Test

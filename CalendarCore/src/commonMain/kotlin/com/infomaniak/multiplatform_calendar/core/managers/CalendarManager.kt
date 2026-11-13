@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepositor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarNotificationState
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
@@ -136,6 +137,10 @@ public class CalendarManager internal constructor(
     /**
      * Observe the alarms about to go off in `[from, from + horizon]` across the *visible* calendars of
      * the current account, soonest first, capped at [limit].
+     *
+     * Only the alarms allowed to notify are returned: their account has notifications enabled
+     * ([observeAccountNotificationsEnabled]) and their calendar's notification state ([observeCalendarNotificationStates]) allows
+     * [NotificationTopic.Reminders][com.infomaniak.multiplatform_calendar.core.domain.model.calendar.NotificationTopic.Reminders].
      *
      * Meant to feed local notifications: each [UpcomingAlarm] carries an [UpcomingAlarmId] identifying
      * that one firing, so a client can diff two consecutive emissions and only touch what changed.
@@ -267,6 +272,68 @@ public class CalendarManager internal constructor(
     ): Unit = withContext(Dispatchers.Default) {
         sdkCaller(operation = "update calendar $calendarId visibility to $visible") {
             calendarRepository.updateCalendarVisibility(calendarId, visible)
+        }
+    }
+
+    /**
+     * Observe the notification state of the calendars of the current accounts, keyed by calendar.
+     *
+     * Only the calendars that aren't [CalendarNotificationState.Enabled] are present: a calendar missing
+     * from the map is enabled.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    public fun observeCalendarNotificationStates(): Flow<Map<CalendarId, CalendarNotificationState>> {
+        return sdkCaller.flow(operation = "observe calendar notification states") {
+            nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
+                calendarRepository.observeCalendarNotificationStates(accountIds)
+            }
+        }
+    }
+
+    /** The notification state of [calendarId], [CalendarNotificationState.Enabled] unless set otherwise. */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun getCalendarNotificationState(
+        calendarId: CalendarId,
+    ): CalendarNotificationState = withContext(Dispatchers.Default) {
+        sdkCaller(operation = "get calendar $calendarId notification state") {
+            calendarRepository.getCalendarNotificationState(calendarId)
+        }
+    }
+
+    /**
+     * Set which notifications [calendarId] may send, read back by [getCalendarNotificationState] and
+     * [observeCalendarNotificationStates].
+     *
+     * Local only, never sent to the server. [observeUpcomingAlarms] follows it right away.
+     */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun updateCalendarNotificationState(
+        calendarId: CalendarId,
+        state: CalendarNotificationState,
+    ): Unit = withContext(Dispatchers.Default) {
+        sdkCaller(operation = "update calendar $calendarId notification state to $state") {
+            calendarRepository.updateCalendarNotificationState(calendarId, state)
+        }
+    }
+
+    /**
+     * Whether [accountId] allows notifications, on top of the notification state of each of its
+     * calendars; `true` by default, and while the account is unknown.
+     */
+    public fun observeAccountNotificationsEnabled(accountId: AccountId): Flow<Boolean> {
+        return sdkCaller.flow(operation = "observe account $accountId notifications enabled") {
+            calendarRepository.observeAccountNotificationsEnabled(accountId)
+        }
+    }
+
+    /** Allow or silence every notification of [accountId], whatever its calendars' own state. Local only. */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun updateAccountNotificationsEnabled(
+        accountId: AccountId,
+        enabled: Boolean,
+    ): Unit = withContext(Dispatchers.Default) {
+        sdkCaller(operation = "update account $accountId notifications enabled to $enabled") {
+            calendarRepository.updateAccountNotificationsEnabled(accountId, enabled)
         }
     }
 

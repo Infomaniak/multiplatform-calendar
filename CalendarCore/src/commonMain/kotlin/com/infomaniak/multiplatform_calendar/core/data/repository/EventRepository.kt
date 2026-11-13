@@ -866,6 +866,19 @@ internal class EventRepository(
         return true
     }
 
+    private suspend inline fun <T> withPreconditionRetry(
+        onPreconditionFailed: suspend (conflict: CaldavHttpException) -> Boolean,
+        block: suspend () -> T,
+    ): T {
+        try {
+            return block()
+        } catch (e: CaldavHttpException) {
+            if (e.statusCode != HttpStatusCode.PreconditionFailed.value) throw e
+            if (!onPreconditionFailed(e)) throw e
+        }
+        return block()
+    }
+
     /** Whether there was something to answer: the event and, for a single occurrence, that occurrence. */
     private suspend fun answerInvitation(
         credentials: DavAccount,

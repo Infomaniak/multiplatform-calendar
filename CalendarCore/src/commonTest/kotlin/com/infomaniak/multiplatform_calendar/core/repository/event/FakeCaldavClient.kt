@@ -46,6 +46,8 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     var fetchFailure: Throwable? = null
     /** Thrown by the next updates, one per update, before they succeed again. */
     val updateFailures = ArrayDeque<Throwable>()
+    /** Thrown by the next deletes, one per delete, before they succeed again. */
+    val deleteFailures = ArrayDeque<Throwable>()
     val updates = mutableListOf<Pair<String, String>>()
     val fetches = mutableListOf<Pair<String, List<String>>>()
     /**
@@ -141,6 +143,7 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
     override suspend fun deleteEvent(credentials: DavAccount, eventUrl: String, etag: String) {
         deletes += eventUrl to etag
         writeCredentials += eventUrl to credentials
+        deleteFailures.removeFirstOrNull()?.let { throw it }
     }
 }
 

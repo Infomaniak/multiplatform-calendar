@@ -1,7 +1,7 @@
 use crate::alarms::splice_alarms_into_vevent;
 use crate::events::{build_event_ics, parse_ics, patch_event_ics, upsert_override_vevent};
 use crate::models::{
-    AlarmEdit, AlarmEntry, AlarmRepetitionSpec, AlarmsChange, AttendeesChange, ColorChange, DateListChange, EventEdit,
+    AlarmEdit, AlarmEntry, AlarmRepetitionSpec, AlarmsChange, AttendeesChange, ClassificationChange, ColorChange, DateListChange, EventEdit,
     OrganizerChange, OverrideRemoval, RecurrenceChange, RecurrenceIdSpec, VeventSeed,
 };
 
@@ -108,6 +108,7 @@ fn edit(alarms_change: AlarmsChange) -> EventEdit {
         bookable_uuid: None,
         timezones: vec![],
         color_change: ColorChange::Unchanged,
+        classification_change: ClassificationChange::Unchanged,
         recurrence_change: RecurrenceChange::Unchanged,
         ex_date_change: DateListChange::Unchanged,
         r_date_change: DateListChange::Unchanged,

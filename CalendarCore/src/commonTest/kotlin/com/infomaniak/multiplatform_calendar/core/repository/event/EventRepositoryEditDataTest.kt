@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.data.repository.EventRepositor
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSourceColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Location
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.MeetRoom
@@ -40,6 +41,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedBounds
 import com.infomaniak.multiplatform_calendar.core.extensions.markedBlock
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteClassificationChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
 import kotlinx.coroutines.test.runTest
@@ -85,6 +87,27 @@ internal class EventRepositoryEditDataTest : EventRepositoryTestBase() {
         // Not `Set`: the rule read back is equal to the stored one, so nothing is rewritten at all.
         // Had it been lost on the way, this would read `Cleared`.
         assertEquals(RemoteRecurrenceChange.Unchanged, edit.recurrenceChange, "the rule the edit never touched")
+    }
+
+    /** A stored `CLASS` the edit leaves alone is not rewritten: `CONFIDENTIAL` would otherwise turn `PRIVATE`. */
+    @Test
+    fun getEditData_carriesTheClassification_andLeavesItUnchangedOnSave() = runTest {
+        seedCalendar()
+        val master = dailyMasterEntity(EventId("https://cal/main/private.ics"), CALENDAR_ID)
+        val privateMaster = master.copy(content = master.content.copy(classification = Classification.Private))
+        eventDao().upsert(listOf(EventWithRawIcs(privateMaster, "BEGIN:VEVENT")))
+        val occurrence = occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0))
+
+        val data = assertNotNull(repository.getEditData(occurrence))
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrence, RecurrenceScope.AllOccurrences),
+            data = data,
+        )
+
+        assertEquals(Classification.Private, data.classification)
+        assertEquals(RemoteClassificationChange.Unchanged, fakeCaldav.patches.single().classificationChange)
     }
 
     @Test

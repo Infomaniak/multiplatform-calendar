@@ -1,6 +1,6 @@
 use crate::events::{build_event_ics, patch_event_ics, upsert_override_vevent};
 use crate::models::{
-    AlarmsChange, AttendeesChange, ColorChange, DateListChange, EventEdit, OrganizerChange, OverrideRemoval,
+    AlarmsChange, AttendeesChange, ClassificationChange, ColorChange, DateListChange, EventEdit, OrganizerChange, OverrideRemoval,
     RecurrenceChange, RecurrenceIdSpec,
 };
 
@@ -30,6 +30,7 @@ fn edit(meet_room_url: Option<&str>) -> EventEdit {
         bookable_uuid: None,
         timezones: vec![],
         color_change: ColorChange::Unchanged,
+        classification_change: ClassificationChange::Unchanged,
         recurrence_change: RecurrenceChange::Unchanged,
         ex_date_change: DateListChange::Unchanged,
         r_date_change: DateListChange::Unchanged,

@@ -237,6 +237,19 @@ pub enum ColorChange {
     Cleared,
 }
 
+/// Requested change to a VEVENT's access classification (`CLASS`, RFC 5545 §3.8.1.3).
+/// `Unchanged` leaves the property as-is so a value the edit does not model (`CONFIDENTIAL`, an
+/// `X-` token) survives a partial edit of unrelated fields (mirrors [`ColorChange`]).
+#[derive(uniffi::Enum)]
+pub enum ClassificationChange {
+    /// Leave `CLASS` as-is (none emitted on create).
+    Unchanged,
+    /// Write `CLASS:<value>`, replacing any existing one.
+    Set { value: String },
+    /// Drop `CLASS`, which then reads as its RFC default, `PUBLIC`.
+    Cleared,
+}
+
 /// Requested change to a recurrence master's `RRULE` (RFC 5545 §3.8.5.3).
 /// `Unchanged` leaves any existing `RRULE` untouched so an exotic/unmodelled rule survives a
 /// partial edit of unrelated fields (mirrors [`ColorChange`] / [`AlarmsChange::Unchanged`]).
@@ -366,6 +379,7 @@ pub struct EventEdit {
     pub bookable_uuid: Option<String>,
     pub timezones: Vec<VTimeZoneSpec>,
     pub color_change: ColorChange,
+    pub classification_change: ClassificationChange,
     pub recurrence_change: RecurrenceChange,
     pub ex_date_change: DateListChange,
     pub r_date_change: DateListChange,

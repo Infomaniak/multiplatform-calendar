@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
@@ -35,6 +36,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteClassificationChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteColorChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListLine
@@ -317,6 +319,57 @@ class EventEditMapperTest {
         val edit = editData(timeBlocking = null).toRemoteEdit(previous = null, stamp = STAMP)
 
         assertNull(edit.transp)
+    }
+
+    // ---- CLASS (RFC 5545 §3.8.1.3) — tri-state resolution ---------------------------------------
+
+    @Test
+    fun createPublic_emitsUnchanged() {
+        val edit = editData(Classification.Public).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteClassificationChange.Unchanged, edit.classificationChange)
+    }
+
+    @Test
+    fun createPrivate_emitsSetPrivate() {
+        val edit = editData(Classification.Private).toRemoteEdit(previous = null, stamp = STAMP)
+
+        assertEquals(RemoteClassificationChange.Set("PRIVATE"), edit.classificationChange)
+    }
+
+    @Test
+    fun editKeepingPrivate_emitsUnchanged_toPreserveConfidential() {
+        val previous = eventEntity(colorArgb = null, classification = Classification.Private)
+
+        val edit = editData(Classification.Private).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteClassificationChange.Unchanged, edit.classificationChange)
+    }
+
+    @Test
+    fun editMakingPublic_emitsCleared() {
+        val previous = eventEntity(colorArgb = null, classification = Classification.Private)
+
+        val edit = editData(Classification.Public).toRemoteEdit(previous = previous, stamp = STAMP)
+
+        assertEquals(RemoteClassificationChange.Cleared, edit.classificationChange)
+    }
+
+    @Test
+    fun overrideMakingPrivate_resolvesAgainstWhatTheInstanceShows() {
+        val edit = editData(Classification.Private).toOverrideEdit(
+            stamp = STAMP,
+            previousColorArgb = null,
+            previousDescription = null,
+            previousMeetRoomUrl = null,
+            previousLocation = null,
+            previousAlarms = emptyList(),
+            previousAttendees = emptyList(),
+            previousOrganizer = null,
+            previousClassification = Classification.Public,
+        )
+
+        assertEquals(RemoteClassificationChange.Set("PRIVATE"), edit.classificationChange)
     }
 
     // ---- EXDATE / RDATE (RFC 5545 §3.8.5.1-2) ---------------------------------------------------
@@ -605,9 +658,13 @@ class EventEditMapperTest {
         meetRoom = null,
     )
 
+    private fun editData(classification: Classification) =
+        editData(timeBlocking = null).copy(classification = classification)
+
     private fun eventEntity(
         colorArgb: Int?,
         colorIcalName: String? = null,
+        classification: Classification = Classification.Public,
         rrule: RecurrenceRule? = null,
         exDates: List<IcalDateValue> = emptyList(),
         rDates: List<IcalDateValue> = emptyList(),
@@ -627,6 +684,7 @@ class EventEditMapperTest {
             ),
             colorArgb = colorArgb,
             colorIcalName = colorIcalName,
+            classification = classification,
         ),
         etag = "etag-1",
         rrule = rrule,

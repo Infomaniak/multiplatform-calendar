@@ -27,6 +27,7 @@ import kotlin.native.HiddenFromObjC
  * @property isBookable Whether the event has an `X-INFOMANIAK-BOOKABLE` property.
  * @property isRecurring Part of a series, overrides included.
  * @property myStatus The answer of the user to the invitation, `null` when they are not among the attendees.
+ * @property canEdit Whether the user may write to the calendar of the event, as `Event.canEdit`.
  */
 @OptIn(ExperimentalObjCRefinement::class)
 public data class EventSummary(
@@ -43,4 +44,5 @@ public data class EventSummary(
     val isBookable: Boolean,
     val isRecurring: Boolean,
     val myStatus: ParticipationStatus?,
+    val canEdit: Boolean,
 )

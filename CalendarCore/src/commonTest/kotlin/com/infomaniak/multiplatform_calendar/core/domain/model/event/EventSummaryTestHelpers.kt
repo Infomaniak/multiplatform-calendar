@@ -36,6 +36,7 @@ internal fun Event.toSummary(accountEmails: List<String> = listOf("me@example.co
     myStatus = attendees.firstOrNull { attendee ->
         accountEmails.any { it.equals(attendee.email, ignoreCase = true) }
     }?.status,
+    canEdit = canEdit,
 )
 
 internal fun Event.toAlarmedEvent(): EventSummaryWithAlarms = EventSummaryWithAlarms(toSummary(), alarms)

@@ -362,7 +362,11 @@ internal class EventRepository(
         patched: RemoteDavEvent,
     ) {
         if (data.calendarId == entity.calendarId) {
-            val ref = caldavClient.updateEvent(sourceCredentials, eventId.url, entity.etag, patched.icsData)
+            val ref = updateEventWithPreconditionRetry(
+                credentials = sourceCredentials,
+                eventId = eventId,
+                icsData = patched.icsData,
+            )
             persistWrite(sourceCredentials, entity.calendarId, written = patched, ref = ref)
         } else {
             updateCrossCalendarEvent(sourceCredentials, destinationCredentials, eventId, data, patched)
@@ -371,7 +375,12 @@ internal class EventRepository(
 
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->
-            caldavClient.deleteEvent(credentials, eventId.url, event.etag)
+            deleteEventWithPreconditionRetry(
+                credentials = credentials,
+                eventId = eventId,
+                calendarId = event.calendarId,
+                etag = event.etag,
+            )
             eventDao.deleteEvent(eventId)
         }
     }
@@ -432,7 +441,11 @@ internal class EventRepository(
                 knownOverrides = overrides,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventWithPreconditionRetry(
+            credentials = credentials,
+            eventId = masterId,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -468,7 +481,11 @@ internal class EventRepository(
                 knownOverrides = overrides,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventWithPreconditionRetry(
+            credentials = credentials,
+            eventId = masterId,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -797,7 +814,11 @@ internal class EventRepository(
                 previousClassification = shown.classification,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventWithPreconditionRetry(
+            credentials = credentials,
+            eventId = masterId,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -852,6 +873,91 @@ internal class EventRepository(
         return true
     }
 
+    private suspend inline fun <T> withPreconditionRetry(
+        onPreconditionFailed: suspend (conflict: CaldavHttpException) -> Boolean,
+        block: suspend () -> T,
+    ): T {
+        try {
+            return block()
+        } catch (e: CaldavHttpException) {
+            if (e.statusCode != HttpStatusCode.PreconditionFailed.value) throw e
+            if (!onPreconditionFailed(e)) throw e
+        }
+        return block()
+    }
+
+    private suspend fun updateEventWithPreconditionRetry(
+        credentials: DavAccount,
+        eventId: EventId,
+        icsData: String,
+    ): RemoteDavEventRef {
+        return withPreconditionRetry(
+            onPreconditionFailed = { conflict ->
+                storeServerVersion(credentials = credentials, eventId = eventId, conflict = conflict)
+            },
+        ) {
+            val current = eventDao.getEvent(eventId) ?: error("Event $eventId not found")
+            updateEventRemote(
+                credentials = credentials,
+                eventId = eventId,
+                etag = current.etag,
+                icsData = icsData,
+            )
+        }
+    }
+
+    private suspend fun deleteEventWithPreconditionRetry(
+        credentials: DavAccount,
+        eventId: EventId,
+        calendarId: CalendarId,
+        etag: String,
+    ) {
+        var currentEtag = etag
+        withPreconditionRetry(
+            onPreconditionFailed = { conflict ->
+                val remote = runCatching {
+                    caldavClient.getEventsByUrls(
+                        credentials = credentials,
+                        calendarUrl = calendarId.url,
+                        eventUrls = listOf(eventId.url),
+                    ).singleOrNull()
+                }.cancellable()
+                    .onFailure(conflict::addSuppressed)
+                    .getOrNull() ?: return@withPreconditionRetry false
+                currentEtag = remote.etag
+                true
+            },
+        ) {
+            deleteEventRemote(
+                credentials = credentials,
+                eventId = eventId,
+                etag = currentEtag,
+            )
+        }
+    }
+
+    private suspend fun updateEventRemote(
+        credentials: DavAccount,
+        eventId: EventId,
+        etag: String,
+        icsData: String,
+    ): RemoteDavEventRef {
+        return caldavClient.updateEvent(
+            credentials = credentials,
+            eventUrl = eventId.url,
+            etag = etag,
+            icsData = icsData,
+        )
+    }
+
+    private suspend fun deleteEventRemote(credentials: DavAccount, eventId: EventId, etag: String) {
+        caldavClient.deleteEvent(
+            credentials = credentials,
+            eventUrl = eventId.url,
+            etag = etag,
+        )
+    }
+
     /** Whether there was something to answer: the event and, for a single occurrence, that occurrence. */
     private suspend fun answerInvitation(
         credentials: DavAccount,
@@ -874,7 +980,12 @@ internal class EventRepository(
             partStat = reply.toStatus().icalValue,
             stamp = Clock.System.now().toICalUtcDateTime(),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventRemote(
+            credentials = credentials,
+            eventId = masterId,
+            etag = entity.etag,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
         return true
     }

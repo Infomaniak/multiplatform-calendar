@@ -25,9 +25,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavHttpException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteOverrideRemoval
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlin.test.Test
@@ -132,6 +134,33 @@ internal class EventRepositoryDeleteTest : EventRepositoryTestBase() {
 
         assertEquals(listOf(master.id.url to "1"), fakeCaldav.deletes)
         assertEquals(emptyList(), fakeCaldav.patches)
+        assertNull(database.eventDao().getEvent(master.id))
+    }
+
+    @Test
+    fun deleteEvent_allOccurrences_preconditionFailed_retriesWithTheServerEtag() = runTest {
+        seedCalendar()
+        val master = recurringColorMaster(
+            eventId = EventId("https://cal/main/series.ics"),
+            dtStart = LocalDateTime(2026, 6, 15, 10, 0),
+            rrule = RecurrenceRule(freq = Frequency.Daily, occurrenceCount = 3),
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(master, "BEGIN:VEVENT")))
+        fakeCaldav.deleteFailures += CaldavHttpException(
+            statusCode = HttpStatusCode.PreconditionFailed.value,
+            operation = "Delete",
+            message = "Precondition Failed",
+            cause = null,
+        )
+        fakeCaldav.storedEvents = listOf(remoteDavEvent(icsData = "SERVER-ICS").copy(url = master.id.url, etag = "etag-server"))
+
+        repository.deleteEvent(
+            credentials = CREDENTIALS,
+            target = OccurrenceTarget.Recurring(occurrenceOf(master.id, LocalDateTime(2026, 6, 16, 10, 0)), RecurrenceScope.AllOccurrences),
+        )
+
+        assertEquals(listOf(master.id.url to "1", master.id.url to "etag-server"), fakeCaldav.deletes)
+        assertEquals(listOf(CALENDAR_ID.url to listOf(master.id.url)), fakeCaldav.fetches)
         assertNull(database.eventDao().getEvent(master.id))
     }
 

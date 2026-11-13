@@ -42,7 +42,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -65,7 +64,24 @@ class CalendarManagerTest : RobolectricTestsBase() {
     }
 
     @Test
-    fun syncEvents_whenCalledConcurrently_runsOnlyOneSync() = runTest {
+    fun syncEvents_singleCall_runsSinglePass() = runTest {
+        val accountId = AccountId(41)
+        val calendarUrl = "https://dav.example/calendars/single/"
+        val remote = CountingCalendarSyncRemoteSource(calendarUrl = calendarUrl)
+        val accountRepository = createAccountRepository()
+        accountRepository.storeCredentials(
+            accountId = accountId,
+            credentials = DavAccount(baseUrl = "https://dav.example", username = "user", password = "secret"),
+        )
+        val manager = createManager(remote, accountRepository)
+
+        manager.syncEvents()
+
+        assertEquals(1, remote.syncCollectionCalls)
+    }
+
+    @Test
+    fun syncEvents_whenCalledConcurrently_conflatesIntoSingleRerun() = runTest {
         val accountId = AccountId(42)
         val calendarUrl = "https://dav.example/calendars/team/"
         val remote = BlockingCalendarSyncRemoteSource(calendarUrl = calendarUrl)
@@ -85,9 +101,39 @@ class CalendarManagerTest : RobolectricTestsBase() {
         assertEquals(1, remote.syncCollectionCalls)
 
         remote.releaseFirstSync.complete(Unit)
-        firstSync.cancelAndJoin()
+        firstSync.await()
+
+        assertEquals(2, remote.syncCollectionCalls)
+    }
+
+    @Test
+    fun syncEvents_whenCalledManyTimesDuringRun_stillSchedulesOnlyOneAdditionalPass() = runTest {
+        val accountId = AccountId(43)
+        val calendarUrl = "https://dav.example/calendars/conflated/"
+        val remote = BlockingCalendarSyncRemoteSource(calendarUrl = calendarUrl)
+        val accountRepository = createAccountRepository()
+        accountRepository.storeCredentials(
+            accountId = accountId,
+            credentials = DavAccount(baseUrl = "https://dav.example", username = "user", password = "secret"),
+        )
+        val manager = createManager(remote, accountRepository)
+
+        val firstSync = async { manager.syncEvents() }
+        remote.firstSyncStarted.await()
+
+        val extra1 = async { manager.syncEvents() }
+        val extra2 = async { manager.syncEvents() }
+        val extra3 = async { manager.syncEvents() }
+        extra1.await()
+        extra2.await()
+        extra3.await()
 
         assertEquals(1, remote.syncCollectionCalls)
+
+        remote.releaseFirstSync.complete(Unit)
+        firstSync.await()
+
+        assertEquals(2, remote.syncCollectionCalls)
     }
 
     private fun createManager(
@@ -114,6 +160,7 @@ class CalendarManagerTest : RobolectricTestsBase() {
         return CalendarManager(
             accountRepository = accountRepository,
             calendarRepository = calendarRepository,
+            crashReport = NoOpCrashReport,
             eventRepository = eventRepository,
             meetManager = MeetManager(appEnvironment = AppEnvironment.Prod, crashReport = NoOpCrashReport),
             calendarBookableResourcesManager = CalendarBookableResourcesManager(
@@ -165,6 +212,30 @@ class CalendarManagerTest : RobolectricTestsBase() {
                 firstSyncStarted.complete(Unit)
                 releaseFirstSync.await()
             }
+            return RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
+        }
+    }
+
+    private class CountingCalendarSyncRemoteSource(
+        private val calendarUrl: String,
+        private val delegate: CalendarSyncRemoteSource = FakeCaldavClient(),
+    ) : CalendarSyncRemoteSource by delegate {
+        var syncCollectionCalls = 0
+            private set
+
+        override suspend fun discover(credentials: DavAccount): RemoteDavDiscovery {
+            return RemoteDavDiscovery(
+                userEmails = null,
+                calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Team")),
+            )
+        }
+
+        override suspend fun syncCollection(
+            credentials: DavAccount,
+            calendarUrl: String,
+            syncToken: String?,
+        ): RemoteEventSyncDelta {
+            syncCollectionCalls += 1
             return RemoteEventSyncDelta(syncToken = syncToken, items = emptyList())
         }
     }

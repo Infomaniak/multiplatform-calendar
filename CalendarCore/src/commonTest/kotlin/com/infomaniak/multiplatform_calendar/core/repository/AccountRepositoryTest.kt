@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
+import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
@@ -42,6 +43,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -51,6 +53,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class AccountRepositoryTest : RobolectricTestsBase() {
 
@@ -223,6 +226,33 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         accounts.forEach { (accountId, credentials) ->
             assertEquals(credentials, repository.getCredentials(accountId))
         }
+    }
+
+    @Test
+    fun syncAccountsWithRestartingCollection_retriesWhenAccountListChangesDuringSync() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(1)
+        val accountB = AccountId(2)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        val callsByAccount = mutableMapOf<AccountId, Int>()
+        var accountBAdded = false
+
+        repository.syncAccountsWithRestartingCollection { accountId, _ ->
+            callsByAccount[accountId] = (callsByAccount[accountId] ?: 0) + 1
+            if (!accountBAdded && accountId == accountA) {
+                accountBAdded = true
+                repository.storeCredentials(
+                    accountB,
+                    DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"),
+                )
+                // Keep the current pass running so restart can happen before completion.
+                delay(1)
+            }
+        }
+
+        assertEquals(2, callsByAccount[accountA])
+        assertEquals(1, callsByAccount[accountB])
+        assertTrue(accountB in repository.currentAccountIdsFlow.first())
     }
 
     private fun createRepositoryWithLocalAuthCalls(

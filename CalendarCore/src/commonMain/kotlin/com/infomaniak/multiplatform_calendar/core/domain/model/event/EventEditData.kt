@@ -42,7 +42,7 @@ public data class EventEditData(
     val location: Location?,
     val description: String?,
     val timeBlocking: TimeBlocking?,
-    val classification: Classification,
+    val classification: Classification = Classification.Public,
     val calendarId: CalendarId,
     val eventColor: EventSourceColor?,
     val alarms: AlarmListEdit,

@@ -22,7 +22,6 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrid
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.floatingTiming
@@ -141,7 +140,6 @@ class EventEditMapperOverrideRemovalTest {
         location = null,
         description = null,
         timeBlocking = null,
-        classification = Classification.Public,
         calendarId = CalendarId("calendar://tests"),
         eventColor = null,
         alarms = AlarmListEdit.Replace(emptyList()),

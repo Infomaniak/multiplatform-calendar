@@ -39,7 +39,6 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
@@ -256,7 +255,6 @@ internal abstract class EventRepositoryTestBase : RobolectricTestsBase() {
         location = null,
         description = null,
         timeBlocking = null,
-        classification = Classification.Public,
         calendarId = calendarId,
         eventColor = null,
         alarms = AlarmListEdit.Replace(alarms),

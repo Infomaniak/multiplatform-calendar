@@ -104,7 +104,6 @@ class EventEditMapperLocationTest {
         location = location,
         description = null,
         timeBlocking = null,
-        classification = Classification.Public,
         calendarId = calendarId,
         eventColor = null,
         alarms = AlarmListEdit.Preserve,

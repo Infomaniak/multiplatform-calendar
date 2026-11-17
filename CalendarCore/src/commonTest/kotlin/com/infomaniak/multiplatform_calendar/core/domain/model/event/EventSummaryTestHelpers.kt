@@ -23,6 +23,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 /** This event as listed for a user with the given [accountEmails]. */
 internal fun Event.toSummary(accountEmails: List<String> = listOf("me@example.com")): EventSummary = EventSummary(
     occurrenceId = occurrenceId,
+    calendarId = calendarId,
     title = title,
     location = (location as? Location.Place)?.text,
     status = status,

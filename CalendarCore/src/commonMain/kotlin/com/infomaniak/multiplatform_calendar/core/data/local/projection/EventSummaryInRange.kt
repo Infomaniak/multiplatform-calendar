@@ -21,6 +21,7 @@ import androidx.room3.Embedded
 import androidx.room3.Relation
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
@@ -28,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 /** An event listed in a range, with the emails of the user of its account and their access to its calendar. */
 internal data class EventSummaryInRange(
     val id: EventId,
+    val calendarId: CalendarId,
     val calendarColorArgb: Int?,
     val calendarAccessLevel: CalendarAccessLevel,
     val accountEmails: List<String>,

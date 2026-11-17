@@ -85,6 +85,7 @@ internal abstract class EventDao {
     @Query(
         """
         SELECT event.id AS id,
+               event.calendarId AS calendarId,
                calendar.color AS calendarColorArgb,
                calendar.accessLevel AS calendarAccessLevel,
                account.emails AS accountEmails,
@@ -132,6 +133,7 @@ internal abstract class EventDao {
     @Query(
         """
         SELECT event.id AS id,
+               event.calendarId AS calendarId,
                calendar.color AS calendarColorArgb,
                calendar.accessLevel AS calendarAccessLevel,
                account.emails AS accountEmails,

@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryContent
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarColors
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventColors
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventSummary
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventWithOverrides
@@ -35,6 +36,7 @@ internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
     return EventWithOverrides(
         master = content.toDomain(
             occurrenceId = OccurrenceId.Master(id),
+            calendarId = calendarId,
             calendarSourceColor = calendarSourceColor,
             accountEmails = accountEmails,
             canEdit = canEdit,
@@ -45,6 +47,7 @@ internal fun EventSummaryInRange.toDomain(): EventWithOverrides<EventSummary> {
         overridesByOccurrenceKey = overrides.associate { override ->
             override.recurrenceKey to override.content.toDomain(
                 occurrenceId = OccurrenceId.Recurrence(id, override.recurrenceKey),
+                calendarId = calendarId,
                 calendarSourceColor = calendarSourceColor,
                 accountEmails = accountEmails,
                 canEdit = canEdit,
@@ -69,6 +72,7 @@ internal fun EventSummaryInRange.toDomainWithAlarms(): EventWithOverrides<EventS
 
 private fun EventSummaryContent.toDomain(
     occurrenceId: OccurrenceId,
+    calendarId: CalendarId,
     calendarSourceColor: Int,
     accountEmails: List<String>,
     canEdit: Boolean,
@@ -78,6 +82,7 @@ private fun EventSummaryContent.toDomain(
     isRecurring: Boolean = hasRecurrenceSet(recurrenceRule, rDates),
 ): EventSummary = EventSummary(
     occurrenceId = occurrenceId,
+    calendarId = calendarId,
     title = summary,
     location = location?.ifBlank { null },
     status = status,

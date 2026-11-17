@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.domain.model.event
 
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
@@ -33,6 +34,8 @@ import kotlin.native.HiddenFromObjC
 public data class EventSummary(
     @HiddenFromObjC
     val occurrenceId: OccurrenceId,
+    @HiddenFromObjC
+    val calendarId: CalendarId,
     val title: String,
     val location: String?,
     val status: EventStatus?,

@@ -59,6 +59,7 @@ public val Event.calendarIdValue: String get() = calendarId.url
 public val Event.accountIdValue: Long get() = accountId.value
 
 public val EventSummary.occurrenceIdValue: String get() = occurrenceId.value
+public val EventSummary.calendarIdValue: String get() = calendarId.url
 
 public val Location.BookableRoom.uuidValue: String get() = uuid.value
 

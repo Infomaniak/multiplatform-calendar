@@ -149,6 +149,38 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
         )
     }
 
+    @Test
+    fun observeUpcomingAlarms_carriesTheCalendarOfEachEvent() = runTest {
+        val otherCalendar = CalendarId("calendar://other")
+        seedCalendar()
+        seedCalendar(calendarId = otherCalendar)
+
+        val dtStart = LocalDateTime(2026, 6, 15, 10, 0)
+        val alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-1).hours))
+        seedAlarmedEvent(dtStart = dtStart, alarms = alarms, id = EventId("event://main"))
+        seedAlarmedEvent(
+            calendarId = otherCalendar,
+            dtStart = dtStart,
+            alarms = alarms,
+            id = EventId("event://other"),
+            rrule = RecurrenceRule(freq = Frequency.Daily),
+        )
+
+        val upcomingAlarms = repository.observeUpcomingAlarms(
+            accountIds = setOf(ACCOUNT_ID),
+            from = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            horizon = 1.days,
+            limit = 10,
+            actions = setOf(AlarmAction.Display),
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        assertEquals(
+            setOf(CALENDAR_ID, otherCalendar),
+            upcomingAlarms.map { it.event.calendarId }.toSet(),
+        )
+    }
+
     /** The floating recurrence branch, whose series bounds are wall-clock as well. */
     @Test
     fun observeUpcomingAlarms_findsAFarReminderOnAFloatingSeries() = runTest {

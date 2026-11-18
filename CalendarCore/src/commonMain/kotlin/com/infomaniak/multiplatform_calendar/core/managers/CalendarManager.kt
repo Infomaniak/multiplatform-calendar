@@ -41,6 +41,9 @@ import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRes
 import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
+import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncIdle
+import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncRunning
+import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncRunningWithPending
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
@@ -92,7 +95,7 @@ public class CalendarManager internal constructor(
         accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
     }
     @OptIn(ExperimentalAtomicApi::class)
-    private val syncEventsState = AtomicInt(SYNC_IDLE)
+    private val syncEventsState = AtomicInt(SyncIdle.ordinal)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<CalendarSection>> {
@@ -239,7 +242,7 @@ public class CalendarManager internal constructor(
                     }
                 }
             } finally {
-                if (!ownershipReleased) syncEventsState.store(SYNC_IDLE)
+                if (!ownershipReleased) syncEventsState.store(SyncIdle.ordinal)
             }
         }
     }
@@ -379,13 +382,13 @@ public class CalendarManager internal constructor(
     private fun tryStartSyncEvents(): Boolean {
         while (true) {
             when (syncEventsState.load()) {
-                SYNC_IDLE -> {
-                    if (syncEventsState.compareAndSet(SYNC_IDLE, SYNC_RUNNING)) return true
+                SyncIdle.ordinal -> {
+                    if (syncEventsState.compareAndSet(SyncIdle.ordinal, SyncRunning.ordinal)) return true
                 }
-                SYNC_RUNNING -> {
-                    if (syncEventsState.compareAndSet(SYNC_RUNNING, SYNC_RUNNING_WITH_PENDING)) return false
+                SyncRunning.ordinal -> {
+                    if (syncEventsState.compareAndSet(SyncRunning.ordinal, SyncRunningWithPending.ordinal)) return false
                 }
-                SYNC_RUNNING_WITH_PENDING -> return false
+                SyncRunningWithPending.ordinal -> return false
             }
         }
     }
@@ -398,11 +401,11 @@ public class CalendarManager internal constructor(
     private fun shouldRunNextSyncEventsPass(): Boolean {
         while (true) {
             when (syncEventsState.load()) {
-                SYNC_RUNNING_WITH_PENDING -> {
-                    if (syncEventsState.compareAndSet(SYNC_RUNNING_WITH_PENDING, SYNC_RUNNING)) return true
+                SyncRunningWithPending.ordinal -> {
+                    if (syncEventsState.compareAndSet(SyncRunningWithPending.ordinal, SyncRunning.ordinal)) return true
                 }
-                SYNC_RUNNING -> {
-                    if (syncEventsState.compareAndSet(SYNC_RUNNING, SYNC_IDLE)) return false
+                SyncRunning.ordinal -> {
+                    if (syncEventsState.compareAndSet(SyncRunning.ordinal, SyncIdle.ordinal)) return false
                 }
                 else -> error("Unexpected sync events state")
             }
@@ -443,9 +446,9 @@ public class CalendarManager internal constructor(
         return accountRepository.getCredentials(accountId)
     }
 
-    private companion object {
-        private const val SYNC_IDLE = 0
-        private const val SYNC_RUNNING = 1
-        private const val SYNC_RUNNING_WITH_PENDING = 2
+    private enum class SyncEventsState {
+        SyncIdle,
+        SyncRunning,
+        SyncRunningWithPending
     }
 }

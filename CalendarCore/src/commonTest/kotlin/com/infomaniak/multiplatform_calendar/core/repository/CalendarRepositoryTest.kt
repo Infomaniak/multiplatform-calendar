@@ -25,10 +25,13 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntit
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
+import com.infomaniak.multiplatform_calendar.core.data.repository.SettingsRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarType
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRuleFailureReason
+import com.infomaniak.multiplatform_calendar.core.domain.model.settings.CalendarNotificationSettings
+import com.infomaniak.multiplatform_calendar.core.domain.model.settings.NotificationTopic
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
@@ -157,6 +160,30 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val calendarId = CalendarId(calendarUrl)
         assertEquals("team_shared", database.calendarDao().findById(calendarId)!!.calendarType)
         assertEquals(CalendarType.Unknown, repository.getCalendar(calendarId).calendarType)
+    }
+
+    @Test
+    fun syncEvents_keepsTheSettingsOfTheAccountAndItsCalendars() = runTest {
+        val accountId = AccountId(11)
+        database.accountDao().insert(AccountEntity(accountId))
+        val calendarId = CalendarId("https://dav.example/cal/settings/")
+        val repository = repositoryWith(
+            FakeCalendarSyncRemoteSource(calendars = listOf(RemoteDavCalendar(url = calendarId.url, displayName = "Cal"))),
+        )
+        repository.syncEvents(accountId, fakeCredentials())
+        val settings = SettingsRepository(database.settingsDao())
+        settings.setAccountNotificationsEnabled(accountId, enabled = false)
+        settings.setCalendarNotificationsEnabled(calendarId, enabled = false)
+        settings.setCalendarNotificationTopicEnabled(calendarId, NotificationTopic.Reminders, enabled = false)
+
+        repository.syncEvents(accountId, fakeCredentials())
+        database.accountDao().insert(AccountEntity(accountId))
+
+        assertEquals(false, settings.observeAccountNotificationsEnabled(accountId).first())
+        assertEquals(
+            CalendarNotificationSettings(isEnabled = false, disabledTopics = setOf(NotificationTopic.Reminders)),
+            settings.observeCalendarNotificationSettings(setOf(accountId)).first()[calendarId],
+        )
     }
 
     private fun repositoryWith(remote: CalendarSyncRemoteSource) = CalendarRepository(

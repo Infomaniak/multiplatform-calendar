@@ -210,10 +210,17 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   `create*HttpClient` factory, hidden from Swift, which `HttpClientsModule` calls. Core builds each module's manager with its client through the module's `create*Manager`
   factory, hidden from Swift; the managers' public constructors still create their own client for standalone use.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
-  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `calendarBookableResourcesManager` / `calendarOrganisationsManager`, and inherits
+  inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `calendarBookableResourcesManager` / `calendarOrganisationsManager` / `settingsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via
   `CalendarSDKProvider.shared.sdk(calendar:crashReport:contacts:)`, `calendar` giving the `AppEnvironment` and `contacts` the
   path of the dedicated contacts database.
+
+### Settings
+
+`SettingsManager` stores the settings of the accounts and their calendars on the device only, in `account_settings` and
+`calendar_settings` (one column per setting), apart from the synced `accounts` and `calendars`; an account or a calendar without
+a row has the defaults. A calendar can disable each `NotificationTopic` on its own (`calendar_disabled_notification_topics`), so
+that a new topic notifies everywhere.
 
 ### Bookable resources
 

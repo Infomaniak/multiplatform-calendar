@@ -18,9 +18,11 @@
 package com.infomaniak.multiplatform_calendar.core.repository.event
 
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarDisabledNotificationTopicEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.NotificationTopicColumn
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -30,7 +32,11 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Trigg
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
@@ -374,6 +380,105 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
         )
     }
 
+    @Test
+    fun observeUpcomingAlarms_leavesOutAnAccountWithNotificationsTurnedOff() = runTest {
+        seedNearAlarm()
+
+        database.settingsDao().setAccountNotificationsEnabled(ACCOUNT_ID, enabled = false)
+        assertEquals(0, nearAlarms().size)
+
+        database.settingsDao().setAccountNotificationsEnabled(ACCOUNT_ID, enabled = true)
+        assertEquals(1, nearAlarms().size)
+    }
+
+    @Test
+    fun observeUpcomingAlarms_leavesOutACalendarWithNotificationsTurnedOff() = runTest {
+        seedNearAlarm()
+
+        database.settingsDao().setCalendarNotificationsEnabled(CALENDAR_ID, enabled = false)
+        assertEquals(0, nearAlarms().size)
+
+        database.settingsDao().setCalendarNotificationsEnabled(CALENDAR_ID, enabled = true)
+        assertEquals(1, nearAlarms().size)
+    }
+
+    @Test
+    fun observeUpcomingAlarms_leavesOutACalendarWithRemindersTurnedOff() = runTest {
+        seedNearAlarm()
+
+        database.settingsDao().insertDisabledNotificationTopic(
+            CalendarDisabledNotificationTopicEntity(CALENDAR_ID, NotificationTopicColumn.REMINDERS),
+        )
+        assertEquals(0, nearAlarms().size)
+
+        database.settingsDao().deleteDisabledNotificationTopic(CALENDAR_ID, NotificationTopicColumn.REMINDERS)
+        assertEquals(1, nearAlarms().size)
+    }
+
+    @Test
+    fun observeUpcomingAlarms_keepsTheCalendarsWhoseNotificationsStayOn() = runTest {
+        seedNearAlarm()
+        val otherCalendarId = CalendarId("calendar://other")
+        seedCalendar(calendarId = otherCalendarId)
+        seedAlarmedEvent(
+            calendarId = otherCalendarId,
+            id = EventId("event://other"),
+            dtStart = NEAR_EVENT_START,
+            alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-15).minutes)),
+        )
+
+        database.settingsDao().setCalendarNotificationsEnabled(otherCalendarId, enabled = false)
+
+        assertEquals(listOf(CALENDAR_ID), nearAlarms().map { it.event.calendarId })
+    }
+
+    @Test
+    fun observeUpcomingAlarms_followsTheNotificationSettingsWhileCollected() = runTest {
+        seedNearAlarm()
+        val alarmCounts = Channel<Int>(Channel.UNLIMITED)
+        backgroundScope.launch {
+            nearAlarmsFlow().map { it.size }.distinctUntilChanged().collect(alarmCounts::send)
+        }
+        val settings = database.settingsDao()
+
+        assertEquals(1, alarmCounts.receive())
+        settings.setAccountNotificationsEnabled(ACCOUNT_ID, enabled = false)
+        assertEquals(0, alarmCounts.receive())
+        settings.setAccountNotificationsEnabled(ACCOUNT_ID, enabled = true)
+        assertEquals(1, alarmCounts.receive())
+
+        settings.setCalendarNotificationsEnabled(CALENDAR_ID, enabled = false)
+        assertEquals(0, alarmCounts.receive())
+        settings.setCalendarNotificationsEnabled(CALENDAR_ID, enabled = true)
+        assertEquals(1, alarmCounts.receive())
+
+        settings.insertDisabledNotificationTopic(
+            CalendarDisabledNotificationTopicEntity(CALENDAR_ID, NotificationTopicColumn.REMINDERS),
+        )
+        assertEquals(0, alarmCounts.receive())
+        settings.deleteDisabledNotificationTopic(CALENDAR_ID, NotificationTopicColumn.REMINDERS)
+        assertEquals(1, alarmCounts.receive())
+    }
+
+    private suspend fun seedNearAlarm() {
+        seedCalendar()
+        seedAlarmedEvent(
+            dtStart = NEAR_EVENT_START,
+            alarms = listOf(AlarmEntity(action = "DISPLAY", triggerRelative = (-15).minutes)),
+        )
+    }
+
+    private suspend fun nearAlarms() = nearAlarmsFlow().first()
+
+    private fun nearAlarmsFlow() = repository.observeUpcomingAlarms(
+        accountIds = setOf(ACCOUNT_ID),
+        from = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+        horizon = 1.days,
+        limit = 10,
+        actions = setOf(AlarmAction.Display),
+        timeZone = TimeZone.UTC,
+    )
+
     private suspend fun seedAlarmedEvent(
         calendarId: CalendarId = CALENDAR_ID,
         dtStart: LocalDateTime,
@@ -412,5 +517,9 @@ internal class EventRepositoryAlarmsTest : EventRepositoryTestBase() {
             etag = "1",
         )
         eventDao().upsert(listOf(EventWithRawIcs(event, "")))
+    }
+
+    private companion object {
+        val NEAR_EVENT_START = LocalDateTime(2026, 6, 15, 10, 0)
     }
 }

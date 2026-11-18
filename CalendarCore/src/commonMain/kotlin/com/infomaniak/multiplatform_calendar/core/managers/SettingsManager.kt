@@ -36,7 +36,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 
-/** Settings of the accounts and their calendars, stored on the device only. */
+/**
+ * Settings of the accounts and their calendars, stored on the device only.
+ * [CalendarManager.observeUpcomingAlarms] already leaves out the reminders turned off here.
+ */
 @SingleIn(AppScope::class)
 @Inject
 public class SettingsManager internal constructor(

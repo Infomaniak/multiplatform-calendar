@@ -214,7 +214,7 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 `SettingsManager` stores the settings of the accounts and their calendars on the device only, in `account_settings` and
 `calendar_settings` (one column per setting), apart from the synced `accounts` and `calendars`; an account or a calendar without
 a row has the defaults. A calendar can disable each `NotificationTopic` on its own (`calendar_disabled_notification_topics`), so
-that a new topic notifies everywhere.
+that a new topic notifies everywhere. On Apple, `observeCalendarNotificationSettingsByIdValue` keys the calendars by URL.
 
 ### Bookable resources
 

@@ -46,8 +46,6 @@ import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.crashreport.CrashReport
-import com.infomaniak.multiplatform_core.crashreport.CrashReportLevel
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
@@ -83,7 +81,6 @@ import kotlin.time.Instant
 public class CalendarManager internal constructor(
     private val accountRepository: AccountRepository,
     private val calendarRepository: CalendarRepository,
-    private val crashReport: CrashReport,
     private val eventRepository: EventRepository,
     private val meetManager: MeetManager,
     private val calendarBookableResourcesManager: CalendarBookableResourcesManager,
@@ -227,21 +224,23 @@ public class CalendarManager internal constructor(
     @OptIn(ExperimentalAtomicApi::class)
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents() {
-        if (!tryStartSyncEvents()) return
-        var ownershipReleased = false
+        sdkCaller(operation = "sync events for all accounts") {
+            if (!tryStartSyncEvents()) return@sdkCaller
+            var ownershipReleased = false
 
-        try {
-            while (true) {
-                currentCoroutineContext().ensureActive()
-                runSyncEventsPass()
+            try {
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    runSyncEventsPass()
 
-                if (!shouldRunNextSyncEventsPass()) {
-                    ownershipReleased = true
-                    return
+                    if (!shouldRunNextSyncEventsPass()) {
+                        ownershipReleased = true
+                        return@sdkCaller
+                    }
                 }
+            } finally {
+                if (!ownershipReleased) syncEventsState.store(SYNC_IDLE)
             }
-        } finally {
-            if (!ownershipReleased) syncEventsState.store(SYNC_IDLE)
         }
     }
 
@@ -405,10 +404,7 @@ public class CalendarManager internal constructor(
                 SYNC_RUNNING -> {
                     if (syncEventsState.compareAndSet(SYNC_RUNNING, SYNC_IDLE)) return false
                 }
-                else -> {
-                    crashReport.capture(message = "Unexpected sync events state", level = CrashReportLevel.Error)
-                    return false
-                }
+                else -> error("Unexpected sync events state")
             }
         }
     }
@@ -419,10 +415,8 @@ public class CalendarManager internal constructor(
     private suspend fun runSyncEventsPass() = withContext(Dispatchers.Default) {
         launch { syncOrganisations() }
         launch { syncBookableResources() }
-        sdkCaller(operation = "sync events for all accounts") {
-            accountRepository.syncCurrentAccounts { accountId, credentials ->
-                calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
-            }
+        accountRepository.syncCurrentAccounts { accountId, credentials ->
+            calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
         }
     }
 

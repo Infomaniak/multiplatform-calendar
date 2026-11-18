@@ -31,6 +31,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entit
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.SettingsDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountSettingsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarDisabledNotificationTopicEntity
@@ -92,6 +93,7 @@ internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, Boo
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
+    abstract fun settingsDao(): SettingsDao
     abstract override fun bookableResourceDao(): BookableResourceDao
     abstract override fun organisationDao(): OrganisationDao
 

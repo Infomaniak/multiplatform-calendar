@@ -44,9 +44,6 @@ import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.localization.localizedColorChoices
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
-import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncIdle
-import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncRunning
-import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncRunningWithPending
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.core.utils.SyncCoordinator
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -73,8 +70,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
-import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -97,8 +92,6 @@ public class CalendarManager internal constructor(
     private val nonEmptyAccountIdsFlow by lazy {
         accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
     }
-    @OptIn(ExperimentalAtomicApi::class)
-    private val syncEventsState = AtomicInt(SyncIdle.ordinal)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<CalendarSection>> {
@@ -390,43 +383,6 @@ public class CalendarManager internal constructor(
     }
 
     /**
-     * Acquires the sync ownership or queues one additional pass.
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun tryStartSyncEvents(): Boolean {
-        while (true) {
-            when (syncEventsState.load()) {
-                SyncIdle.ordinal -> {
-                    if (syncEventsState.compareAndSet(SyncIdle.ordinal, SyncRunning.ordinal)) return true
-                }
-                SyncRunning.ordinal -> {
-                    if (syncEventsState.compareAndSet(SyncRunning.ordinal, SyncRunningWithPending.ordinal)) return false
-                }
-                SyncRunningWithPending.ordinal -> return false
-            }
-        }
-    }
-
-    /**
-     * Returns true when another pass was requested during the previous one.
-     * Otherwise, releases sync ownership.
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    private fun shouldRunNextSyncEventsPass(): Boolean {
-        while (true) {
-            when (syncEventsState.load()) {
-                SyncRunningWithPending.ordinal -> {
-                    if (syncEventsState.compareAndSet(SyncRunningWithPending.ordinal, SyncRunning.ordinal)) return true
-                }
-                SyncRunning.ordinal -> {
-                    if (syncEventsState.compareAndSet(SyncRunning.ordinal, SyncIdle.ordinal)) return false
-                }
-                else -> error("Unexpected sync events state")
-            }
-        }
-    }
-
-    /**
      * Performs one complete sync using the latest account snapshot.
      */
     private suspend fun runSyncEventsPass(): SyncResult = withContext(Dispatchers.Default) {
@@ -458,11 +414,5 @@ public class CalendarManager internal constructor(
     private suspend fun getCredentialsForCalendar(calendarId: CalendarId): DavAccount {
         val accountId = calendarRepository.getCalendar(calendarId).accountId
         return accountRepository.getCredentials(accountId)
-    }
-
-    private enum class SyncEventsState {
-        SyncIdle,
-        SyncRunning,
-        SyncRunningWithPending
     }
 }

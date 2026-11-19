@@ -158,3 +158,19 @@ public class ContactsManager internal constructor(
         const val DEFAULT_SEARCH_LIMIT: Int = 10
     }
 }
+
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createContactsManager(
+    database: ContactsDatabase,
+    httpClient: HttpClient,
+    deviceContactsProvider: DeviceContactsProvider,
+    appEnvironment: AppEnvironment,
+    crashReport: CrashReport,
+): ContactsManager = ContactsManager(
+    database = database,
+    httpClient = httpClient,
+    appEnvironment = appEnvironment,
+    deviceContactsProvider = deviceContactsProvider,
+    crashReport = crashReport,
+)

@@ -33,10 +33,14 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 internal val AppEnvironment.mailApiHost: String get() = "mail.$domain"
 
-internal fun createContactsHttpClient(appEnvironment: AppEnvironment): HttpClient =
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createContactsHttpClient(appEnvironment: AppEnvironment): HttpClient =
     createHttpClient(host = appEnvironment.mailApiHost, basePath = "api/")
 
 internal class ContactsRemoteDataSource(private val httpClient: HttpClient) {

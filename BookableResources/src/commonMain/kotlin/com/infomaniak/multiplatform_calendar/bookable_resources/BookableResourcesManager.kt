@@ -130,3 +130,11 @@ public class BookableResourcesManager internal constructor(
         to: Instant,
     ): Map<BookableResourceUuid, List<BusyPeriod>> = bookableResourcesCaller { repository.busyPeriods(accountId, uuids, from, to) }
 }
+
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createBookableResourcesManager(
+    database: BookableResourcesDatabase,
+    httpClient: HttpClient,
+    crashReport: CrashReport,
+): BookableResourcesManager = BookableResourcesManager(database = database, httpClient = httpClient, crashReport = crashReport)

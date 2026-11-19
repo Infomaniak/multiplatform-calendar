@@ -39,8 +39,12 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
-internal fun createBookableResourcesHttpClient(appEnvironment: AppEnvironment): HttpClient =
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createBookableResourcesHttpClient(appEnvironment: AppEnvironment): HttpClient =
     createHttpClient(host = "calendar.${appEnvironment.domain}", basePath = "api/")
 
 internal class BookableResourcesRemoteDataSource(private val httpClient: HttpClient) {

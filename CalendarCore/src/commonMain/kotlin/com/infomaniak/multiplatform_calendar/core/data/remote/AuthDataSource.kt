@@ -21,6 +21,8 @@ import com.infomaniak.multiplatform_calendar.core.data.remote.model.PasswordRequ
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.PasswordResponse
 import com.infomaniak.multiplatform_calendar.core.data.remote.model.UserProfileResponse
 import com.infomaniak.multiplatform_calendar.core.data.remote.routes.AuthRoutes
+import com.infomaniak.multiplatform_calendar.core.di.Api
+import com.infomaniak.multiplatform_calendar.core.di.HttpClientFor
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.network.model.asSuccess
 import dev.zacsweers.metro.AppScope
@@ -41,7 +43,7 @@ import kotlin.time.ExperimentalTime
 @SingleIn(AppScope::class)
 @Inject
 internal class AuthDataSource(
-    private val ktorClient: HttpClient,
+    @HttpClientFor(Api.Infomaniak) private val ktorClient: HttpClient,
 ) {
     @OptIn(ExperimentalTime::class)
     suspend fun exchangeTokenToPassword(authToken: AccessToken): PasswordResponse {

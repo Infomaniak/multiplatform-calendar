@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_calendar.core.managers
 
 import com.infomaniak.multiplatform_calendar.bookable_resources.BookableResourcesManager
+import com.infomaniak.multiplatform_calendar.bookable_resources.createBookableResourcesManager
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResource
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BookableResourceUuid
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.BusyPeriod
@@ -26,14 +27,16 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toResourceAvailabi
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventTiming
+import com.infomaniak.multiplatform_calendar.core.di.Api
+import com.infomaniak.multiplatform_calendar.core.di.HttpClientFor
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -53,11 +56,11 @@ public class CalendarBookableResourcesManager internal constructor(
     private val calendarRepository: CalendarRepository,
     database: CalendarDatabase,
     private val sdkCaller: SdkCaller,
-    appEnvironment: AppEnvironment,
+    @HttpClientFor(Api.BookableResources) httpClient: HttpClient,
     crashReport: CrashReport,
 ) {
 
-    internal val bookableResourcesManager = BookableResourcesManager(database, appEnvironment, crashReport)
+    internal val bookableResourcesManager = createBookableResourcesManager(database, httpClient, crashReport)
 
     /** Sorted by name; empty while [calendarId] is missing. */
     public fun observeResources(calendarId: CalendarId): Flow<List<BookableResource>> =

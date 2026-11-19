@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_calendar.core.di
 import com.infomaniak.multiplatform_calendar.core.data.repository.ContactsLookup
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.ContactsManager
+import com.infomaniak.multiplatform_core.contacts.createContactsManager
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
@@ -27,6 +28,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
+import io.ktor.client.HttpClient
 
 @ContributesTo(AppScope::class)
 public interface ContactsModule {
@@ -35,11 +37,13 @@ public interface ContactsModule {
     @Provides
     private fun provideContactsManager(
         database: ContactsDatabase,
+        @HttpClientFor(Api.Contacts) httpClient: HttpClient,
         deviceContactsProvider: DeviceContactsProvider,
         appEnvironment: AppEnvironment,
         crashReport: CrashReport,
-    ): ContactsManager = ContactsManager(
+    ): ContactsManager = createContactsManager(
         database = database,
+        httpClient = httpClient,
         deviceContactsProvider = deviceContactsProvider,
         appEnvironment = appEnvironment,
         crashReport = crashReport,

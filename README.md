@@ -198,6 +198,10 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
   `CalendarManager.syncEvents` also syncs the organisations and the bookable resources. `:Meet` is
   wired by Core (`MeetModule`) and has no table; `AccountManager` initializes / removes the account in `MeetManager` too.
   `MeetManager`'s functions are `@HostManagedMeetApi` and hidden from Swift: consumers go through `CalendarManager.generateMeetRoom`.
+- **HTTP clients**: Core's `HttpClientsModule` provides one `HttpClient` per API, each behind the `@HttpClientFor(Api.X)`
+  qualifier (`Api` lists the APIs, hidden from Swift). Each module keeps its client configuration in its public
+  `create*HttpClient` factory, hidden from Swift, which `HttpClientsModule` calls. Core builds each module's manager with its client through the module's `create*Manager`
+  factory, hidden from Swift; the managers' public constructors still create their own client for standalone use.
 - **Apple**: `CalendarSDK` (in `CalendarCore/appleMain`) is the public `@DependencyGraph`. It provides the Apple Room database,
   inherits `CalendarCoreGraph` explicitly to export `accountManager` / `calendarManager` / `contactsManager` / `calendarBookableResourcesManager` / `calendarOrganisationsManager`, and inherits
   `:CalendarKmpDav`'s `CaldavClientModule` explicitly to obtain the CalDAV bridge binding. It is accessed via

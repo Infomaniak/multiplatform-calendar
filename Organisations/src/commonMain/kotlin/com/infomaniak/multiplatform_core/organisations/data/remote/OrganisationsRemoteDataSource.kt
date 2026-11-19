@@ -29,8 +29,12 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
-internal fun createOrganisationsHttpClient(appEnvironment: AppEnvironment): HttpClient =
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createOrganisationsHttpClient(appEnvironment: AppEnvironment): HttpClient =
     createHttpClient(host = "api.${appEnvironment.domain}", basePath = "1/")
 
 internal class OrganisationsRemoteDataSource(private val httpClient: HttpClient) {

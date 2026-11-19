@@ -30,8 +30,9 @@ import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.core.repository.event.FakeCaldavClient
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
-import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -63,7 +64,7 @@ class CalendarBookableResourcesManagerTest : RobolectricTestsBase() {
             calendarRepository = calendarRepository,
             database = database,
             sdkCaller = SdkCaller(NoOpCrashReport),
-            appEnvironment = AppEnvironment.Prod,
+            httpClient = HttpClient(MockEngine { error("The network must not be called in this test") }),
             crashReport = NoOpCrashReport,
         )
     }

@@ -29,15 +29,16 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.IcalDateValue
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceKey
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceUntil
-import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.core.utils.RecordingSQLiteDriver
 import com.infomaniak.multiplatform_calendar.core.utils.seedEvents
@@ -50,13 +51,14 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Instant
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 class EventDaoTest : RobolectricTestsBase() {
 
@@ -96,6 +98,40 @@ class EventDaoTest : RobolectricTestsBase() {
         seedEvents(listOf(event))
 
         assertEquals(event, eventDao.getEvent(event.id))
+    }
+
+    @Test
+    fun upsertEventsWithRawIcsIfCalendarExists_onlyWritesWhenCalendarExists() = runTest {
+        val accountId = AccountId(1)
+        val existingCalendarId = CalendarId("calendar://existing")
+        val missingCalendarId = CalendarId("calendar://missing")
+        seedCalendar(accountId = accountId, calendarId = existingCalendarId, isVisible = true)
+        val existingEvent = createEvent(
+            eventId = EventId("event://existing-calendar"),
+            calendarId = existingCalendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 10, 0),
+        )
+        val missingEvent = createEvent(
+            eventId = EventId("event://missing-calendar"),
+            calendarId = missingCalendarId,
+            dtStart = LocalDateTime(2026, 6, 29, 9, 0),
+            dtEndEffective = LocalDateTime(2026, 6, 29, 10, 0),
+        )
+
+        val upsertedExisting = eventDao.upsertEventsWithRawIcsIfCalendarExists(
+            calendarId = existingCalendarId,
+            batch = listOf(EventWithRawIcs(existingEvent, rawIcs = "", overrides = emptyList())).toUpsertBatch(),
+        )
+        val upsertedMissing = eventDao.upsertEventsWithRawIcsIfCalendarExists(
+            calendarId = missingCalendarId,
+            batch = listOf(EventWithRawIcs(missingEvent, rawIcs = "", overrides = emptyList())).toUpsertBatch(),
+        )
+
+        assertTrue(upsertedExisting)
+        assertFalse(upsertedMissing)
+        assertEquals(existingEvent, eventDao.getEvent(existingEvent.id))
+        assertNull(eventDao.getEvent(missingEvent.id))
     }
 
     @Test
@@ -781,7 +817,13 @@ class EventDaoTest : RobolectricTestsBase() {
             ),
             rrule = rrule,
             hasRecurrence = true,
-            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
+            recurrenceBounds = checkNotNull(
+                toRecurrenceBoundsEntity(
+                    timing = timing,
+                    recurrenceRule = rrule,
+                    rDates = emptyList(),
+                ),
+            ),
             etag = "etag-all-day-daily",
         )
         seedEvents(listOf(master))
@@ -1135,7 +1177,8 @@ class EventDaoTest : RobolectricTestsBase() {
 
         // The mirror case: widening the stored instants by the maximum UTC offset instead of comparing
         // wall-clocks would drag this 08-20 event into a window that ends the previous evening.
-        val observed = observeVisibleIn(account, LocalDateTime(2026, 8, 19, 12, 0), LocalDateTime(2026, 8, 19, 18, 0), TimeZone.UTC)
+        val observed =
+            observeVisibleIn(account, LocalDateTime(2026, 8, 19, 12, 0), LocalDateTime(2026, 8, 19, 18, 0), TimeZone.UTC)
 
         assertTrue(observed.isEmpty(), "an all-day event must not leak into a day it does not cover")
     }
@@ -1230,7 +1273,13 @@ class EventDaoTest : RobolectricTestsBase() {
             ),
             rrule = rrule,
             hasRecurrence = true,
-            recurrenceBounds = checkNotNull(toRecurrenceBoundsEntity(timing = timing, recurrenceRule = rrule, rDates = emptyList())),
+            recurrenceBounds = checkNotNull(
+                toRecurrenceBoundsEntity(
+                    timing = timing,
+                    recurrenceRule = rrule,
+                    rDates = emptyList(),
+                ),
+            ),
             etag = "etag-${eventId.url}",
         )
     }

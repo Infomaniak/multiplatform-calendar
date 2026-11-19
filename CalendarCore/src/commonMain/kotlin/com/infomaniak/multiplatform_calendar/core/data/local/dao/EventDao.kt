@@ -240,6 +240,13 @@ internal abstract class EventDao {
         }
     }
 
+    @Transaction
+    open suspend fun upsertEventsWithRawIcsIfCalendarExists(calendarId: CalendarId, batch: EventUpsertBatch): Boolean {
+        if (!hasCalendar(calendarId)) return false
+        upsertEventsWithRawIcs(batch)
+        return true
+    }
+
     /** Single-event convenience for the edit paths, which write one resource at a time. */
     @Transaction
     open suspend fun upsertEventWithRawIcs(event: EventWithRawIcs) {
@@ -266,6 +273,9 @@ internal abstract class EventDao {
 
     @Query("SELECT * FROM event_overrides WHERE masterId = :masterId AND recurrenceKey = :recurrenceKey LIMIT 1")
     abstract suspend fun getOverrideOf(masterId: EventId, recurrenceKey: RecurrenceKey): EventOverrideEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM calendars WHERE id = :calendarId)")
+    protected abstract suspend fun hasCalendar(calendarId: CalendarId): Boolean
 
     @Query("SELECT id FROM events WHERE calendarId = :calendarId AND id IN (:eventIds)")
     abstract suspend fun getExistingEventIds(calendarId: CalendarId, eventIds: List<EventId>): List<EventId>

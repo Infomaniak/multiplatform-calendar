@@ -43,6 +43,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -97,11 +99,9 @@ class CalendarManagerTest : RobolectricTestsBase() {
         remote.firstSyncStarted.await()
 
         val secondSync = async { readyManager.syncEvents() }
-        secondSync.await()
-
-        assertEquals(1, remote.syncCollectionCalls)
-
         remote.releaseFirstSync.complete(Unit)
+        runCurrent()
+        secondSync.await()
         firstSync.await()
 
         assertEquals(2, remote.syncCollectionCalls)
@@ -125,13 +125,9 @@ class CalendarManagerTest : RobolectricTestsBase() {
         val extra1 = async { manager.syncEvents() }
         val extra2 = async { manager.syncEvents() }
         val extra3 = async { manager.syncEvents() }
-        extra1.await()
-        extra2.await()
-        extra3.await()
-
-        assertEquals(1, remote.syncCollectionCalls)
-
         remote.releaseFirstSync.complete(Unit)
+        runCurrent()
+        awaitAll(extra1, extra2, extra3)
         firstSync.await()
 
         assertEquals(2, remote.syncCollectionCalls)

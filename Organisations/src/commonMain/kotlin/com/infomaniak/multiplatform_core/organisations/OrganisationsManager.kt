@@ -86,3 +86,11 @@ public class OrganisationsManager internal constructor(
     public fun observeOrganisations(accountId: AccountId): Flow<List<Organisation>> =
         organisationsCaller.flow(repository.observeOrganisations(accountId))
 }
+
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createOrganisationsManager(
+    database: OrganisationsDatabase,
+    httpClient: HttpClient,
+    crashReport: CrashReport,
+): OrganisationsManager = OrganisationsManager(database = database, httpClient = httpClient, crashReport = crashReport)

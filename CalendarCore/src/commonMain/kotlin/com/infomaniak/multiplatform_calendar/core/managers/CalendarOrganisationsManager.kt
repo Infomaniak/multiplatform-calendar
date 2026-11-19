@@ -20,15 +20,18 @@ package com.infomaniak.multiplatform_calendar.core.managers
 import com.infomaniak.multiplatform_calendar.core.data.local.CalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.di.Api
+import com.infomaniak.multiplatform_calendar.core.di.HttpClientFor
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
-import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.crashreport.CrashReport
 import com.infomaniak.multiplatform_core.organisations.OrganisationsManager
+import com.infomaniak.multiplatform_core.organisations.createOrganisationsManager
 import com.infomaniak.multiplatform_core.organisations.domain.model.Organisation
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import io.ktor.client.HttpClient
 import kotlin.coroutines.cancellation.CancellationException
 
 @SingleIn(AppScope::class)
@@ -37,11 +40,11 @@ public class CalendarOrganisationsManager internal constructor(
     private val calendarRepository: CalendarRepository,
     database: CalendarDatabase,
     private val sdkCaller: SdkCaller,
-    appEnvironment: AppEnvironment,
+    @HttpClientFor(Api.Organisations) httpClient: HttpClient,
     crashReport: CrashReport,
 ) {
 
-    internal val organisationsManager = OrganisationsManager(database, appEnvironment, crashReport)
+    internal val organisationsManager = createOrganisationsManager(database, httpClient, crashReport)
 
     /** The organisation [calendarId] belongs to, from the local organisations only. */
     @Throws(CalendarSdkException::class, CancellationException::class)

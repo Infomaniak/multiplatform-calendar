@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.meet.data.remote.createMeetHttpClie
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.createContactsHttpClient
 import com.infomaniak.multiplatform_core.network.createHttpClient
+import com.infomaniak.multiplatform_core.organisations.data.remote.createOrganisationsHttpClient
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
@@ -33,7 +34,7 @@ import kotlin.native.HiddenFromObjC
 
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
-public enum class Api { Infomaniak, Contacts, Meet, BookableResources }
+public enum class Api { Infomaniak, Contacts, Meet, BookableResources, Organisations }
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -65,4 +66,10 @@ public interface HttpClientsModule {
     @Provides
     private fun provideBookableResourcesHttpClient(appEnvironment: AppEnvironment): HttpClient =
         createBookableResourcesHttpClient(appEnvironment)
+
+    @HttpClientFor(Api.Organisations)
+    @SingleIn(AppScope::class)
+    @Provides
+    private fun provideOrganisationsHttpClient(appEnvironment: AppEnvironment): HttpClient =
+        createOrganisationsHttpClient(appEnvironment)
 }

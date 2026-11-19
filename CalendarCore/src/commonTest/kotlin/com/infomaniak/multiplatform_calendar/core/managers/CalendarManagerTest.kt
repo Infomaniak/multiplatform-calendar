@@ -127,7 +127,7 @@ class CalendarManagerTest : RobolectricTestsBase() {
                 calendarRepository = calendarRepository,
                 database = database,
                 sdkCaller = sdkCaller,
-                appEnvironment = AppEnvironment.Prod,
+                httpClient = HttpClient(MockEngine { error("The network must not be called in this test") }),
                 crashReport = NoOpCrashReport,
             ),
             sdkCaller = sdkCaller,

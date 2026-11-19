@@ -38,6 +38,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Alarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.core.extensions.SyncResult
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
@@ -47,6 +48,7 @@ import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncE
 import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncRunning
 import com.infomaniak.multiplatform_calendar.core.managers.CalendarManager.SyncEventsState.SyncRunningWithPending
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
+import com.infomaniak.multiplatform_calendar.core.utils.SyncCoordinator
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
@@ -57,8 +59,6 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
@@ -91,6 +91,7 @@ public class CalendarManager internal constructor(
     private val calendarBookableResourcesManager: CalendarBookableResourcesManager,
     private val calendarOrganisationsManager: CalendarOrganisationsManager,
     private val sdkCaller: SdkCaller,
+    private val syncCoordinator: SyncCoordinator,
 ) {
 
     private val nonEmptyAccountIdsFlow by lazy {
@@ -227,25 +228,11 @@ public class CalendarManager internal constructor(
      * Concurrent requests are coalesced into one pending pass.
      * Calls made during an active sync return immediately.
      */
-    @OptIn(ExperimentalAtomicApi::class)
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents() {
         sdkCaller(operation = "sync events for all accounts") {
-            if (!tryStartSyncEvents()) return@sdkCaller
-            var ownershipReleased = false
-
-            try {
-                while (true) {
-                    currentCoroutineContext().ensureActive()
-                    runSyncEventsPass()
-
-                    if (!shouldRunNextSyncEventsPass()) {
-                        ownershipReleased = true
-                        return@sdkCaller
-                    }
-                }
-            } finally {
-                if (!ownershipReleased) syncEventsState.store(SyncIdle.ordinal)
+            syncCoordinator.runConflated {
+                runSyncEventsPass()
             }
         }
     }
@@ -442,7 +429,7 @@ public class CalendarManager internal constructor(
     /**
      * Performs one complete sync using the latest account snapshot.
      */
-    private suspend fun runSyncEventsPass() = withContext(Dispatchers.Default) {
+    private suspend fun runSyncEventsPass(): SyncResult = withContext(Dispatchers.Default) {
         launch { syncOrganisations() }
         launch { syncBookableResources() }
         accountRepository.syncCurrentAccounts { accountId, credentials ->

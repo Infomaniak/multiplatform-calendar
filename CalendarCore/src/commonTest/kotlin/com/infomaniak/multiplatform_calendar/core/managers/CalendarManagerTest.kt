@@ -29,6 +29,7 @@ import com.infomaniak.multiplatform_calendar.core.repository.event.FakeBookableR
 import com.infomaniak.multiplatform_calendar.core.repository.event.FakeCaldavClient
 import com.infomaniak.multiplatform_calendar.core.repository.event.FakeContactsLookup
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import com.infomaniak.multiplatform_calendar.core.utils.SyncCoordinator
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CalendarSyncRemoteSource
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavCalendar
@@ -160,7 +161,6 @@ class CalendarManagerTest : RobolectricTestsBase() {
         return CalendarManager(
             accountRepository = accountRepository,
             calendarRepository = calendarRepository,
-            crashReport = NoOpCrashReport,
             eventRepository = eventRepository,
             meetManager = MeetManager(appEnvironment = AppEnvironment.Prod, crashReport = NoOpCrashReport),
             calendarBookableResourcesManager = CalendarBookableResourcesManager(
@@ -178,6 +178,7 @@ class CalendarManagerTest : RobolectricTestsBase() {
                 crashReport = NoOpCrashReport,
             ),
             sdkCaller = sdkCaller,
+            syncCoordinator = SyncCoordinator(),
         )
     }
 

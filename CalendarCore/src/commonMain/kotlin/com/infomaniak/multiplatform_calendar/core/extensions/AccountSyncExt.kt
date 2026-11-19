@@ -20,21 +20,71 @@ package com.infomaniak.multiplatform_calendar.core.extensions
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
+internal enum class SyncResult { Completed, NeedsResync, }
 
 /**
- * Synchronizes the current accounts once without restarting
- * when the account list changes.
+ * Synchronizes accounts from a snapshot without restarting when the account list changes.
  *
- * A new sync pass will fetch an updated account snapshot.
+ * Detects newly added accounts to request a follow-up pass, while tracking removed accounts
+ * to skip pending synchronizations or cancel the currently running one.
+ *
+ * @param syncAction The synchronization operation to execute for each account.
+ * @return [SyncResult.NeedsResync] if new accounts were detected during the pass,
+ * or [SyncResult.Completed] otherwise.
  */
+@OptIn(ExperimentalAtomicApi::class)
 internal suspend fun AccountRepository.syncCurrentAccounts(
     syncAction: suspend (AccountId, DavAccount) -> Unit,
-) {
-    currentAccountIdsSnapshot().forEach { accountId ->
-        syncAccountIfConnected(accountId, syncAction)
+): SyncResult = coroutineScope {
+    val initialAccountIds = currentAccountIdsSnapshot()
+    if (initialAccountIds.isEmpty()) return@coroutineScope SyncResult.Completed
+
+    val needsResync = AtomicBoolean(false)
+    val removedAccounts = mutableSetOf<AccountId>()
+    var currentAccountId: AccountId? = null
+    var currentAccountJob: Job? = null
+
+    val observer = launchAccountIdsObserver(
+        scope = this,
+        initialAccountIds = initialAccountIds,
+        removedAccounts = removedAccounts,
+        needsResync = needsResync,
+        currentAccountIdProvider = { currentAccountId },
+        cancelCurrentAccountSync = { currentAccountJob?.cancel() },
+    )
+
+    try {
+        initialAccountIds.forEach { accountId ->
+            if (accountId in removedAccounts) return@forEach
+
+            currentAccountId = accountId
+            currentAccountJob = launch(start = CoroutineStart.UNDISPATCHED) {
+                syncAccountIfConnected(accountId, syncAction)
+            }
+
+            try {
+                currentAccountJob.join()
+            } finally {
+                currentAccountJob = null
+                currentAccountId = null
+            }
+        }
+    } finally {
+        observer.cancelAndJoin()
     }
+
+    if (needsResync.load()) SyncResult.NeedsResync else SyncResult.Completed
 }
+
 
 /**
  * Synchronizes all accounts with the provided [syncAction] function.
@@ -82,6 +132,30 @@ private fun shouldRestartCurrentSync(
     if (newAccountIds.isEmpty()) return true
     if (currentAccountId != null && currentAccountId !in newAccountIds) return true
     return newAccountIds.any { it !in currentRunAccountIds }
+}
+
+@OptIn(ExperimentalAtomicApi::class)
+private fun AccountRepository.launchAccountIdsObserver(
+    scope: CoroutineScope,
+    initialAccountIds: Set<AccountId>,
+    removedAccounts: MutableSet<AccountId>,
+    needsResync: AtomicBoolean,
+    currentAccountIdProvider: () -> AccountId?,
+    cancelCurrentAccountSync: () -> Unit,
+): Job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+    var previousAccountIds = initialAccountIds
+
+    currentAccountIdsFlow.collect { newAccountIds ->
+        // Detect newly added accounts.
+        if (!needsResync.load() && newAccountIds.any { it !in previousAccountIds }) {
+            needsResync.store(true)
+        }
+        // Track removed accounts during this pass.
+        removedAccounts += initialAccountIds - newAccountIds
+        // Cancel only the currently syncing account if removed.
+        if (currentAccountIdProvider() in removedAccounts) cancelCurrentAccountSync()
+        previousAccountIds = newAccountIds
+    }
 }
 
 private suspend fun AccountRepository.syncAccountIfConnected(

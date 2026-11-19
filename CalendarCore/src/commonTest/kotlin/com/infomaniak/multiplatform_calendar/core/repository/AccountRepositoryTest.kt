@@ -24,8 +24,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
-import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
+import com.infomaniak.multiplatform_calendar.core.extensions.SyncResult
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
@@ -55,6 +56,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 class AccountRepositoryTest : RobolectricTestsBase() {
 
@@ -267,7 +269,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         val syncedAccounts = mutableListOf<AccountId>()
         var accountBAdded = false
 
-        repository.syncCurrentAccounts { accountId, _ ->
+        val result = repository.syncCurrentAccounts { accountId, _ ->
             syncedAccounts += accountId
             if (!accountBAdded && accountId == accountA) {
                 accountBAdded = true
@@ -279,7 +281,54 @@ class AccountRepositoryTest : RobolectricTestsBase() {
         }
 
         assertEquals(listOf(accountA), syncedAccounts)
+        assertEquals(SyncResult.NeedsResync, result)
         assertTrue(accountB in repository.currentAccountIdsFlow.first())
+    }
+
+    @Test
+    fun syncCurrentAccounts_skipsAccountsRemovedBeforeTheirTurn() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(301)
+        val accountB = AccountId(302)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        repository.storeCredentials(accountB, DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"))
+        val syncedAccounts = mutableListOf<AccountId>()
+
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            syncedAccounts += accountId
+            if (accountId == accountA) repository.removeCredentials(accountB)
+        }
+
+        assertEquals(SyncResult.Completed, result)
+        assertEquals(listOf(accountA), syncedAccounts)
+    }
+
+    @Test
+    fun syncCurrentAccounts_cancelsCurrentSyncWhenAccountIsRemoved() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(401)
+        val accountB = AccountId(402)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        repository.storeCredentials(accountB, DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"))
+        val syncedAccounts = mutableListOf<AccountId>()
+        var accountACancelled = false
+
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            try {
+                syncedAccounts += accountId
+                if (accountId == accountA) {
+                    repository.removeCredentials(accountA)
+                    delay(1.milliseconds)
+                }
+            } catch (cancellation: CancellationException) {
+                if (accountId == accountA) accountACancelled = true
+                throw cancellation
+            }
+        }
+
+        assertEquals(SyncResult.Completed, result)
+        assertTrue(accountACancelled)
+        assertEquals(listOf(accountA, accountB), syncedAccounts)
     }
 
     @Test
@@ -300,7 +349,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
                     DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"),
                 )
                 // Keep the current pass running so restart can happen before completion.
-                delay(1)
+                delay(1.milliseconds)
             }
         }
 

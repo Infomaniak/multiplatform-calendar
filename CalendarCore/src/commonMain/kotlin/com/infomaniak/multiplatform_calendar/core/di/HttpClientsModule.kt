@@ -15,20 +15,33 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.infomaniak.multiplatform_calendar.core.data.remote
+package com.infomaniak.multiplatform_calendar.core.di
 
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
 import dev.zacsweers.metro.Provides
+import dev.zacsweers.metro.Qualifier
 import dev.zacsweers.metro.SingleIn
 import io.ktor.client.HttpClient
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
+
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public enum class Api { Infomaniak }
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+public annotation class HttpClientFor(val api: Api)
 
 @ContributesTo(AppScope::class)
-public interface KtorClientProvider {
-    @Provides
+public interface HttpClientsModule {
+
+    @HttpClientFor(Api.Infomaniak)
     @SingleIn(AppScope::class)
-    private fun provideHttpClient(appEnvironment: AppEnvironment): HttpClient =
+    @Provides
+    private fun provideInfomaniakHttpClient(appEnvironment: AppEnvironment): HttpClient =
         createHttpClient(host = "api.${appEnvironment.domain}", basePath = "2/")
 }

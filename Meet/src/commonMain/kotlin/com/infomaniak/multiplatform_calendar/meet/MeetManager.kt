@@ -66,3 +66,8 @@ public class MeetManager internal constructor(httpClient: HttpClient, crashRepor
         remoteDataSource.getMeetRoomUrl(token)
     }
 }
+
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createMeetManager(httpClient: HttpClient, crashReport: CrashReport): MeetManager =
+    MeetManager(httpClient = httpClient, crashReport = crashReport)

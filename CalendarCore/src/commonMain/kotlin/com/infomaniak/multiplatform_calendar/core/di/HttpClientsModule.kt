@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.di
 
+import com.infomaniak.multiplatform_calendar.meet.data.remote.createMeetHttpClient
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.createContactsHttpClient
 import com.infomaniak.multiplatform_core.network.createHttpClient
@@ -31,7 +32,7 @@ import kotlin.native.HiddenFromObjC
 
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
-public enum class Api { Infomaniak, Contacts }
+public enum class Api { Infomaniak, Contacts, Meet }
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
@@ -51,4 +52,10 @@ public interface HttpClientsModule {
     @Provides
     private fun provideContactsHttpClient(appEnvironment: AppEnvironment): HttpClient =
         createContactsHttpClient(appEnvironment)
+
+    @HttpClientFor(Api.Meet)
+    @SingleIn(AppScope::class)
+    @Provides
+    private fun provideMeetHttpClient(appEnvironment: AppEnvironment): HttpClient =
+        createMeetHttpClient(appEnvironment)
 }

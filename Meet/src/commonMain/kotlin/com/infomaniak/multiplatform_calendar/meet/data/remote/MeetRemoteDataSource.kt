@@ -28,10 +28,14 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
+import kotlin.experimental.ExperimentalObjCRefinement
+import kotlin.native.HiddenFromObjC
 
 private const val MEET_ROOM_ROUTE = "pim/calendar/meet-room"
 
-internal fun createMeetHttpClient(appEnvironment: AppEnvironment): HttpClient =
+@OptIn(ExperimentalObjCRefinement::class)
+@HiddenFromObjC
+public fun createMeetHttpClient(appEnvironment: AppEnvironment): HttpClient =
     createHttpClient(host = "calendar.${appEnvironment.domain}", basePath = "api/")
 
 internal class MeetRemoteDataSource(private val httpClient: HttpClient) {

@@ -26,6 +26,12 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+/**
+ * Coordinates synchronization requests to prevent concurrent executions
+ * and conflate overlapping requests into a single additional pass.
+ *
+ * Uses the caller's coroutine context without managing its own scope.
+ */
 @SingleIn(AppScope::class)
 @Inject
 internal class SyncCoordinator {
@@ -36,6 +42,19 @@ internal class SyncCoordinator {
     private var latestRequestId = 0L
     private var lastCompletedRequestId = 0L
 
+    /**
+     * Executes [syncAction] while ensuring only one execution runs at a time.
+     *
+     * Concurrent requests are conflated into a single additional pass.
+     * If [syncAction] returns [SyncResult.NeedsResync], another pass is scheduled,
+     * unless a concurrent request has already scheduled one.
+     *
+     * Execution runs in the caller's coroutine context and respects cancellation.
+     * If the active execution fails or is cancelled, the exception is propagated
+     * and pending work may be picked up by a subsequent caller.
+     *
+     * @param syncAction The synchronization operation to execute.
+     */
     suspend fun runConflated(syncAction: suspend () -> SyncResult) {
         stateMutex.withLock {
             latestRequestId++

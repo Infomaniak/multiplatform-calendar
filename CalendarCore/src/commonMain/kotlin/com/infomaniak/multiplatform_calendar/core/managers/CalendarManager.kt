@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.color.NamedColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -39,6 +40,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
+import com.infomaniak.multiplatform_calendar.core.localization.localizedColorChoices
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
@@ -287,6 +289,14 @@ public class CalendarManager internal constructor(
         val accountId = calendarRepository.getCalendar(calendarId).accountId
         val url = meetManager.generateRoomUrl(accountId)
         MeetRoom(url, descriptionBlock = meetRoomDescriptionBlock(url))
+    }
+
+    /** The colors to choose from within [calendarId], led by the calendar's own as the default one, names localized. */
+    @Throws(CancellationException::class, CalendarSdkException::class)
+    public suspend fun getColorChoices(calendarId: CalendarId): List<NamedColor> = sdkCaller(
+        operation = "read color choices of calendar $calendarId",
+    ) {
+        localizedColorChoices(calendarRepository.getCalendar(calendarId).colors.sourceColor)
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)

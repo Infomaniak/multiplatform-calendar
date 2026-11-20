@@ -135,7 +135,8 @@ public class CalendarManager internal constructor(
 
     /**
      * Observe the alarms about to go off in `[from, from + horizon]` across the *visible* calendars of
-     * the current account, soonest first, capped at [limit].
+     * the current account, soonest first, capped at [limit]. Calendars whose reminders are turned off in
+     * [SettingsManager] are left out.
      *
      * Meant to feed local notifications: each [UpcomingAlarm] carries an [UpcomingAlarmId] identifying
      * that one firing, so a client can diff two consecutive emissions and only touch what changed.

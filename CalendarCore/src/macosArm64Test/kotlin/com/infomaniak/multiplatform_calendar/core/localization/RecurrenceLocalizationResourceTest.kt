@@ -41,9 +41,6 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
-import platform.Foundation.NSLocale
-import platform.Foundation.NSUserDefaults
-import platform.Foundation.preferredLanguages
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -272,22 +269,4 @@ class RecurrenceLocalizationResourceTest {
         byMonth = listOf(1, 2, 3, 4, 5, 6, 9, 10, 11, 12),
         until = RecurrenceUntil.DateTimeUtc(Instant.parse("2028-12-31T23:59:59Z")),
     )
-
-    private suspend fun withPreferredLanguage(language: String, block: suspend () -> Unit) {
-        val defaults = NSUserDefaults.standardUserDefaults
-        val key = "AppleLanguages"
-        val previous = defaults.objectForKey(key)
-
-        try {
-            defaults.setObject(arrayListOf(language), forKey = key)
-            defaults.synchronize()
-            val currentLanguage = NSLocale.preferredLanguages.firstOrNull() as? String
-            assertEquals(language, currentLanguage, "test locale did not apply")
-            block()
-        } finally {
-            if (previous == null) defaults.removeObjectForKey(key)
-            else defaults.setObject(previous, forKey = key)
-            defaults.synchronize()
-        }
-    }
 }

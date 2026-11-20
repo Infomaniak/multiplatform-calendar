@@ -68,10 +68,7 @@ public class CalendarBookableResourcesManager internal constructor(
             flowForAccountOf(calendarId, ifCalendarMissing = emptyList(), bookableResourcesManager::observeResources)
         }
 
-    /**
-     * A resource missing locally is fetched; null when that fails, the account cannot book it or [calendarId] is
-     * missing.
-     */
+    /** Null while the resource is not stored locally or [calendarId] is missing. */
     public fun observeResource(calendarId: CalendarId, uuid: BookableResourceUuid): Flow<BookableResource?> =
         sdkCaller.flow(operation = "observe bookable resource $uuid for calendar $calendarId") {
             flowForAccountOf(calendarId, ifCalendarMissing = null) { bookableResourcesManager.observeResource(it, uuid) }

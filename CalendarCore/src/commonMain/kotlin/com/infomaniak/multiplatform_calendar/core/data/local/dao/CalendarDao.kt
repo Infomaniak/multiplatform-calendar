@@ -49,6 +49,9 @@ internal interface CalendarDao {
     @Query("SELECT * FROM calendars WHERE id = :calendarId LIMIT 1")
     fun observeCalendar(calendarId: CalendarId): Flow<CalendarEntity?>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM accounts WHERE id = :accountId)")
+    suspend fun hasAccount(accountId: AccountId): Boolean
+
     @Update
     suspend fun update(calendar: CalendarEntity)
 
@@ -77,6 +80,7 @@ internal interface CalendarDao {
         accountId: AccountId,
         updater: (Map<CalendarId, CalendarEntity>) -> List<CalendarEntity>,
     ) {
+        if (!hasAccount(accountId)) return
         val existing = getByAccountId(accountId).associateBy { it.id }
         val next = updater(existing)
         upsert(next)

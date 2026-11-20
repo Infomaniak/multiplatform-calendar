@@ -24,8 +24,11 @@ import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
+import com.infomaniak.multiplatform_calendar.core.extensions.SyncResult
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
 import com.infomaniak.multiplatform_calendar.core.utils.DatabaseProviderFactory
+import com.infomaniak.multiplatform_calendar.core.utils.SyncCoordinator
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
@@ -54,6 +57,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 class AccountRepositoryTest : RobolectricTestsBase() {
 
@@ -229,6 +233,224 @@ class AccountRepositoryTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun syncCurrentAccounts_withNoAccount_doesNothing() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val syncedAccounts = mutableListOf<AccountId>()
+
+        repository.syncCurrentAccounts { accountId, _ ->
+            syncedAccounts += accountId
+        }
+
+        assertEquals(emptyList(), syncedAccounts)
+    }
+
+    @Test
+    fun syncCurrentAccounts_syncsSnapshotOnly_once() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(101)
+        val accountB = AccountId(102)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        repository.storeCredentials(accountB, DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"))
+        val callsByAccount = mutableMapOf<AccountId, Int>()
+
+        repository.syncCurrentAccounts { accountId, _ ->
+            callsByAccount[accountId] = (callsByAccount[accountId] ?: 0) + 1
+        }
+
+        assertEquals(1, callsByAccount[accountA])
+        assertEquals(1, callsByAccount[accountB])
+    }
+
+    @Test
+    fun syncCurrentAccounts_doesNotIncludeAccountsAddedDuringPass() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(201)
+        val accountB = AccountId(202)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        val syncedAccounts = mutableListOf<AccountId>()
+        var accountBAdded = false
+
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            syncedAccounts += accountId
+            if (!accountBAdded && accountId == accountA) {
+                accountBAdded = true
+                repository.storeCredentials(
+                    accountB,
+                    DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"),
+                )
+            }
+        }
+
+        assertEquals(listOf(accountA), syncedAccounts)
+        assertEquals(SyncResult.NeedsResync, result)
+        assertTrue(accountB in repository.currentAccountIdsFlow.first())
+    }
+
+    @Test
+    fun syncCurrentAccounts_multipleAdditionsDuringOnePass_requestSingleResync() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(211)
+        val accountB = AccountId(212)
+        val accountC = AccountId(213)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        val syncedAccounts = mutableListOf<AccountId>()
+        var newAccountsAdded = false
+
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            syncedAccounts += accountId
+            if (!newAccountsAdded && accountId == accountA) {
+                newAccountsAdded = true
+                repository.storeCredentials(
+                    accountB,
+                    DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"),
+                )
+                repository.storeCredentials(
+                    accountC,
+                    DavAccount(baseUrl = "https://dav-c.example", username = "c", password = "p"),
+                )
+            }
+        }
+
+        assertEquals(SyncResult.NeedsResync, result)
+        assertEquals(listOf(accountA), syncedAccounts)
+        assertTrue(setOf(accountA, accountB, accountC) == repository.currentAccountIdsFlow.first())
+    }
+
+    @Test
+    fun syncCurrentAccounts_skipsAccountsRemovedBeforeTheirTurn() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(301)
+        val accountB = AccountId(302)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        repository.storeCredentials(accountB, DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"))
+        val syncedAccounts = mutableListOf<AccountId>()
+
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            syncedAccounts += accountId
+            if (accountId == accountA) repository.removeCredentials(accountB)
+        }
+
+        assertEquals(SyncResult.Completed, result)
+        assertEquals(listOf(accountA), syncedAccounts)
+    }
+
+    @Test
+    fun syncCurrentAccounts_cancelsCurrentSyncWhenAccountIsRemoved() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(401)
+        val accountB = AccountId(402)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        repository.storeCredentials(accountB, DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"))
+        val syncedAccounts = mutableListOf<AccountId>()
+        var accountACancelled = false
+
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            try {
+                syncedAccounts += accountId
+                if (accountId == accountA) {
+                    repository.removeCredentials(accountA)
+                    delay(1.milliseconds)
+                }
+            } catch (cancellation: CancellationException) {
+                if (accountId == accountA) accountACancelled = true
+                throw cancellation
+            }
+        }
+
+        assertEquals(SyncResult.Completed, result)
+        assertTrue(accountACancelled)
+        assertEquals(listOf(accountA, accountB), syncedAccounts)
+    }
+
+    @Test
+    fun syncCurrentAccounts_accountRemovedThenReaddedDuringPass_isSkippedUntilNextPass() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(411)
+        val accountB = AccountId(412)
+        val accountBCredentials = DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p")
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        repository.storeCredentials(accountB, accountBCredentials)
+        val syncedAccounts = mutableListOf<AccountId>()
+
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            syncedAccounts += accountId
+            if (accountId == accountA) {
+                repository.removeCredentials(accountB)
+                repository.storeCredentials(accountB, accountBCredentials)
+            }
+        }
+
+        assertEquals(SyncResult.NeedsResync, result)
+        assertEquals(listOf(accountA), syncedAccounts)
+        assertTrue(accountB in repository.currentAccountIdsFlow.first())
+    }
+
+    @Test
+    fun syncCurrentAccounts_withConflation_multipleAdditionsAreHandledBySingleFollowUpPass() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val coordinator = SyncCoordinator()
+        val accountA = AccountId(421)
+        val accountB = AccountId(422)
+        val accountC = AccountId(423)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+        var addedDuringFirstPass = false
+        var coordinatorPasses = 0
+        val syncCalls = mutableListOf<AccountId>()
+
+        coordinator.runConflated {
+            coordinatorPasses += 1
+            repository.syncCurrentAccounts { accountId, _ ->
+                syncCalls += accountId
+                if (!addedDuringFirstPass && accountId == accountA) {
+                    addedDuringFirstPass = true
+                    repository.storeCredentials(
+                        accountB,
+                        DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"),
+                    )
+                    repository.storeCredentials(
+                        accountC,
+                        DavAccount(baseUrl = "https://dav-c.example", username = "c", password = "p"),
+                    )
+                }
+            }
+        }
+
+        assertEquals(2, coordinatorPasses)
+        assertEquals(2, syncCalls.count { it == accountA })
+        assertEquals(1, syncCalls.count { it == accountB })
+        assertEquals(1, syncCalls.count { it == accountC })
+    }
+
+    @Test
+    fun syncCurrentAccounts_failurePropagates_andObserverIsCleanedForNextRun() = runTest {
+        val repository = createRepositoryWithLocalAuthCalls()
+        val accountA = AccountId(431)
+        val accountB = AccountId(432)
+        repository.storeCredentials(accountA, DavAccount(baseUrl = "https://dav-a.example", username = "a", password = "p"))
+
+        val thrown = assertFailsWith<IllegalStateException> {
+            repository.syncCurrentAccounts { accountId, _ ->
+                if (accountId == accountA) {
+                    repository.storeCredentials(
+                        accountB,
+                        DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"),
+                    )
+                    throw IllegalStateException("boom")
+                }
+            }
+        }
+        assertEquals("boom", thrown.message)
+
+        val calls = mutableListOf<AccountId>()
+        val result = repository.syncCurrentAccounts { accountId, _ ->
+            calls += accountId
+        }
+
+        assertEquals(SyncResult.Completed, result)
+        assertEquals(setOf(accountA, accountB), calls.toSet())
+    }
+
+    @Test
     fun syncAccountsWithRestartingCollection_retriesWhenAccountListChangesDuringSync() = runTest {
         val repository = createRepositoryWithLocalAuthCalls()
         val accountA = AccountId(1)
@@ -246,7 +468,7 @@ class AccountRepositoryTest : RobolectricTestsBase() {
                     DavAccount(baseUrl = "https://dav-b.example", username = "b", password = "p"),
                 )
                 // Keep the current pass running so restart can happen before completion.
-                delay(1)
+                delay(1.milliseconds)
             }
         }
 

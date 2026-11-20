@@ -182,7 +182,7 @@ class EventEditMapperTest {
     fun createWithColor_emitsSetWithInfomaniakHex() {
         val edit = editData(eventColor = 0xFF1E88E5.toInt()).toRemoteEdit(previous = null, stamp = STAMP)
 
-        assertEquals(RemoteColorChange.Set(hex = "#1E88E5FF"), edit.colorChange)
+        assertEquals(RemoteColorChange.Set(hex = "#1E88E5"), edit.colorChange)
     }
 
     @Test
@@ -209,7 +209,7 @@ class EventEditMapperTest {
 
         val edit = editData(eventColor = 0xFFE53935.toInt()).toRemoteEdit(previous = previous, stamp = STAMP)
 
-        assertEquals(RemoteColorChange.Set(hex = "#E53935FF"), edit.colorChange)
+        assertEquals(RemoteColorChange.Set(hex = "#E53935"), edit.colorChange)
     }
 
     // ---- RRULE (RFC 5545 §3.8.5.3) — tri-state resolution ---------------------------------------

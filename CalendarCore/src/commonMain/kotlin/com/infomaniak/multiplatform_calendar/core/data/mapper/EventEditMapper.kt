@@ -22,7 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AttendeeEnti
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.OrganizerEntity
-import com.infomaniak.multiplatform_calendar.core.data.remote.model.toCaldavHex
+import com.infomaniak.multiplatform_calendar.core.data.remote.model.toRgbHex
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
@@ -240,7 +240,7 @@ internal fun EventOverrideEntity.toRemoteRecurrenceId(master: EventTiming) = Rem
 private fun EventEditData.resolveColorChange(previousColorArgb: Int?): RemoteColorChange = when {
     eventColor?.argb == previousColorArgb -> RemoteColorChange.Unchanged
     eventColor == null -> RemoteColorChange.Cleared
-    else -> RemoteColorChange.Set(hex = eventColor.argb.toCaldavHex())
+    else -> RemoteColorChange.Set(hex = eventColor.argb.toRgbHex())
 }
 
 /**

@@ -20,10 +20,11 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 import com.infomaniak.multiplatform_calendar.core.domain.model.account.DavCredentials
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.appenvironment.InfomaniakService
 
 /** Map the public Core credentials to the internal `:kmpdav` CalDAV account. */
 internal fun DavCredentials.toRemote(appEnvironment: AppEnvironment) = DavAccount(
-    baseUrl = "https://sync.${appEnvironment.domain}",
+    baseUrl = "https://${appEnvironment.hostOf(InfomaniakService.Sync)}",
     username = username,
     password = password,
 )

@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetEr
 import com.infomaniak.multiplatform_calendar.meet.domain.model.exceptions.MeetException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.appenvironment.InfomaniakService
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import com.infomaniak.multiplatform_core.network.model.asSuccess
 import io.ktor.client.HttpClient
@@ -36,7 +37,7 @@ private const val MEET_ROOM_ROUTE = "pim/calendar/meet-room"
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 public fun createMeetHttpClient(appEnvironment: AppEnvironment): HttpClient =
-    createHttpClient(host = "calendar.${appEnvironment.domain}", basePath = "api/")
+    createHttpClient(host = appEnvironment.hostOf(InfomaniakService.Calendar), basePath = "api/")
 
 internal class MeetRemoteDataSource(private val httpClient: HttpClient) {
 

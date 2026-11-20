@@ -17,9 +17,11 @@
  */
 package com.infomaniak.multiplatform_core.appenvironment
 
-/** Each module reaches its API at a subdomain of [domain], e.g. `api.infomaniak.com` or `mail.infomaniak.com`. */
+/** Each module reaches its service at [hostOf], by default a subdomain of [domain], e.g. `api.infomaniak.com` or `mail.infomaniak.com`. */
 public sealed class AppEnvironment {
     public abstract val domain: String
+
+    public open fun hostOf(service: InfomaniakService): String = "${service.subdomain}.$domain"
 
     public data object Prod : AppEnvironment() {
         override val domain: String = "infomaniak.com"
@@ -29,5 +31,10 @@ public sealed class AppEnvironment {
         override val domain: String = "preprod.dev.infomaniak.ch"
     }
 
-    public data class Custom(override val domain: String) : AppEnvironment()
+    public data class Custom(
+        override val domain: String = Preprod.domain,
+        val hostOverrides: Map<InfomaniakService, String> = emptyMap(),
+    ) : AppEnvironment() {
+        override fun hostOf(service: InfomaniakService): String = hostOverrides[service] ?: super.hostOf(service)
+    }
 }

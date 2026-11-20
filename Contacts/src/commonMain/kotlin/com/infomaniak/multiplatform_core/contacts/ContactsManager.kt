@@ -21,10 +21,10 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.appenvironment.InfomaniakService
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
 import com.infomaniak.multiplatform_core.contacts.data.remote.ContactsRemoteDataSource
 import com.infomaniak.multiplatform_core.contacts.data.remote.createContactsHttpClient
-import com.infomaniak.multiplatform_core.contacts.data.remote.mailApiHost
 import com.infomaniak.multiplatform_core.contacts.data.repository.ContactsRepository
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContactsProvider
@@ -59,7 +59,7 @@ public class ContactsManager internal constructor(
         deviceContactsProvider = deviceContactsProvider,
         tokenByAccount = InMemoryAccountTokens(),
         deviceContactsScope = deviceContactsScope,
-        mailApiHost = appEnvironment.mailApiHost,
+        mailApiHost = appEnvironment.hostOf(InfomaniakService.Mail),
         contactsCaller = contactsCaller,
     )
 

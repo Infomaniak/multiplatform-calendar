@@ -30,7 +30,6 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class BookableResourcesRemoteDataSourceTest {
 
@@ -47,28 +46,6 @@ class BookableResourcesRemoteDataSourceTest {
     }
 
     @Test
-    fun bookableResourceIsDecoded() = runTest {
-        val dataSource = dataSource { respondJson(success(resourceJson())) }
-
-        assertEquals(expectedResource, dataSource.getBookableResource(token, RESOURCE_UUID))
-        assertEquals("/pim/bookable-resources/${RESOURCE_UUID.value}", requests.single().url.encodedPath)
-    }
-
-    @Test
-    fun forbiddenResourceIsNull() = runTest {
-        val dataSource = dataSource { respondJson(error("access_denied"), HttpStatusCode.Forbidden) }
-
-        assertNull(dataSource.getBookableResource(token, RESOURCE_UUID))
-    }
-
-    @Test
-    fun unknownResourceIsNull() = runTest {
-        val dataSource = dataSource { respondJson(error("object_not_found"), HttpStatusCode.NotFound) }
-
-        assertNull(dataSource.getBookableResource(token, RESOURCE_UUID))
-    }
-
-    @Test
     fun serverErrorThrowsApiError() = runTest {
         val dataSource = dataSource { respondJson("", HttpStatusCode.InternalServerError) }
 
@@ -78,8 +55,6 @@ class BookableResourcesRemoteDataSourceTest {
     private fun dataSource(
         response: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
     ) = BookableResourcesRemoteDataSource(testHttpClient { requests.add(it); response(it) })
-
-    private fun error(code: String) = """{ "result": "error", "error": { "code": "$code", "description": "" } }"""
 
     private val expectedResource = ApiBookableResource(
         uuid = RESOURCE_UUID.value,

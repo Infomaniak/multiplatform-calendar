@@ -28,6 +28,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.projection.LocalEve
 import com.infomaniak.multiplatform_calendar.core.data.mapper.RecurrenceDroppedException
 import com.infomaniak.multiplatform_calendar.core.data.mapper.ResolvedRecurrence
 import com.infomaniak.multiplatform_calendar.core.data.mapper.applyEdit
+import com.infomaniak.multiplatform_calendar.core.data.mapper.toSettingsEntity
+import com.infomaniak.multiplatform_calendar.core.data.mapper.topicEntities
 import com.infomaniak.multiplatform_calendar.core.data.mapper.resolveRecurrenceSet
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toDomain
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toEntitiesPreservingLocalPrefs
@@ -37,6 +39,7 @@ import com.infomaniak.multiplatform_calendar.core.data.mapper.toRemoteEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarEditData
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarNotificationState
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.extensions.forEachCancellable
 import com.infomaniak.multiplatform_calendar.core.extensions.toICalUtcDateTime
@@ -162,6 +165,29 @@ internal class CalendarRepository(
 
     suspend fun updateCalendarVisibility(calendarId: CalendarId, isVisible: Boolean) {
         calendarDao.updateVisibility(calendarId, isVisible)
+    }
+
+    /** Only the calendars that aren't enabled, an omitted calendar being enabled. */
+    fun observeCalendarNotificationStates(accountIds: Set<AccountId>): Flow<Map<CalendarId, CalendarNotificationState>> {
+        return calendarDao.observeNotificationSettings(accountIds).map { settings ->
+            settings.associate { it.settings.calendarId to it.toDomain() }
+        }
+    }
+
+    suspend fun getCalendarNotificationState(calendarId: CalendarId): CalendarNotificationState {
+        return calendarDao.findNotificationSettings(calendarId).toDomain()
+    }
+
+    suspend fun updateCalendarNotificationState(calendarId: CalendarId, state: CalendarNotificationState) {
+        calendarDao.replaceNotificationSettings(calendarId, state.toSettingsEntity(calendarId), state.topicEntities(calendarId))
+    }
+
+    fun observeAccountNotificationsEnabled(accountId: AccountId): Flow<Boolean> {
+        return accountDao.observeNotificationsEnabled(accountId).map { it ?: true }
+    }
+
+    suspend fun updateAccountNotificationsEnabled(accountId: AccountId, enabled: Boolean) {
+        accountDao.updateNotificationsEnabled(accountId, enabled)
     }
 
     suspend fun showOnlyCalendar(calendarId: CalendarId) = calendarDao.showOnly(calendarId)

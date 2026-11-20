@@ -17,6 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
+import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
@@ -26,4 +27,7 @@ internal data class AccountEntity(
     @PrimaryKey val id: AccountId,
     /** The emails of the user, how they are found among the attendees; empty until the calendars are first synced. */
     val emails: List<String> = emptyList(),
+    /** Whether any calendar of this account may notify at all; on top of each calendar's own state. */
+    @ColumnInfo(defaultValue = "1")
+    val notificationsEnabled: Boolean = true,
 )

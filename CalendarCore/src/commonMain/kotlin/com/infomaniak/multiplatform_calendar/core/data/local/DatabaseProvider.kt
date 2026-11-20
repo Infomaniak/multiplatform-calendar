@@ -33,6 +33,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarNotificationSettingsEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarNotificationTopicEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
@@ -47,7 +49,7 @@ import com.infomaniak.multiplatform_core.organisations.data.local.entity.Organis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
-internal const val CALENDAR_DATABASE_VERSION = 2
+internal const val CALENDAR_DATABASE_VERSION = 3
 
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
@@ -68,6 +70,8 @@ internal fun DatabaseProvider.getCalendarDatabase(
     entities = [
         AccountEntity::class,
         CalendarEntity::class,
+        CalendarNotificationSettingsEntity::class,
+        CalendarNotificationTopicEntity::class,
         EventEntity::class,
         EventOverrideEntity::class,
         EventRawIcsEntity::class,
@@ -78,7 +82,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
     ],
     version = CALENDAR_DATABASE_VERSION,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)

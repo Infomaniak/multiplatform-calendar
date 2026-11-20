@@ -28,7 +28,9 @@ import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Compan
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_ANCHORED
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao.Companion.RECURRING_FLOATING
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmBoundsEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarNotificationStateColumn
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.NotificationTopicColumn
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingEntity
@@ -128,6 +130,8 @@ internal abstract class EventDao {
      *
      * Kept apart from [observeVisibleInRange]: bounds that depend on the row are not indexable, and the
      * display path has no reason to pay for it.
+     *
+     * Only events whose account and calendar allow reminders to notify are returned ([REMINDERS_NOTIFY]).
      */
     @Transaction
     @Query(
@@ -147,6 +151,7 @@ internal abstract class EventDao {
         INNER JOIN accounts account ON calendar.accountId = account.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
+          AND $REMINDERS_NOTIFY
           AND (
             (event.hasRecurrence = 0 AND $ALARMED_ANCHORED_TIMING)
             OR (event.hasRecurrence = 0 AND $ALARMED_FLOATING_TIMING)
@@ -321,6 +326,28 @@ internal abstract class EventDao {
     abstract suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
 
     private companion object {
+
+        /**
+         * The account allows notifications and the calendar allows the reminders topic: it has no settings
+         * (enabled), or settings that are neither disabled nor custom without `reminders` among their topics.
+         */
+        private const val REMINDERS_NOTIFY = """(
+            account.notificationsEnabled = 1
+            AND NOT EXISTS (
+              SELECT 1 FROM calendar_notification_settings settings
+              WHERE settings.calendarId = calendar.id
+                AND (
+                  settings.state = '${CalendarNotificationStateColumn.DISABLED}'
+                  OR (
+                    settings.state = '${CalendarNotificationStateColumn.CUSTOM}'
+                    AND NOT EXISTS (
+                      SELECT 1 FROM calendar_notification_topics topic
+                      WHERE topic.calendarId = calendar.id AND topic.topic = '${NotificationTopicColumn.REMINDERS}'
+                    )
+                  )
+                )
+            )
+        )"""
 
         /**
          * Widens all-day overrides by [MAX_UTC_OFFSET_MS]: an all-day instant is stored at UTC midnight,

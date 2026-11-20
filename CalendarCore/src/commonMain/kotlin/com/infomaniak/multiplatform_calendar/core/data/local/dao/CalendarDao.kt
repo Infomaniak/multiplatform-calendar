@@ -24,6 +24,9 @@ import androidx.room3.Transaction
 import androidx.room3.Update
 import androidx.room3.Upsert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarNotificationSettingsEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarNotificationTopicEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.relation.CalendarNotificationSettingsWithTopics
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.flow.Flow
@@ -65,6 +68,44 @@ internal interface CalendarDao {
         """,
     )
     suspend fun showOnly(calendarId: CalendarId)
+
+    /** The notification settings of the calendars of [accountIds]; enabled calendars have none. */
+    @Transaction
+    @Query(
+        """
+        SELECT settings.* FROM calendar_notification_settings settings
+        INNER JOIN calendars calendar ON calendar.id = settings.calendarId
+        WHERE calendar.accountId IN(:accountIds)
+        """,
+    )
+    fun observeNotificationSettings(accountIds: Set<AccountId>): Flow<List<CalendarNotificationSettingsWithTopics>>
+
+    @Transaction
+    @Query("SELECT * FROM calendar_notification_settings WHERE calendarId = :calendarId")
+    suspend fun findNotificationSettings(calendarId: CalendarId): CalendarNotificationSettingsWithTopics?
+
+    /** Its topics go along, through their cascading foreign key. */
+    @Query("DELETE FROM calendar_notification_settings WHERE calendarId = :calendarId")
+    suspend fun deleteNotificationSettings(calendarId: CalendarId)
+
+    @Insert
+    suspend fun insertNotificationSettings(settings: CalendarNotificationSettingsEntity)
+
+    @Insert
+    suspend fun insertNotificationTopics(topics: List<CalendarNotificationTopicEntity>)
+
+    /** Replaces the settings of [calendarId] and their topics as one change; `null` [settings] means enabled. */
+    @Transaction
+    suspend fun replaceNotificationSettings(
+        calendarId: CalendarId,
+        settings: CalendarNotificationSettingsEntity?,
+        topics: List<CalendarNotificationTopicEntity>,
+    ) {
+        deleteNotificationSettings(calendarId)
+        if (settings == null) return
+        insertNotificationSettings(settings)
+        if (topics.isNotEmpty()) insertNotificationTopics(topics)
+    }
 
     @Query("UPDATE calendars SET syncToken = :syncToken WHERE id = :calendarId")
     suspend fun updateSyncToken(calendarId: CalendarId, syncToken: String?)

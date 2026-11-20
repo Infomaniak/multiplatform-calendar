@@ -59,7 +59,7 @@ multiplatform-calendar/
 | **Account**          | Shared identity types (`AccountId`, `AccessToken`) and `InMemoryAccountTokens`, used by CalendarCore, Contacts, Meet, BookableResources and Organisations |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
-| **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore recurrence localization |
+| **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore localization (recurrences, color names, kMeet block) |
 | **CrashReport**      | `CrashReport` interface the host app provides to report errors, with a Sentry-backed `AndroidCrashReport` |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
@@ -96,7 +96,13 @@ selectors may inherit values from it. Its optional time zone converts a UTC UNTI
 start time zone for display; without one, UTC is used. DATE and floating UNTIL values keep their
 own calendar date.
 
-Put recurrence strings and translations in `CalendarResources/src/commonMain/composeResources/values*/strings.xml`.
+### Color choices
+
+`CalendarManager.getColorChoices(calendarId)` lists the colors to choose from within that calendar, as
+`NamedColor(sourceColor, name)` with localized names: first the calendar's own color as the default one, then the
+preset colors.
+
+Put strings and translations in `CalendarResources/src/commonMain/composeResources/values*/strings.xml`.
 `CalendarCore` depends on this module and aggregates its resources into its Apple framework.
 This is distinct from the Android app's `CalendarComponents:Resources` module in the consuming repository.
 The submodule's `.github/workflows/translations-validation.yml` checks the Compose resource translations.

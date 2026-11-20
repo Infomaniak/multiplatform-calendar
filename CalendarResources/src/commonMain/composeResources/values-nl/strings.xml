@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="color_blue">Blauw</string>
+    <string name="color_brown">Bruin</string>
+    <string name="color_default">Standaard</string>
+    <string name="color_emerald">Smaragdgroen</string>
+    <string name="color_gray">Grijs</string>
+    <string name="color_lime">Limoengroen</string>
+    <string name="color_magenta">Magenta</string>
+    <string name="color_orange">Oranje</string>
+    <string name="color_purple">Paars</string>
+    <string name="color_yellow">Geel</string>
     <string name="meet_room_description_do_not_modify">Wijzig dit gedeelte niet.</string>
     <string name="meet_room_description_join">Je kunt deelnemen aan de kMeet-vergaderruimte via het volgende adres: %1$s</string>
     <string name="recurrence_at_hour">op uur %1$d</string>

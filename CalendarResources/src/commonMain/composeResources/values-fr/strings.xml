@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="color_blue">Bleu</string>
+    <string name="color_brown">Marron</string>
+    <string name="color_default">Défaut</string>
+    <string name="color_emerald">Émeraude</string>
+    <string name="color_gray">Gris</string>
+    <string name="color_lime">Citron vert</string>
+    <string name="color_magenta">Magenta</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_purple">Violet</string>
+    <string name="color_yellow">Jaune</string>
     <string name="meet_room_description_do_not_modify">Merci de ne pas modifier cette partie.</string>
     <string name="meet_room_description_join">Vous pouvez rejoindre la salle de conférence kMeet à l’adresse suivante : %1$s</string>
     <string name="recurrence_at_hour">à l’heure %1$d</string>

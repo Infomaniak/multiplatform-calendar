@@ -40,8 +40,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceR
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavHttpException
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
@@ -230,6 +232,43 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         assertEquals(4, updated.content.sequence)
         assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.content.dtStamp)
         assertEquals(LocalDateTime(2026, 6, 15, 9, 0), updated.content.lastModified)
+    }
+
+    @Test
+    fun updateEvent_sameCalendar_preconditionFailed_persistsServerVersionAndRetries() = runTest {
+        seedCalendar()
+
+        val eventId = EventId("https://cal/main/event.ics")
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"),
+                    "BEGIN:VEVENT",
+                ),
+            ),
+        )
+        fakeCaldav.patchedEvent = remoteDavEvent(
+            icsData = "BEGIN:VEVENT\nUID:1\nSUMMARY:Renamed\nEND:VEVENT",
+            summary = "Renamed",
+        )
+        fakeCaldav.updateFailures += CaldavHttpException(
+            statusCode = HttpStatusCode.PreconditionFailed.value,
+            operation = "Update",
+            message = "Precondition Failed",
+            cause = null,
+        )
+        fakeCaldav.storedEvents = listOf(remoteDavEvent(icsData = "SERVER-ICS").copy(url = eventId.url, etag = "etag-server"))
+
+        repository.updateEvent(
+            sourceCredentials = CREDENTIALS,
+            destinationCredentials = CREDENTIALS,
+            eventId = eventId,
+            data = editData(title = "Renamed"),
+        )
+
+        assertEquals(listOf("etag-old", "etag-server"), fakeCaldav.updates.map { it.first })
+        assertEquals(listOf(CALENDAR_ID.url to listOf(eventId.url)), fakeCaldav.fetches)
+        assertEquals("etag-server", eventDao().getEvent(eventId)!!.etag)
     }
 
     /** createEvent persists the built event reparsed from its ICS, bound to the server ref. */

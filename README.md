@@ -219,7 +219,7 @@ Two rough edges are worth knowing about, both coming from upstream rather than f
 
 `BookableResourcesManager` reads the bookable resources API on `calendar.<domain>` and keeps only the `meeting_room`
 ones. `sync` replaces the local resources of each account (the API sends no ETag); `observeResource(accountId, uuid)` resolves the
-`X-INFOMANIAK-BOOKABLE` uuid of an event and fetches a resource missing locally, staying `null` when that fails.
+`X-INFOMANIAK-BOOKABLE` uuid of an event from the local resources only, staying `null` until `sync` stores it.
 `availability` and `isAvailable` always hit the network, and `busyPeriods` does unless it is given no uuid. Booking itself is not an API call: it is the
 `X-INFOMANIAK-BOOKABLE` property of the CalDAV event.
 `CalendarBookableResourcesManager` exposes them for a `CalendarId`, and checks availability for an `EventTiming`: it serializes
@@ -228,8 +228,8 @@ RDATE and EXDATE are not checked, the API taking none. Its flows follow the cale
 missing, for instance once its account is removed.
 
 An event's `location` is a `Location`: a `Place` (the `LOCATION` text) or a `BookableRoom` (that uuid, preferred when both
-are set). `observeOccurrence` resolves its `BookableResource` through `observeResource`, so a room missing locally is fetched
-and emitted once known; `getEditData` reads it from the database only, leaving `resource` `null` when it is not stored.
+are set). `observeOccurrence` resolves its `BookableResource` through `observeResource`, emitting it once stored; `getEditData`
+reads it once, leaving `resource` `null` when it is not stored.
 Editing a room keeps the `LOCATION` text; editing a place drops the room.
 
 ### Organisations

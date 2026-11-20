@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 use std::time::Duration;
 
-use fast_dav_rs::{CalDavClient, CalDavClientBuilder};
+use fast_dav_rs::{CalDavClient, CalDavClientBuilder, RequestCompressionMode};
 
 use crate::error::{bridge_error, map_fast_dav_error, CaldavError};
 use crate::models::DavAccount;
@@ -101,7 +101,8 @@ fn build_client(
     config: &DavClientConfig,
 ) -> Result<CalDavClient, CaldavError> {
     let mut builder = CalDavClient::builder(&account.base_url)
-        .basic_auth(&account.username, &account.password);
+        .basic_auth(&account.username, &account.password)
+        .request_compression(RequestCompressionMode::Disabled);
 
     if let Some(user_agent) = &config.user_agent {
         builder = builder.user_agent(user_agent);

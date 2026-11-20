@@ -50,7 +50,6 @@ public class BookableResourcesManager internal constructor(
         database = database,
         remoteDataSource = BookableResourcesRemoteDataSource(httpClient),
         tokenByAccount = InMemoryAccountTokens(),
-        bookableResourcesCaller = bookableResourcesCaller,
     )
 
     /** @param database Host Room database declaring the bookable resources tables. */
@@ -86,7 +85,7 @@ public class BookableResourcesManager internal constructor(
     public fun observeResources(accountId: AccountId): Flow<List<BookableResource>> =
         bookableResourcesCaller.flow(repository.observeResources(accountId))
 
-    /** A resource missing locally is fetched; null when that fails or the account cannot book it. */
+    /** Null while the resource is not stored locally. */
     public fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResource?> =
         bookableResourcesCaller.flow(repository.observeResource(accountId, uuid))
 

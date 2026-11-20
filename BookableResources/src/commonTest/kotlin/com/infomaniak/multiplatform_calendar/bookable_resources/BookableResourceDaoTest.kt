@@ -26,9 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class BookableResourceDaoTest : RobolectricTestsBase() {
 
@@ -63,14 +61,6 @@ class BookableResourceDaoTest : RobolectricTestsBase() {
         dao.upsertResources(listOf(resource(name = "After")))
 
         assertEquals(listOf("After"), dao.observeResources(ACCOUNT_ID).first().map { it.name })
-    }
-
-    @Test
-    fun hasResourceIsScopedToTheAccount() = runTest {
-        dao.upsertResources(listOf(resource()))
-
-        assertTrue(dao.hasResource(ACCOUNT_ID, RESOURCE_UUID))
-        assertFalse(dao.hasResource(OTHER_ACCOUNT_ID, RESOURCE_UUID))
     }
 
     @Test

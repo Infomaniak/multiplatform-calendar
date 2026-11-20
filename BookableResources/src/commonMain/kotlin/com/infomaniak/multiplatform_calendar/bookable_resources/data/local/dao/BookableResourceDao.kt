@@ -50,7 +50,4 @@ public interface BookableResourceDao {
 
     @Query("SELECT * FROM bookableResources WHERE accountId = :accountId AND uuid = :uuid")
     public fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResourceEntity?>
-
-    @Query("SELECT EXISTS(SELECT 1 FROM bookableResources WHERE accountId = :accountId AND uuid = :uuid)")
-    public suspend fun hasResource(accountId: AccountId, uuid: BookableResourceUuid): Boolean
 }

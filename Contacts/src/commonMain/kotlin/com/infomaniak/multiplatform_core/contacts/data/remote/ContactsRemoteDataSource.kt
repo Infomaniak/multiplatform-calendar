@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_core.contacts.data.remote
 
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.appenvironment.InfomaniakService
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsErrorCause
 import com.infomaniak.multiplatform_core.contacts.domain.model.exceptions.ContactsException
@@ -36,12 +37,10 @@ import io.ktor.http.isSuccess
 import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
-internal val AppEnvironment.mailApiHost: String get() = "mail.$domain"
-
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 public fun createContactsHttpClient(appEnvironment: AppEnvironment): HttpClient =
-    createHttpClient(host = appEnvironment.mailApiHost, basePath = "api/")
+    createHttpClient(host = appEnvironment.hostOf(InfomaniakService.Mail), basePath = "api/")
 
 internal class ContactsRemoteDataSource(private val httpClient: HttpClient) {
 

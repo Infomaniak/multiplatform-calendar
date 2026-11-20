@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exc
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.appenvironment.InfomaniakService
 import com.infomaniak.multiplatform_core.network.createHttpClient
 import com.infomaniak.multiplatform_core.network.model.asSuccess
 import io.ktor.client.HttpClient
@@ -45,7 +46,7 @@ import kotlin.native.HiddenFromObjC
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 public fun createBookableResourcesHttpClient(appEnvironment: AppEnvironment): HttpClient =
-    createHttpClient(host = "calendar.${appEnvironment.domain}", basePath = "api/")
+    createHttpClient(host = appEnvironment.hostOf(InfomaniakService.Calendar), basePath = "api/")
 
 internal class BookableResourcesRemoteDataSource(private val httpClient: HttpClient) {
 

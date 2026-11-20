@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_core.organisations.data.remote
 
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.appenvironment.InfomaniakService
 import com.infomaniak.multiplatform_core.organisations.data.remote.model.ApiOrganisation
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsErrorCause
 import com.infomaniak.multiplatform_core.organisations.domain.model.exceptions.OrganisationsException
@@ -35,7 +36,7 @@ import kotlin.native.HiddenFromObjC
 @OptIn(ExperimentalObjCRefinement::class)
 @HiddenFromObjC
 public fun createOrganisationsHttpClient(appEnvironment: AppEnvironment): HttpClient =
-    createHttpClient(host = "api.${appEnvironment.domain}", basePath = "1/")
+    createHttpClient(host = appEnvironment.hostOf(InfomaniakService.Api), basePath = "1/")
 
 internal class OrganisationsRemoteDataSource(private val httpClient: HttpClient) {
 

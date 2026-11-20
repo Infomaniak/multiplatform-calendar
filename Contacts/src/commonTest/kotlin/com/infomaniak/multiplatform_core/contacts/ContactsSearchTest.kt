@@ -18,6 +18,7 @@
 package com.infomaniak.multiplatform_core.contacts
 
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
+import com.infomaniak.multiplatform_core.appenvironment.InfomaniakService
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
 import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
@@ -75,6 +76,15 @@ class ContactsSearchTest : RobolectricTestsBase() {
     @Test
     fun avatarIsOnTheCustomMailHost() = runTest {
         assertEquals("https://mail.example.test/avatar/john.png", syncedAvatarUrl(AppEnvironment.Custom("example.test")))
+    }
+
+    @Test
+    fun avatarIsOnTheOverriddenMailHost() = runTest {
+        val appEnvironment = AppEnvironment.Custom(
+            domain = "example.test",
+            hostOverrides = mapOf(InfomaniakService.Mail to "mail-mr.example.test"),
+        )
+        assertEquals("https://mail-mr.example.test/avatar/john.png", syncedAvatarUrl(appEnvironment))
     }
 
     @Test

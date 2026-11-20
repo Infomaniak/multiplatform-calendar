@@ -65,7 +65,7 @@ multiplatform-calendar/
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
 | **Organisations**    | Infomaniak organisations the account belongs to: id and name                                  |
-| **AppEnvironment**   | `AppEnvironment` (`Prod`, `Preprod`, `Custom(domain)`): the Infomaniak servers the modules reach |
+| **AppEnvironment**   | `AppEnvironment` (`Prod`, `Preprod`, `Custom(domain, hostOverrides)`) and `InfomaniakService`: the Infomaniak servers the modules reach |
 | **Network**          | Shared Infomaniak API client: `createHttpClient` (one engine for all clients), `ApiResponse`, `ApiErrorException` |
 
 ### Recurrence localization
@@ -124,14 +124,15 @@ instead (`CalendarBookableResourcesManager`, `CalendarOrganisationsManager`), wh
 `com.infomaniak.multiplatform_core.*` package root and has no DI, so it can move to a shared KMP core.
 
 `:AppEnvironment` is an `api` dependency of CalendarCore, Contacts, Meet, BookableResources and Organisations, and is exported
-(`AppEnvironment`). Like `:Account`, it uses the `com.infomaniak.multiplatform_core.*` package root and has no DI.
+(`AppEnvironment`, `InfomaniakService`). Like `:Account`, it uses the `com.infomaniak.multiplatform_core.*` package root and has no DI.
 
 ### App environment
 
-`AppEnvironment` (`Prod`, `Preprod` or `Custom(domain)`) selects the Infomaniak servers. It is required: the host app
-provides it to the graph, which passes it to every manager. Each module reaches its API at a subdomain of
-`AppEnvironment.domain`: `api.` (CalendarCore, Organisations), `calendar.` (Meet, BookableResources), `mail.` (Contacts
-and their avatars) and `sync.` (CalDAV).
+`AppEnvironment` (`Prod`, `Preprod` or `Custom(domain, hostOverrides)`) selects the Infomaniak servers. It is required:
+the host app provides it to the graph, which passes it to every manager. Each module reaches its `InfomaniakService` at
+`AppEnvironment.hostOf(service)`, by default a subdomain of `AppEnvironment.domain`: `api.` (CalendarCore, Organisations),
+`calendar.` (Meet, BookableResources), `mail.` (Contacts and their avatars) and `sync.` (CalDAV). `Custom` defaults to the
+preprod domain, and its `hostOverrides` send some services elsewhere, e.g. CalDAV to a backend merge request deployment.
 
 CalendarCore's `CalendarDatabase` hosts the tables of every module. Contacts, BookableResources and Organisations only declare their entities and
 DAO, public but `@HiddenFromObjC`, behind an interface (`ContactsDatabase`, `BookableResourcesDatabase`, `OrganisationsDatabase`) that `CalendarDatabase` implements.

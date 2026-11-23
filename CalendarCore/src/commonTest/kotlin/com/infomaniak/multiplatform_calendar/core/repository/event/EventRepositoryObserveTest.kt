@@ -26,6 +26,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.RecurrenceBo
 import com.infomaniak.multiplatform_calendar.core.data.mapper.toRecurrenceBoundsEntity
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarAccessLevel
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MultiDayGrouping
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
@@ -46,6 +47,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -133,6 +135,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
+            multiDayGrouping = MultiDayGrouping.None,
         ).first()
 
         val occurrenceIds = slicesByDay.values.flatten().map { it.event.occurrenceId.value }
@@ -161,6 +164,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
+            multiDayGrouping = MultiDayGrouping.None,
         ).first()
 
         val events = slicesByDay.values.flatten().map { it.event }
@@ -198,6 +202,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
+            multiDayGrouping = MultiDayGrouping.None,
         ).first()
 
         val days = slicesByDay.values.flatten().map { it.event.timing.bounds.startWallClock.date }
@@ -545,6 +550,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
+            multiDayGrouping = MultiDayGrouping.None,
         ).first()
 
         val occurrenceIds = slicesByDay.values.flatten().map { it.event.occurrenceId.value }
@@ -552,6 +558,43 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         assertEquals(occurrenceIds.toSet().size, occurrenceIds.size, "occurrence ids must be unique")
         assertTrue(occurrenceIds.all { it.endsWith("#event://all-day") }, "ids must name their master")
         assertEquals(3, slicesByDay.keys.size, "each all-day occurrence lands on its own day")
+    }
+
+    @Test
+    fun observeVisibleDaySlices_groupsAMultiDayAllDayEventIntoOneSlice() = runTest {
+        seedCalendar()
+
+        val dtStart = LocalDateTime(2026, 6, 15, 0, 0)
+        val dtEnd = LocalDateTime(2026, 6, 18, 0, 0)
+        val timing = EventTimingEntity(
+            dtStart = dtStart,
+            dtEnd = dtEnd,
+            dtEndEffective = dtEnd,
+            startTimeZone = null,
+            endTimeZone = null,
+            dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            isAllDay = true,
+        )
+        val event = EventEntity(
+            id = EventId("event://three-days"),
+            calendarId = CALENDAR_ID,
+            content = EventContentEntity(summary = "Three days", timing = timing),
+            etag = "1",
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(event, "")))
+
+        val slicesByDay = repository.observeVisibleDaySlices(
+            accountIds = setOf(ACCOUNT_ID),
+            start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
+            end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
+            timeZone = TimeZone.UTC,
+            multiDayGrouping = MultiDayGrouping.UntimedEvents,
+        ).first()
+
+        val slice = slicesByDay.values.flatten().single()
+        assertEquals(LocalDate(2026, 6, 15), slice.date)
+        assertEquals(LocalDate(2026, 6, 17), slice.endDate)
     }
 
     @Test
@@ -649,6 +692,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
+            multiDayGrouping = MultiDayGrouping.None,
         ).first().values.flatten().map { it.event }
 
         assertTrue(events.any { it.title == "Moved instance" })
@@ -685,6 +729,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
             start = LocalDateTime(2026, 6, 15, 0, 0).toInstant(TimeZone.UTC),
             end = LocalDateTime(2026, 6, 22, 0, 0).toInstant(TimeZone.UTC),
             timeZone = TimeZone.UTC,
+            multiDayGrouping = MultiDayGrouping.None,
         ).first().values.flatten().map { it.event }
 
         assertTrue(events.any { it.title == "Moved instance" })

@@ -193,6 +193,7 @@ internal class EventRepository(
      * [timeZone] drives the SQL wall-clock filter for floating events (forwarded to
      * [observeVisibleEvents]), the recurrence expansion anchor for floating / all-day occurrences
      * (RFC 5545 FORM #1) and the day split, so all three agree on which floating events are visible.
+     * [grouping] keeps some multi-day events in one slice (see [DaySliceGrouping]).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeVisibleDaySlices(
@@ -200,6 +201,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         timeZone: TimeZone,
+        grouping: DaySliceGrouping,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
         return observeVisibleEventsWithOverrides(accountIds, start, end, zone = timeZone)
             .mapLatest { eventsWithOverrides ->
@@ -212,7 +214,7 @@ internal class EventRepository(
                         onExpansionTruncated = ::logTruncatedExpansion,
                         onOrphanOverrideDropped = ::logOrphanOverride,
                     )
-                    .groupDaySlicesByDay(start, end, timeZone, DaySliceGrouping.None)
+                    .groupDaySlicesByDay(start, end, timeZone, grouping)
             }
             .flowOn(Dispatchers.Default)
     }

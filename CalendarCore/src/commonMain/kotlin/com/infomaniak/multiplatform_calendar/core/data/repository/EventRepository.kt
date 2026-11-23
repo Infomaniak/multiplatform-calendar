@@ -45,6 +45,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MultiDayGrouping
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -211,7 +212,7 @@ internal class EventRepository(
                         onExpansionTruncated = ::logTruncatedExpansion,
                         onOrphanOverrideDropped = ::logOrphanOverride,
                     )
-                    .groupDaySlicesByDay(start, end, timeZone)
+                    .groupDaySlicesByDay(start, end, timeZone, MultiDayGrouping.None)
             }
             .flowOn(Dispatchers.Default)
     }

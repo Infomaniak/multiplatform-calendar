@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.utils.ColorComputation
 import com.infomaniak.multiplatform_calendar.core.utils.assertCancels
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -237,6 +238,7 @@ class EventDaySliceTest {
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 8, 0, 0),
             timeZone = paris,
+            grouping = DaySliceGrouping.None,
         )
 
         assertEquals(listOf(LocalDate(2026, 1, 5), LocalDate(2026, 1, 6), LocalDate(2026, 1, 7)), byDay.keys.toList())
@@ -261,6 +263,7 @@ class EventDaySliceTest {
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0),
             timeZone = paris,
+            grouping = DaySliceGrouping.None,
         ).getValue(LocalDate(2026, 1, 5))
 
         assertEquals(
@@ -280,6 +283,7 @@ class EventDaySliceTest {
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0),
             timeZone = paris,
+            grouping = DaySliceGrouping.None,
         ).getValue(LocalDate(2026, 1, 5))
 
         assertEquals(listOf("event://a", "event://b"), day.map { it.event.occurrenceId.value })
@@ -296,6 +300,7 @@ class EventDaySliceTest {
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 6, 0, 0), // exclusive: day 6 must not appear
             timeZone = paris,
+            grouping = DaySliceGrouping.None,
         )
 
         assertEquals(listOf(LocalDate(2026, 1, 5)), byDay.keys.toList())
@@ -317,6 +322,7 @@ class EventDaySliceTest {
             rangeStart = parisInstant(2026, 1, 5, 0, 0),
             rangeEnd = parisInstant(2026, 1, 8, 0, 0),
             timeZone = paris,
+            grouping = DaySliceGrouping.None,
         )
 
         // Ascending day iteration order.
@@ -336,6 +342,105 @@ class EventDaySliceTest {
         )
     }
 
+    // ---- Grouping (DaySliceGrouping) -----------------------------------------------------------
+
+    @Test
+    fun allDayGrouping_keepsAMultiDayAllDayEventInOneSlice_acrossWeeks() = runTest {
+        // Thursday 2026-01-08 → Tuesday 2026-01-13 (6 days), crossing a Monday.
+        val slice = allDay(LocalDate(2026, 1, 8), LocalDate(2026, 1, 14))
+            .expandDaySlices(wideWindow, paris, DaySliceGrouping.AllDay)
+            .single()
+
+        assertEquals(LocalDate(2026, 1, 8), slice.date)
+        assertEquals(LocalDate(2026, 1, 13), slice.endDate)
+        assertEquals(6, slice.dayCount)
+        assertEquals(LocalDateTime(2026, 1, 8, 0, 0), slice.displayStart)
+        assertEquals(LocalDateTime(2026, 1, 14, 0, 0), slice.displayEnd)
+        assertTrue(slice.isFirstDay)
+        assertTrue(slice.isLastDay)
+        assertTrue(slice.fillsWholeDay)
+    }
+
+    @Test
+    fun allDayGrouping_stillSplitsATimedMultiDayEventPerDay() = runTest {
+        val slices = timed(LocalDateTime(2026, 1, 5, 14, 0), LocalDateTime(2026, 1, 7, 10, 0), paris)
+            .expandDaySlices(wideWindow, paris, DaySliceGrouping.AllDay)
+
+        assertEquals(3, slices.size)
+        assertTrue(slices.all { it.dayCount == 1 })
+    }
+
+    @Test
+    fun multiDayGrouping_splitsAtEachWeekStart() = runTest {
+        // Friday 2026-01-09 14:00 → Wednesday 2026-01-14 10:00, weeks starting on Monday.
+        val slices = timed(LocalDateTime(2026, 1, 9, 14, 0), LocalDateTime(2026, 1, 14, 10, 0), paris)
+            .expandDaySlices(wideWindow, paris, DaySliceGrouping.MultiDay(weekStart = DayOfWeek.MONDAY))
+
+        assertEquals(2, slices.size)
+        val (firstWeek, secondWeek) = slices
+
+        assertEquals(LocalDate(2026, 1, 9), firstWeek.date)
+        assertEquals(LocalDate(2026, 1, 11), firstWeek.endDate)
+        assertEquals(LocalDateTime(2026, 1, 9, 14, 0), firstWeek.displayStart)
+        assertEquals(LocalDateTime(2026, 1, 12, 0, 0), firstWeek.displayEnd)
+        assertTrue(firstWeek.isFirstDay)
+        assertFalse(firstWeek.isLastDay)
+
+        assertEquals(LocalDate(2026, 1, 12), secondWeek.date)
+        assertEquals(LocalDate(2026, 1, 14), secondWeek.endDate)
+        assertEquals(LocalDateTime(2026, 1, 12, 0, 0), secondWeek.displayStart)
+        assertEquals(LocalDateTime(2026, 1, 14, 10, 0), secondWeek.displayEnd)
+        assertEquals(DaySpanPosition(index = 3, count = 6), secondWeek.position)
+        assertFalse(secondWeek.isFirstDay)
+        assertTrue(secondWeek.isLastDay)
+    }
+
+    @Test
+    fun multiDayGrouping_followsTheGivenWeekStart() = runTest {
+        // Friday 2026-01-09 → Tuesday 2026-01-13, weeks starting on Sunday.
+        val slices = allDay(LocalDate(2026, 1, 9), LocalDate(2026, 1, 14))
+            .expandDaySlices(wideWindow, paris, DaySliceGrouping.MultiDay(weekStart = DayOfWeek.SUNDAY))
+
+        assertEquals(listOf(LocalDate(2026, 1, 9), LocalDate(2026, 1, 11)), slices.map { it.date })
+        assertEquals(listOf(LocalDate(2026, 1, 10), LocalDate(2026, 1, 13)), slices.map { it.endDate })
+    }
+
+    @Test
+    fun grouping_clampsTheSliceToTheVisibleDays_withAbsolutePosition() = runTest {
+        val slice = allDay(LocalDate(2026, 1, 5), LocalDate(2026, 1, 10))
+            .expandDaySlices(LocalDate(2026, 1, 6)..LocalDate(2026, 1, 8), paris, DaySliceGrouping.AllDay)
+            .single()
+
+        assertEquals(LocalDate(2026, 1, 6), slice.date)
+        assertEquals(LocalDate(2026, 1, 8), slice.endDate)
+        assertEquals(DaySpanPosition(index = 1, count = 5), slice.position)
+        assertFalse(slice.isFirstDay)
+        assertFalse(slice.isLastDay)
+    }
+
+    @Test
+    fun groupDaySlicesByDay_withGrouping_listsASliceUnderItsFirstDayOnly_longestFirst() = runTest {
+        val events = listOf(
+            timed(LocalDateTime(2026, 1, 6, 9, 0), LocalDateTime(2026, 1, 6, 10, 0), paris, id = "event://timed"),
+            allDay(LocalDate(2026, 1, 6), LocalDate(2026, 1, 7), id = "event://allday"),
+            allDay(LocalDate(2026, 1, 6), LocalDate(2026, 1, 8), id = "event://short"),
+            timed(LocalDateTime(2026, 1, 6, 8, 0), LocalDateTime(2026, 1, 9, 8, 0), paris, id = "event://long"),
+        )
+
+        val byDay = events.map(Event::toSummary).groupDaySlicesByDay(
+            rangeStart = parisInstant(2026, 1, 5, 0, 0),
+            rangeEnd = parisInstant(2026, 1, 12, 0, 0),
+            timeZone = paris,
+            grouping = DaySliceGrouping.MultiDay(weekStart = DayOfWeek.MONDAY),
+        )
+
+        assertEquals(listOf(LocalDate(2026, 1, 6)), byDay.keys.toList())
+        assertEquals(
+            listOf("event://long", "event://short", "event://allday", "event://timed"),
+            byDay.getValue(LocalDate(2026, 1, 6)).map { it.event.occurrenceId.value },
+        )
+    }
+
     // ---- Cancellation --------------------------------------------------------------------------
 
     @Test
@@ -349,6 +454,7 @@ class EventDaySliceTest {
                 rangeStart = parisInstant(2026, 1, 5, 0, 0),
                 rangeEnd = parisInstant(2026, 1, 6, 0, 0),
                 timeZone = paris,
+                grouping = DaySliceGrouping.None,
             )
         }
     }
@@ -396,10 +502,14 @@ class EventDaySliceTest {
 
     // Test-only convenience: production code writes straight into per-day buckets via
     // expandDaySlicesInto; here we flatten them back into a single day-ordered list.
-    private suspend fun Event.expandDaySlices(visibleDays: ClosedRange<LocalDate>, timeZone: TimeZone): List<EventDaySlice> {
+    private suspend fun Event.expandDaySlices(
+        visibleDays: ClosedRange<LocalDate>,
+        timeZone: TimeZone,
+        grouping: DaySliceGrouping = DaySliceGrouping.None,
+    ): List<EventDaySlice> {
         val dayCount = visibleDays.start.daysUntil(visibleDays.endInclusive) + 1
         val buckets = arrayOfNulls<MutableList<EventDaySlice>>(dayCount)
-        toSummary().expandDaySlicesInto(buckets, visibleDays, timeZone)
+        toSummary().expandDaySlicesInto(buckets, visibleDays, timeZone, grouping)
         return buckets.filterNotNull().flatten()
     }
 

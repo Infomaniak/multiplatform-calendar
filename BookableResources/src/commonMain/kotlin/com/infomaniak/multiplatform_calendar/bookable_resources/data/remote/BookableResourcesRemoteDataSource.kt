@@ -37,7 +37,6 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlin.experimental.ExperimentalObjCRefinement
@@ -52,14 +51,6 @@ internal class BookableResourcesRemoteDataSource(private val httpClient: HttpCli
 
     suspend fun getBookableResources(token: AccessToken): List<ApiBookableResource> =
         httpClient.get(BookableResourcesRoutes.ALL) { bearerAuth(token.value) }.successOrThrow().asSuccess()
-
-    suspend fun getBookableResource(token: AccessToken, uuid: BookableResourceUuid): ApiBookableResource? {
-        val response = httpClient.get(BookableResourcesRoutes.resource(uuid)) { bearerAuth(token.value) }
-        return when (response.status) {
-            HttpStatusCode.Forbidden, HttpStatusCode.NotFound -> null
-            else -> response.successOrThrow().asSuccess()
-        }
-    }
 
     suspend fun getAvailability(
         token: AccessToken,

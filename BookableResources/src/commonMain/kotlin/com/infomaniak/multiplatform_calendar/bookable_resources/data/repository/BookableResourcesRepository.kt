@@ -32,7 +32,6 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Bus
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.Equipment
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesErrorCause
 import com.infomaniak.multiplatform_calendar.bookable_resources.domain.model.exceptions.BookableResourcesException
-import com.infomaniak.multiplatform_calendar.bookable_resources.utils.BookableResourcesCaller
 import com.infomaniak.multiplatform_core.account.domain.model.AccessToken
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.account.utils.InMemoryAccountTokens
@@ -40,9 +39,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.TimeZone
@@ -54,14 +51,11 @@ internal class BookableResourcesRepository(
     database: BookableResourcesDatabase,
     private val remoteDataSource: BookableResourcesRemoteDataSource,
     private val tokenByAccount: InMemoryAccountTokens,
-    private val bookableResourcesCaller: BookableResourcesCaller,
 ) {
 
     private val dao = database.bookableResourceDao()
     private val syncMutexes = mutableMapOf<AccountId, Mutex>()
     private val syncMutexesLock = Mutex()
-    private val resourceFetchMutexes = mutableMapOf<Pair<AccountId, BookableResourceUuid>, Mutex>()
-    private val resourceFetchMutexesLock = Mutex()
 
     suspend fun initAccount(accountId: AccountId, accessToken: AccessToken) = tokenByAccount.put(accountId, accessToken)
 
@@ -89,10 +83,8 @@ internal class BookableResourcesRepository(
     fun observeResources(accountId: AccountId): Flow<List<BookableResource>> =
         dao.observeResources(accountId).map { resources -> resources.map(BookableResourceEntity::toBookableResource) }
 
-    fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResource?> = channelFlow {
-        launch { fetchMissingResource(accountId, uuid) }
-        dao.observeResource(accountId, uuid).collect { send(it?.toBookableResource()) }
-    }
+    fun observeResource(accountId: AccountId, uuid: BookableResourceUuid): Flow<BookableResource?> =
+        dao.observeResource(accountId, uuid).map { it?.toBookableResource() }
 
     suspend fun availability(
         accountId: AccountId,
@@ -149,29 +141,11 @@ internal class BookableResourcesRepository(
         }
     }
 
-    // Failures are reported, not thrown. Concurrent collectors wait for the fetch in progress, then fetch only if the resource is still missing.
-    private suspend fun fetchMissingResource(accountId: AccountId, uuid: BookableResourceUuid) {
-        resourceFetchMutex(accountId to uuid).withLock {
-            bookableResourcesCaller.reportingFailures {
-                if (dao.hasResource(accountId, uuid)) return
-                val token = tokenByAccount.getToken(accountId) ?: return
-                val resource = remoteDataSource.getBookableResource(token, uuid)?.takeIf(ApiBookableResource::isMeetingRoom) ?: return
-                syncMutex(accountId).withLock {
-                    if (tokenByAccount.getToken(accountId) != null) dao.upsertResources(listOf(resource.toEntity(accountId)))
-                }
-            }
-        }
-    }
-
     private suspend fun getToken(accountId: AccountId): AccessToken =
         tokenByAccount.getToken(accountId) ?: throw BookableResourcesException(BookableResourcesErrorCause.AccountNotInitialized(accountId))
 
     private suspend fun syncMutex(accountId: AccountId): Mutex = syncMutexesLock.withLock {
         syncMutexes.getOrPut(accountId) { Mutex() }
-    }
-
-    private suspend fun resourceFetchMutex(key: Pair<AccountId, BookableResourceUuid>): Mutex = resourceFetchMutexesLock.withLock {
-        resourceFetchMutexes.getOrPut(key) { Mutex() }
     }
 }
 

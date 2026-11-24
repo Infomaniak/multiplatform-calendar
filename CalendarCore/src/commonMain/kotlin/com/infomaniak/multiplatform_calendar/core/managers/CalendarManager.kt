@@ -216,10 +216,10 @@ public class CalendarManager internal constructor(
     }
 
     /**
-     * Runs a single sync at a time.
+     * Synchronizes events across all accounts, ensuring only one sync runs at a time.
      *
-     * Concurrent requests are coalesced into one pending pass.
-     * Calls made during an active sync return immediately.
+     * Concurrent requests are conflated into one additional pass.
+     * Callers suspend until synchronization completes.
      */
     @Throws(CancellationException::class, CalendarSdkException::class)
     public suspend fun syncEvents() {

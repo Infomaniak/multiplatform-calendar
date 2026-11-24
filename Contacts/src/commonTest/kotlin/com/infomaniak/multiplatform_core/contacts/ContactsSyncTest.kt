@@ -19,6 +19,7 @@ package com.infomaniak.multiplatform_core.contacts
 
 import androidx.room3.RoomDatabase
 import androidx.room3.useReaderConnection
+import androidx.room3.useWriterConnection
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
@@ -130,6 +131,24 @@ class ContactsSyncTest : RobolectricTestsBase() {
         )
 
         assertEquals(listOf(StoredContact("john@x.com", null, null, true)), manager.storedContacts())
+    }
+
+    @Test
+    fun syncRequestsEveryContactOnceTheEtagIsForgotten() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val manager = testManager(
+            apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),
+            onRequest = { requests.add(it) },
+        )
+        (manager.database as RoomDatabase).useWriterConnection { connection ->
+            connection.usePrepared("UPDATE contactAccounts SET etag = NULL") { it.step() }
+        }
+
+        manager.sync(setOf(ACCOUNT_ID))
+
+        assertEquals(2, requests.size)
+        assertNull(requests.last().headers[HttpHeaders.IfNoneMatch])
+        assertEquals(listOf("John"), manager.storedContactNames())
     }
 
     @Test

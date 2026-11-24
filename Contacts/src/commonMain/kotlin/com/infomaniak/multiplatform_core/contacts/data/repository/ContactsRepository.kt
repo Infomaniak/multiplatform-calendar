@@ -194,7 +194,7 @@ internal class ContactsRepository(
                 is ContactsFetch.NotModified -> Unit
                 is ContactsFetch.Success -> dao.replaceContacts(
                     account = ContactAccountEntity(id = accountId, etag = fetch.etag),
-                    contacts = fetch.contacts.flatMap { it.toEntities(accountId, mailApiHost) },
+                    contacts = fetch.contacts.flatMap { it.toEntities(accountId, mailApiHost) }.mergedByKey(),
                 )
             }
         }
@@ -321,6 +321,37 @@ private fun ApiContact.toEntities(accountId: AccountId, mailApiHost: String): Li
             emailNormalized = email.normalizedForSearch(),
         )
     }
+}
+
+/**
+ * The API returns a contact once per address book, while a single row per email (case insensitive) and name is stored.
+ * The result does not depend on the order of the contacts.
+ */
+private fun List<ContactEntity>.mergedByKey(): List<ContactEntity> {
+    val mergedByKey = mutableMapOf<Pair<String, String>, ContactEntity>()
+    val avatarDonorByKey = mutableMapOf<Pair<String, String>, ContactEntity>()
+    forEach { contact ->
+        val key = contact.email.lowercase() to contact.name
+        mergedByKey[key] = mergedByKey[key]?.mergedWith(contact) ?: contact
+        val donor = avatarDonorByKey[key]
+        if (contact.avatarUrl != null && (donor == null || avatarDonorComparator.compare(contact, donor) < 0)) {
+            avatarDonorByKey[key] = contact
+        }
+    }
+    return mergedByKey.map { (key, contact) -> contact.copy(avatarUrl = avatarDonorByKey[key]?.avatarUrl) }
+}
+
+/** An avatar from an address book first, then the smallest URL. */
+private val avatarDonorComparator = compareBy<ContactEntity>({ !it.isInAddressBook }, { it.avatarUrl })
+
+private fun ContactEntity.mergedWith(contact: ContactEntity): ContactEntity {
+    val emailSource = if (contact.email < email) contact else this
+    return copy(
+        email = emailSource.email,
+        emailNormalized = emailSource.emailNormalized,
+        contactedTimes = listOfNotNull(contactedTimes, contact.contactedTimes).maxOrNull(),
+        isInAddressBook = isInAddressBook || contact.isInAddressBook,
+    )
 }
 
 private fun String.escapeLikeWildcards(): String =

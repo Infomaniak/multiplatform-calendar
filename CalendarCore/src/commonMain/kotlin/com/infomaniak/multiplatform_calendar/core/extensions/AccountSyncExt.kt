@@ -77,33 +77,15 @@ internal suspend fun AccountRepository.syncCurrentAccounts(
 
     try {
         initialAccountIds.forEach { accountId ->
-            val currentAccountJob = launch(start = CoroutineStart.LAZY) {
-                syncAccountIfConnected(accountId, syncAction)
-            }
-
-            val shouldStartSync = syncStateMutex.withLock {
-                if (accountId in removedAccounts) {
-                    false
-                } else {
-                    currentAccountSync = ActiveAccountSync(accountId = accountId, job = currentAccountJob)
-                    true
-                }
-            }
-
-            if (!shouldStartSync) {
-                currentAccountJob.cancel()
-                return@forEach
-            }
-
-            try {
-                if (currentAccountJob.start()) currentAccountJob.join()
-            } finally {
-                syncStateMutex.withLock {
-                    if (currentAccountSync?.job === currentAccountJob) {
-                        currentAccountSync = null
-                    }
-                }
-            }
+            syncAccountInCurrentPass(
+                scope = this,
+                accountId = accountId,
+                syncStateMutex = syncStateMutex,
+                removedAccounts = removedAccounts,
+                currentAccountSyncProvider = { currentAccountSync },
+                updateCurrentAccountSync = { currentAccountSync = it },
+                syncAction = syncAction,
+            )
         }
     } finally {
         observer.cancelAndJoin()
@@ -113,6 +95,43 @@ internal suspend fun AccountRepository.syncCurrentAccounts(
     if (needsResync.load() || hasLateAccountAdditions) SyncResult.NeedsResync else SyncResult.Completed
 }
 
+private suspend fun AccountRepository.syncAccountInCurrentPass(
+    scope: CoroutineScope,
+    accountId: AccountId,
+    syncStateMutex: Mutex,
+    removedAccounts: Set<AccountId>,
+    currentAccountSyncProvider: () -> ActiveAccountSync?,
+    updateCurrentAccountSync: (ActiveAccountSync?) -> Unit,
+    syncAction: suspend (AccountId, DavAccount) -> Unit,
+) {
+    val currentAccountJob = scope.launch(start = CoroutineStart.LAZY) {
+        syncAccountIfConnected(accountId, syncAction)
+    }
+
+    val shouldStartSync = syncStateMutex.withLock {
+        if (accountId in removedAccounts) {
+            false
+        } else {
+            updateCurrentAccountSync(ActiveAccountSync(accountId = accountId, job = currentAccountJob))
+            true
+        }
+    }
+
+    if (!shouldStartSync) {
+        currentAccountJob.cancel()
+        return
+    }
+
+    try {
+        if (currentAccountJob.start()) currentAccountJob.join()
+    } finally {
+        syncStateMutex.withLock {
+            if (currentAccountSyncProvider()?.job === currentAccountJob) {
+                updateCurrentAccountSync(null)
+            }
+        }
+    }
+}
 
 /**
  * Synchronizes all accounts with the provided [syncAction] function.

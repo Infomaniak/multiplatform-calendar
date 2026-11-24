@@ -41,6 +41,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.ContactsDatabase
+import com.infomaniak.multiplatform_core.contacts.data.local.ResyncContactsMigrationSpec
 import com.infomaniak.multiplatform_core.contacts.data.local.dao.ContactDao
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactAccountEntity
 import com.infomaniak.multiplatform_core.contacts.data.local.entity.ContactEntity
@@ -51,7 +52,7 @@ import com.infomaniak.multiplatform_core.organisations.data.local.entity.Organis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
-internal const val CALENDAR_DATABASE_VERSION = 3
+internal const val CALENDAR_DATABASE_VERSION = 4
 
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
@@ -85,7 +86,11 @@ internal fun DatabaseProvider.getCalendarDatabase(
     ],
     version = CALENDAR_DATABASE_VERSION,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4, spec = ResyncContactsMigrationSpec::class),
+    ],
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)

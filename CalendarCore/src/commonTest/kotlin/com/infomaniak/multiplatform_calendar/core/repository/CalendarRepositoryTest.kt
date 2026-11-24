@@ -199,6 +199,7 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         val accountRepository = AccountRepository(
             accountDao = database.accountDao(),
             authDataSource = AuthDataSource(HttpClient(MockEngine { error("AuthDataSource must not be called in this test") })),
+            dropCaldavConnections = {},
         )
         accountRepository.storeCredentials(accountId, credentials)
         val discoverStarted = CompletableDeferred<Unit>()

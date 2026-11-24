@@ -92,6 +92,7 @@ internal class ContactsRepository(
         }
         return matches
             .sortedWith(contactMatchComparator(tiers::getValue))
+            .withAvatarsCompleted()
             .take(limit)
             .map(ContactMatch::toContact)
     }
@@ -112,7 +113,7 @@ internal class ContactsRepository(
         val lowercaseEmail = email.lowercase()
         val normalizedName = name?.normalizedForSearch()
         return merge(deviceMatches, apiMatches)
-            .minWithOrNull(
+            .bestWith(
                 compareBy<ContactMatch> { it.email.lowercase() != lowercaseEmail }
                     .thenBy { NameMatch.of(name, normalizedName, it.name) }
                     .then(contactMatchComparator { MatchTier.None }),
@@ -253,11 +254,19 @@ private fun bestContactsByEmail(emails: Set<String>, matches: List<ContactMatch>
 
     val matchesByEmail = matches.groupBy { it.email.lowercase() }
     return emails.mapNotNull { email ->
-        matchesByEmail[email.lowercase()]?.let { email to it.bestRanked().toContact() }
+        matchesByEmail[email.lowercase()]?.bestWith(contactMatchComparator { MatchTier.None })?.let { email to it.toContact() }
     }.toMap()
 }
 
-private fun List<ContactMatch>.bestRanked(): ContactMatch = minWith(contactMatchComparator { MatchTier.None })
+private fun List<ContactMatch>.bestWith(comparator: Comparator<ContactMatch>): ContactMatch? =
+    sortedWith(comparator).withAvatarsCompleted().firstOrNull()
+
+/** Gives each contact without an avatar the one of the first contact sharing its email, so a ranked list gets the best one. */
+private fun List<ContactMatch>.withAvatarsCompleted(): List<ContactMatch> {
+    val avatarByEmail = mutableMapOf<String, ContactAvatar>()
+    forEach { contact -> contact.avatar?.let { avatarByEmail.getOrPut(contact.email.lowercase()) { it } } }
+    return map { it.copy(avatar = it.avatar ?: avatarByEmail[it.email.lowercase()]) }
+}
 
 private fun contactMatchComparator(matchTier: (ContactMatch) -> MatchTier): Comparator<ContactMatch> =
     compareBy<ContactMatch> { -relevanceWeight(it) }

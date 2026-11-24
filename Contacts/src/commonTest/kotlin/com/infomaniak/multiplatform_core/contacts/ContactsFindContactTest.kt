@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_core.contacts
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -83,6 +84,43 @@ class ContactsFindContactTest : RobolectricTestsBase() {
         )
 
         assertEquals("John", manager.findContact("john@x.com", name = "John")?.name)
+    }
+
+    @Test
+    fun prefersTheExactNameOverAContactWithAnAvatar() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "John", emails = listOf("john@x.com")),
+                ApiContact(name = "JOHN", emails = listOf("john@x.com"), avatar = "/avatar/john.png", contactedTimes = mapOf("john@x.com" to 5)),
+            ),
+        )
+
+        val contact = manager.findContact("john@x.com", name = "John")
+
+        assertEquals("John", contact?.name)
+        assertEquals(
+            ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/john.png", accountId = ACCOUNT_ID),
+            contact?.avatar,
+        )
+    }
+
+    @Test
+    fun givesTheFoundContactTheAvatarOfAnotherOneSharingItsEmail() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "John", emails = listOf("john@x.com"), contactedTimes = mapOf("john@x.com" to 5)),
+                ApiContact(name = "Johnny", emails = listOf("john@x.com"), avatar = "/avatar/john.png"),
+                ApiContact(name = "Jöhn", emails = listOf("jöhn@x.com"), avatar = "/avatar/jöhn.png"),
+            ),
+        )
+
+        val contact = manager.findContact("john@x.com", name = "John")
+
+        assertEquals("John", contact?.name)
+        assertEquals(
+            ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/john.png", accountId = ACCOUNT_ID),
+            contact?.avatar,
+        )
     }
 
     @Test

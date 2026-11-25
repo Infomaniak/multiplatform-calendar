@@ -25,6 +25,9 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 
 /**
  * Coordinates synchronization requests to prevent concurrent executions
@@ -37,9 +40,9 @@ import kotlinx.coroutines.sync.withLock
 internal class SyncCoordinator {
 
     private val executionMutex = Mutex()
-    private val stateMutex = Mutex()
 
-    private var latestRequestId = 0L
+    @OptIn(ExperimentalAtomicApi::class)
+    private var latestRequestId = AtomicLong(0L)
     private var lastCompletedRequestId = 0L
 
     /**
@@ -50,31 +53,26 @@ internal class SyncCoordinator {
      * unless a concurrent request has already scheduled one.
      *
      * Execution runs in the caller's coroutine context and respects cancellation.
-     * If the active execution fails or is cancelled, the exception is propagated
+     * If the active execution fails or is canceled, the exception is propagated
      * and pending work may be picked up by a subsequent caller.
      *
      * @param syncAction The synchronization operation to execute.
      */
+    @OptIn(ExperimentalAtomicApi::class)
     suspend fun runConflated(syncAction: suspend () -> SyncResult) {
-        stateMutex.withLock {
-            latestRequestId++
-        }
+        val _ = latestRequestId.incrementAndFetch()
 
         executionMutex.withLock {
             while (true) {
                 currentCoroutineContext().ensureActive()
-                val batchId = stateMutex.withLock {
-                    latestRequestId.takeIf { it > lastCompletedRequestId }
-                } ?: break
 
+                val batchId = latestRequestId.load().takeIf { it > lastCompletedRequestId } ?: break
                 val result = syncAction()
 
-                stateMutex.withLock {
-                    lastCompletedRequestId = batchId
+                lastCompletedRequestId = batchId
 
-                    if (result == SyncResult.NeedsResync && latestRequestId == batchId) {
-                        latestRequestId++
-                    }
+                if (result == SyncResult.NeedsResync) {
+                    val _ = latestRequestId.compareAndSet(expectedValue = batchId, newValue = batchId + 1)
                 }
             }
         }

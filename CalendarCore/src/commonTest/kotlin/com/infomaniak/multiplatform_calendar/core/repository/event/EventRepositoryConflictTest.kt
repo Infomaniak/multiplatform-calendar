@@ -294,6 +294,51 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
         assertEquals("SERVER-ICS", eventDao().getRawIcs(eventId))
     }
 
+    @Test
+    fun split_conflictDoesNotRecreateTailOrTruncateRefreshedHead() = runTest {
+        seedSeries()
+        val failure = conflict()
+        val tailId = EventId("https://cal/main/tail.ics")
+        fakeCaldav.createdRef = RemoteDavEventRef(url = tailId.url, etag = "tail")
+        fakeCaldav.storedEvents = listOf(serverSeries())
+        fakeCaldav.updateFailures += failure
+        val occurrence = occurrenceOf(eventId, LocalDateTime(2026, 6, 16, 10, 0))
+        val edit = checkNotNull(repository.getEditData(occurrence)).copy(title = "Tail")
+
+        assertSame(failure, assertFailsWith<CaldavHttpException> {
+            repository.updateEvent(CREDENTIALS, CREDENTIALS, target(RecurrenceScope.ThisAndFollowing), edit)
+        })
+
+        assertEquals(1, fakeCaldav.creates.size)
+        assertEquals(listOf("1"), fakeCaldav.updates.map { it.first })
+        assertEquals(0, fakeCaldav.fetches.size)
+        assertNotNull(eventDao().getEvent(tailId))
+        assertEquals("LOCAL-ICS", eventDao().getRawIcs(eventId))
+    }
+
+    @Test
+    fun move_conflictDoesNotDeleteANewerSourceOrRecreateDestination() = runTest {
+        seedSeries()
+        val destination = CalendarId("calendar://other")
+        seedCalendar(calendarId = destination)
+        val movedId = EventId("https://cal/other/series.ics")
+        fakeCaldav.createdRef = RemoteDavEventRef(url = movedId.url, etag = "destination")
+        fakeCaldav.storedEvents = listOf(serverSeries())
+        val failure = conflict("Delete")
+        fakeCaldav.deleteFailures += failure
+        val edit = checkNotNull(repository.getEditData(OccurrenceId.Master(eventId))).copy(calendarId = destination)
+
+        assertSame(failure, assertFailsWith<CaldavHttpException> {
+            repository.updateEvent(CREDENTIALS, CREDENTIALS, eventId, edit)
+        })
+
+        assertEquals(1, fakeCaldav.creates.size)
+        assertEquals(listOf(eventId.url to "1"), fakeCaldav.deletes)
+        assertEquals(0, fakeCaldav.fetches.size)
+        assertNotNull(eventDao().getEvent(eventId))
+        assertEquals(destination, eventDao().getEvent(movedId)!!.calendarId)
+    }
+
     private fun remoteOverride(series: RemoteDavEvent, day: Int): RemoteDavEventOverride {
         val date = "202606$day"
         return RemoteDavEventOverride(

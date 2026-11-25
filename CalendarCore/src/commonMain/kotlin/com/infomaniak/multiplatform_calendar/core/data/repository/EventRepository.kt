@@ -1138,7 +1138,10 @@ internal class EventRepository(
         return RemoteReplyScope.Occurrence(recurrenceId, slot)
     }
 
-    /** Create first, then delete only the source version copied to the destination. No automatic retry. */
+    /**
+     * Create first, then delete only the source version copied to the destination. No automatic retry:
+     * if deletion conflicts, keep both local resources and surface the failure rather than lose either copy.
+     */
     private suspend fun updateCrossCalendarEvent(
         sourceCredentials: DavAccount,
         destinationCredentials: DavAccount,

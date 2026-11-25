@@ -305,7 +305,10 @@ internal class CalendarRepository(
         currentCoroutineContext().ensureActive()
 
         runCatching {
-            eventDao.upsertEventsWithRawIcs(this@upsertBatch.toUpsertBatch())
+            eventDao.upsertEventsWithRawIcsIfCalendarExists(
+                calendarId = calendarId,
+                batch = this@upsertBatch.toUpsertBatch(),
+            )
         }.cancellable().onFailure {
             // An error here is not critical, we can continue syncing other calendars
             // Only occurred when the database is corrupted, which is very rare, or when the user has been logged out.

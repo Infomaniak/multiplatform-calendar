@@ -79,6 +79,16 @@ class CalendarDaoTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun hasAccount_reflectsAccountExistence() = runTest {
+        val existingAccount = AccountId(1)
+        val missingAccount = AccountId(2)
+        accountDao.insert(AccountEntity(id = existingAccount))
+
+        assertEquals(true, calendarDao.hasAccount(existingAccount))
+        assertEquals(false, calendarDao.hasAccount(missingAccount))
+    }
+
+    @Test
     fun getVisibleCalendarsByAccountId_returnsOnlyVisibleCalendarsForAccountSortedByDisplayName() = runTest {
         val accountId = AccountId(1)
         val otherAccountId = AccountId(2)

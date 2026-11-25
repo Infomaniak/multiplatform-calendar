@@ -24,6 +24,8 @@ import com.infomaniak.multiplatform_calendar.core.data.local.CalendarTypeConvert
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
+import com.infomaniak.multiplatform_calendar.core.data.remote.AuthDataSource
+import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.CalendarRepository
 import com.infomaniak.multiplatform_calendar.core.data.repository.SettingsRepository
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarId
@@ -52,6 +54,9 @@ import com.infomaniak.multiplatform_core.account.domain.model.AccountId
 import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import com.infomaniak.multiplatform_core.crashreport.RecordingCrashReport
 import com.infomaniak.multiplatform_core.organisations.domain.model.OrganisationId
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -184,6 +189,40 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             CalendarNotificationSettings(isEnabled = false, disabledTopics = setOf(NotificationTopic.Reminders)),
             settings.observeCalendarNotificationSettings(setOf(accountId)).first()[calendarId],
         )
+    }
+
+    @Test
+    fun syncEvents_accountDeletedDuringSuspendedDiscovery_doesNotPersistCalendars() = runTest {
+        val accountId = AccountId(12)
+        val credentials = DavAccount(baseUrl = "https://dav.example", username = "u", password = "p")
+        val calendarUrl = "https://dav.example/cal/deleted-during-discovery/"
+        val accountRepository = AccountRepository(
+            accountDao = database.accountDao(),
+            authDataSource = AuthDataSource(HttpClient(MockEngine { error("AuthDataSource must not be called in this test") })),
+            dropCaldavConnections = {},
+        )
+        accountRepository.storeCredentials(accountId, credentials)
+        val discoverStarted = CompletableDeferred<Unit>()
+        val releaseDiscover = CompletableDeferred<Unit>()
+        val remote = FakeCalendarSyncRemoteSource(
+            calendars = listOf(RemoteDavCalendar(url = calendarUrl, displayName = "Cal")),
+        ).apply {
+            onDiscover = {
+                discoverStarted.complete(Unit)
+                releaseDiscover.await()
+            }
+        }
+        val repository = repositoryWith(remote)
+
+        val syncJob = launch {
+            repository.syncEvents(accountId, credentials)
+        }
+        discoverStarted.await()
+        accountRepository.removeCredentials(accountId)
+        releaseDiscover.complete(Unit)
+        syncJob.join()
+
+        assertNull(database.calendarDao().findById(CalendarId(calendarUrl)))
     }
 
     private fun repositoryWith(remote: CalendarSyncRemoteSource) = CalendarRepository(
@@ -745,9 +784,13 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
         var refRangeRequestCount: Int = 0
         var lastMultigetUrls: List<String> = emptyList()
         val rangedCalendarUrls: MutableList<String> = mutableListOf()
+        var onDiscover: (suspend () -> Unit)? = null
         var onGetEventsInRange: (suspend () -> Unit)? = null
 
-        override suspend fun discover(credentials: DavAccount) = RemoteDavDiscovery(userEmails, calendars)
+        override suspend fun discover(credentials: DavAccount): RemoteDavDiscovery {
+            onDiscover?.invoke()
+            return RemoteDavDiscovery(userEmails, calendars)
+        }
 
         override suspend fun getEventsInRange(
             credentials: DavAccount,
@@ -775,7 +818,11 @@ class CalendarRepositoryTest : RobolectricTestsBase() {
             return rangeRefs[calendarUrl].orEmpty()
         }
 
-        override suspend fun syncCollection(credentials: DavAccount, calendarUrl: String, syncToken: String?): RemoteEventSyncDelta {
+        override suspend fun syncCollection(
+            credentials: DavAccount,
+            calendarUrl: String,
+            syncToken: String?,
+        ): RemoteEventSyncDelta {
             syncCollectionCallsByCalendar[calendarUrl] = (syncCollectionCallsByCalendar[calendarUrl] ?: 0) + 1
             syncCollectionHandler?.let { return it(calendarUrl, syncToken) }
             val configured = syncResults[calendarUrl]

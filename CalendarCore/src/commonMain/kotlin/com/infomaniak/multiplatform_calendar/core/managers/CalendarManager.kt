@@ -38,11 +38,14 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Alarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.core.extensions.SyncResult
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
+import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
 import com.infomaniak.multiplatform_calendar.core.forCoreKmp.cancellable
 import com.infomaniak.multiplatform_calendar.core.localization.localizedColorChoices
 import com.infomaniak.multiplatform_calendar.core.localization.meetRoomDescriptionBlock
 import com.infomaniak.multiplatform_calendar.core.managers.utils.SdkCaller
+import com.infomaniak.multiplatform_calendar.core.utils.SyncCoordinator
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_calendar.meet.HostManagedMeetApi
 import com.infomaniak.multiplatform_calendar.meet.MeetManager
@@ -67,13 +70,10 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.plus
-import kotlin.concurrent.atomics.AtomicBoolean
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @SingleIn(AppScope::class)
@@ -86,13 +86,12 @@ public class CalendarManager internal constructor(
     private val calendarBookableResourcesManager: CalendarBookableResourcesManager,
     private val calendarOrganisationsManager: CalendarOrganisationsManager,
     private val sdkCaller: SdkCaller,
+    private val syncCoordinator: SyncCoordinator,
 ) {
 
     private val nonEmptyAccountIdsFlow by lazy {
         accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }
     }
-    @OptIn(ExperimentalAtomicApi::class)
-    private val isSyncEventLaunched = AtomicBoolean(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeCalendars(): Flow<List<CalendarSection>> {
@@ -216,27 +215,22 @@ public class CalendarManager internal constructor(
         }
     }
 
-    @OptIn(ExperimentalAtomicApi::class)
+    /**
+     * Synchronizes events across all accounts, ensuring only one sync runs at a time.
+     *
+     * Concurrent requests are conflated into one additional pass.
+     * Callers suspend until synchronization completes.
+     */
     @Throws(CancellationException::class, CalendarSdkException::class)
-    public suspend fun syncEvents(): Unit {
-        if (!isSyncEventLaunched.compareAndSet(expectedValue = false, newValue = true)) return
-        try {
-            withContext(Dispatchers.Default) {
-                launch { syncOrganisations() }
-                launch { syncBookableResources() }
-                sdkCaller(operation = "sync events for all accounts") {
-                    accountRepository.syncAccountsWithRestartingCollection { accountId, credentials ->
-                        calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
-                    }
-                }
+    public suspend fun syncEvents() {
+        sdkCaller(operation = "sync events for all accounts") {
+            syncCoordinator.runConflated {
+                runSyncEventsPass()
             }
-        } finally {
-            isSyncEventLaunched.store(false)
         }
     }
 
     @Throws(CancellationException::class, CalendarSdkException::class)
-    @OptIn(ExperimentalTime::class, ExperimentalCoroutinesApi::class)
     public suspend fun downloadEventsByRange(
         start: Instant,
         end: Instant,
@@ -385,6 +379,17 @@ public class CalendarManager internal constructor(
             val accountId = eventRepository.getAccountIdByEventId(target.occurrenceId.masterId)
             val credentials = accountRepository.getCredentials(accountId)
             eventRepository.deleteEvent(credentials, target)
+        }
+    }
+
+    /**
+     * Performs one complete sync using the latest account snapshot.
+     */
+    private suspend fun runSyncEventsPass(): SyncResult = withContext(Dispatchers.Default) {
+        launch { syncOrganisations() }
+        launch { syncBookableResources() }
+        accountRepository.syncCurrentAccounts { accountId, credentials ->
+            calendarRepository.syncEvents(accountId = accountId, credentials = credentials)
         }
     }
 

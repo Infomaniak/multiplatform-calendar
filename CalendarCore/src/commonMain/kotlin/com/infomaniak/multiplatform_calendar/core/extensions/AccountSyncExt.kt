@@ -20,6 +20,92 @@ package com.infomaniak.multiplatform_calendar.core.extensions
 import com.infomaniak.multiplatform_calendar.core.data.repository.AccountRepository
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.DavAccount
 import com.infomaniak.multiplatform_core.account.domain.model.AccountId
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+
+internal enum class SyncResult { Completed, NeedsResync, }
+
+private data class ActiveAccountSync(
+    val accountId: AccountId,
+    val job: Job,
+)
+
+/**
+ * Synchronizes accounts from a snapshot without restarting when the account list changes.
+ *
+ * Detects newly added accounts to request a follow-up pass, while tracking removed accounts
+ * to skip pending synchronizations or cancel the currently running one.
+ *
+ * @param syncAction The synchronization operation to execute for each account.
+ * @return [SyncResult.NeedsResync] if new accounts were detected during the pass,
+ * or [SyncResult.Completed] otherwise.
+ */
+internal suspend fun AccountRepository.syncCurrentAccounts(
+    syncAction: suspend (AccountId, DavAccount) -> Unit,
+): SyncResult = coroutineScope {
+    val initialAccountIds = currentAccountIdsSnapshot()
+    if (initialAccountIds.isEmpty()) {
+        return@coroutineScope if (currentAccountIdsSnapshot().isNotEmpty()) {
+            SyncResult.NeedsResync
+        } else {
+            SyncResult.Completed
+        }
+    }
+
+    val syncState = AccountSyncState()
+
+    val observer = launchAccountIdsObserver(
+        scope = this,
+        initialAccountIds = initialAccountIds,
+        syncState = syncState,
+    )
+
+    try {
+        initialAccountIds.forEach { accountId ->
+            syncAccountInCurrentPass(
+                scope = this,
+                accountId = accountId,
+                syncState = syncState,
+                syncAction = syncAction,
+            )
+        }
+    } finally {
+        observer.cancelAndJoin()
+    }
+
+    val hasLateAccountAdditions = currentAccountIdsSnapshot().any { it !in initialAccountIds }
+    if (syncState.needsResync() || hasLateAccountAdditions) SyncResult.NeedsResync else SyncResult.Completed
+}
+
+private suspend fun AccountRepository.syncAccountInCurrentPass(
+    scope: CoroutineScope,
+    accountId: AccountId,
+    syncState: AccountSyncState,
+    syncAction: suspend (AccountId, DavAccount) -> Unit,
+) {
+    val currentAccountJob = scope.launch(start = CoroutineStart.LAZY) {
+        syncAccountIfConnected(accountId, syncAction)
+    }
+
+    if (!syncState.registerSync(accountId, currentAccountJob)) {
+        currentAccountJob.cancel()
+        return
+    }
+
+    try {
+        if (currentAccountJob.start()) currentAccountJob.join()
+    } finally {
+        syncState.clearSync(currentAccountJob)
+    }
+}
 
 /**
  * Synchronizes all accounts with the provided [syncAction] function.
@@ -69,6 +155,19 @@ private fun shouldRestartCurrentSync(
     return newAccountIds.any { it !in currentRunAccountIds }
 }
 
+private fun AccountRepository.launchAccountIdsObserver(
+    scope: CoroutineScope,
+    initialAccountIds: Set<AccountId>,
+    syncState: AccountSyncState,
+): Job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+    var previousAccountIds = initialAccountIds
+
+    currentAccountIdsFlow.collect { newAccountIds ->
+        syncState.updateAccounts(initialAccountIds, previousAccountIds, newAccountIds)
+        previousAccountIds = newAccountIds
+    }
+}
+
 private suspend fun AccountRepository.syncAccountIfConnected(
     accountId: AccountId,
     syncAction: suspend (AccountId, DavAccount) -> Unit,
@@ -83,5 +182,46 @@ private suspend fun AccountRepository.getCredentialsOrNull(accountId: AccountId)
         getCredentials(accountId)
     } catch (_: IllegalStateException) {
         null
+    }
+}
+
+@OptIn(ExperimentalAtomicApi::class)
+private class AccountSyncState {
+    private val mutex = Mutex()
+    private val removedAccounts = mutableSetOf<AccountId>()
+    private val needsResync = AtomicBoolean(false)
+    private var currentAccountSync: ActiveAccountSync? = null
+
+    fun needsResync(): Boolean = needsResync.load()
+
+    suspend fun updateAccounts(
+        initialAccountIds: Set<AccountId>,
+        previousAccountIds: Set<AccountId>,
+        newAccountIds: Set<AccountId>,
+    ) {
+        if (!needsResync.load() && newAccountIds.any { it !in previousAccountIds }) {
+            needsResync.store(true)
+        }
+        mutex.withLock {
+            removedAccounts += initialAccountIds - newAccountIds
+            currentAccountSync?.let { active ->
+                if (active.accountId in removedAccounts) active.job.cancel()
+            }
+        }
+    }
+
+    suspend fun registerSync(accountId: AccountId, job: Job): Boolean = mutex.withLock {
+        if (accountId in removedAccounts) {
+            false
+        } else {
+            currentAccountSync = ActiveAccountSync(accountId, job)
+            true
+        }
+    }
+
+    suspend fun clearSync(job: Job) {
+        mutex.withLock {
+            if (currentAccountSync?.job === job) currentAccountSync = null
+        }
     }
 }

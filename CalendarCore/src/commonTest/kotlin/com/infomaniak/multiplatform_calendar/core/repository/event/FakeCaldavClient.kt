@@ -56,8 +56,11 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
      * matching the "bridge already reparsed this" fixtures the other tests rely on.
      */
     var applyEdit: ((base: RemoteDavEvent, edit: RemoteEventEdit) -> RemoteDavEvent)? = null
+    /** Optional input-sensitive bridge response, including suspension to simulate sync during patching. */
     var patchFromIcs: (suspend (String, RemoteEventEdit) -> RemoteDavEvent)? = null
+    var overrideFromIcs: (suspend (String, RemoteRecurrenceId, RemoteEventEdit) -> RemoteDavEvent)? = null
     val patchInputs = mutableListOf<String>()
+    val overrideInputs = mutableListOf<String>()
     val creates = mutableListOf<Pair<String, String>>()
     val deletes = mutableListOf<Pair<String, String>>()
     val patches = mutableListOf<RemoteEventEdit>()
@@ -112,9 +115,10 @@ internal class FakeCaldavClient : CalendarSyncRemoteSource {
         seed: RemoteVeventSeed?,
     ): RemoteDavEvent {
         overrideUpserts += recurrenceId to edit
+        overrideInputs += icsData
         overrideSeeds += seed
         calls += "override"
-        return applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
+        return overrideFromIcs?.invoke(icsData, recurrenceId, edit) ?: applyEdit?.invoke(patchedEvent, edit) ?: patchedEvent
     }
 
     override suspend fun setParticipationStatus(

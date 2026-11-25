@@ -35,6 +35,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventTimingE
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.MAX_UTC_OFFSET_MS
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.NotificationTopicColumn
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.toUpsertBatch
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
@@ -120,7 +121,7 @@ internal abstract class EventDao {
 
     /**
      * Events from all *visible* calendars of [accountIds] whose alarms may go
-     * off in the [`[startInstantMs, endInstantMs]`] window.
+     * off in the [`[startInstantMs, endInstantMs]`] window, unless their reminders are turned off.
      *
      * An alarm does not go off when its event happens, so the branches of [observeVisibleInRange] are
      * reused on bounds widened **per row** by what that row's own alarms reach ([AlarmBoundsEntity]),
@@ -147,6 +148,7 @@ internal abstract class EventDao {
         INNER JOIN accounts account ON calendar.accountId = account.id
         WHERE calendar.accountId IN(:accountIds)
           AND calendar.isVisible = 1
+          AND $REMINDERS_ENABLED
           AND (
             (event.hasRecurrence = 0 AND $ALARMED_ANCHORED_TIMING)
             OR (event.hasRecurrence = 0 AND $ALARMED_FLOATING_TIMING)
@@ -321,6 +323,19 @@ internal abstract class EventDao {
     abstract suspend fun deleteEvents(calendarId: CalendarId, eventIds: List<EventId>)
 
     private companion object {
+
+        /**
+         * Keeps the calendar's reminders unless one of the three switches turns them off: the account's
+         * notifications, the calendar's notifications, or the calendar's reminders topic.
+         * Without a settings row, a switch is on, so a new account, calendar or topic notifies.
+         */
+        private const val REMINDERS_ENABLED = """(
+            NOT EXISTS (SELECT 1 FROM account_settings s
+                        WHERE s.accountId = calendar.accountId AND s.notificationsEnabled = 0)
+            AND NOT EXISTS (SELECT 1 FROM calendar_settings s
+                            WHERE s.calendarId = calendar.id AND s.notificationsEnabled = 0)
+            AND NOT EXISTS (SELECT 1 FROM calendar_disabled_notification_topics t
+                            WHERE t.calendarId = calendar.id AND t.topic = '${NotificationTopicColumn.REMINDERS}'))"""
 
         /**
          * Widens all-day overrides by [MAX_UTC_OFFSET_MS]: an all-day instant is stored at UTC midnight,

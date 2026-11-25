@@ -22,6 +22,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.DatabaseProvider
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.SettingsDao
 import com.infomaniak.multiplatform_calendar.core.data.local.getCalendarDatabase
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesTo
@@ -43,4 +44,7 @@ public interface DatabaseModule {
 
     @Provides
     private fun provideEventDao(database: CalendarDatabase): EventDao = database.eventDao()
+
+    @Provides
+    private fun provideSettingsDao(database: CalendarDatabase): SettingsDao = database.settingsDao()
 }

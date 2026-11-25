@@ -31,8 +31,12 @@ import com.infomaniak.multiplatform_calendar.bookable_resources.data.local.entit
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.AccountDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.CalendarDao
 import com.infomaniak.multiplatform_calendar.core.data.local.dao.EventDao
+import com.infomaniak.multiplatform_calendar.core.data.local.dao.SettingsDao
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.AccountSettingsEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarDisabledNotificationTopicEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.CalendarSettingsEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventRawIcsEntity
@@ -47,7 +51,7 @@ import com.infomaniak.multiplatform_core.organisations.data.local.entity.Organis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
-internal const val CALENDAR_DATABASE_VERSION = 2
+internal const val CALENDAR_DATABASE_VERSION = 3
 
 internal expect class DatabaseProvider {
     fun getRoomDatabaseBuilder(inMemory: Boolean): RoomDatabase.Builder<CalendarDatabase>
@@ -67,7 +71,10 @@ internal fun DatabaseProvider.getCalendarDatabase(
 @Database(
     entities = [
         AccountEntity::class,
+        AccountSettingsEntity::class,
         CalendarEntity::class,
+        CalendarSettingsEntity::class,
+        CalendarDisabledNotificationTopicEntity::class,
         EventEntity::class,
         EventOverrideEntity::class,
         EventRawIcsEntity::class,
@@ -78,7 +85,7 @@ internal fun DatabaseProvider.getCalendarDatabase(
     ],
     version = CALENDAR_DATABASE_VERSION,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 @ColumnTypeConverters(CalendarTypeConverters::class)
 @ConstructedBy(CalendarDatabaseConstructor::class)
@@ -86,6 +93,7 @@ internal abstract class CalendarDatabase : RoomDatabase(), ContactsDatabase, Boo
     abstract fun accountDao(): AccountDao
     abstract fun calendarDao(): CalendarDao
     abstract fun eventDao(): EventDao
+    abstract fun settingsDao(): SettingsDao
     abstract override fun bookableResourceDao(): BookableResourceDao
     abstract override fun organisationDao(): OrganisationDao
 

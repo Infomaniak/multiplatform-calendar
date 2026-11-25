@@ -768,8 +768,8 @@ internal class EventRepository(
         val origin = occurrenceEditData(initial.event, occurrenceId, originOverride)
             ?.copy(alarms = AlarmListEdit.Replace(originAlarms.toDomain())) ?: return
         retryResourceWrite(
-            sourceCredentials,
-            initial,
+            credentials = sourceCredentials,
+            initial = initial,
             retryAllowed = data.calendarId == initial.event.calendarId,
         ) { snapshot, conflict ->
             val currentOverride = snapshot.overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }

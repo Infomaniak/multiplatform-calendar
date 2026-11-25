@@ -369,6 +369,7 @@ internal class EventRepository(
                 credentials = sourceCredentials,
                 eventId = eventId,
                 icsData = patched.icsData,
+                initialEtag = entity.etag,
             )
             persistWrite(sourceCredentials, entity.calendarId, written = patched, ref = ref)
         } else {
@@ -899,17 +900,21 @@ internal class EventRepository(
         credentials: DavAccount,
         eventId: EventId,
         icsData: String,
+        initialEtag: String? = null,
     ): RemoteDavEventRef {
+        var currentEtag = initialEtag
         return withPreconditionRetry(
             onPreconditionFailed = { conflict ->
-                storeServerVersion(credentials = credentials, eventId = eventId, conflict = conflict)
+                val stored = storeServerVersion(credentials = credentials, eventId = eventId, conflict = conflict)
+                if (stored) currentEtag = eventDao.getEvent(eventId)?.etag
+                stored
             },
         ) {
-            val current = eventDao.getEvent(eventId) ?: error("Event $eventId not found")
+            val etag = currentEtag ?: eventDao.getEvent(eventId)?.etag ?: error("Event $eventId not found")
             updateEventRemote(
                 credentials = credentials,
                 eventId = eventId,
-                etag = current.etag,
+                etag = etag,
                 icsData = icsData,
             )
         }

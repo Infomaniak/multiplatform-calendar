@@ -306,15 +306,14 @@ internal abstract class EventDao {
     abstract suspend fun getRawIcs(eventId: EventId): String?
 
     /**
-     * Reads the event row and its raw ICS in a single transaction so callers get a consistent
-     * snapshot: a concurrent sync upsert can't commit a new event/raw-ICS pair between the two
-     * reads, which would otherwise let an edit patch fresh ICS with a stale entity/ETag.
+     * Reads the event, raw ICS and overrides in a single transaction so every write uses the ETag
+     * and recurrence state belonging to the ICS it patches, even if sync commits meanwhile.
      */
     @Transaction
     open suspend fun getEventWithRawIcs(eventId: EventId): EventWithRawIcs? {
         val event = getEvent(eventId) ?: return null
         val rawIcs = getRawIcs(eventId) ?: return null
-        return EventWithRawIcs(event, rawIcs)
+        return EventWithRawIcs(event, rawIcs, getOverridesOf(eventId))
     }
 
     @Transaction

@@ -926,28 +926,23 @@ internal class EventRepository(
         calendarId: CalendarId,
         etag: String,
     ) {
-        var currentEtag = etag
-        withPreconditionRetry(
-            onPreconditionFailed = { conflict ->
-                val remote = runCatching {
-                    caldavClient.getEventsByUrls(
-                        credentials = credentials,
-                        calendarUrl = calendarId.url,
-                        eventUrls = listOf(eventId.url),
-                    ).singleOrNull()
-                }.cancellable()
-                    .onFailure(conflict::addSuppressed)
-                    .getOrNull() ?: return@withPreconditionRetry false
-                currentEtag = remote.etag
-                true
-            },
-        ) {
-            deleteEventRemote(
-                credentials = credentials,
-                eventId = eventId,
-                etag = currentEtag,
-            )
+        try {
+            deleteEventRemote(credentials, eventId, etag)
+        } catch (conflict: CaldavHttpException) {
+            if (conflict.statusCode != HttpStatusCode.PreconditionFailed.value) throw conflict
+            val events = runCatching {
+                caldavClient.getEventsByUrls(credentials, calendarId.url, listOf(eventId.url))
+            }.cancellable()
+                .onFailure(conflict::addSuppressed)
+                .getOrElse { throw conflict }
+            if (events.isEmpty()) {
+                eventDao.deleteEvent(eventId)
+                return
+            }
+            val remote = events.singleOrNull() ?: throw conflict
+            deleteEventRemote(credentials, eventId, remote.etag)
         }
+        eventDao.deleteEvent(eventId)
     }
 
     private suspend fun updateEventRemote(

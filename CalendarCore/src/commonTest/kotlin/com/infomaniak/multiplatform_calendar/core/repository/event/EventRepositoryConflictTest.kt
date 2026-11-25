@@ -21,17 +21,37 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRaw
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavHttpException
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
 
+    private val eventId = EventId("https://cal/main/series.ics")
+
+    private fun conflict() = CaldavHttpException(
+        statusCode = HttpStatusCode.PreconditionFailed.value,
+        operation = "Delete",
+        message = "Precondition Failed",
+        cause = null,
+    )
+
+    private suspend fun seedEvent() {
+        seedCalendar()
+        eventDao().upsert(listOf(EventWithRawIcs(dailyMasterEntity(eventId, CALENDAR_ID), "LOCAL-ICS")))
+    }
+
     @Test
     fun update_usesEtagFromSnapshotEvenWhenSyncRunsDuringPatch() = runTest {
-        val eventId = EventId("https://cal/main/series.ics")
-        seedCalendar()
-        val entity = dailyMasterEntity(eventId, CALENDAR_ID)
+        seedEvent()
+        val entity = checkNotNull(eventDao().getEvent(eventId))
         eventDao().upsert(listOf(EventWithRawIcs(entity, "LOCAL-ICS")))
         fakeCaldav.patchFromIcs = { ics, _ ->
             assertEquals("LOCAL-ICS", ics)
@@ -44,5 +64,41 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
 
         assertEquals(listOf("LOCAL-ICS"), fakeCaldav.patchInputs)
         assertEquals(listOf("1" to "PATCHED-ICS"), fakeCaldav.updates)
+    }
+
+    @Test
+    fun delete_missingRemoteIsSuccessAndRemovesLocalEvent() = runTest {
+        seedEvent()
+        val failure = conflict()
+        fakeCaldav.deleteFailures += failure
+
+        repository.deleteEvent(CREDENTIALS, eventId)
+
+        assertEquals(listOf(eventId.url to "1"), fakeCaldav.deletes)
+        assertEquals(1, fakeCaldav.fetches.size)
+        assertNull(eventDao().getEvent(eventId))
+    }
+
+    @Test
+    fun delete_fetchFailurePreservesConflictAndLocalEvent() = runTest {
+        seedEvent()
+        val conflict = conflict()
+        fakeCaldav.deleteFailures += conflict
+        fakeCaldav.fetchFailure = IllegalStateException("Network unavailable")
+
+        assertSame(conflict, assertFailsWith<CaldavHttpException> { repository.deleteEvent(CREDENTIALS, eventId) })
+
+        assertNotNull(eventDao().getEvent(eventId))
+    }
+
+    @Test
+    fun delete_fetchCancellationPropagatesAndPreservesLocalEvent() = runTest {
+        seedEvent()
+        fakeCaldav.deleteFailures += conflict()
+        fakeCaldav.fetchFailure = CancellationException("Cancelled")
+
+        assertFailsWith<CancellationException> { repository.deleteEvent(CREDENTIALS, eventId) }
+
+        assertNotNull(eventDao().getEvent(eventId))
     }
 }

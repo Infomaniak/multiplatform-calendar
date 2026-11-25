@@ -48,7 +48,6 @@ private data class ActiveAccountSync(
  * @return [SyncResult.NeedsResync] if new accounts were detected during the pass,
  * or [SyncResult.Completed] otherwise.
  */
-@OptIn(ExperimentalAtomicApi::class)
 internal suspend fun AccountRepository.syncCurrentAccounts(
     syncAction: suspend (AccountId, DavAccount) -> Unit,
 ): SyncResult = coroutineScope {
@@ -61,18 +60,12 @@ internal suspend fun AccountRepository.syncCurrentAccounts(
         }
     }
 
-    val needsResync = AtomicBoolean(false)
-    val syncStateMutex = Mutex()
-    val removedAccounts = mutableSetOf<AccountId>()
-    var currentAccountSync: ActiveAccountSync? = null
+    val syncState = AccountSyncState()
 
     val observer = launchAccountIdsObserver(
         scope = this,
         initialAccountIds = initialAccountIds,
-        syncStateMutex = syncStateMutex,
-        removedAccounts = removedAccounts,
-        needsResync = needsResync,
-        currentAccountSyncProvider = { currentAccountSync },
+        syncState = syncState,
     )
 
     try {
@@ -80,10 +73,7 @@ internal suspend fun AccountRepository.syncCurrentAccounts(
             syncAccountInCurrentPass(
                 scope = this,
                 accountId = accountId,
-                syncStateMutex = syncStateMutex,
-                removedAccounts = removedAccounts,
-                currentAccountSyncProvider = { currentAccountSync },
-                updateCurrentAccountSync = { currentAccountSync = it },
+                syncState = syncState,
                 syncAction = syncAction,
             )
         }
@@ -92,32 +82,20 @@ internal suspend fun AccountRepository.syncCurrentAccounts(
     }
 
     val hasLateAccountAdditions = currentAccountIdsSnapshot().any { it !in initialAccountIds }
-    if (needsResync.load() || hasLateAccountAdditions) SyncResult.NeedsResync else SyncResult.Completed
+    if (syncState.needsResync() || hasLateAccountAdditions) SyncResult.NeedsResync else SyncResult.Completed
 }
 
 private suspend fun AccountRepository.syncAccountInCurrentPass(
     scope: CoroutineScope,
     accountId: AccountId,
-    syncStateMutex: Mutex,
-    removedAccounts: Set<AccountId>,
-    currentAccountSyncProvider: () -> ActiveAccountSync?,
-    updateCurrentAccountSync: (ActiveAccountSync?) -> Unit,
+    syncState: AccountSyncState,
     syncAction: suspend (AccountId, DavAccount) -> Unit,
 ) {
     val currentAccountJob = scope.launch(start = CoroutineStart.LAZY) {
         syncAccountIfConnected(accountId, syncAction)
     }
 
-    val shouldStartSync = syncStateMutex.withLock {
-        if (accountId in removedAccounts) {
-            false
-        } else {
-            updateCurrentAccountSync(ActiveAccountSync(accountId = accountId, job = currentAccountJob))
-            true
-        }
-    }
-
-    if (!shouldStartSync) {
+    if (!syncState.registerSync(accountId, currentAccountJob)) {
         currentAccountJob.cancel()
         return
     }
@@ -125,11 +103,7 @@ private suspend fun AccountRepository.syncAccountInCurrentPass(
     try {
         if (currentAccountJob.start()) currentAccountJob.join()
     } finally {
-        syncStateMutex.withLock {
-            if (currentAccountSyncProvider()?.job === currentAccountJob) {
-                updateCurrentAccountSync(null)
-            }
-        }
+        syncState.clearSync(currentAccountJob)
     }
 }
 
@@ -181,30 +155,15 @@ private fun shouldRestartCurrentSync(
     return newAccountIds.any { it !in currentRunAccountIds }
 }
 
-@OptIn(ExperimentalAtomicApi::class)
 private fun AccountRepository.launchAccountIdsObserver(
     scope: CoroutineScope,
     initialAccountIds: Set<AccountId>,
-    syncStateMutex: Mutex,
-    removedAccounts: MutableSet<AccountId>,
-    needsResync: AtomicBoolean,
-    currentAccountSyncProvider: () -> ActiveAccountSync?,
+    syncState: AccountSyncState,
 ): Job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
     var previousAccountIds = initialAccountIds
 
     currentAccountIdsFlow.collect { newAccountIds ->
-        // Detect newly added accounts.
-        if (!needsResync.load() && newAccountIds.any { it !in previousAccountIds }) {
-            needsResync.store(true)
-        }
-        syncStateMutex.withLock {
-            // Track removed accounts during this pass.
-            removedAccounts += initialAccountIds - newAccountIds
-            // Cancel only the currently syncing account if removed.
-            currentAccountSyncProvider()?.let { active ->
-                if (active.accountId in removedAccounts) active.job.cancel()
-            }
-        }
+        syncState.updateAccounts(initialAccountIds, previousAccountIds, newAccountIds)
         previousAccountIds = newAccountIds
     }
 }
@@ -223,5 +182,46 @@ private suspend fun AccountRepository.getCredentialsOrNull(accountId: AccountId)
         getCredentials(accountId)
     } catch (_: IllegalStateException) {
         null
+    }
+}
+
+@OptIn(ExperimentalAtomicApi::class)
+private class AccountSyncState {
+    private val mutex = Mutex()
+    private val removedAccounts = mutableSetOf<AccountId>()
+    private val needsResync = AtomicBoolean(false)
+    private var currentAccountSync: ActiveAccountSync? = null
+
+    fun needsResync(): Boolean = needsResync.load()
+
+    suspend fun updateAccounts(
+        initialAccountIds: Set<AccountId>,
+        previousAccountIds: Set<AccountId>,
+        newAccountIds: Set<AccountId>,
+    ) {
+        if (!needsResync.load() && newAccountIds.any { it !in previousAccountIds }) {
+            needsResync.store(true)
+        }
+        mutex.withLock {
+            removedAccounts += initialAccountIds - newAccountIds
+            currentAccountSync?.let { active ->
+                if (active.accountId in removedAccounts) active.job.cancel()
+            }
+        }
+    }
+
+    suspend fun registerSync(accountId: AccountId, job: Job): Boolean = mutex.withLock {
+        if (accountId in removedAccounts) {
+            false
+        } else {
+            currentAccountSync = ActiveAccountSync(accountId, job)
+            true
+        }
+    }
+
+    suspend fun clearSync(job: Job) {
+        mutex.withLock {
+            if (currentAccountSync?.job === job) currentAccountSync = null
+        }
     }
 }

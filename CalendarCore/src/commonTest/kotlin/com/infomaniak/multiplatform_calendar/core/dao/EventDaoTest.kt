@@ -55,7 +55,6 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -119,17 +118,15 @@ class EventDaoTest : RobolectricTestsBase() {
             dtEndEffective = LocalDateTime(2026, 6, 29, 10, 0),
         )
 
-        val upsertedExisting = eventDao.upsertEventsWithRawIcsIfCalendarExists(
+        eventDao.upsertEventsWithRawIcsIfCalendarExists(
             calendarId = existingCalendarId,
             batch = listOf(EventWithRawIcs(existingEvent, rawIcs = "", overrides = emptyList())).toUpsertBatch(),
         )
-        val upsertedMissing = eventDao.upsertEventsWithRawIcsIfCalendarExists(
+        eventDao.upsertEventsWithRawIcsIfCalendarExists(
             calendarId = missingCalendarId,
             batch = listOf(EventWithRawIcs(missingEvent, rawIcs = "", overrides = emptyList())).toUpsertBatch(),
         )
 
-        assertTrue(upsertedExisting)
-        assertFalse(upsertedMissing)
         assertEquals(existingEvent, eventDao.getEvent(existingEvent.id))
         assertNull(eventDao.getEvent(missingEvent.id))
     }

@@ -247,10 +247,9 @@ internal abstract class EventDao {
     }
 
     @Transaction
-    open suspend fun upsertEventsWithRawIcsIfCalendarExists(calendarId: CalendarId, batch: EventUpsertBatch): Boolean {
-        if (!hasCalendar(calendarId)) return false
+    open suspend fun upsertEventsWithRawIcsIfCalendarExists(calendarId: CalendarId, batch: EventUpsertBatch) {
+        if (!hasCalendar(calendarId)) return
         upsertEventsWithRawIcs(batch)
-        return true
     }
 
     /** Single-event convenience for the edit paths, which write one resource at a time. */

@@ -347,12 +347,35 @@ internal class EventRepository(
         data: EventEditData,
     ) {
         val (entity, previousIcs) = eventDao.getEventWithRawIcs(eventId) ?: return
+        val before = entity.toEditData().copy(alarms = AlarmListEdit.Replace(entity.content.alarms.toDomain()))
         val now = Clock.System.now().toICalUtcDateTime()
         // patchEventIcs returns the patched event reparsed from its final ICS, so the persisted
         // row mirrors exactly what is written to the server (bumped SEQUENCE, refreshed
         // DTSTAMP/LAST-MODIFIED, preserved server-only fields) with no Kotlin-side re-derivation.
-        val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
-        writePatchedEvent(sourceCredentials, destinationCredentials, eventId, entity, data, patched)
+        var writeEntity = entity
+        var writeData = data
+        var patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
+        if (data.calendarId != entity.calendarId) {
+            return writePatchedEvent(sourceCredentials, destinationCredentials, eventId, entity, data, patched)
+        }
+
+        val ref = withPreconditionRetry(
+            onPreconditionFailed = { conflict ->
+                if (!storeServerVersion(sourceCredentials, eventId, conflict)) return@withPreconditionRetry false
+                val refreshed = eventDao.getEventWithRawIcs(eventId) ?: return@withPreconditionRetry false
+                writeEntity = refreshed.event
+                writeData = rebaseEdit(before, data, refreshed.event.toEditData())
+                val retryStamp = Clock.System.now().toICalUtcDateTime()
+                patched = caldavClient.patchEventIcs(
+                    refreshed.rawIcs,
+                    writeData.toRemoteEdit(stamp = retryStamp, previous = writeEntity),
+                )
+                true
+            },
+        ) {
+            updateEventRemote(sourceCredentials, eventId, writeEntity.etag, patched.icsData)
+        }
+        persistWrite(sourceCredentials, writeEntity.calendarId, written = patched, ref = ref)
     }
 
     /** Send a patched resource off, moving it to another calendar when that is what the edit asks. */
@@ -918,6 +941,26 @@ internal class EventRepository(
                 icsData = icsData,
             )
         }
+
+    }
+
+    /**
+     * Replay only fields changed from the first write snapshot, not the full stale form. If both
+     * sides changed a field, the requested value wins; recurrence dates remain owned by the series.
+     */
+    private fun rebaseEdit(before: EventEditData, requested: EventEditData, current: EventEditData): EventEditData {
+        val carried = current.withSeriesChanges(before, requested) ?: current
+        return carried.copy(
+            timing = current.timing.copy(
+                bounds = if (requested.timing.bounds != before.timing.bounds) requested.timing.bounds else current.timing.bounds,
+                recurrenceRule = if (requested.timing.recurrenceRule != before.timing.recurrenceRule) {
+                    requested.timing.recurrenceRule
+                } else {
+                    current.timing.recurrenceRule
+                },
+            ),
+            calendarId = if (requested.calendarId != before.calendarId) requested.calendarId else current.calendarId,
+        )
     }
 
     private suspend fun deleteEventWithPreconditionRetry(

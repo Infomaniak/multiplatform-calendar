@@ -89,6 +89,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.toRecurrenc
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.truncateBefore
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.withContacts
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.withSeriesChanges
+import com.infomaniak.multiplatform_calendar.core.domain.model.month.MonthEvents
+import com.infomaniak.multiplatform_calendar.core.domain.model.month.groupIntoMonthEvents
+import com.infomaniak.multiplatform_calendar.core.domain.model.month.monthWeekDays
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.ExpansionOutcome
 import com.infomaniak.multiplatform_calendar.core.domain.recurrence.MasterTiming
 import com.infomaniak.multiplatform_calendar.core.extensions.shiftedBy
@@ -123,9 +126,14 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.YearMonth
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -216,6 +224,22 @@ internal class EventRepository(
                     )
                     .groupDaySlicesByDay(start, end, timeZone, multiDayGrouping)
             }
+            .flowOn(Dispatchers.Default)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeVisibleMonthEvents(
+        accountIds: Set<AccountId>,
+        startMonth: YearMonth,
+        endMonth: YearMonth,
+        weekStart: DayOfWeek,
+        timeZone: TimeZone,
+    ): Flow<Map<YearMonth, MonthEvents>> {
+        val days = monthWeekDays(startMonth, endMonth, weekStart)
+        val start = days.start.atStartOfDayIn(timeZone)
+        val end = days.endInclusive.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone)
+        return observeVisibleDaySlices(accountIds, start, end, timeZone, MultiDayGrouping.AllEvents(weekStart))
+            .mapLatest { slicesByDay -> slicesByDay.groupIntoMonthEvents(startMonth, endMonth, weekStart) }
             .flowOn(Dispatchers.Default)
     }
 

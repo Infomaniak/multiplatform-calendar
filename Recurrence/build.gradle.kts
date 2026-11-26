@@ -49,7 +49,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":CalendarResources"))
+            implementation(kmpCalendar.compose.resources)
+            implementation(kmpCalendar.compose.runtime)
             implementation(kmpCalendar.kotlinx.coroutines.core)
             implementation(kmpCalendar.kotlinx.serialization)
             api(kmpCalendar.kotlinx.datetime)
@@ -66,4 +67,9 @@ kotlin {
     }
 
     explicitApi()
+}
+
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "com.infomaniak.multiplatform_calendar.recurrence.resources"
 }

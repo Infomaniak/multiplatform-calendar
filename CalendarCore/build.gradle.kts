@@ -172,5 +172,6 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         export(project(":Account"))
         export(project(":CrashReport"))
         export(project(":AppEnvironment"))
+        export(project(":Recurrence"))
     }
 }

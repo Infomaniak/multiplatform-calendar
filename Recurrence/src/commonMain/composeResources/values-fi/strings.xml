@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recurrence_at_hour">tunnilla %1$d</string>
+    <string name="recurrence_at_hours">tunneilla %1$s</string>
+    <string name="recurrence_at_minute">minuutilla %1$d</string>
+    <string name="recurrence_at_minutes">minuuteilla %1$s</string>
+    <string name="recurrence_at_second">sekunnilla %1$d</string>
+    <string name="recurrence_at_seconds">sekunneilla %1$s</string>
+    <string name="recurrence_clause_join">%1$s, %2$s</string>
+    <string name="recurrence_date">%2$d. %1$s %3$d</string>
+    <string name="recurrence_date_month_april">huhtikuuta</string>
+    <string name="recurrence_date_month_august">elokuuta</string>
+    <string name="recurrence_date_month_december">joulukuuta</string>
+    <string name="recurrence_date_month_february">helmikuuta</string>
+    <string name="recurrence_date_month_january">tammikuuta</string>
+    <string name="recurrence_date_month_july">heinäkuuta</string>
+    <string name="recurrence_date_month_june">kesäkuuta</string>
+    <string name="recurrence_date_month_march">maaliskuuta</string>
+    <string name="recurrence_date_month_may">toukokuuta</string>
+    <string name="recurrence_date_month_november">marraskuuta</string>
+    <string name="recurrence_date_month_october">lokakuuta</string>
+    <string name="recurrence_date_month_september">syyskuuta</string>
+    <string name="recurrence_every_day">Joka päivä</string>
+    <string name="recurrence_every_hour">Joka tunti</string>
+    <string name="recurrence_every_minute">Joka minuutti</string>
+    <string name="recurrence_every_month">Joka kuukausi</string>
+    <string name="recurrence_every_second">Joka sekunti</string>
+    <string name="recurrence_every_week">Joka viikko</string>
+    <string name="recurrence_every_year">Joka vuosi</string>
+    <string name="recurrence_first_matching_day">ensimmäisenä ehtoja vastaavana päivänä (%1$s)</string>
+    <string name="recurrence_in_week_numbers">vuoden %1$s</string>
+    <string name="recurrence_last_matching_day">viimeisenä ehtoja vastaavana päivänä (%1$s)</string>
+    <string name="recurrence_list_append">%1$s, %2$s</string>
+    <string name="recurrence_list_last">%1$s ja %2$s</string>
+    <string name="recurrence_list_two">%1$s ja %2$s</string>
+    <string name="recurrence_month_april">huhtikuussa</string>
+    <string name="recurrence_month_august">elokuussa</string>
+    <string name="recurrence_month_day">päivä %1$d</string>
+    <string name="recurrence_month_day_from_end">%1$d. päivä lopusta</string>
+    <string name="recurrence_month_day_last">kuukauden viimeinen päivä</string>
+    <string name="recurrence_month_december">joulukuussa</string>
+    <string name="recurrence_month_february">helmikuussa</string>
+    <string name="recurrence_month_january">tammikuussa</string>
+    <string name="recurrence_month_july">heinäkuussa</string>
+    <string name="recurrence_month_june">kesäkuussa</string>
+    <string name="recurrence_month_march">maaliskuussa</string>
+    <string name="recurrence_month_may">toukokuussa</string>
+    <string name="recurrence_month_november">marraskuussa</string>
+    <string name="recurrence_month_october">lokakuussa</string>
+    <string name="recurrence_month_september">syyskuussa</string>
+    <string name="recurrence_number">%1$d</string>
+    <string name="recurrence_on_annual_date">%2$d. %1$s</string>
+    <string name="recurrence_on_month_days">%1$s</string>
+    <string name="recurrence_on_year_days">%1$s</string>
+    <string name="recurrence_ordinal_weekday_fifth">kuukauden viidentenä %1$sna</string>
+    <string name="recurrence_ordinal_weekday_fifth_last">kuukauden viidenneksi viimeisenä %1$sna</string>
+    <string name="recurrence_ordinal_weekday_first">kuukauden ensimmäisenä %1$sna</string>
+    <string name="recurrence_ordinal_weekday_fourth">kuukauden neljäntenä %1$sna</string>
+    <string name="recurrence_ordinal_weekday_fourth_last">kuukauden neljänneksi viimeisenä %1$sna</string>
+    <string name="recurrence_ordinal_weekday_last">kuukauden viimeisenä %1$sna</string>
+    <string name="recurrence_ordinal_weekday_position">%1$s, sijainti %2$d</string>
+    <string name="recurrence_ordinal_weekday_position_from_end">%1$s, sijainti %2$d lopusta</string>
+    <string name="recurrence_ordinal_weekday_second">kuukauden toisena %1$sna</string>
+    <string name="recurrence_ordinal_weekday_second_last">kuukauden toiseksi viimeisenä %1$sna</string>
+    <string name="recurrence_ordinal_weekday_third">kuukauden kolmantena %1$sna</string>
+    <string name="recurrence_ordinal_weekday_third_last">kuukauden kolmanneksi viimeisenä %1$sna</string>
+    <string name="recurrence_set_position">sijainti %1$d</string>
+    <string name="recurrence_set_position_first">ensimmäinen</string>
+    <string name="recurrence_set_position_from_end">sijainti %1$d lopusta</string>
+    <string name="recurrence_set_position_last">viimeinen</string>
+    <string name="recurrence_until">asti %1$s</string>
+    <string name="recurrence_using_set_positions">käyttäen %1$s vastaavista esiintymistä</string>
+    <string name="recurrence_week_number">viikko %1$d</string>
+    <string name="recurrence_week_number_from_end">viikko %1$d lopusta</string>
+    <string name="recurrence_week_number_last">vuoden viimeinen viikko</string>
+    <string name="recurrence_week_start">viikon alkaessa päivänä %1$s</string>
+    <string name="recurrence_weekday_friday">perjantaisin</string>
+    <string name="recurrence_weekday_monday">maanantaisin</string>
+    <string name="recurrence_weekday_name_friday">perjantai</string>
+    <string name="recurrence_weekday_name_monday">maanantai</string>
+    <string name="recurrence_weekday_name_saturday">lauantai</string>
+    <string name="recurrence_weekday_name_sunday">sunnuntai</string>
+    <string name="recurrence_weekday_name_thursday">torstai</string>
+    <string name="recurrence_weekday_name_tuesday">tiistai</string>
+    <string name="recurrence_weekday_name_wednesday">keskiviikko</string>
+    <string name="recurrence_weekday_saturday">lauantaisin</string>
+    <string name="recurrence_weekday_sunday">sunnuntaisin</string>
+    <string name="recurrence_weekday_thursday">torstaisin</string>
+    <string name="recurrence_weekday_tuesday">tiistaisin</string>
+    <string name="recurrence_weekday_wednesday">keskiviikkoisin</string>
+    <string name="recurrence_year_day">vuoden päivä %1$d</string>
+    <string name="recurrence_year_day_from_end">vuoden päivä %1$d lopusta</string>
+    <string name="recurrence_year_day_last">vuoden viimeinen päivä</string>
+
+    <plurals name="recurrence_every_n_days">
+        <item quantity="one">%1$d päivän välein</item>
+        <item quantity="other">%1$d päivän välein</item>
+    </plurals>
+    <plurals name="recurrence_every_n_hours">
+        <item quantity="one">%1$d tunnin välein</item>
+        <item quantity="other">%1$d tunnin välein</item>
+    </plurals>
+    <plurals name="recurrence_every_n_minutes">
+        <item quantity="one">%1$d minuutin välein</item>
+        <item quantity="other">%1$d minuutin välein</item>
+    </plurals>
+    <plurals name="recurrence_every_n_months">
+        <item quantity="one">%1$d kuukauden välein</item>
+        <item quantity="other">%1$d kuukauden välein</item>
+    </plurals>
+    <plurals name="recurrence_every_n_seconds">
+        <item quantity="one">%1$d sekunnin välein</item>
+        <item quantity="other">%1$d sekunnin välein</item>
+    </plurals>
+    <plurals name="recurrence_every_n_weeks">
+        <item quantity="one">%1$d viikon välein</item>
+        <item quantity="other">%1$d viikon välein</item>
+    </plurals>
+    <plurals name="recurrence_every_n_years">
+        <item quantity="one">%1$d vuoden välein</item>
+        <item quantity="other">%1$d vuoden välein</item>
+    </plurals>
+    <plurals name="recurrence_for_occurrences">
+        <item quantity="one">%1$d kerran</item>
+        <item quantity="other">%1$d kertaa</item>
+    </plurals>
+</resources>

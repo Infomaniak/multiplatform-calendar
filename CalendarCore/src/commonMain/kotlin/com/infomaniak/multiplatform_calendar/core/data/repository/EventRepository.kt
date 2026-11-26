@@ -45,6 +45,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AlarmListEdit
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.DateListEdit
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MultiDayGrouping
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -192,6 +193,7 @@ internal class EventRepository(
      * [timeZone] drives the SQL wall-clock filter for floating events (forwarded to
      * [observeVisibleEvents]), the recurrence expansion anchor for floating / all-day occurrences
      * (RFC 5545 FORM #1) and the day split, so all three agree on which floating events are visible.
+     * [multiDayGrouping] keeps some multi-day events in one slice (see [MultiDayGrouping]).
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeVisibleDaySlices(
@@ -199,6 +201,7 @@ internal class EventRepository(
         start: Instant,
         end: Instant,
         timeZone: TimeZone,
+        multiDayGrouping: MultiDayGrouping,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
         return observeVisibleEventsWithOverrides(accountIds, start, end, zone = timeZone)
             .mapLatest { eventsWithOverrides ->
@@ -211,7 +214,7 @@ internal class EventRepository(
                         onExpansionTruncated = ::logTruncatedExpansion,
                         onOrphanOverrideDropped = ::logOrphanOverride,
                     )
-                    .groupDaySlicesByDay(start, end, timeZone)
+                    .groupDaySlicesByDay(start, end, timeZone, multiDayGrouping)
             }
             .flowOn(Dispatchers.Default)
     }

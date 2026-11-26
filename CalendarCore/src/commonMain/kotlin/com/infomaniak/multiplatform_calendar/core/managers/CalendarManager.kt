@@ -27,6 +27,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.CalendarSection
 import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.DotColor
 import com.infomaniak.multiplatform_calendar.core.domain.model.color.NamedColor
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.MultiDayGrouping
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Event
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventDaySlice
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventEditData
@@ -120,16 +121,20 @@ public class CalendarManager internal constructor(
      * [timeZone] is the zone the planning grid is displayed in (device zone by default); it is
      * forwarded to the repository so floating-event visibility, recurrence expansion and the day split
      * share the same zone.
+     *
+     * [multiDayGrouping] keeps the multi-day events it selects in one [EventDaySlice] spanning several days,
+     * listed under its first day only, so multi-day and month views need not merge slices themselves.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     public fun observeDaySlices(
         start: Instant,
         end: Instant,
         timeZone: TimeZone = TimeZone.currentSystemDefault(),
+        multiDayGrouping: MultiDayGrouping = MultiDayGrouping.None,
     ): Flow<Map<LocalDate, List<EventDaySlice>>> {
-        return sdkCaller.flow(operation = "observe day slices from $start to $end for zone $timeZone") {
+        return sdkCaller.flow(operation = "observe day slices from $start to $end for zone $timeZone with $multiDayGrouping") {
             accountRepository.currentAccountIdsFlow.filter { it.isNotEmpty() }.flatMapLatest { accountIds ->
-                eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone)
+                eventRepository.observeVisibleDaySlices(accountIds, start, end, timeZone, multiDayGrouping)
             }
         }
     }

@@ -159,7 +159,7 @@ sdk.calendarManager.observeCalendars(...)
 ### Date and time types
 
 `kotlinx-datetime` is an `api` dependency **exported** into the XCFramework, because its types (`LocalDate`,
-`LocalDateTime`, `TimeZone`, `YearMonth`, …) cross the public API — `calendarManager.observeDaySlices(start:end:timeZone:)` takes
+`LocalDateTime`, `TimeZone`, `YearMonth`, …) cross the public API — `calendarManager.observeDaySlices(start:end:timeZone:multiDayGrouping:)` takes
 instants and keys its result by `LocalDate`. Exporting it gives Swift those types under their plain names
 (`LocalDate` instead of an opaque `Kotlinx_datetimeLocalDate`), lets SKIE generate its Swift refinements for them,
 and above all ships the Foundation converters Apple callers need to build their own values.

@@ -16,6 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -46,6 +47,34 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
     macosArm64()
+
+    js {
+        browser {
+            commonWebpackConfig {
+                outputFileName = "recurrence-js.js"
+                output?.apply {
+                    library = "RecurrenceWebJs"
+                    libraryTarget = "window"
+                }
+            }
+        }
+        binaries.executable()
+        generateTypeScriptDefinitions()
+    }
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs {
+        browser {
+            commonWebpackConfig {
+                outputFileName = "recurrence-wasm.js"
+                output?.apply {
+                    library = "RecurrenceWebWasm"
+                    libraryTarget = "window"
+                }
+            }
+        }
+        binaries.executable()
+        generateTypeScriptDefinitions()
+    }
 
     sourceSets {
         commonMain.dependencies {

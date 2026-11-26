@@ -593,7 +593,7 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         ).first()
 
         val slice = slicesByDay.values.flatten().single()
-        assertEquals(LocalDate(2026, 6, 15), slice.date)
+        assertEquals(LocalDate(2026, 6, 15), slice.startDate)
         assertEquals(LocalDate(2026, 6, 17), slice.endDate)
     }
 

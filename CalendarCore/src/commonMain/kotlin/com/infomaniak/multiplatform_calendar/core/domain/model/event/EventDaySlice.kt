@@ -32,43 +32,44 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /**
- * The days `[date, endDate]` of an event ([EventSummary]), as seen on a planning grid.
+ * The days `[startDate, endDate]` of an event ([EventSummary]), as seen on a planning grid.
  *
  * An event that spans several days (all-day or timed) is split into one [EventDaySlice] per day it
- * covers, unless the [MultiDayGrouping] keeps them together: one slice then spans `[date, endDate]`.
+ * covers, unless the [MultiDayGrouping] keeps them together: one slice then spans `[startDate, endDate]`.
  * A single-day event yields exactly one slice. This is the **only** consumer-facing type
  * for planning: a recurring event is expanded into its occurrences *before* the day split.
  *
  * All fields are expressed in the `timeZone` passed to [expandDaySlicesInto]:
- * - [displayStart] / [displayEnd] are always full `date + time`, clamped to `[date, endDate]` (never null,
- *   which maps cleanly onto platforms with a single mandatory date-time type such as Apple `Date`).
- *   [displayStart] is `>= date 00:00`, [displayEnd] is `<= (endDate + 1) 00:00` and **exclusive**.
- * - [position] ([DaySpanPosition]) locates [date] within the event's span and is **absolute to the
- *   event** (not to the visible window): a slice keeps the same index whether or not the window
- *   happens to include the event's real first/last day.
+ * - [displayStart] / [displayEnd] are always full `date + time`, clamped to `[startDate, endDate]`
+ *   (never null, which maps cleanly onto platforms with a single mandatory date-time type such as Apple `Date`).
+ *   [displayStart] is `>= startDate 00:00`, [displayEnd] is `<= (endDate + 1) 00:00` and **exclusive**.
+ * - [startPosition] ([DaySpanPosition]) locates [startDate], the slice's first day, within the event's span
+ *   and is **absolute to the event** (not to the visible window): a slice keeps the same index whether or not
+ *   the window happens to include the event's real first/last day. Use [isLastDay] rather than
+ *   `startPosition.isLast` on a slice spanning several days.
  *
  * The boolean flags callers usually want ([isFirstDay], [isLastDay], [isAllDay], [fillsWholeDay])
  * are derived properties, not stored, so they can never drift out of sync with the data.
  */
 public data class EventDaySlice(
     val event: EventSummary,
-    val date: LocalDate,
+    val startDate: LocalDate,
     val endDate: LocalDate,
     val displayStart: LocalDateTime,
     val displayEnd: LocalDateTime,
-    val position: DaySpanPosition,
+    val startPosition: DaySpanPosition,
 ) {
-    val dayCount: Int = date.daysUntil(endDate) + 1
+    val dayCount: Int = startDate.daysUntil(endDate) + 1
 
     init {
-        require(dayCount >= 1) { "endDate $endDate must not be before date $date" }
-        require(position.index + dayCount <= position.count) {
-            "$dayCount days from position $position overflow the span of ${position.count} days"
+        require(dayCount >= 1) { "endDate $endDate must not be before startDate $startDate" }
+        require(startPosition.index + dayCount <= startPosition.count) {
+            "$dayCount days from position $startPosition overflow the span of ${startPosition.count} days"
         }
     }
 
-    val isFirstDay: Boolean get() = position.isFirst
-    val isLastDay: Boolean get() = position.index + dayCount == position.count
+    val isFirstDay: Boolean get() = startPosition.isFirst
+    val isLastDay: Boolean get() = startPosition.index + dayCount == startPosition.count
     val isAllDay: Boolean get() = event.timing.isAllDay
     /**
      * Whether this slice covers its whole days (00:00 → 00:00): true iCal all-day events and the
@@ -159,7 +160,7 @@ internal suspend fun List<EventSummary>.groupDaySlicesByDay(
  * stay absolute to the event's own span, even when clamped to a smaller window.
  *
  * [buckets] is a caller-owned array indexed by day offset from `visibleDays.start` (the first visible
- * day); each slice is appended to `buckets[visibleDays.start.daysUntil(slice.date)]`, the bucket being
+ * day); each slice is appended to `buckets[visibleDays.start.daysUntil(slice.startDate)]`, the bucket being
  * lazily created on first use. Writing directly into the shared per-day buckets lets
  * [groupDaySlicesByDay] expand every event with no intermediate per-event buffer and no redispatch
  * pass. The slices within a bucket are **unsorted**; cancellation is checked before each slice so a long
@@ -190,12 +191,12 @@ internal suspend fun EventSummary.expandDaySlicesInto(
         val bucket = buckets[offset] ?: mutableListOf<EventDaySlice>().also { buckets[offset] = it }
         bucket += EventDaySlice(
             event = this,
-            date = day,
+            startDate = day,
             endDate = endDay,
             displayStart = if (day == firstDay) startLocalDateTime else LocalDateTime(date = day, time = MIDNIGHT),
             displayEnd = if (endDay == lastDay) endLocalDateTime
             else LocalDateTime(date = endDay.plus(1, DateTimeUnit.DAY), time = MIDNIGHT),
-            position = DaySpanPosition(index = firstDay.daysUntil(day), count = eventDayCount),
+            startPosition = DaySpanPosition(index = firstDay.daysUntil(day), count = eventDayCount),
         )
         day = endDay.plus(1, DateTimeUnit.DAY)
     }

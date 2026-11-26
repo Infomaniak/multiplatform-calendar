@@ -24,7 +24,7 @@ multiplatform-calendar/
 │   ├── src/commonMain/              # RustCaldavBridge, CaldavClientModule, remote models, remote client interface
 │   ├── rust/caldav_bridge/          # Rust crate: CalDAV operations via fast-dav-rs + icalendar
 │   └── build.gradle.kts             # Bridge module build (UniFFI/Cargo, Metro)
-├── CalendarResources/               # Shared Compose Multiplatform recurrence strings and translations
+├── CalendarResources/               # Compose Multiplatform strings and translations used by CalendarCore
 │   └── src/commonMain/composeResources/  # values/ and values-<lang>/strings.xml
 ├── CrashReport/                     # CrashReport interface implemented by the host app
 │   └── build.gradle.kts             # CrashReport module build (publish)
@@ -44,9 +44,11 @@ multiplatform-calendar/
 │   ├── src/commonMain/              # OrganisationsManager, sync, Room table, Ktor remote source
 │   └── build.gradle.kts             # Organisations module build (Room, Ktor, publish)
 ├── Recurrence/                      # Standalone KMP module for RFC 5545 recurrence model/parser/serializer/localization
-│   ├── src/commonMain/              # RecurrenceRule model, parser, serializer and human-readable formatter
+│   ├── src/commonMain/              # RecurrenceRule model, parser, serializer, formatter and its Compose resources
 │   ├── src/commonTest/              # Isolated recurrence parser/formatter tests
-│   └── build.gradle.kts             # Recurrence module build (publish)
+│   ├── src/webMain/                 # Shared @JsExport formatting API for JS and Wasm
+│   ├── README.md                    # Web API and local JS/Wasm npm packaging instructions
+│   └── build.gradle.kts             # Android, Apple, JS and Wasm library targets (publish)
 ├── AppEnvironment/                  # AppEnvironment: the Infomaniak servers the modules reach
 │   └── build.gradle.kts             # AppEnvironment module build (publish)
 ├── Network/                         # Shared Infomaniak API client (HttpClient factory, ApiResponse)
@@ -63,19 +65,25 @@ multiplatform-calendar/
 | **Account**          | Shared identity types (`AccountId`, `AccessToken`) and `InMemoryAccountTokens`, used by CalendarCore, Contacts, Meet, BookableResources and Organisations |
 | **CalendarCore**     | Public API: domain models, Room database, DAOs, repositories, managers, Apple `CalendarSDK`   |
 | **CalendarKmpDav**   | Internal bridge: Rust/UniFFI CalDAV bridge, remote CalDAV models/client, `CaldavClientModule` |
-| **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore localization (recurrences, color names, kMeet block) |
+| **CalendarResources** | Compose Multiplatform strings and plurals used by CalendarCore localization (color names, kMeet block) |
 | **CrashReport**      | `CrashReport` interface the host app provides to report errors, with a Sentry-backed `AndroidCrashReport` |
 | **Contacts**         | Standalone contacts module: server address book merged with device contacts, ETag sync        |
 | **Meet**             | kMeet room URL generation for events (`X-INFOMANIAK-MEET-ROOM-URL`)                           |
 | **BookableResources** | Meeting rooms the account can book (`X-INFOMANIAK-BOOKABLE` uuid): details, availability, bookings |
 | **Organisations**    | Infomaniak organisations the account belongs to: id and name                                  |
-| **Recurrence**       | RFC 5545 recurrence model, RRULE parser/serializer, and localized rule formatting             |
+| **Recurrence**       | Standalone RFC 5545 recurrence model, RRULE parser/serializer, and localized rule formatting for **Android, iOS, macOS, JS and Wasm** |
 | **AppEnvironment**   | `AppEnvironment` (`Prod`, `Preprod`, `Custom(domain, hostOverrides)`) and `InfomaniakService`: the Infomaniak servers the modules reach |
 | **Network**          | Shared Infomaniak API client: `createHttpClient` (one engine for all clients), `ApiResponse`, `ApiErrorException` |
 
 ### Recurrence localization
 
 The standalone `:Recurrence` module owns the recurrence model, parser/serializer and localized RRULE formatting.
+It also owns its Compose Multiplatform resources and translations, independently of `CalendarResources`.
+It supports **Android, iOS, macOS, JavaScript and WebAssembly (Wasm/JS)**. Both web targets export `formatRRule`
+from the shared `webMain` source set and generate ES-module libraries with TypeScript declarations.
+See the [Recurrence README](Recurrence/README.md) for the web API and separate local JS/Wasm npm packaging commands.
+These web targets belong to `Recurrence`; the full `CalendarCore` SDK remains available for Android and Apple platforms.
+
 `CalendarCore` consumes it and still exposes two suspend extensions for RRULE descriptions:
 
 ```kotlin

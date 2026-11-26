@@ -49,30 +49,15 @@ kotlin {
     macosArm64()
 
     js {
-        browser {
-            commonWebpackConfig {
-                outputFileName = "recurrence-js.js"
-                output?.apply {
-                    library = "RecurrenceWebJs"
-                    libraryTarget = "window"
-                }
-            }
-        }
-        binaries.executable()
+        browser()
+        useEsModules()
+        binaries.library()
         generateTypeScriptDefinitions()
     }
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
-        browser {
-            commonWebpackConfig {
-                outputFileName = "recurrence-wasm.js"
-                output?.apply {
-                    library = "RecurrenceWebWasm"
-                    libraryTarget = "window"
-                }
-            }
-        }
-        binaries.executable()
+        browser()
+        binaries.library()
         generateTypeScriptDefinitions()
     }
 

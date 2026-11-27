@@ -358,7 +358,10 @@ internal class EventRepository(
             val edit = if (conflict == null) data else rebaseEdit(before, data, entity.toEditData())
             val now = Clock.System.now().toICalUtcDateTime()
             // Reparse the patched ICS so persistence uses the exact resource sent on this attempt.
-            val patched = caldavClient.patchEventIcs(previousIcs, edit.toRemoteEdit(stamp = now, previous = entity))
+            val patched = caldavClient.patchEventIcs(
+                icsData = previousIcs,
+                edit = edit.toRemoteEdit(stamp = now, previous = entity, alarmOrigin = initial.event.content.alarms),
+            )
             writePatchedEvent(sourceCredentials, destinationCredentials, eventId, entity, edit, patched)
         }
     }

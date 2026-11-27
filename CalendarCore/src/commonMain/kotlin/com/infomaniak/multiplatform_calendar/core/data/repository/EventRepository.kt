@@ -24,6 +24,7 @@ import com.infomaniak.multiplatform_calendar.core.data.local.entity.AlarmEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventContentEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventEntity
 import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventOverrideEntity
+import com.infomaniak.multiplatform_calendar.core.data.local.entity.EventWithRawIcs
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventDotColorInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.projection.EventSummaryInRange
 import com.infomaniak.multiplatform_calendar.core.data.local.relation.EventWithCalendarEntity
@@ -346,13 +347,23 @@ internal class EventRepository(
         eventId: EventId,
         data: EventEditData,
     ) {
-        val (entity, previousIcs) = eventDao.getEventWithRawIcs(eventId) ?: return
-        val now = Clock.System.now().toICalUtcDateTime()
-        // patchEventIcs returns the patched event reparsed from its final ICS, so the persisted
-        // row mirrors exactly what is written to the server (bumped SEQUENCE, refreshed
-        // DTSTAMP/LAST-MODIFIED, preserved server-only fields) with no Kotlin-side re-derivation.
-        val patched = caldavClient.patchEventIcs(previousIcs, data.toRemoteEdit(stamp = now, previous = entity))
-        writePatchedEvent(sourceCredentials, destinationCredentials, eventId, entity, data, patched)
+        val initial = eventDao.getEventWithRawIcs(eventId) ?: return
+        val before = initial.event.toEditData().copy(alarms = AlarmListEdit.Replace(initial.event.content.alarms.toDomain()))
+        retryResourceWrite(
+            credentials = sourceCredentials,
+            initial = initial,
+            retryAllowed = data.calendarId == initial.event.calendarId,
+        ) { snapshot, conflict ->
+            val (entity, previousIcs) = snapshot
+            val edit = if (conflict == null) data else rebaseEdit(before, data, entity.toEditData())
+            val now = Clock.System.now().toICalUtcDateTime()
+            // Reparse the patched ICS so persistence uses the exact resource sent on this attempt.
+            val patched = caldavClient.patchEventIcs(
+                icsData = previousIcs,
+                edit = edit.toRemoteEdit(stamp = now, previous = entity, alarmOrigin = initial.event.content.alarms),
+            )
+            writePatchedEvent(sourceCredentials, destinationCredentials, eventId, entity, edit, patched)
+        }
     }
 
     /** Send a patched resource off, moving it to another calendar when that is what the edit asks. */
@@ -365,17 +376,21 @@ internal class EventRepository(
         patched: RemoteDavEvent,
     ) {
         if (data.calendarId == entity.calendarId) {
-            val ref = caldavClient.updateEvent(sourceCredentials, eventId.url, entity.etag, patched.icsData)
+            val ref = updateEventRemote(sourceCredentials, eventId, entity.etag, patched.icsData)
             persistWrite(sourceCredentials, entity.calendarId, written = patched, ref = ref)
         } else {
-            updateCrossCalendarEvent(sourceCredentials, destinationCredentials, eventId, data, patched)
+            updateCrossCalendarEvent(sourceCredentials, destinationCredentials, entity, data, patched)
         }
     }
 
     suspend fun deleteEvent(credentials: DavAccount, eventId: EventId) {
         eventDao.getEvent(eventId)?.let { event ->
-            caldavClient.deleteEvent(credentials, eventId.url, event.etag)
-            eventDao.deleteEvent(eventId)
+            deleteEventWithPreconditionRetry(
+                credentials = credentials,
+                eventId = eventId,
+                calendarId = event.calendarId,
+                etag = event.etag,
+            )
         }
     }
 
@@ -385,25 +400,40 @@ internal class EventRepository(
      *
      * A scoped delete is refused unless the target still names a live occurrence: the id travels
      * through clients as a string ([OccurrenceId.parse]), and both scoped paths read the date it
-     * carries as a pivot, so a stale one would bound the series on a slot it never had.
+     * carries as a pivot, so a stale one would bound the series on a slot it never had. Revalidate
+     * against the refreshed snapshot on retry. An already excluded single occurrence needs no write;
+     * a missing truncation pivot is a conflict because the remaining tail may still exist.
      */
     suspend fun deleteEvent(credentials: DavAccount, target: OccurrenceTarget) {
         if (target !is OccurrenceTarget.Recurring) return deleteEvent(credentials, target.occurrenceId.masterId)
         val occurrenceId = target.recurrenceId
-        when (target.scope) {
-            RecurrenceScope.AllOccurrences -> deleteEvent(credentials, occurrenceId.masterId)
-            RecurrenceScope.ThisOccurrence -> if (namesALiveOccurrence(occurrenceId)) {
-                excludeOccurrence(credentials, occurrenceId)
+        if (target.scope == RecurrenceScope.AllOccurrences) return deleteEvent(credentials, occurrenceId.masterId)
+
+        val initial = eventDao.getEventWithRawIcs(occurrenceId.masterId) ?: return
+        retryResourceWrite(credentials, initial, missingIsSuccess = true) { snapshot, conflict ->
+            if (!namesALiveOccurrence(occurrenceId, snapshot)) {
+                if (conflict != null && target.scope == RecurrenceScope.ThisAndFollowing) throw conflict
+                return@retryResourceWrite
             }
-            RecurrenceScope.ThisAndFollowing -> if (namesALiveOccurrence(occurrenceId)) {
-                truncateSeriesFrom(credentials, occurrenceId)
+            when (target.scope) {
+                RecurrenceScope.ThisOccurrence -> excludeOccurrence(credentials, occurrenceId, snapshot)
+                RecurrenceScope.ThisAndFollowing -> truncateSeriesFrom(credentials, occurrenceId, snapshot)
+                RecurrenceScope.AllOccurrences -> error("Whole-resource deletes are handled separately")
             }
         }
     }
 
-    /** Whether the series still hands [occurrenceId] out, read as the display reads it. */
-    private suspend fun namesALiveOccurrence(occurrenceId: OccurrenceId.Recurrence): Boolean {
-        val relation = eventDao.getEventWithCalendar(occurrenceId.masterId) ?: return false
+    /** Whether the series still hands [occurrenceId] out, using the write snapshot when provided. */
+    private suspend fun namesALiveOccurrence(
+        occurrenceId: OccurrenceId.Recurrence,
+        snapshot: EventWithRawIcs? = null,
+    ): Boolean {
+        val relation = if (snapshot == null) {
+            eventDao.getEventWithCalendar(occurrenceId.masterId) ?: return false
+        } else {
+            val calendar = calendarDao.findById(snapshot.event.calendarId) ?: return false
+            EventWithCalendarEntity(event = snapshot.event, calendar = calendar, overrides = snapshot.overrides)
+        }
         return relation.toDomainEventWithOverrides().resolveOccurrence(
             occurrenceId = occurrenceId,
             timeZone = TimeZone.currentSystemDefault(),
@@ -417,12 +447,15 @@ internal class EventRepository(
      * redefining it — if any — is dropped in the very same PUT, so the resource never holds an
      * instance the rule no longer generates.
      */
-    private suspend fun excludeOccurrence(credentials: DavAccount, occurrenceId: OccurrenceId.Recurrence) {
+    private suspend fun excludeOccurrence(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId.Recurrence,
+        snapshot: EventWithRawIcs,
+    ) {
         val masterId = occurrenceId.masterId
-        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val (entity, previousIcs, overrides) = snapshot
         val editData = entity.toEditData()
         val excluded = occurrenceId.recurrenceKey.toIcalDateValue(editData.timing) ?: return
-        val overrides = eventDao.getOverridesOf(masterId)
 
         val now = Clock.System.now().toICalUtcDateTime()
         val patched = caldavClient.patchEventIcs(
@@ -435,7 +468,7 @@ internal class EventRepository(
                 knownOverrides = overrides,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventRemote(credentials, masterId, entity.etag, patched.icsData)
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -447,15 +480,19 @@ internal class EventRepository(
      * When nothing at all precedes the pivot the whole resource is deleted instead: no recurrence
      * set describes a series with no instance.
      */
-    private suspend fun truncateSeriesFrom(credentials: DavAccount, occurrenceId: OccurrenceId.Recurrence) {
+    private suspend fun truncateSeriesFrom(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId.Recurrence,
+        snapshot: EventWithRawIcs,
+    ) {
         val masterId = occurrenceId.masterId
-        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val (entity, previousIcs, overrides) = snapshot
         val editData = entity.toEditData()
         val timing = editData.timing
         val zone = TimeZone.currentSystemDefault()
         val pivotStart = occurrenceId.recurrenceKey.toLocalStart(timing, zone) ?: return
-        val overrides = eventDao.getOverridesOf(masterId)
-        val truncated = timing.truncateBefore(pivotStart, zone) ?: return deleteEvent(credentials, masterId)
+        val truncated = timing.truncateBefore(pivotStart, zone)
+            ?: return deleteEventRemoteAndLocal(credentials, masterId, entity.etag)
 
         val now = Clock.System.now().toICalUtcDateTime()
         val patched = caldavClient.patchEventIcs(
@@ -471,7 +508,7 @@ internal class EventRepository(
                 knownOverrides = overrides,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventRemote(credentials, masterId, entity.etag, patched.icsData)
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -519,6 +556,8 @@ internal class EventRepository(
      * moved by however far the edit moved the pivot so they go on designating what they designated.
      *
      * Refused when the rule does not generate the pivot, see [SeriesSplit.pivotFollowsTheRule].
+     * Once the tail is created, the head must use the original snapshot and ETag. A conflict is
+     * surfaced instead of truncating a newer version whose changes were never carried into the tail.
      */
     private suspend fun splitSeriesAt(
         sourceCredentials: DavAccount,
@@ -527,7 +566,8 @@ internal class EventRepository(
         data: EventEditData,
     ) {
         val masterId = occurrenceId.masterId
-        val (entity, sourceIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val snapshot = eventDao.getEventWithRawIcs(masterId) ?: return
+        val (entity, sourceIcs, overrides) = snapshot
         val master = entity.toEditData().timing
         val zone = TimeZone.currentSystemDefault()
         val pivotStart = occurrenceId.recurrenceKey.toLocalStart(master, defaultZone = zone) ?: return
@@ -540,7 +580,6 @@ internal class EventRepository(
             "Cannot split $masterId at an occurrence its rule does not generate: re-anchoring on it would move the rest"
         }
 
-        val overrides = eventDao.getOverridesOf(masterId)
         // The tail stands for the pivot, so a detached pivot is what it has to be seeded from.
         val pivotSeed = overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
         // The alarms the edit names were read from the occurrence it was prepared on, unless it leaves
@@ -557,7 +596,7 @@ internal class EventRepository(
         )
 
         // What the master keeps is exactly what a "delete this and following" would have left it.
-        truncateSeriesFrom(sourceCredentials, occurrenceId)
+        truncateSeriesFrom(sourceCredentials, occurrenceId, snapshot)
     }
 
     /**
@@ -681,11 +720,17 @@ internal class EventRepository(
 
     private suspend fun getStoredEditData(occurrenceId: OccurrenceId): EventEditData? {
         val entity = eventDao.getEvent(occurrenceId.masterId) ?: return null
-        val master = entity.toEditData()
-        if (occurrenceId !is OccurrenceId.Recurrence) return master
-
+        if (occurrenceId !is OccurrenceId.Recurrence) return entity.toEditData()
         val override = eventDao.getOverrideOf(occurrenceId.masterId, occurrenceId.recurrenceKey)
+        return occurrenceEditData(entity, occurrenceId, override)
+    }
 
+    private fun occurrenceEditData(
+        entity: EventEntity,
+        occurrenceId: OccurrenceId.Recurrence,
+        override: EventOverrideEntity?,
+    ): EventEditData? {
+        val master = entity.toEditData()
         if (override != null) {
             val redefined = override.toEditData(entity.calendarId)
             return redefined.copy(
@@ -720,31 +765,65 @@ internal class EventRepository(
         occurrenceId: OccurrenceId.Recurrence,
         data: EventEditData,
     ) {
+        val initial = eventDao.getEventWithRawIcs(occurrenceId.masterId) ?: return
+        val originOverride = initial.overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+        val originAlarms = (originOverride?.content ?: initial.event.content).alarms
+        val origin = occurrenceEditData(initial.event, occurrenceId, originOverride)
+            ?.copy(alarms = AlarmListEdit.Replace(originAlarms.toDomain())) ?: return
+        retryResourceWrite(
+            credentials = sourceCredentials,
+            initial = initial,
+            retryAllowed = data.calendarId == initial.event.calendarId,
+        ) { snapshot, conflict ->
+            val currentOverride = snapshot.overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+            val effective = if (conflict == null) data else {
+                if (!namesALiveOccurrence(occurrenceId, snapshot)) throw conflict
+                val current = occurrenceEditData(snapshot.event, occurrenceId, currentOverride) ?: throw conflict
+                rebaseEdit(origin, data, current)
+            }
+            writeSeriesFrom(
+                sourceCredentials = sourceCredentials,
+                destinationCredentials = destinationCredentials,
+                occurrenceId = occurrenceId,
+                snapshot = snapshot,
+                shown = origin,
+                requested = data,
+                data = effective,
+                shownAlarms = originAlarms,
+            )
+        }
+    }
+
+    /** Write one snapshot, propagating only the original edit's changes even after a refresh. */
+    private suspend fun writeSeriesFrom(
+        sourceCredentials: DavAccount,
+        destinationCredentials: DavAccount,
+        occurrenceId: OccurrenceId.Recurrence,
+        snapshot: EventWithRawIcs,
+        shown: EventEditData,
+        requested: EventEditData,
+        data: EventEditData,
+        shownAlarms: List<AlarmEntity>,
+    ) {
         val masterId = occurrenceId.masterId
-        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
+        val (entity, previousIcs, overrides) = snapshot
         val before = entity.toEditData()
         val masterTiming = before.timing
         val zone = TimeZone.currentSystemDefault()
-        val shownOverride = eventDao.getOverrideOf(masterId, occurrenceId.recurrenceKey)
-        // What the occurrence displayed, which is what the edit was prepared against. Its alarms are
-        // stated, so an edit restating them reads as no change.
-        val shownAlarms = (shownOverride?.content ?: entity.content).alarms
-        val shown = (shownOverride?.toEditData(entity.calendarId) ?: before).copy(
-            alarms = AlarmListEdit.Replace(shownAlarms.toDomain()),
-        )
+        val shownOverride = overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
         val shownStart = shownOverride?.content?.timing?.dtStart
             ?: occurrenceId.recurrenceKey.toLocalStart(masterTiming, zone)
             ?: return
 
         val after = data.copy(timing = data.timing.rebasedOnto(masterTiming, shownStart, defaultZone = zone))
         val masterBase = before.copy(timing = after.timing, calendarId = after.calendarId)
-        val masterEdit = masterBase.withSeriesChanges(shown, after) ?: masterBase
+        val masterEdit = masterBase.withSeriesChanges(shown, requested) ?: masterBase
         val now = Clock.System.now().toICalUtcDateTime()
         val masterRemoteEdit = masterEdit.toRemoteEdit(stamp = now, previous = entity, alarmOrigin = shownAlarms)
         var patched = caldavClient.patchEventIcs(previousIcs, masterRemoteEdit)
 
-        eventDao.getOverridesOf(masterId).forEach { override ->
-            val carried = override.toEditData(entity.calendarId).withSeriesChanges(shown, after) ?: return@forEach
+        overrides.forEach { override ->
+            val carried = override.toEditData(entity.calendarId).withSeriesChanges(shown, requested) ?: return@forEach
             patched = caldavClient.upsertOverrideIcs(
                 patched.icsData,
                 override.toRemoteRecurrenceId(masterTiming),
@@ -778,13 +857,36 @@ internal class EventRepository(
         occurrenceId: OccurrenceId.Recurrence,
         data: EventEditData,
     ) {
-        val masterId = occurrenceId.masterId
-        val (entity, previousIcs) = eventDao.getEventWithRawIcs(masterId) ?: return
-        require(data.calendarId == entity.calendarId) {
-            "Cannot move a single occurrence to another calendar: its override lives in $masterId"
+        val initial = eventDao.getEventWithRawIcs(occurrenceId.masterId) ?: return
+        require(data.calendarId == initial.event.calendarId) {
+            "Cannot move a single occurrence to another calendar: its override lives in ${occurrenceId.masterId}"
         }
+        val originOverride = initial.overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+        val originAlarms = (originOverride?.content ?: initial.event.content).alarms
+        val origin = occurrenceEditData(initial.event, occurrenceId, originOverride)
+            ?.copy(alarms = AlarmListEdit.Replace(originAlarms.toDomain())) ?: return
+        retryResourceWrite(credentials, initial) { snapshot, conflict ->
+            val existing = snapshot.overrides.firstOrNull { it.recurrenceKey == occurrenceId.recurrenceKey }
+            val edit = if (conflict == null) data else {
+                if (!namesALiveOccurrence(occurrenceId, snapshot)) throw conflict
+                val current = occurrenceEditData(snapshot.event, occurrenceId, existing) ?: throw conflict
+                rebaseEdit(origin, data, current)
+            }
+            writeOverride(credentials, occurrenceId, snapshot, existing, edit, originAlarms)
+        }
+    }
+
+    private suspend fun writeOverride(
+        credentials: DavAccount,
+        occurrenceId: OccurrenceId.Recurrence,
+        snapshot: EventWithRawIcs,
+        existing: EventOverrideEntity?,
+        data: EventEditData,
+        originAlarms: List<AlarmEntity>,
+    ) {
+        val masterId = occurrenceId.masterId
+        val (entity, previousIcs) = snapshot
         val masterTiming = entity.toEditData().timing
-        val existing = eventDao.getOverrideOf(masterId, occurrenceId.recurrenceKey)
         val recurrenceId = existing?.toRemoteRecurrenceId(masterTiming)
             ?: occurrenceId.recurrenceKey.toRemoteRecurrenceId(masterTiming)
             ?: return
@@ -804,9 +906,10 @@ internal class EventRepository(
                 previousAttendees = shown.attendees,
                 previousOrganizer = shown.organizer,
                 previousClassification = shown.classification,
+                alarmOrigin = originAlarms,
             ),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventRemote(credentials, masterId, entity.etag, patched.icsData)
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
     }
 
@@ -861,6 +964,133 @@ internal class EventRepository(
         return true
     }
 
+    /**
+     * Retry one resource write at most once after a 412. Only a successful empty multiget means the
+     * resource is gone; a failed or ambiguous fetch retains the original conflict.
+     * The second attempt is not caught, and multi-resource operations must not enter this helper.
+     */
+    private suspend fun withPreconditionRetry(
+        credentials: DavAccount,
+        eventId: EventId,
+        calendarId: CalendarId,
+        missingIsSuccess: Boolean,
+        firstAttempt: suspend () -> Unit,
+        retry: suspend (RemoteDavEvent, CaldavHttpException) -> Unit,
+    ) {
+        try {
+            firstAttempt()
+        } catch (conflict: CaldavHttpException) {
+            if (conflict.statusCode != HttpStatusCode.PreconditionFailed.value) throw conflict
+            val events = runCatching {
+                caldavClient.getEventsByUrls(credentials, calendarId.url, listOf(eventId.url))
+            }.cancellable()
+                .onFailure(conflict::addSuppressed)
+                .getOrElse { throw conflict }
+            if (events.isEmpty()) {
+                // TODO: When missingIsSuccess is true, delete the local event and return
+                //  only if the remote resource is confirmed missing. An empty multiget
+                //  result is not sufficient, as missing calendar data and unparseable
+                //  ICS are filtered out by the CalDAV bridge.
+                throw conflict
+            }
+            val remote = events.singleOrNull() ?: throw conflict
+            if (remote.etag.isEmpty()) throw conflict
+            retry(remote, conflict)
+        }
+    }
+
+    /** Rebuild and persist the operation from the same snapshot as its conditional PUT. */
+    private suspend fun retryResourceWrite(
+        credentials: DavAccount,
+        initial: EventWithRawIcs,
+        retryAllowed: Boolean = true,
+        missingIsSuccess: Boolean = false,
+        write: suspend (EventWithRawIcs, CaldavHttpException?) -> Unit,
+    ) {
+        if (!retryAllowed) return write(initial, null)
+        val eventId = initial.event.id
+        val calendarId = initial.event.calendarId
+        withPreconditionRetry(
+            credentials = credentials,
+            eventId = eventId,
+            calendarId = calendarId,
+            missingIsSuccess = missingIsSuccess,
+            firstAttempt = { write(initial, null) },
+        ) { remote, conflict ->
+            val refreshed = with(crashReport) {
+                remote.toSyncedUpsert(ref = RemoteDavEventRef(url = eventId.url, etag = remote.etag), calendarId = calendarId)
+            }
+            eventDao.upsertEventWithRawIcs(refreshed)
+            write(refreshed, conflict)
+        }
+    }
+
+    /**
+     * Replay only fields changed from the first write snapshot, not the full stale form. For a field
+     * changed on both sides the requested value wins (bounds and lists are edited as units).
+     * Recurrence dates are owned by the series.
+     * A form already stale before the first snapshot needs a caller-provided baseline to detect it.
+     */
+    private fun rebaseEdit(before: EventEditData, requested: EventEditData, current: EventEditData): EventEditData {
+        val carried = current.withSeriesChanges(before, requested) ?: current
+        return carried.copy(
+            timing = current.timing.copy(
+                bounds = if (requested.timing.bounds != before.timing.bounds) requested.timing.bounds else current.timing.bounds,
+                recurrenceRule = if (requested.timing.recurrenceRule != before.timing.recurrenceRule) {
+                    requested.timing.recurrenceRule
+                } else {
+                    current.timing.recurrenceRule
+                },
+            ),
+            calendarId = if (requested.calendarId != before.calendarId) requested.calendarId else current.calendarId,
+        )
+    }
+
+    /** A whole-resource delete is idempotent when the server confirms its absence. */
+    private suspend fun deleteEventWithPreconditionRetry(
+        credentials: DavAccount,
+        eventId: EventId,
+        calendarId: CalendarId,
+        etag: String,
+    ) {
+        withPreconditionRetry(
+            credentials = credentials,
+            eventId = eventId,
+            calendarId = calendarId,
+            missingIsSuccess = true,
+            firstAttempt = { deleteEventRemoteAndLocal(credentials, eventId, etag) },
+        ) { remote, _ ->
+            deleteEventRemoteAndLocal(credentials, eventId, remote.etag)
+        }
+    }
+
+    private suspend fun deleteEventRemoteAndLocal(credentials: DavAccount, eventId: EventId, etag: String) {
+        deleteEventRemote(credentials, eventId, etag)
+        eventDao.deleteEvent(eventId)
+    }
+
+    private suspend fun updateEventRemote(
+        credentials: DavAccount,
+        eventId: EventId,
+        etag: String,
+        icsData: String,
+    ): RemoteDavEventRef {
+        return caldavClient.updateEvent(
+            credentials = credentials,
+            eventUrl = eventId.url,
+            etag = etag,
+            icsData = icsData,
+        )
+    }
+
+    private suspend fun deleteEventRemote(credentials: DavAccount, eventId: EventId, etag: String) {
+        caldavClient.deleteEvent(
+            credentials = credentials,
+            eventUrl = eventId.url,
+            etag = etag,
+        )
+    }
+
     /** Whether there was something to answer: the event and, for a single occurrence, that occurrence. */
     private suspend fun answerInvitation(
         credentials: DavAccount,
@@ -883,7 +1113,12 @@ internal class EventRepository(
             partStat = reply.toStatus().icalValue,
             stamp = Clock.System.now().toICalUtcDateTime(),
         )
-        val ref = caldavClient.updateEvent(credentials, masterId.url, entity.etag, patched.icsData)
+        val ref = updateEventRemote(
+            credentials = credentials,
+            eventId = masterId,
+            etag = entity.etag,
+            icsData = patched.icsData,
+        )
         persistWrite(credentials, entity.calendarId, written = patched, ref = ref)
         return true
     }
@@ -908,16 +1143,20 @@ internal class EventRepository(
         return RemoteReplyScope.Occurrence(recurrenceId, slot)
     }
 
+    /**
+     * Create first, then delete only the source version copied to the destination. No automatic retry:
+     * if deletion conflicts, keep both local resources and surface the failure rather than lose either copy.
+     */
     private suspend fun updateCrossCalendarEvent(
         sourceCredentials: DavAccount,
         destinationCredentials: DavAccount,
-        eventId: EventId,
+        entity: EventEntity,
         data: EventEditData,
         patched: RemoteDavEvent,
     ) {
         val ref = caldavClient.createEvent(destinationCredentials, data.calendarId.url, patched.icsData)
-        deleteEvent(sourceCredentials, eventId)
         persistWrite(destinationCredentials, data.calendarId, written = patched, ref = ref)
+        deleteEventRemoteAndLocal(sourceCredentials, entity.id, entity.etag)
     }
 
     /**

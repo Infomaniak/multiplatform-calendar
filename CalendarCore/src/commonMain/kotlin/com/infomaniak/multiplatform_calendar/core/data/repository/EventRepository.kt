@@ -984,9 +984,11 @@ internal class EventRepository(
                 .onFailure(conflict::addSuppressed)
                 .getOrElse { throw conflict }
             if (events.isEmpty()) {
-                if (!missingIsSuccess) throw conflict
-                eventDao.deleteEvent(eventId)
-                return
+                // TODO: When missingIsSuccess is true, delete the local event and return
+                //  only if the remote resource is confirmed missing. An empty multiget
+                //  result is not sufficient, as missing calendar data and unparseable
+                //  ICS are filtered out by the CalDAV bridge.
+                throw conflict
             }
             val remote = events.singleOrNull() ?: throw conflict
             if (remote.etag.isEmpty()) throw conflict

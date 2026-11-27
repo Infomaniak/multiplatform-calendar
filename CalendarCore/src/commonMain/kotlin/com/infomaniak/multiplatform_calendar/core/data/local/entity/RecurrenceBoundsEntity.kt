@@ -17,7 +17,7 @@
  */
 package com.infomaniak.multiplatform_calendar.core.data.local.entity
 
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceBoundKind
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceBoundKind
 import kotlinx.datetime.LocalDateTime
 
 /**

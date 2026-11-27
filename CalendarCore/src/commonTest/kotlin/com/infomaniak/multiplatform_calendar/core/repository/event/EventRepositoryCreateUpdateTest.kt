@@ -26,9 +26,9 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.calendar.Calendar
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.AttendeeRole
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.Classification
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventId
+import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceId
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceTarget
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.EventStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.ParticipationStatus
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.TimeBlocking
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.AlarmAction
@@ -36,12 +36,12 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Alarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.EventAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.TriggerRelation
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.WeekDayNum
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavAttendee
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.WeekDayNum
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
@@ -350,7 +350,14 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         seedCalendar()
         database.calendarDao().updateVisibility(CALENDAR_ID, false)
         val eventId = EventId("https://cal/main/event.ics")
-        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"), "BEGIN:VEVENT")))
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"),
+                    "BEGIN:VEVENT",
+                ),
+            ),
+        )
 
         repository.updateEvent(
             sourceCredentials = CREDENTIALS,
@@ -370,7 +377,14 @@ internal class EventRepositoryCreateUpdateTest : EventRepositoryTestBase() {
         seedCalendar()
         database.calendarDao().updateVisibility(CALENDAR_ID, false)
         val eventId = EventId("https://cal/main/event.ics")
-        eventDao().upsert(listOf(EventWithRawIcs(richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"), "BEGIN:VEVENT")))
+        eventDao().upsert(
+            listOf(
+                EventWithRawIcs(
+                    richEvent(id = eventId, calendarId = CALENDAR_ID, etag = "etag-old"),
+                    "BEGIN:VEVENT",
+                ),
+            ),
+        )
 
         repository.updateEvent(
             sourceCredentials = CREDENTIALS,

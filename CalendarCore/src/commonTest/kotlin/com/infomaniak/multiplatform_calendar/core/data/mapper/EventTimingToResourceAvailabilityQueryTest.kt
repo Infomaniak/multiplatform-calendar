@@ -19,9 +19,9 @@ package com.infomaniak.multiplatform_calendar.core.data.mapper
 
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.allDayTiming
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.floatingTiming
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.Frequency
-import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrenceRule.RecurrenceRule
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.zonedTiming
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.Frequency
+import com.infomaniak.multiplatform_calendar.recurrence.domain.model.event.recurrenceRule.RecurrenceRule
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -65,13 +65,17 @@ class EventTimingToResourceAvailabilityQueryTest {
         val end = LocalDate(2026, 6, 16)
         val query = allDayTiming(start, end).toResourceAvailabilityQuery(defaultZone = paris)
 
-        assertEquals(ResourceAvailabilityQuery(start.atStartOfDayIn(paris), end.atStartOfDayIn(paris), paris, rrule = null), query)
+        assertEquals(
+            expected = ResourceAvailabilityQuery(start.atStartOfDayIn(paris), end.atStartOfDayIn(paris), paris, rrule = null),
+            actual = query,
+        )
     }
 
     @Test
     fun recurrenceRule_isSerializedToRfc5545() {
         val rule = RecurrenceRule(freq = Frequency.Weekly, interval = 2, occurrenceCount = 5, weekStart = DayOfWeek.MONDAY)
-        val timing = zonedTiming(LocalDateTime(2026, 6, 15, 9, 0), LocalDateTime(2026, 6, 15, 10, 0), paris, recurrenceRule = rule)
+        val timing =
+            zonedTiming(LocalDateTime(2026, 6, 15, 9, 0), LocalDateTime(2026, 6, 15, 10, 0), paris, recurrenceRule = rule)
 
         assertEquals("FREQ=WEEKLY;COUNT=5;INTERVAL=2;WKST=MO", timing.toResourceAvailabilityQuery(defaultZone = paris).rrule)
     }

@@ -62,6 +62,7 @@ include(
     ":CalendarCore",
     ":CalendarKmpDav",
     ":CalendarResources",
+    ":Recurrence",
     ":CrashReport",
     ":Contacts",
     ":Meet",

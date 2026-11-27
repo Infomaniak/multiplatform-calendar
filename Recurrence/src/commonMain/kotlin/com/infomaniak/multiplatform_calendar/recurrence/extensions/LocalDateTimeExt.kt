@@ -1,0 +1,85 @@
+/*
+ * Infomaniak Calendar - Multiplatform
+ * Copyright (C) 2026 Infomaniak Network SA
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package com.infomaniak.multiplatform_calendar.recurrence.extensions
+
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format
+import kotlinx.datetime.format.char
+import kotlinx.datetime.format.optional
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Instant
+
+/**
+ * Parse an iCalendar date or date-time into a [LocalDateTime].
+ *
+ * Supported formats (RFC 5545):
+ * - `20240108`
+ * - `20300105T134500Z`
+ * - `2030-01-05T13:45:00`
+ *
+ * Fault-tolerant: returns `null` if the value is missing or unparsable.
+ */
+internal fun parseICalDateTime(value: String?): LocalDateTime? {
+    if (value == null) return null
+    return runCatching {
+        when {
+            'T' in value && '-' !in value -> LocalDateTime.parse(value, ICAL_DATE_TIME)
+            'T' !in value && '-' !in value -> LocalDateTime(LocalDate.parse(value, ICAL_DATE), LocalTime(0, 0))
+            else -> LocalDateTime.parse(value)
+        }
+    }.getOrNull()
+}
+
+/**
+ * Whether an iCalendar date/date-time value denotes a whole-day (`VALUE=DATE`) value.
+ *
+ * Per RFC 5545 a DATE value has the form `YYYYMMDD` (no time component) whereas a DATE-TIME always
+ * contains a `T` separator, so the absence of `T` unambiguously identifies an all-day value.
+ */
+internal fun isICalDateOnly(value: String?): Boolean = value != null && 'T' !in value
+
+internal fun LocalDate.toICalDate(): String = format(ICAL_DATE)
+
+internal fun Instant.toICalUtcDateTime(): String = toLocalDateTime(TimeZone.UTC).format(ICAL_DATE_TIME_UTC)
+
+/**
+ * Format a wall-clock [LocalDateTime] as an RFC 5545 `DATE-TIME` value without a `Z` suffix.
+ *
+ * Use this for FORM #1 (floating) and FORM #3 (with `TZID`) values. For FORM #2 (UTC) use
+ * [toICalUtcDateTime] on the absolute [Instant].
+ */
+internal fun LocalDateTime.toICalLocalDateTime(): String = format(ICAL_DATE_TIME_BASE)
+
+private val ICAL_DATE = LocalDate.Format { year(); monthNumber(); day() }
+private val ICAL_DATE_TIME_BASE = LocalDateTime.Format {
+    date(ICAL_DATE)
+    char('T')
+    time(LocalTime.Format { hour(); minute(); second() })
+}
+private val ICAL_DATE_TIME = LocalDateTime.Format {
+    dateTime(ICAL_DATE_TIME_BASE)
+    optional { char('Z') }
+}
+private val ICAL_DATE_TIME_UTC = LocalDateTime.Format {
+    dateTime(ICAL_DATE_TIME_BASE)
+    char('Z')
+}

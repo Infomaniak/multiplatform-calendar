@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recurrence_at_hour">op uur %1$d</string>
+    <string name="recurrence_at_hours">op uren %1$s</string>
+    <string name="recurrence_at_minute">op minuut %1$d</string>
+    <string name="recurrence_at_minutes">op minuten %1$s</string>
+    <string name="recurrence_at_second">op seconde %1$d</string>
+    <string name="recurrence_at_seconds">op seconden %1$s</string>
+    <string name="recurrence_clause_join">%1$s, %2$s</string>
+    <string name="recurrence_date">%2$d %1$s %3$d</string>
+    <string name="recurrence_date_month_april">april</string>
+    <string name="recurrence_date_month_august">augustus</string>
+    <string name="recurrence_date_month_december">december</string>
+    <string name="recurrence_date_month_february">februari</string>
+    <string name="recurrence_date_month_january">januari</string>
+    <string name="recurrence_date_month_july">juli</string>
+    <string name="recurrence_date_month_june">juni</string>
+    <string name="recurrence_date_month_march">maart</string>
+    <string name="recurrence_date_month_may">mei</string>
+    <string name="recurrence_date_month_november">november</string>
+    <string name="recurrence_date_month_october">oktober</string>
+    <string name="recurrence_date_month_september">september</string>
+    <string name="recurrence_every_day">Elke dag</string>
+    <string name="recurrence_every_hour">Elk uur</string>
+    <string name="recurrence_every_minute">Elke minuut</string>
+    <string name="recurrence_every_month">Elke maand</string>
+    <string name="recurrence_every_second">Elke seconde</string>
+    <string name="recurrence_every_week">Elke week</string>
+    <string name="recurrence_every_year">Elk jaar</string>
+    <string name="recurrence_first_matching_day">op de eerste overeenkomende dag (%1$s)</string>
+    <string name="recurrence_in_week_numbers">in %1$s van het jaar</string>
+    <string name="recurrence_last_matching_day">op de laatste overeenkomende dag (%1$s)</string>
+    <string name="recurrence_list_append">%1$s, %2$s</string>
+    <string name="recurrence_list_last">%1$s en %2$s</string>
+    <string name="recurrence_list_two">%1$s en %2$s</string>
+    <string name="recurrence_month_april">in april</string>
+    <string name="recurrence_month_august">in augustus</string>
+    <string name="recurrence_month_day">dag %1$d</string>
+    <string name="recurrence_month_day_from_end">dag %1$d vanaf het einde</string>
+    <string name="recurrence_month_day_last">de laatste dag</string>
+    <string name="recurrence_month_december">in december</string>
+    <string name="recurrence_month_february">in februari</string>
+    <string name="recurrence_month_january">in januari</string>
+    <string name="recurrence_month_july">in juli</string>
+    <string name="recurrence_month_june">in juni</string>
+    <string name="recurrence_month_march">in maart</string>
+    <string name="recurrence_month_may">in mei</string>
+    <string name="recurrence_month_november">in november</string>
+    <string name="recurrence_month_october">in oktober</string>
+    <string name="recurrence_month_september">in september</string>
+    <string name="recurrence_number">%1$d</string>
+    <string name="recurrence_on_annual_date">op %2$d %1$s</string>
+    <string name="recurrence_on_month_days">op %1$s van de maand</string>
+    <string name="recurrence_on_year_days">op %1$s van het jaar</string>
+    <string name="recurrence_ordinal_weekday_fifth">op de vijfde %1$s</string>
+    <string name="recurrence_ordinal_weekday_fifth_last">op de vijfde %1$s vanaf het einde</string>
+    <string name="recurrence_ordinal_weekday_first">op de eerste %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth">op de vierde %1$s</string>
+    <string name="recurrence_ordinal_weekday_fourth_last">op de vierde %1$s vanaf het einde</string>
+    <string name="recurrence_ordinal_weekday_last">op de laatste %1$s</string>
+    <string name="recurrence_ordinal_weekday_position">op %1$s op positie %2$d</string>
+    <string name="recurrence_ordinal_weekday_position_from_end">op %1$s op positie %2$d vanaf het einde</string>
+    <string name="recurrence_ordinal_weekday_second">op de tweede %1$s</string>
+    <string name="recurrence_ordinal_weekday_second_last">op de voorlaatste %1$s</string>
+    <string name="recurrence_ordinal_weekday_third">op de derde %1$s</string>
+    <string name="recurrence_ordinal_weekday_third_last">op de op twee na laatste %1$s</string>
+    <string name="recurrence_set_position">positie %1$d</string>
+    <string name="recurrence_set_position_first">de eerste</string>
+    <string name="recurrence_set_position_from_end">positie %1$d vanaf het einde</string>
+    <string name="recurrence_set_position_last">de laatste</string>
+    <string name="recurrence_until">tot %1$s</string>
+    <string name="recurrence_using_set_positions">met %1$s van de overeenkomende voorkomens</string>
+    <string name="recurrence_week_number">week %1$d</string>
+    <string name="recurrence_week_number_from_end">week %1$d vanaf het einde</string>
+    <string name="recurrence_week_number_last">de laatste week</string>
+    <string name="recurrence_week_start">met weken die beginnen op %1$s</string>
+    <string name="recurrence_weekday_friday">op vrijdag</string>
+    <string name="recurrence_weekday_monday">op maandag</string>
+    <string name="recurrence_weekday_name_friday">vrijdag</string>
+    <string name="recurrence_weekday_name_monday">maandag</string>
+    <string name="recurrence_weekday_name_saturday">zaterdag</string>
+    <string name="recurrence_weekday_name_sunday">zondag</string>
+    <string name="recurrence_weekday_name_thursday">donderdag</string>
+    <string name="recurrence_weekday_name_tuesday">dinsdag</string>
+    <string name="recurrence_weekday_name_wednesday">woensdag</string>
+    <string name="recurrence_weekday_saturday">op zaterdag</string>
+    <string name="recurrence_weekday_sunday">op zondag</string>
+    <string name="recurrence_weekday_thursday">op donderdag</string>
+    <string name="recurrence_weekday_tuesday">op dinsdag</string>
+    <string name="recurrence_weekday_wednesday">op woensdag</string>
+    <string name="recurrence_year_day">dag %1$d</string>
+    <string name="recurrence_year_day_from_end">dag %1$d vanaf het einde</string>
+    <string name="recurrence_year_day_last">de laatste dag</string>
+
+    <plurals name="recurrence_every_n_days">
+        <item quantity="one">Elke %1$d dag</item>
+        <item quantity="other">Elke %1$d dagen</item>
+    </plurals>
+    <plurals name="recurrence_every_n_hours">
+        <item quantity="one">Elke %1$d uur</item>
+        <item quantity="other">Elke %1$d uur</item>
+    </plurals>
+    <plurals name="recurrence_every_n_minutes">
+        <item quantity="one">Elke %1$d minuut</item>
+        <item quantity="other">Elke %1$d minuten</item>
+    </plurals>
+    <plurals name="recurrence_every_n_months">
+        <item quantity="one">Elke %1$d maand</item>
+        <item quantity="other">Elke %1$d maanden</item>
+    </plurals>
+    <plurals name="recurrence_every_n_seconds">
+        <item quantity="one">Elke %1$d seconde</item>
+        <item quantity="other">Elke %1$d seconden</item>
+    </plurals>
+    <plurals name="recurrence_every_n_weeks">
+        <item quantity="one">Elke %1$d week</item>
+        <item quantity="other">Elke %1$d weken</item>
+    </plurals>
+    <plurals name="recurrence_every_n_years">
+        <item quantity="one">Elke %1$d jaar</item>
+        <item quantity="other">Elke %1$d jaar</item>
+    </plurals>
+    <plurals name="recurrence_for_occurrences">
+        <item quantity="one">voor %1$d keer</item>
+        <item quantity="other">voor %1$d keer</item>
+    </plurals>
+</resources>

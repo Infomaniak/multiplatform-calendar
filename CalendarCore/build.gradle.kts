@@ -68,6 +68,7 @@ kotlin {
             api(project(":Meet"))
             api(project(":BookableResources"))
             api(project(":Organisations"))
+            api(project(":Recurrence"))
             implementation(project(":CalendarResources"))
             implementation(project(":Network"))
             implementation(kmpCalendar.androidx.room.runtime)
@@ -171,5 +172,6 @@ fun KotlinNativeTarget.configXCFramework(xcf: XCFrameworkConfig, xcFrameworkName
         export(project(":Account"))
         export(project(":CrashReport"))
         export(project(":AppEnvironment"))
+        export(project(":Recurrence"))
     }
 }

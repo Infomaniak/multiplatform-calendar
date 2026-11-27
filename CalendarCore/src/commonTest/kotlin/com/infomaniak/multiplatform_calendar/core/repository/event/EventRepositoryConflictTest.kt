@@ -25,10 +25,10 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.OccurrenceT
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.utils.upsert
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.CaldavHttpException
+import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEvent
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventOverride
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDavEventRef
-import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteDateListChange
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValue
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteIcalDateValueType
 import com.infomaniak.multiplatform_calendar.data.remote.caldav.model.RemoteRecurrenceChange
@@ -140,15 +140,17 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
     }
 
     @Test
-    fun delete_missingRemoteIsSuccess() = runTest {
+    fun delete_emptyMultigetRetainsConflict() = runTest {
         seedSeries()
-        fakeCaldav.deleteFailures += conflict("Delete")
+        val failure = conflict("Delete")
+        fakeCaldav.deleteFailures += failure
 
-        repository.deleteEvent(CREDENTIALS, eventId)
+        assertSame(failure, assertFailsWith<CaldavHttpException> { repository.deleteEvent(CREDENTIALS, eventId) })
 
         assertEquals(listOf(eventId.url to "1"), fakeCaldav.deletes)
         assertEquals(1, fakeCaldav.fetches.size)
-        assertNull(eventDao().getEvent(eventId))
+        assertNotNull(eventDao().getEvent(eventId))
+        assertEquals("LOCAL-ICS", eventDao().getRawIcs(eventId))
     }
 
     @Test
@@ -169,7 +171,13 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
         seedSeries()
         val remote = serverSeries().let { series ->
             series.copy(
-                exDates = listOf(RemoteIcalDateValue(value = "20260617T100000Z", valueType = RemoteIcalDateValueType.DateTime, tzid = null)),
+                exDates = listOf(
+                    RemoteIcalDateValue(
+                        value = "20260617T100000Z",
+                        valueType = RemoteIcalDateValueType.DateTime,
+                        tzid = null,
+                    ),
+                ),
                 overrides = listOf(remoteOverride(series, 18)),
             )
         }
@@ -181,7 +189,13 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
             if (ics == "SERVER-ICS") assertEquals(setOf("20260616T100000Z", "20260617T100000Z"), exDates.toSet())
             base.copy(
                 icsData = "$ics-PATCHED",
-                exDates = exDates.map { RemoteIcalDateValue(value = it, valueType = RemoteIcalDateValueType.DateTime, tzid = null) },
+                exDates = exDates.map {
+                    RemoteIcalDateValue(
+                        value = it,
+                        valueType = RemoteIcalDateValueType.DateTime,
+                        tzid = null,
+                    )
+                },
             )
         }
 
@@ -196,9 +210,17 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
     @Test
     fun delete_alreadyExcludedOccurrenceNeedsNoSecondPut() = runTest {
         seedSeries()
-        fakeCaldav.storedEvents = listOf(serverSeries().copy(
-            exDates = listOf(RemoteIcalDateValue(value = "20260616T100000Z", valueType = RemoteIcalDateValueType.DateTime, tzid = null)),
-        ))
+        fakeCaldav.storedEvents = listOf(
+            serverSeries().copy(
+                exDates = listOf(
+                    RemoteIcalDateValue(
+                        value = "20260616T100000Z",
+                        valueType = RemoteIcalDateValueType.DateTime,
+                        tzid = null,
+                    ),
+                ),
+            ),
+        )
         fakeCaldav.updateFailures += conflict()
 
         repository.deleteEvent(CREDENTIALS, target(RecurrenceScope.ThisOccurrence))
@@ -233,7 +255,14 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
         fakeCaldav.overrideFromIcs = { ics, id, edit ->
             val base = if (ics == "LOCAL-ICS") serverSeries() else remote
             if (ics == "SERVER-ICS") assertEquals("Remote override 16", edit.description)
-            val changed = remoteOverride(base, 16).let { it.copy(content = it.content.copy(summary = edit.summary, description = edit.description)) }
+            val changed = remoteOverride(base, 16).let {
+                it.copy(
+                    content = it.content.copy(
+                        summary = edit.summary,
+                        description = edit.description,
+                    ),
+                )
+            }
             base.copy(icsData = "$ics-PATCHED", overrides = base.overrides.filterNot { it.recurrenceId == id.value } + changed)
         }
         val occurrence = occurrenceOf(eventId, LocalDateTime(2026, 6, 16, 10, 0))
@@ -242,7 +271,10 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
         repository.updateEvent(CREDENTIALS, CREDENTIALS, target(RecurrenceScope.ThisOccurrence), edit)
 
         assertEquals(listOf("LOCAL-ICS", "SERVER-ICS"), fakeCaldav.overrideInputs)
-        assertEquals(setOf("20260616T100000Z", "20260618T100000Z"), eventDao().getOverridesOf(eventId).map { it.recurrenceIdValue }.toSet())
+        assertEquals(
+            setOf("20260616T100000Z", "20260618T100000Z"),
+            eventDao().getOverridesOf(eventId).map { it.recurrenceIdValue }.toSet(),
+        )
         assertEquals("SERVER-ICS-PATCHED", eventDao().getRawIcs(eventId))
     }
 
@@ -282,13 +314,24 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
         seedSeries()
         val failure = conflict()
         fakeCaldav.updateFailures += failure
-        fakeCaldav.storedEvents = listOf(serverSeries().copy(
-            exDates = listOf(RemoteIcalDateValue(value = "20260616T100000Z", valueType = RemoteIcalDateValueType.DateTime, tzid = null)),
-        ))
+        fakeCaldav.storedEvents = listOf(
+            serverSeries().copy(
+                exDates = listOf(
+                    RemoteIcalDateValue(
+                        value = "20260616T100000Z",
+                        valueType = RemoteIcalDateValueType.DateTime,
+                        tzid = null,
+                    ),
+                ),
+            ),
+        )
 
-        assertSame(failure, assertFailsWith<CaldavHttpException> {
-            repository.deleteEvent(CREDENTIALS, target(RecurrenceScope.ThisAndFollowing))
-        })
+        assertSame(
+            failure,
+            assertFailsWith<CaldavHttpException> {
+                repository.deleteEvent(CREDENTIALS, target(RecurrenceScope.ThisAndFollowing))
+            },
+        )
 
         assertEquals(1, fakeCaldav.updates.size)
         assertEquals("SERVER-ICS", eventDao().getRawIcs(eventId))
@@ -305,9 +348,12 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
         val occurrence = occurrenceOf(eventId, LocalDateTime(2026, 6, 16, 10, 0))
         val edit = checkNotNull(repository.getEditData(occurrence)).copy(title = "Tail")
 
-        assertSame(failure, assertFailsWith<CaldavHttpException> {
-            repository.updateEvent(CREDENTIALS, CREDENTIALS, target(RecurrenceScope.ThisAndFollowing), edit)
-        })
+        assertSame(
+            failure,
+            assertFailsWith<CaldavHttpException> {
+                repository.updateEvent(CREDENTIALS, CREDENTIALS, target(RecurrenceScope.ThisAndFollowing), edit)
+            },
+        )
 
         assertEquals(1, fakeCaldav.creates.size)
         assertEquals(listOf("1"), fakeCaldav.updates.map { it.first })
@@ -328,9 +374,12 @@ internal class EventRepositoryConflictTest : EventRepositoryTestBase() {
         fakeCaldav.deleteFailures += failure
         val edit = checkNotNull(repository.getEditData(OccurrenceId.Master(eventId))).copy(calendarId = destination)
 
-        assertSame(failure, assertFailsWith<CaldavHttpException> {
-            repository.updateEvent(CREDENTIALS, CREDENTIALS, eventId, edit)
-        })
+        assertSame(
+            failure,
+            assertFailsWith<CaldavHttpException> {
+                repository.updateEvent(CREDENTIALS, CREDENTIALS, eventId, edit)
+            },
+        )
 
         assertEquals(1, fakeCaldav.creates.size)
         assertEquals(listOf(eventId.url to "1"), fakeCaldav.deletes)

@@ -92,6 +92,7 @@ internal class ContactsRepository(
         }
         return matches
             .sortedWith(contactMatchComparator(tiers::getValue))
+            .withAvatarsCompleted()
             .take(limit)
             .map(ContactMatch::toContact)
     }
@@ -112,7 +113,7 @@ internal class ContactsRepository(
         val lowercaseEmail = email.lowercase()
         val normalizedName = name?.normalizedForSearch()
         return merge(deviceMatches, apiMatches)
-            .minWithOrNull(
+            .bestWith(
                 compareBy<ContactMatch> { it.email.lowercase() != lowercaseEmail }
                     .thenBy { NameMatch.of(name, normalizedName, it.name) }
                     .then(contactMatchComparator { MatchTier.None }),
@@ -194,7 +195,7 @@ internal class ContactsRepository(
                 is ContactsFetch.NotModified -> Unit
                 is ContactsFetch.Success -> dao.replaceContacts(
                     account = ContactAccountEntity(id = accountId, etag = fetch.etag),
-                    contacts = fetch.contacts.flatMap { it.toEntities(accountId, mailApiHost) },
+                    contacts = fetch.contacts.flatMap { it.toEntities(accountId, mailApiHost) }.mergedByKey(),
                 )
             }
         }
@@ -253,11 +254,19 @@ private fun bestContactsByEmail(emails: Set<String>, matches: List<ContactMatch>
 
     val matchesByEmail = matches.groupBy { it.email.lowercase() }
     return emails.mapNotNull { email ->
-        matchesByEmail[email.lowercase()]?.let { email to it.bestRanked().toContact() }
+        matchesByEmail[email.lowercase()]?.bestWith(contactMatchComparator { MatchTier.None })?.let { email to it.toContact() }
     }.toMap()
 }
 
-private fun List<ContactMatch>.bestRanked(): ContactMatch = minWith(contactMatchComparator { MatchTier.None })
+private fun List<ContactMatch>.bestWith(comparator: Comparator<ContactMatch>): ContactMatch? =
+    sortedWith(comparator).withAvatarsCompleted().firstOrNull()
+
+/** Gives each contact without an avatar the one of the first contact sharing its email, so a ranked list gets the best one. */
+private fun List<ContactMatch>.withAvatarsCompleted(): List<ContactMatch> {
+    val avatarByEmail = mutableMapOf<String, ContactAvatar>()
+    forEach { contact -> contact.avatar?.let { avatarByEmail.getOrPut(contact.email.lowercase()) { it } } }
+    return map { it.copy(avatar = it.avatar ?: avatarByEmail[it.email.lowercase()]) }
+}
 
 private fun contactMatchComparator(matchTier: (ContactMatch) -> MatchTier): Comparator<ContactMatch> =
     compareBy<ContactMatch> { -relevanceWeight(it) }
@@ -321,6 +330,37 @@ private fun ApiContact.toEntities(accountId: AccountId, mailApiHost: String): Li
             emailNormalized = email.normalizedForSearch(),
         )
     }
+}
+
+/**
+ * The API returns a contact once per address book, while a single row per email (case insensitive) and name is stored.
+ * The result does not depend on the order of the contacts.
+ */
+private fun List<ContactEntity>.mergedByKey(): List<ContactEntity> {
+    val mergedByKey = mutableMapOf<Pair<String, String>, ContactEntity>()
+    val avatarDonorByKey = mutableMapOf<Pair<String, String>, ContactEntity>()
+    forEach { contact ->
+        val key = contact.email.lowercase() to contact.name
+        mergedByKey[key] = mergedByKey[key]?.mergedWith(contact) ?: contact
+        val donor = avatarDonorByKey[key]
+        if (contact.avatarUrl != null && (donor == null || avatarDonorComparator.compare(contact, donor) < 0)) {
+            avatarDonorByKey[key] = contact
+        }
+    }
+    return mergedByKey.map { (key, contact) -> contact.copy(avatarUrl = avatarDonorByKey[key]?.avatarUrl) }
+}
+
+/** An avatar from an address book first, then the smallest URL. */
+private val avatarDonorComparator = compareBy<ContactEntity>({ !it.isInAddressBook }, { it.avatarUrl })
+
+private fun ContactEntity.mergedWith(contact: ContactEntity): ContactEntity {
+    val emailSource = if (contact.email < email) contact else this
+    return copy(
+        email = emailSource.email,
+        emailNormalized = emailSource.emailNormalized,
+        contactedTimes = listOfNotNull(contactedTimes, contact.contactedTimes).maxOrNull(),
+        isInAddressBook = isInAddressBook || contact.isInAddressBook,
+    )
 }
 
 private fun String.escapeLikeWildcards(): String =

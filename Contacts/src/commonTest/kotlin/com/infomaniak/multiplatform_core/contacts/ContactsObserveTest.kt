@@ -20,6 +20,7 @@ package com.infomaniak.multiplatform_core.contacts
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.Contact
+import com.infomaniak.multiplatform_core.contacts.domain.model.ContactAvatar
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
 import com.infomaniak.multiplatform_core.crashreport.NoOpCrashReport
 import kotlinx.coroutines.channels.Channel
@@ -58,6 +59,30 @@ class ContactsObserveTest : RobolectricTestsBase() {
         )
 
         assertEquals("John", manager.observeContacts(setOf("john@x.com")).first()["john@x.com"]?.name)
+    }
+
+    @Test
+    fun prefersANamedContactWithoutAvatarOverAnUnnamedOneWithIt() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "John", emails = listOf("john@x.com")),
+                ApiContact(name = "", emails = listOf("john@x.com"), avatar = "/avatar/john.png", contactedTimes = mapOf("john@x.com" to 5)),
+            ),
+        )
+
+        assertEquals(johnWithAvatar, manager.observeContacts(setOf("john@x.com")).first()["john@x.com"])
+    }
+
+    @Test
+    fun prefersASavedContactWithoutAvatarOverOneOutsideTheAddressBookWithIt() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "John", emails = listOf("john@x.com")),
+                ApiContact(name = "Johnny", emails = listOf("john@x.com"), avatar = "/avatar/john.png", other = true, contactedTimes = mapOf("john@x.com" to 5)),
+            ),
+        )
+
+        assertEquals(johnWithAvatar, manager.observeContacts(setOf("john@x.com")).first()["john@x.com"])
     }
 
     @Test
@@ -125,4 +150,11 @@ class ContactsObserveTest : RobolectricTestsBase() {
 
         collection.cancel()
     }
+
+    private val johnWithAvatar = Contact(
+        email = "john@x.com",
+        name = "John",
+        avatar = ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/john.png", accountId = ACCOUNT_ID),
+        comesFromApi = true,
+    )
 }

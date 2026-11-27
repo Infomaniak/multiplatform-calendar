@@ -134,6 +134,28 @@ class ContactsSearchTest : RobolectricTestsBase() {
     }
 
     @Test
+    fun givesAContactTheAvatarOfAnotherOneSharingItsEmailEvenBeyondTheLimit() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "John", emails = listOf("john@x.com"), contactedTimes = mapOf("john@x.com" to 5)),
+                ApiContact(name = "Johnny", emails = listOf("john@x.com"), avatar = "/avatar/john.png"),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                Contact(
+                    email = "john@x.com",
+                    name = "John",
+                    avatar = ContactAvatar.Remote(url = "https://mail.infomaniak.com/avatar/john.png", accountId = ACCOUNT_ID),
+                    comesFromApi = true,
+                ),
+            ),
+            manager.search("john", setOf(ACCOUNT_ID), limit = 1),
+        )
+    }
+
+    @Test
     fun sortsByContactedTimesThenApiFirstThenName() = runTest {
         val manager = testManager(
             apiContacts = listOf(

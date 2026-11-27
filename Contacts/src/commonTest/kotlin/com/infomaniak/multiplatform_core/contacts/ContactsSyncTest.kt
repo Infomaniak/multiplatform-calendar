@@ -17,6 +17,9 @@
  */
 package com.infomaniak.multiplatform_core.contacts
 
+import androidx.room3.RoomDatabase
+import androidx.room3.useReaderConnection
+import androidx.room3.useWriterConnection
 import com.infomaniak.multiplatform_core.appenvironment.AppEnvironment
 import com.infomaniak.multiplatform_core.contacts.data.remote.model.ApiContact
 import com.infomaniak.multiplatform_core.contacts.domain.model.DeviceContact
@@ -70,6 +73,82 @@ class ContactsSyncTest : RobolectricTestsBase() {
         assertEquals("Bearer token", requests.single().headers[HttpHeaders.Authorization])
         assertEquals("emails,details,others,contacted_times", requests.single().url.parameters["with"])
         assertEquals("has_email", requests.single().url.parameters["filters"])
+    }
+
+    @Test
+    fun syncMergesComplementaryDuplicatesWhateverTheirOrder() = runTest {
+        val duplicates = listOf(
+            ApiContact(name = "John", emails = listOf("john@x.com"), avatar = "/avatar/john.png", other = true),
+            ApiContact(name = "John", emails = listOf("john@x.com"), contactedTimes = mapOf("john@x.com" to 3)),
+            ApiContact(name = "John", emails = listOf("john@x.com"), other = true, contactedTimes = mapOf("john@x.com" to 5)),
+        )
+
+        duplicates.permutations().forEach { apiContacts ->
+            assertEquals(
+                listOf(StoredContact("john@x.com", "https://mail.infomaniak.com/avatar/john.png", 5, true)),
+                testManager(apiContacts = apiContacts).storedContacts(),
+            )
+        }
+    }
+
+    @Test
+    fun syncMergesDuplicatesWhoseEmailsDifferOnlyByCase() = runTest {
+        val duplicates = listOf(
+            ApiContact(name = "John", emails = listOf("john@x.com"), contactedTimes = mapOf("john@x.com" to 3)),
+            ApiContact(name = "John", emails = listOf("John@x.com"), contactedTimes = mapOf("John@x.com" to 5)),
+        )
+
+        duplicates.permutations().forEach { apiContacts ->
+            val manager = testManager(apiContacts = apiContacts)
+
+            assertEquals(listOf(StoredContact("John@x.com", null, 5, true)), manager.storedContacts())
+        }
+    }
+
+    @Test
+    fun syncKeepsTheAvatarOfAnAddressBookThenTheSmallestUrl() = runTest {
+        val duplicates = listOf(
+            ApiContact(name = "John", emails = listOf("john@x.com"), avatar = "/avatar/a.png", other = true),
+            ApiContact(name = "John", emails = listOf("john@x.com"), avatar = "/avatar/c.png"),
+            ApiContact(name = "John", emails = listOf("john@x.com"), avatar = "/avatar/b.png"),
+        )
+
+        duplicates.permutations().forEach { apiContacts ->
+            assertEquals(
+                listOf("https://mail.infomaniak.com/avatar/b.png"),
+                testManager(apiContacts = apiContacts).storedContacts().map { it.avatarUrl },
+            )
+        }
+    }
+
+    @Test
+    fun syncKeepsAnUnknownContactedTimesWhenNoDuplicateKnowsIt() = runTest {
+        val manager = testManager(
+            apiContacts = listOf(
+                ApiContact(name = "John", emails = listOf("john@x.com")),
+                ApiContact(name = "John", emails = listOf("john@x.com"), other = true),
+            ),
+        )
+
+        assertEquals(listOf(StoredContact("john@x.com", null, null, true)), manager.storedContacts())
+    }
+
+    @Test
+    fun syncRequestsEveryContactOnceTheEtagIsForgotten() = runTest {
+        val requests = mutableListOf<HttpRequestData>()
+        val manager = testManager(
+            apiContacts = listOf(ApiContact(name = "John", emails = listOf("john@x.com"))),
+            onRequest = { requests.add(it) },
+        )
+        (manager.database as RoomDatabase).useWriterConnection { connection ->
+            connection.usePrepared("UPDATE contactAccounts SET etag = NULL") { it.step() }
+        }
+
+        manager.sync(setOf(ACCOUNT_ID))
+
+        assertEquals(2, requests.size)
+        assertNull(requests.last().headers[HttpHeaders.IfNoneMatch])
+        assertEquals(listOf("John"), manager.storedContactNames())
     }
 
     @Test
@@ -205,4 +284,27 @@ class ContactsSyncTest : RobolectricTestsBase() {
         crashReport = NoOpCrashReport,
         httpClient = HttpClient(MockEngine) { engine { addHandler(handler) } },
     ).apply { initTestAccount() }
+
+    private data class StoredContact(val email: String, val avatarUrl: String?, val contactedTimes: Int?, val isInAddressBook: Boolean)
+
+    private suspend fun ContactsManager.storedContacts(): List<StoredContact> =
+        (database as RoomDatabase).useReaderConnection { connection ->
+            connection.usePrepared("SELECT email, avatarUrl, contactedTimes, isInAddressBook FROM contacts") { statement ->
+                buildList {
+                    while (statement.step()) {
+                        add(
+                            StoredContact(
+                                email = statement.getText(0),
+                                avatarUrl = if (statement.isNull(1)) null else statement.getText(1),
+                                contactedTimes = if (statement.isNull(2)) null else statement.getInt(2),
+                                isInAddressBook = statement.getBoolean(3),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+
+    private fun <T> List<T>.permutations(): List<List<T>> =
+        if (size <= 1) listOf(this) else flatMap { element -> (this - element).permutations().map { listOf(element) + it } }
 }

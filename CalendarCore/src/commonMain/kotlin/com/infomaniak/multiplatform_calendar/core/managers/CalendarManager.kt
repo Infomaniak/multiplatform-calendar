@@ -39,6 +39,7 @@ import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.Alarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.alarm.UpcomingAlarm
 import com.infomaniak.multiplatform_calendar.core.domain.model.event.recurrence.RecurrenceScope
 import com.infomaniak.multiplatform_calendar.core.domain.model.exceptions.CalendarSdkException
+import com.infomaniak.multiplatform_calendar.core.domain.model.month.MonthEvents
 import com.infomaniak.multiplatform_calendar.core.extensions.SyncResult
 import com.infomaniak.multiplatform_calendar.core.extensions.syncAccountsWithRestartingCollection
 import com.infomaniak.multiplatform_calendar.core.extensions.syncCurrentAccounts
@@ -66,6 +67,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.YearMonth
@@ -196,6 +198,27 @@ public class CalendarManager internal constructor(
             require(start < end) { "Start month $startMonth must not be after end month $endMonth" }
             nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
                 eventRepository.observeVisibleDotColorsByDay(accountIds, start, end, timeZone)
+            }
+        }
+    }
+
+    /**
+     * Observe the events of the months from [startMonth] to [endMonth] (inclusive), one [MonthEvents] per month.
+     *
+     * Each month lists the weeks starting on [weekStart] that overlap it, days of the neighbouring months included.
+     * Events spanning several days are kept in one segment per week, each placed on its lowest free lane.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    public fun observeMonthEvents(
+        startMonth: YearMonth,
+        endMonth: YearMonth,
+        weekStart: DayOfWeek,
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): Flow<Map<YearMonth, MonthEvents>> {
+        return sdkCaller.flow(operation = "observe month events for $startMonth to $endMonth from $weekStart in $timeZone") {
+            require(startMonth <= endMonth) { "Start month $startMonth must not be after end month $endMonth" }
+            nonEmptyAccountIdsFlow.flatMapLatest { accountIds ->
+                eventRepository.observeVisibleMonthEvents(accountIds, startMonth, endMonth, weekStart, timeZone)
             }
         }
     }

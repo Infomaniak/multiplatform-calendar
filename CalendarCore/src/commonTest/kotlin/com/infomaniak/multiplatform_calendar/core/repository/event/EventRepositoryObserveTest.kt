@@ -47,9 +47,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.YearMonth
 import kotlinx.datetime.toInstant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -595,6 +597,46 @@ internal class EventRepositoryObserveTest : EventRepositoryTestBase() {
         val slice = slicesByDay.values.flatten().single()
         assertEquals(LocalDate(2026, 6, 15), slice.startDate)
         assertEquals(LocalDate(2026, 6, 17), slice.endDate)
+    }
+
+    @Test
+    fun observeVisibleMonthEvents_splitsAMultiDayEventIntoOneSegmentPerWeek() = runTest {
+        seedCalendar()
+
+        val dtStart = LocalDateTime(2026, 6, 27, 0, 0)
+        val dtEnd = LocalDateTime(2026, 7, 1, 0, 0)
+        val timing = EventTimingEntity(
+            dtStart = dtStart,
+            dtEnd = dtEnd,
+            dtEndEffective = dtEnd,
+            startTimeZone = null,
+            endTimeZone = null,
+            dtStartInstantMs = dtStart.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            dtEndInstantMs = dtEnd.toInstant(TimeZone.UTC).toEpochMilliseconds(),
+            isAllDay = true,
+        )
+        val event = EventEntity(
+            id = EventId("event://four-days"),
+            calendarId = CALENDAR_ID,
+            content = EventContentEntity(summary = "Four days", timing = timing),
+            etag = "1",
+        )
+        eventDao().upsert(listOf(EventWithRawIcs(event, "")))
+
+        val months = repository.observeVisibleMonthEvents(
+            accountIds = setOf(ACCOUNT_ID),
+            startMonth = YearMonth(2026, 6),
+            endMonth = YearMonth(2026, 7),
+            weekStart = DayOfWeek.MONDAY,
+            timeZone = TimeZone.UTC,
+        ).first()
+
+        val juneWeeks = months.getValue(YearMonth(2026, 6)).weeks
+        val firstSegment = juneWeeks[3].segments.single()
+        val secondSegment = juneWeeks[4].segments.single()
+        assertEquals(listOf(5, 2, 0), listOf(firstSegment.dayIndex, firstSegment.span, firstSegment.lane))
+        assertEquals(listOf(0, 2, 0), listOf(secondSegment.dayIndex, secondSegment.span, secondSegment.lane))
+        assertEquals(juneWeeks[4], months.getValue(YearMonth(2026, 7)).weeks.first())
     }
 
     @Test
